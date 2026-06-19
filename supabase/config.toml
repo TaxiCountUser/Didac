@@ -1,0 +1,35 @@
+# Configuración de referencia para Supabase CLI (`supabase start`).
+# El entorno principal de la Fase 0 usa docker-compose.yml, pero se
+# mantiene este archivo para quien prefiera el CLI oficial.
+
+project_id = "taxicount"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 5432
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[analytics]
+enabled = false

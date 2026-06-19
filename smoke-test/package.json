@@ -1,0 +1,15 @@
+{
+  "name": "taxicount-smoke-test",
+  "version": "0.1.0",
+  "description": "Smoke test E2E de TaxiCount (auth + RLS multi-tenant)",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

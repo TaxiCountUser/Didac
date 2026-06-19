@@ -1,0 +1,7 @@
+# Forzar LF en archivos que se ejecutan dentro de contenedores Linux.
+# (CRLF rompería los scripts bash y puede afectar a SQL/entrypoints.)
+*.sh    text eol=lf
+*.sql   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+Dockerfile text eol=lf
