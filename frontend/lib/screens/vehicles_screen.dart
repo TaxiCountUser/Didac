@@ -1,0 +1,136 @@
+import 'package:flutter/material.dart';
+
+import '../models/profile.dart';
+import '../services/data_service.dart';
+
+/// Panel de vehículos (solo Owner). Listar / añadir / eliminar.
+class VehiclesScreen extends StatefulWidget {
+  final Profile profile;
+  const VehiclesScreen({super.key, required this.profile});
+
+  @override
+  State<VehiclesScreen> createState() => _VehiclesScreenState();
+}
+
+class _VehiclesScreenState extends State<VehiclesScreen> {
+  final _service = DataService();
+  late Future<List<Map<String, dynamic>>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() => setState(() => _future = _service.listVehicles());
+
+  Future<void> _addDialog() async {
+    final plate = TextEditingController();
+    final model = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nuevo vehículo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const Key('plate_field'),
+              controller: plate,
+              decoration: const InputDecoration(labelText: 'Matrícula'),
+            ),
+            TextField(
+              key: const Key('model_field'),
+              controller: model,
+              decoration: const InputDecoration(labelText: 'Modelo'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (ok == true && plate.text.trim().isNotEmpty) {
+      try {
+        await _service.addVehicle(
+          tenantId: widget.profile.tenantId,
+          licensePlate: plate.text.trim(),
+          model: model.text.trim().isEmpty ? null : model.text.trim(),
+        );
+        _reload();
+      } catch (e) {
+        _showError(e);
+      }
+    }
+  }
+
+  Future<void> _delete(String id) async {
+    try {
+      await _service.deleteVehicle(id);
+      _reload();
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
+  void _showError(Object e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Error: $e')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('add_vehicle_fab'),
+        onPressed: _addDialog,
+        icon: const Icon(Icons.add),
+        label: const Text('Añadir'),
+      ),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(child: Text('Error: ${snap.error}'));
+          }
+          final vehicles = snap.data ?? [];
+          if (vehicles.isEmpty) {
+            return const Center(child: Text('No hay vehículos. Añade el primero.'));
+          }
+          return RefreshIndicator(
+            onRefresh: () async => _reload(),
+            child: ListView.separated(
+              itemCount: vehicles.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, i) {
+                final v = vehicles[i];
+                return Dismissible(
+                  key: ValueKey(v['id']),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    color: Colors.red,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 24),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  onDismissed: (_) => _delete(v['id'] as String),
+                  child: ListTile(
+                    leading: const Icon(Icons.directions_car),
+                    title: Text(v['license_plate'] as String? ?? '—'),
+                    subtitle: Text(v['model'] as String? ?? 'Sin modelo'),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

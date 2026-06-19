@@ -102,3 +102,44 @@ aislamiento entre tenants). Reproducible desde cero sin intervención manual.
 
 El recorrido de incidencias resueltas durante el bootstrap está documentado en
 [error-report-fase0.md](error-report-fase0.md).
+
+## Estado de la Fase 1
+
+✅ **COMPLETADA** (2026-06-19). Autenticación real, jerarquía Owner/Driver y
+paneles de gestión.
+
+Funcionalidades:
+- **Auth real** (`supabase_flutter`): login y registro de Owners.
+- **Tenant automático**: trigger `handle_new_auth_user` en `auth.users`
+  ([002_tenant_trigger.sql](supabase/migrations/002_tenant_trigger.sql)) — un
+  Owner nuevo crea su tenant; un driver (con `tenant_id` en metadata) se une al
+  del Owner.
+- **Panel de vehículos** (Owner): listar / añadir / eliminar.
+- **Panel de conductores** (Owner): invitar driver vía backend Fastify
+  `POST /api/v1/drivers` (usa `service_role`; alternativa Edge en
+  [supabase/functions/create-driver](supabase/functions/create-driver/index.ts)).
+- **Vista de driver**: pantalla de bienvenida limitada (sin vehículos/drivers).
+- **Onboarding** del Owner (`has_completed_onboarding`).
+- **RLS reforzada** ([003_rls_refinement.sql](supabase/migrations/003_rls_refinement.sql)):
+  los drivers NO leen vehículos; aislamiento estricto por tenant.
+
+### Pruebas de la Fase 1
+
+```powershell
+# Widget tests (sin backend)
+flutter test test/
+
+# Test de integración de seguridad (requiere el stack docker arriba).
+# Es Dart puro -> se corre en la VM (headless, sin navegador):
+dart test integration_test/phase1_security_test.dart
+```
+
+> Nota: `flutter test integration_test/` exige un dispositivo (Windows desktop o
+> chromedriver). Como el test es Dart puro (cliente Supabase, sin widgets), se
+> ejecuta headless con `dart test`. Cubre: registro de Owner (+tenant), creación
+> de vehículo, invitación de driver, driver sin acceso a vehículos (RLS), y
+> aislamiento entre tenants.
+
+> La Fase 1 endurece la RLS de `transactions` (sin inserción de cliente hasta la
+> Fase 2), por lo que el smoke test de la Fase 0 (que insertaba transacciones
+> como driver) queda **superado** intencionadamente por este diseño.
