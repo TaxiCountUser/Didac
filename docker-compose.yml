@@ -140,6 +140,10 @@ services:
       SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Dev/local: permite mock_text en /transcribe sin llamar a Whisper.
+      ALLOW_MOCK_TRANSCRIBE: ${ALLOW_MOCK_TRANSCRIBE:-true}
+      TRANSCRIBE_DAILY_LIMIT: ${TRANSCRIBE_DAILY_LIMIT:-150}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/health"]
       interval: 5s

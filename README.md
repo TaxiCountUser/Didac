@@ -143,3 +143,37 @@ dart test integration_test/phase1_security_test.dart
 > La Fase 1 endurece la RLS de `transactions` (sin inserción de cliente hasta la
 > Fase 2), por lo que el smoke test de la Fase 0 (que insertaba transacciones
 > como driver) queda **superado** intencionadamente por este diseño.
+
+## Estado de la Fase 2
+
+✅ **COMPLETADA** (2026-06-19). Entrada de transacciones manual y por voz.
+
+- **Entrada manual** (`TransactionInputScreen`): importe grande, chips de
+  categoría, toggles tipo (ingreso/gasto) y método de pago, descripción. FAB
+  "Registrar" en la home del driver.
+- **Entrada por voz** (`VoiceInputScreen`): graba con `record` → backend
+  transcribe (Whisper) → `TransactionPreviewScreen` editable → confirmar.
+- **Backend** `POST /api/v1/transcribe` ([server.js](backend/src/server.js)):
+  exige JWT de Supabase, acepta audio multipart o `storagePath`, transcribe con
+  OpenAI Whisper, **parsea** y devuelve `{ text, confidence, parsed }`.
+  - **Caché** de transcripciones por usuario, **límite diario** (429 al superar
+    `TRANSCRIBE_DAILY_LIMIT`, def. 150), **timeout** 15 s + 1 reintento.
+  - Hook de desarrollo `ALLOW_MOCK_TRANSCRIBE=true` → permite `mock_text` para
+    probar sin llamar a OpenAI.
+- **Parser determinista** ([parser.js](backend/src/parser.js)): números (dígitos
+  y palabras, decimales "X con Y"), categoría, tipo y método de pago. Sin IA.
+- **RLS Fase 2** ([004_transactions_input.sql](supabase/migrations/004_transactions_input.sql)):
+  re-habilita el insert de `transactions` para el propio usuario.
+
+### Pruebas de la Fase 2
+
+```powershell
+# Parser semántico (precisión >=95%)
+cd backend; node tests/run_parser_tests.js     # -> 55/55 = 100%
+
+# Integración de voz (stack arriba; Whisper mockeado, headless)
+cd frontend; dart test integration_test/voice_input_test.dart
+```
+
+**Precisión del parser: 55/55 = 100%** (suite en
+[parser_cases.json](backend/tests/parser_cases.json)).

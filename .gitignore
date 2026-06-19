@@ -25,3 +25,5 @@ Thumbs.db
 
 # Salida de la herramienta graphify
 graphify-out/
+
+COMMIT_MSG_*.txt

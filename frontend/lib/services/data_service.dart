@@ -66,6 +66,63 @@ class DataService {
     return (body['tempPassword'] as String?) ?? '';
   }
 
+  // ---------------- Transacciones ----------------
+  Future<void> addTransaction({
+    required String tenantId,
+    required String userId,
+    required double amount,
+    String? category,
+    required String type,
+    String? paymentMethod,
+    String? description,
+  }) async {
+    await _c.from('transactions').insert({
+      'tenant_id': tenantId,
+      'user_id': userId,
+      'amount': amount,
+      'category': category,
+      'type': type,
+      'payment_method': paymentMethod,
+      'description': description,
+    });
+  }
+
+  /// Envía audio (o texto mock en dev) al backend y devuelve
+  /// { text, confidence, parsed: {...} }.
+  Future<Map<String, dynamic>> transcribe({
+    List<int>? audioBytes,
+    String? filename,
+    String? mockText,
+  }) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+
+    http.Response res;
+    if (mockText != null) {
+      res = await http.post(
+        Uri.parse('$backendUrl/api/v1/transcribe'),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        body: jsonEncode({'mock_text': mockText}),
+      );
+    } else {
+      final req = http.MultipartRequest('POST', Uri.parse('$backendUrl/api/v1/transcribe'))
+        ..headers['Authorization'] = 'Bearer $token'
+        ..files.add(http.MultipartFile.fromBytes('audio', audioBytes ?? const [],
+            filename: filename ?? 'audio.m4a'));
+      final streamed = await req.send();
+      res = await http.Response.fromStream(streamed);
+    }
+
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode == 429) {
+      throw Exception('Límite diario de transcripciones alcanzado');
+    }
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'Error de transcripción (${res.statusCode})');
+    }
+    return body;
+  }
+
   // ---------------- Onboarding ----------------
   Future<void> completeOnboarding() async {
     final uid = _c.auth.currentUser?.id;

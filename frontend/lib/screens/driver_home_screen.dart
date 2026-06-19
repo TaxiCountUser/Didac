@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile.dart';
+import 'transaction_input_screen.dart';
 
 /// Home del Driver: vista limitada (sin vehículos ni conductores).
 class DriverHomeScreen extends StatelessWidget {
@@ -21,6 +22,14 @@ class DriverHomeScreen extends StatelessWidget {
             icon: const Icon(Icons.logout),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('add_transaction_fab'),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => TransactionInputScreen(profile: profile)),
+        ),
+        icon: const Icon(Icons.add),
+        label: const Text('Registrar'),
       ),
       body: Center(
         child: Padding(
