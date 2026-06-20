@@ -73,6 +73,26 @@ services:
             - admin
             - anon
 
+  # ---------- Realtime (WebSocket) ----------
+  - name: realtime-v1
+    url: http://realtime-dev.realtime:4000/socket/
+    routes:
+      - name: realtime-v1-all
+        strip_path: true
+        paths:
+          - /realtime/v1/
+    plugins:
+      - name: cors
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin
+            - anon
+
   # ---------- REST (PostgREST) ----------
   - name: rest-v1
     url: http://rest:3000/

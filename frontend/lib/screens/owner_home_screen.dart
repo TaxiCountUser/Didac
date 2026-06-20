@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile.dart';
+import 'owner_dashboard_screen.dart';
 import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
 
@@ -20,12 +21,14 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = [
+      OwnerDashboardScreen(profile: widget.profile),
       VehiclesScreen(profile: widget.profile),
       DriversScreen(profile: widget.profile),
     ];
+    const titles = ['Dashboard', 'Vehículos', 'Conductores'];
     return Scaffold(
       appBar: AppBar(
-        title: Text(_index == 0 ? 'Vehículos' : 'Conductores'),
+        title: Text(titles[_index]),
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
@@ -39,6 +42,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
           NavigationDestination(
             icon: Icon(Icons.directions_car_outlined),
             selectedIcon: Icon(Icons.directions_car),

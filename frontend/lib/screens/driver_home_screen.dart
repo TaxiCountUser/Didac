@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile.dart';
 import 'transaction_input_screen.dart';
+import 'driver_transactions_screen.dart';
 
 /// Home del Driver: vista limitada (sin vehículos ni conductores).
 class DriverHomeScreen extends StatelessWidget {
@@ -16,6 +17,16 @@ class DriverHomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('TaxiCount'),
         actions: [
+          IconButton(
+            key: const Key('driver_history_button'),
+            tooltip: 'Mis transacciones',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => DriverTransactionsScreen(profile: profile),
+              ),
+            ),
+            icon: const Icon(Icons.receipt_long),
+          ),
           IconButton(
             tooltip: 'Cerrar sesión',
             onPressed: () => Supabase.instance.client.auth.signOut(),
@@ -46,8 +57,19 @@ class DriverHomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Eres conductor. Pronto podrás registrar tus carreras y gastos aquí.',
+                'Registra tus carreras y gastos con el botón "Registrar", '
+                'y revisa tu historial cuando quieras.',
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => DriverTransactionsScreen(profile: profile),
+                  ),
+                ),
+                icon: const Icon(Icons.receipt_long),
+                label: const Text('Ver mis transacciones'),
               ),
             ],
           ),

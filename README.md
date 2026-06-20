@@ -177,3 +177,54 @@ cd frontend; dart test integration_test/voice_input_test.dart
 
 **Precisión del parser: 55/55 = 100%** (suite en
 [parser_cases.json](backend/tests/parser_cases.json)).
+
+## Estado de la Fase 3
+
+✅ **COMPLETADA** (2026-06-20). Dashboards y sincronización en tiempo real.
+
+- **Historial del Driver** ([driver_transactions_screen.dart](frontend/lib/screens/driver_transactions_screen.dart)):
+  lista paginada (scroll infinito, 20 por página vía `.range()`), selector de
+  mes/año y navegación al detalle. RLS: el driver solo ve las suyas.
+- **Dashboard del Owner** ([owner_dashboard_screen.dart](frontend/lib/screens/owner_dashboard_screen.dart)):
+  KPIs (ingresos / gastos / balance), gráfico de gastos por categoría con
+  `fl_chart`, y lista de transacciones de toda la flota.
+- **Filtros combinables**: periodo (Hoy / Semana / Mes / Personalizado),
+  conductor y vehículo. Afectan a KPIs y lista a la vez.
+- **Tiempo real**: el dashboard se suscribe con `supabase.channel()`
+  (`tenant_id=eq.<tenant>`); un `INSERT` se antepone a la lista, actualiza los
+  KPIs y muestra un `SnackBar` «Nuevo registro de [conductor]». Se cancela en
+  `dispose`.
+- **Detalle / edición / borrado** ([transaction_detail_screen.dart](frontend/lib/screens/transaction_detail_screen.dart)):
+  el Owner edita/elimina cualquiera de su tenant; el Driver solo las suyas
+  (verificado por RLS; política `DELETE` añadida en
+  [005_indexes.sql](supabase/migrations/005_indexes.sql)).
+- **Índices** ([005_indexes.sql](supabase/migrations/005_indexes.sql)):
+  `(tenant_id, created_at)`, `(user_id, created_at)` y `created_at` para las
+  consultas frecuentes.
+
+### Realtime en local (opcional)
+
+El stack base es un subconjunto de Supabase y **no** incluía el servidor de
+Realtime. Se añade como servicio **opcional** (perfil `realtime`):
+
+```powershell
+docker compose --profile realtime up -d   # levanta también el WebSocket
+```
+
+La app funciona sin él (sin sync en vivo); con él, los `INSERT` llegan por
+WebSocket. La migración 005 crea los esquemas `_realtime` y `realtime` y publica
+`transactions` en `supabase_realtime`. El truco de enrutado (alias
+`realtime-dev.realtime` para que Kong reenvíe `Host` con el `external_id` del
+tenant) está documentado en el `docker-compose.yml`.
+
+### Pruebas de la Fase 3
+
+```powershell
+# Dashboard: KPIs, filtros, RLS, paginación y realtime (stack arriba).
+cd frontend; dart test integration_test/dashboard_test.dart
+```
+
+El test de WebSocket se **omite automáticamente** si el servidor de Realtime no
+está levantado; con `--profile realtime` arriba, verifica la entrega en vivo en
+< 2 s. El resto (KPIs, filtro por conductor, aislamiento RLS del Driver,
+paginación) corre siempre contra el stack base.

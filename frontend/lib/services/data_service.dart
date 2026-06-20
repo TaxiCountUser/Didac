@@ -5,9 +5,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
 import '../models/profile.dart';
 
+/// Resumen financiero de un conjunto de transacciones.
+class TxSummary {
+  final double income;
+  final double expense;
+  final Map<String, double> expenseByCategory;
+  const TxSummary({
+    required this.income,
+    required this.expense,
+    required this.expenseByCategory,
+  });
+  double get balance => income - expense;
+  factory TxSummary.empty() =>
+      const TxSummary(income: 0, expense: 0, expenseByCategory: {});
+}
+
 /// Acceso a datos vía Supabase (respetando RLS) y al backend Fastify.
 class DataService {
   SupabaseClient get _c => Supabase.instance.client;
+
+  /// Cliente Supabase (para suscripciones realtime desde las pantallas).
+  SupabaseClient get client => _c;
 
   Future<Profile?> fetchMyProfile() async {
     final uid = _c.auth.currentUser?.id;
@@ -85,6 +103,104 @@ class DataService {
       'payment_method': paymentMethod,
       'description': description,
     });
+  }
+
+  /// Lista transacciones (RLS: el driver ve las suyas; el owner las de su
+  /// tenant). Filtros opcionales combinables y paginación con `.range()`.
+  Future<List<Map<String, dynamic>>> listTransactions({
+    String? userId,
+    String? vehicleId,
+    DateTime? from,
+    DateTime? to,
+    int offset = 0,
+    int limit = 20,
+  }) async {
+    var query = _c.from('transactions').select(
+        '*, users:user_id(name, email), vehicles:vehicle_id(license_plate, model)');
+    if (userId != null) query = query.eq('user_id', userId);
+    if (vehicleId != null) query = query.eq('vehicle_id', vehicleId);
+    if (from != null) query = query.gte('created_at', from.toIso8601String());
+    if (to != null) query = query.lt('created_at', to.toIso8601String());
+    final data = await query
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Una transacción con sus relaciones (conductor + vehículo) para el detalle.
+  Future<Map<String, dynamic>?> getTransaction(String id) async {
+    final row = await _c
+        .from('transactions')
+        .select(
+            '*, users:user_id(name, email), vehicles:vehicle_id(license_plate, model)')
+        .eq('id', id)
+        .maybeSingle();
+    return row;
+  }
+
+  /// Calcula KPIs (ingresos, gastos, balance, gasto por categoría) sobre el
+  /// conjunto filtrado completo (no paginado). La RLS limita el alcance.
+  Future<TxSummary> transactionsSummary({
+    String? userId,
+    String? vehicleId,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    var query = _c.from('transactions').select('amount, type, category');
+    if (userId != null) query = query.eq('user_id', userId);
+    if (vehicleId != null) query = query.eq('vehicle_id', vehicleId);
+    if (from != null) query = query.gte('created_at', from.toIso8601String());
+    if (to != null) query = query.lt('created_at', to.toIso8601String());
+    final rows = (await query as List).cast<Map<String, dynamic>>();
+
+    double income = 0, expense = 0;
+    final byCat = <String, double>{};
+    for (final r in rows) {
+      final amount = (r['amount'] as num).toDouble();
+      if (r['type'] == 'income') {
+        income += amount;
+      } else {
+        expense += amount;
+        final cat = (r['category'] as String?) ?? 'otros';
+        byCat[cat] = (byCat[cat] ?? 0) + amount;
+      }
+    }
+    return TxSummary(income: income, expense: expense, expenseByCategory: byCat);
+  }
+
+  /// Actualiza una transacción (RLS: owner cualquiera de su tenant; driver las
+  /// suyas). Devuelve la fila actualizada o lanza si RLS lo deniega.
+  Future<void> updateTransaction(
+    String id, {
+    required double amount,
+    String? category,
+    required String type,
+    String? paymentMethod,
+    String? description,
+  }) async {
+    final updated = await _c
+        .from('transactions')
+        .update({
+          'amount': amount,
+          'category': category,
+          'type': type,
+          'payment_method': paymentMethod,
+          'description': description,
+        })
+        .eq('id', id)
+        .select();
+    if ((updated as List).isEmpty) {
+      throw Exception('No tienes permiso para editar esta transacción');
+    }
+  }
+
+  /// Elimina una transacción (RLS controla el permiso).
+  Future<void> deleteTransaction(String id) async {
+    final deleted =
+        await _c.from('transactions').delete().eq('id', id).select();
+    if ((deleted as List).isEmpty) {
+      throw Exception('No tienes permiso para eliminar esta transacción');
+    }
   }
 
   /// Envía audio (o texto mock en dev) al backend y devuelve

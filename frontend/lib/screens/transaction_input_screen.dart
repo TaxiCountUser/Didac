@@ -21,11 +21,13 @@ class TransactionInputScreen extends StatefulWidget {
   final Profile profile;
   final Map<String, dynamic>? initial; // valores parseados (modo preview)
   final bool isPreview;
+  final String? editId; // si != null, edita la transacción existente
   const TransactionInputScreen({
     super.key,
     required this.profile,
     this.initial,
     this.isPreview = false,
+    this.editId,
   });
 
   @override
@@ -68,7 +70,23 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       return;
     }
     setState(() => _saving = true);
+    final desc = _description.text.trim().isEmpty ? null : _description.text.trim();
     try {
+      if (widget.editId != null) {
+        await DataService().updateTransaction(
+          widget.editId!,
+          amount: amount,
+          category: _category,
+          type: _type,
+          paymentMethod: _payment,
+          description: desc,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Transacción actualizada')));
+        Navigator.of(context).pop(true); // devuelve true: hubo cambios
+        return;
+      }
       await DataService().addTransaction(
         tenantId: widget.profile.tenantId,
         userId: widget.profile.id,
@@ -76,7 +94,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         category: _category,
         type: _type,
         paymentMethod: _payment,
-        description: _description.text.trim().isEmpty ? null : _description.text.trim(),
+        description: desc,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -99,7 +117,11 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isPreview ? 'Revisar transacción' : 'Nueva transacción'),
+        title: Text(widget.editId != null
+            ? 'Editar transacción'
+            : widget.isPreview
+                ? 'Revisar transacción'
+                : 'Nueva transacción'),
         actions: [
           if (!widget.isPreview)
             IconButton(
@@ -177,7 +199,12 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: _saving
                   ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(widget.isPreview ? 'Confirmar y guardar' : 'Guardar',
+                  : Text(
+                      widget.editId != null
+                          ? 'Guardar cambios'
+                          : widget.isPreview
+                              ? 'Confirmar y guardar'
+                              : 'Guardar',
                       style: const TextStyle(fontSize: 18)),
             ),
           ),
