@@ -40,6 +40,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   bool _loadingPage = false;
   bool _hasMore = true;
   String? _error;
+  String? _subStatus; // estado de suscripción del tenant (Fase 4)
 
   RealtimeChannel? _channel;
 
@@ -98,13 +99,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     try {
       final drivers = await _service.listDrivers();
       final vehicles = await _service.listVehicles();
+      final billing = await _service.fetchTenantBilling(widget.profile.tenantId);
       if (!mounted) return;
       setState(() {
         _drivers = drivers;
         _vehicles = vehicles;
+        _subStatus = billing?['subscription_status'] as String?;
       });
     } catch (_) {/* los dropdowns quedan vacíos; no es crítico */}
   }
+
+  bool get _subscriptionActive => _subStatus == 'active' || _subStatus == 'trialing';
 
   // --------------- carga de datos (KPIs + primera página) ---------------
   Future<void> _reload() async {
@@ -249,10 +254,33 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (_subStatus != null && !_subscriptionActive) _billingBanner(),
         _filterBar(),
         const Divider(height: 1),
         Expanded(child: _content()),
       ],
+    );
+  }
+
+  Widget _billingBanner() {
+    return Container(
+      key: const Key('billing_banner'),
+      width: double.infinity,
+      color: const Color(0xFFC62828),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: const Row(
+        children: [
+          Icon(Icons.warning_amber, color: Colors.white, size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Tu suscripción no está activa. Actualiza tu método de pago para '
+              'seguir usando TaxiCount.',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

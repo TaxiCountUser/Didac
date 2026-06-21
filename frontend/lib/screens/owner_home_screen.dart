@@ -5,6 +5,7 @@ import '../models/profile.dart';
 import 'owner_dashboard_screen.dart';
 import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
+import 'subscription_screen.dart';
 
 /// Home del Owner: pestañas de Vehículos y Conductores.
 class OwnerHomeScreen extends StatefulWidget {
@@ -24,8 +25,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       OwnerDashboardScreen(profile: widget.profile),
       VehiclesScreen(profile: widget.profile),
       DriversScreen(profile: widget.profile),
+      SubscriptionScreen(profile: widget.profile),
     ];
-    const titles = ['Dashboard', 'Vehículos', 'Conductores'];
+    const titles = ['Dashboard', 'Vehículos', 'Conductores', 'Suscripción'];
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_index]),
@@ -56,6 +58,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
             label: 'Conductores',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.workspace_premium_outlined),
+            selectedIcon: Icon(Icons.workspace_premium),
+            label: 'Suscripción',
           ),
         ],
       ),

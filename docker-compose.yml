@@ -191,6 +191,14 @@ services:
       # Dev/local: permite mock_text en /transcribe sin llamar a Whisper.
       ALLOW_MOCK_TRANSCRIBE: ${ALLOW_MOCK_TRANSCRIBE:-true}
       TRANSCRIBE_DAILY_LIMIT: ${TRANSCRIBE_DAILY_LIMIT:-150}
+      # --- Stripe (Fase 4) ---
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_STARTER: ${STRIPE_PRICE_STARTER:-price_starter_placeholder}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-price_pro_placeholder}
+      STRIPE_PRICE_BUSINESS: ${STRIPE_PRICE_BUSINESS:-price_business_placeholder}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-taxicount://subscription-success}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-taxicount://subscription-cancel}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/health"]
       interval: 5s

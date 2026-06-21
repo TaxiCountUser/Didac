@@ -24,21 +24,17 @@ async function run() {
     }
   }
 
-  // /api/v1/transcribe (mock)
+  // /api/v1/transcribe exige autenticación (Fase 2): sin JWT -> 401.
   {
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/transcribe',
-      payload: { audio: 'base64...' },
+      headers: { 'content-type': 'application/json' },
+      payload: { mock_text: 'x' },
     });
     try {
-      assert.strictEqual(res.statusCode, 200, 'POST /transcribe debe responder 200');
-      const body = res.json();
-      assert.ok(
-        typeof body.text === 'string' && body.text.length > 0,
-        'body.text debe ser un string no vacío'
-      );
-      console.log('✓ POST /api/v1/transcribe devuelve mock');
+      assert.strictEqual(res.statusCode, 401, 'POST /transcribe sin JWT debe responder 401');
+      console.log('✓ POST /api/v1/transcribe exige autenticación');
     } catch (e) {
       failures++;
       console.error('✗ /api/v1/transcribe:', e.message);

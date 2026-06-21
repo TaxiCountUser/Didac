@@ -103,8 +103,18 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_friendlyError(e))));
     }
+  }
+
+  // Mapea el rechazo de RLS por suscripción inactiva a un mensaje claro.
+  String _friendlyError(Object e) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('row-level security') || s.contains('row level security') ||
+        s.contains('policy') || s.contains('42501')) {
+      return 'Operación bloqueada. Contacta con el administrador de la flota';
+    }
+    return 'Error: $e';
   }
 
   void _openVoice() {

@@ -239,6 +239,40 @@ class DataService {
     return body;
   }
 
+  // ---------------- Facturación / Suscripción (Fase 4) ----------------
+
+  /// Datos de suscripción del tenant (RLS: cualquier miembro lee su tenant).
+  Future<Map<String, dynamic>?> fetchTenantBilling(String tenantId) async {
+    return _c
+        .from('tenants')
+        .select(
+            'id, name, subscription_status, plan_id, drivers_limit, stripe_customer_id, stripe_subscription_id')
+        .eq('id', tenantId)
+        .maybeSingle();
+  }
+
+  /// Crea una sesión de Stripe Checkout y devuelve su URL.
+  Future<String> createCheckoutSession(String priceId) =>
+      _postBilling('/api/v1/create-checkout-session', {'priceId': priceId});
+
+  /// Crea una sesión del Customer Portal de Stripe y devuelve su URL.
+  Future<String> createPortalSession() => _postBilling('/api/v1/create-portal-session', {});
+
+  Future<String> _postBilling(String path, Map<String, dynamic> body) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.post(
+      Uri.parse('$backendUrl$path'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    final decoded = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(decoded['error'] ?? 'Error de facturación (${res.statusCode})');
+    }
+    return decoded['url'] as String;
+  }
+
   // ---------------- Onboarding ----------------
   Future<void> completeOnboarding() async {
     final uid = _c.auth.currentUser?.id;

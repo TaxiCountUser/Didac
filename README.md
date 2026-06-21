@@ -228,3 +228,51 @@ El test de WebSocket se **omite automáticamente** si el servidor de Realtime no
 está levantado; con `--profile realtime` arriba, verifica la entrega en vivo en
 < 2 s. El resto (KPIs, filtro por conductor, aislamiento RLS del Driver,
 paginación) corre siempre contra el stack base.
+
+> Ejecuta la suite de integración en **serie** (`dart test --concurrency=1
+> integration_test/`): el test de WebSocket es sensible al tiempo (ventana de
+> 2 s) y puede dar falsos negativos si varios ficheros corren en paralelo.
+
+## Estado de la Fase 4
+
+✅ **COMPLETADA** (2026-06-20). Monetización con Stripe (suscripciones).
+
+- **Planes** (Price IDs por entorno, modo test): Starter (≤2 conductores),
+  Pro (≤10), Business (ilimitado). Ver `.env.example` y `backend/.env.example`.
+- **Pantalla de suscripción** ([subscription_screen.dart](frontend/lib/screens/subscription_screen.dart)):
+  plan actual (nombre, límite, estado), elegir/cambiar plan y **portal de
+  facturación**. Abre las URLs de Stripe con `url_launcher`. Nueva pestaña
+  "Suscripción" en la home del Owner.
+- **Checkout** ([server.js](backend/src/server.js)): `POST /api/v1/create-checkout-session`
+  (modo `subscription`, retorno `taxicount://subscription-success|cancel`,
+  metadata con `tenant_id`/`plan_id`/`drivers_limit`).
+- **Webhook** `POST /webhooks/stripe`: verifica la firma sobre el cuerpo en
+  crudo (`rawBody`) y procesa `checkout.session.completed`,
+  `customer.subscription.updated|deleted`, `invoice.paid|payment_failed`,
+  actualizando `tenants` ([billing.js](backend/src/billing.js)).
+- **Portal**: `POST /api/v1/create-portal-session` (`billingPortal.sessions`).
+- **Límite de conductores**: `POST /api/v1/drivers` comprueba `drivers_limit`
+  antes de crear; si se alcanza → `403 «Has alcanzado el límite…»`.
+- **Bloqueo por impago** ([006_tenant_billing.sql](supabase/migrations/006_tenant_billing.sql)):
+  las políticas RLS de escritura en `transactions` exigen
+  `current_subscription_active()` (estado `active`/`trialing`). Si no, el INSERT
+  se rechaza; el Driver ve «Operación bloqueada. Contacta con el administrador
+  de la flota» y el Owner un banner rojo en el dashboard. La **lectura** no se
+  bloquea (el Owner consulta su histórico aunque esté impagado).
+- **Compatibilidad**: los tenants nuevos nacen en `trialing` con
+  `drivers_limit` nulo (ilimitado), así las Fases 1–3 siguen operando sin
+  fricción; el plan contratado fija el límite real.
+
+### Pruebas de la Fase 4
+
+```powershell
+# Backend (health + parser + webhook firmado + endpoints con Stripe mock)
+npm test --prefix backend
+
+# Integración (límite de plan, webhook simulado y bloqueo por impago)
+cd frontend; dart test integration_test/subscription_test.dart
+```
+
+Los tests **no** dependen de Stripe real: el webhook se firma con el secreto de
+test (`stripe.webhooks.generateTestHeaderString`, sin red) y los endpoints de
+Checkout/Portal usan un cliente Stripe inyectado (mock).

@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node tests/health.test.js"
+    "test": "node tests/health.test.js && node tests/run_parser_tests.js && node tests/unit/webhook.test.js && node tests/unit/billing_endpoints.test.js"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
@@ -15,7 +15,8 @@
     "@supabase/supabase-js": "^2.45.0",
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
-    "openai": "^4.67.3"
+    "openai": "^4.67.3",
+    "stripe": "^17.7.0"
   },
   "engines": {
     "node": ">=18"
