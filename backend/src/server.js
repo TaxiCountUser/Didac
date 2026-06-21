@@ -27,6 +27,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'http://kong:8000';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
+const SENTRY_DSN = process.env.SENTRY_DSN || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_SUCCESS_URL = process.env.STRIPE_SUCCESS_URL || 'taxicount://subscription-success';
@@ -66,7 +67,21 @@ async function defaultTranscribe({ buffer, filename }) {
  */
 export async function buildApp(options = {}) {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
-  await app.register(cors, { origin: true });
+
+  // Sentry (Fase 6): solo si hay DSN configurado. En tests no se carga.
+  if (SENTRY_DSN) {
+    const Sentry = await import('@sentry/node');
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'production',
+      tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0.1),
+    });
+    Sentry.setupFastifyErrorHandler(app);
+    app.log.info('[sentry] captura de errores activada');
+  }
+
+  const corsOrigin = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true;
+  await app.register(cors, { origin: corsOrigin });
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
 
   // Parser de JSON que además conserva el cuerpo en crudo (req.rawBody) para

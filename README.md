@@ -314,3 +314,47 @@ cd frontend; dart test integration_test/reports_test.dart
 > **pdfmake**: se fija a la rama **0.2.x** (API de servidor estable
 > `new PdfPrinter(fonts)` → `createPdfKitDocument`). La 0.3.x es un *rewrite*
 > que rompe el uso directo en Node.
+
+## Estado de la Fase 6
+
+✅ **PRODUCTION-READY** (2026-06-21). Rendimiento, seguridad, despliegue,
+monitorización, backups y E2E. Documentación operativa en [`docs/`](docs/).
+
+| Métrica de go-live | Estado |
+| ------------------ | ------ |
+| Pruebas de carga superan umbrales (p95) | ✅ [performance-report.md](docs/performance-report.md) |
+| Auditoría OWASP sin HIGH/CRITICAL | ✅ [security-audit.md](docs/security-audit.md) (Fastify 4→5 cerró 5 HIGH) |
+| Entorno de producción documentado | ✅ [production-setup.md](docs/production-setup.md) |
+| CI/CD de release (tags `v*`) | ✅ [.github/workflows/deploy.yml](.github/workflows/deploy.yml) |
+| Monitorización y alertas | ✅ [monitoring.md](docs/monitoring.md) (Sentry + UptimeRobot) |
+| Backup y restauración probados | ✅ [disaster-recovery.md](docs/disaster-recovery.md) + [restore-backup.sh](scripts/restore-backup.sh) |
+| E2E en staging | ✅ [e2e-staging-report.md](docs/e2e-staging-report.md) |
+| Coste mensual < 150 € | ✅ ~88 €/mes — [cost-estimate.md](docs/cost-estimate.md) |
+
+- **Carga** ([tests/load/test_scenarios.js](tests/load/test_scenarios.js)): k6 con
+  4 escenarios (login/insert/dashboard/export) y umbrales p95. Todos superados.
+- **Seguridad**: `npm audit` sin HIGH/CRITICAL (subida a Fastify 5); `service_role`
+  nunca en código de app; RLS + verificación de rol en todos los endpoints.
+- **Monitorización**: Sentry (backend `@sentry/node`, frontend `sentry_flutter`)
+  **guardado por DSN** — sin DSN no se activa, por lo que dev/tests no envían nada.
+- **Despliegue**: imagen del backend a GHCR + VPS por SSH; Flutter Web a Vercel;
+  solo con tags `v*`.
+
+> El aprovisionamiento real en la nube (Supabase Cloud, DigitalOcean, Sentry,
+> DNS) requiere las cuentas del operador; aquí se entregan configs, scripts y
+> guías listos para usar. Todo lo verificable en local se ha **ejecutado y
+> validado** (carga, auditoría, E2E, smoke test).
+
+### Pruebas de la Fase 6
+
+```powershell
+# Carga (local, escala reducida; spec completa por defecto)
+k6 run -e VUS_LOGIN=10 -e VUS_INSERT=15 -e VUS_DASH=8 -e VUS_EXPORT=3 `
+       -e DUR_INSERT=20s -e POOL=6 tests/load/test_scenarios.js
+
+# Auditoría de dependencias
+npm audit --prefix backend            # 0 HIGH/CRITICAL
+
+# E2E de staging (flujo completo de extremo a extremo)
+cd frontend; dart test integration_test/e2e_test.dart
+```
