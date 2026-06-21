@@ -11,6 +11,7 @@ Guías para el equipo de operaciones y mantenimiento (Fase 6, production-ready).
 | [disaster-recovery.md](disaster-recovery.md) | RTO/RPO, backups y procedimientos de recuperación. |
 | [cost-estimate.md](cost-estimate.md) | Estimación de coste mensual (< 150 €). |
 | [e2e-staging-report.md](e2e-staging-report.md) | Suite E2E de staging y resultados. |
+| [github-actions-setup.md](github-actions-setup.md) | Secrets y variables de Actions para activar el despliegue. |
 
 ## Procedimiento de release
 
