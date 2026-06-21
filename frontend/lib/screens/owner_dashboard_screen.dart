@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile.dart';
@@ -41,6 +44,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   bool _hasMore = true;
   String? _error;
   String? _subStatus; // estado de suscripción del tenant (Fase 4)
+  bool _exporting = false; // exportación en curso (Fase 5)
 
   RealtimeChannel? _channel;
 
@@ -249,16 +253,84 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (changed == true) _reload();
   }
 
+  // --------------- Exportación (Fase 5) ---------------
+  Future<void> _export(String format) async {
+    setState(() => _exporting = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Generando informe ${format == 'excel' ? 'Excel' : 'PDF'}…')),
+    );
+    try {
+      final bytes = await _service.downloadReport(
+        format: format,
+        from: _from,
+        to: _to,
+        driverId: _driverId,
+        vehicleId: _vehicleId,
+      );
+      final dir = await getTemporaryDirectory();
+      final ext = format == 'excel' ? 'xlsx' : 'pdf';
+      final path =
+          '${dir.path}/taxicount_export_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await File(path).writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Informe generado')));
+      await OpenFilex.open(path);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   // --------------- UI ---------------
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         if (_subStatus != null && !_subscriptionActive) _billingBanner(),
+        _toolbar(),
         _filterBar(),
         const Divider(height: 1),
         Expanded(child: _content()),
       ],
+    );
+  }
+
+  Widget _toolbar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+      child: Row(
+        children: [
+          Text('Resumen de la flota', style: Theme.of(context).textTheme.titleMedium),
+          const Spacer(),
+          if (_exporting)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            PopupMenuButton<String>(
+              key: const Key('export_menu'),
+              icon: const Icon(Icons.download),
+              tooltip: 'Exportar',
+              onSelected: _export,
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  key: Key('export_excel'),
+                  value: 'excel',
+                  child: ListTile(leading: Icon(Icons.table_chart), title: Text('Exportar Excel')),
+                ),
+                PopupMenuItem(
+                  key: Key('export_pdf'),
+                  value: 'pdf',
+                  child: ListTile(leading: Icon(Icons.picture_as_pdf), title: Text('Exportar PDF')),
+                ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 

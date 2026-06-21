@@ -8,6 +8,17 @@ import { createClient } from '@supabase/supabase-js';
 
 import { parseTransactionText } from './parser.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
+import {
+  fetchReportData,
+  buildExcel,
+  buildPdf,
+  cacheKey,
+  getCached,
+  setCached,
+} from './reports.js';
+
+const REPORT_TIMEOUT_MS = Number(process.env.REPORT_TIMEOUT_MS || 30000);
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 const PORT = Number(process.env.BACKEND_PORT || 3000);
 const HOST = '0.0.0.0';
@@ -338,6 +349,56 @@ export async function buildApp(options = {}) {
       return reply.code(500).send({ error: 'Error procesando el evento', detail: e.message });
     }
   });
+
+  // --- Informes Excel / PDF (Fase 5) ---
+  async function handleReport(request, reply, format) {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner') {
+      return reply.code(403).send({ error: 'Solo un Owner puede exportar informes' });
+    }
+
+    const { startDate, endDate, driverId, vehicleId } = request.body ?? {};
+    const filters = { tenantId: caller.tenant_id, startDate, endDate, driverId, vehicleId };
+    const ext = format === 'excel' ? 'xlsx' : 'pdf';
+    const mime = format === 'excel' ? XLSX_MIME : 'application/pdf';
+    const filename = `TaxiCount_export_${new Date().toISOString().slice(0, 10)}.${ext}`;
+
+    // Caché (10 min) por tenant + filtros + formato
+    const key = cacheKey(format, filters);
+    const cached = getCached(key);
+    let buffer;
+    if (cached) {
+      buffer = cached.buffer;
+    } else {
+      try {
+        const generate = (async () => {
+          const data = await fetchReportData(supabase, filters);
+          return format === 'excel' ? buildExcel(data) : buildPdf(data);
+        })();
+        buffer = await withTimeout(generate, REPORT_TIMEOUT_MS);
+      } catch (e) {
+        if (e.message === 'whisper-timeout') {
+          return reply
+            .code(504)
+            .send({ error: 'La exportación ha tardado demasiado. Prueba con un rango de fechas más pequeño.' });
+        }
+        request.log.error(e);
+        return reply.code(500).send({ error: 'No se pudo generar el informe', detail: e.message });
+      }
+      setCached(key, { buffer });
+    }
+
+    return reply
+      .header('Content-Type', mime)
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .header('Content-Length', buffer.length)
+      .send(buffer);
+  }
+
+  app.post('/api/v1/reports/excel', (req, reply) => handleReport(req, reply, 'excel'));
+  app.post('/api/v1/reports/pdf', (req, reply) => handleReport(req, reply, 'pdf'));
 
   return app;
 }

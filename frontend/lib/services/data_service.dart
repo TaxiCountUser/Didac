@@ -273,6 +273,42 @@ class DataService {
     return decoded['url'] as String;
   }
 
+  // ---------------- Informes (Fase 5) ----------------
+
+  /// Descarga un informe ('excel' | 'pdf') con los filtros del dashboard.
+  /// Devuelve los bytes del fichero.
+  Future<List<int>> downloadReport({
+    required String format,
+    DateTime? from,
+    DateTime? to,
+    String? driverId,
+    String? vehicleId,
+  }) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/reports/$format'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'startDate': from?.toIso8601String(),
+        'endDate': to?.toIso8601String(),
+        'driverId': driverId,
+        'vehicleId': vehicleId,
+      }),
+    );
+    if (res.statusCode == 504) {
+      throw Exception('La exportación ha tardado demasiado. Prueba con un rango de fechas más pequeño.');
+    }
+    if (res.statusCode != 200) {
+      String msg = 'Error al generar el informe (${res.statusCode})';
+      try {
+        msg = (jsonDecode(res.body) as Map<String, dynamic>)['error'] as String? ?? msg;
+      } catch (_) {}
+      throw Exception(msg);
+    }
+    return res.bodyBytes;
+  }
+
   // ---------------- Onboarding ----------------
   Future<void> completeOnboarding() async {
     final uid = _c.auth.currentUser?.id;

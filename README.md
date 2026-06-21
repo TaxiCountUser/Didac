@@ -276,3 +276,41 @@ cd frontend; dart test integration_test/subscription_test.dart
 Los tests **no** dependen de Stripe real: el webhook se firma con el secreto de
 test (`stripe.webhooks.generateTestHeaderString`, sin red) y los endpoints de
 Checkout/Portal usan un cliente Stripe inyectado (mock).
+
+## Estado de la Fase 5
+
+✅ **COMPLETADA** (2026-06-21). Exportación de informes Excel y PDF.
+
+- **Backend** ([reports.js](backend/src/reports.js)): consulta `transactions`
+  con los filtros (fechas, conductor, vehículo) + JOIN a `users`, agrupa por
+  conductor y genera los ficheros.
+  - `POST /api/v1/reports/excel` (`exceljs`): un workbook con **una pestaña por
+    conductor** + pestaña **"Consolidado"**; columnas fecha/importe/categoría/
+    tipo/método/descripción y fila de **totales** (ingresos, gastos, balance).
+  - `POST /api/v1/reports/pdf` (`pdfmake`, fuentes Helvetica integradas — sin
+    dependencias del sistema): cabecera, resumen financiero y detalle por
+    conductor.
+  - Solo Owner (JWT + rol). **Caché** en memoria (10 min) por tenant+filtros+
+    formato. **Timeout** de 30 s → `504`. Los ficheros no se persisten (se
+    envían en la respuesta).
+- **Flutter** ([owner_dashboard_screen.dart](frontend/lib/screens/owner_dashboard_screen.dart)):
+  menú "Exportar" (Excel/PDF) que respeta los filtros del dashboard, indicador
+  de progreso, descarga los bytes, los guarda en un fichero temporal
+  (`path_provider`) y lo abre con `open_filex`.
+
+### Pruebas de la Fase 5
+
+```powershell
+# Backend: genera y RE-LEE los ficheros (exceljs / pdf-parse), sin Internet
+npm test --prefix backend
+
+# Integración: el Owner descarga Excel/PDF (bytes válidos, cabeceras, caché)
+cd frontend; dart test integration_test/reports_test.dart
+```
+
+`excel.test.js` abre el `.xlsx` con `exceljs` y verifica pestañas y totales;
+`pdf.test.js` extrae el texto con `pdf-parse` y comprueba importes y nombres.
+
+> **pdfmake**: se fija a la rama **0.2.x** (API de servidor estable
+> `new PdfPrinter(fonts)` → `createPdfKitDocument`). La 0.3.x es un *rewrite*
+> que rompe el uso directo en Node.
