@@ -45,6 +45,22 @@ El workflow [`deploy.yml`](../.github/workflows/deploy.yml) se dispara con tags
 > La imagen del backend se publica en **GHCR** con el `GITHUB_TOKEN` integrado;
 > no necesitas un secret extra para el push del contenedor.
 
+## Carga automática con `gh` (recomendado)
+
+En lugar de pegar cada valor a mano en la web:
+
+```bash
+gh auth login                                              # una vez (interactivo)
+cp scripts/.actions-secrets.env.example scripts/.actions-secrets.env
+#   edita scripts/.actions-secrets.env y rellena los valores (gitignored)
+bash scripts/setup-actions-secrets.sh                      # sube vars + secrets
+```
+
+El script ([`scripts/setup-actions-secrets.sh`](../scripts/setup-actions-secrets.sh))
+es idempotente y **omite los campos vacíos**, así que puedes ir rellenando por
+partes. Pon `DEPLOY_VPS`/`DEPLOY_WEB` a `true` solo cuando quieras activar los
+despliegues reales.
+
 ## Verificación previa (ya realizada en local)
 
 Antes de pushear el tag, estos pasos del pipeline se validaron en local:

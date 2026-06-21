@@ -31,3 +31,6 @@ COMMIT_MSG_*.txt
 # k6 load-test run artifacts
 tests/load/last_run_summary.json
 tests/load/*.summary.json
+
+# GitHub Actions secrets (rellenado localmente, nunca versionar)
+scripts/.actions-secrets.env
