@@ -27,3 +27,7 @@ Thumbs.db
 graphify-out/
 
 COMMIT_MSG_*.txt
+
+# k6 load-test run artifacts
+tests/load/last_run_summary.json
+tests/load/*.summary.json
