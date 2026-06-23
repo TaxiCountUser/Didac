@@ -6,7 +6,6 @@ import '../models/profile.dart';
 import 'owner_dashboard_screen.dart';
 import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
-import 'subscription_screen.dart';
 import 'incidents_screen.dart';
 import 'settings_screen.dart';
 
@@ -29,12 +28,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       VehiclesScreen(profile: widget.profile),
       DriversScreen(profile: widget.profile),
       IncidentsScreen(profile: widget.profile),
-      SubscriptionScreen(profile: widget.profile),
     ];
     final l = context.l10n;
     final titles = [
       l.t('nav_dashboard'), l.t('nav_vehicles'), l.t('nav_drivers'),
-      l.t('nav_incidents'), l.t('nav_subscription'),
+      l.t('nav_incidents'),
     ];
     return Scaffold(
       appBar: AppBar(
@@ -79,11 +77,6 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             icon: const Icon(Icons.report_problem_outlined),
             selectedIcon: const Icon(Icons.report_problem),
             label: l.t('nav_incidents'),
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.workspace_premium_outlined),
-            selectedIcon: const Icon(Icons.workspace_premium),
-            label: l.t('nav_subscription'),
           ),
         ],
       ),

@@ -514,6 +514,18 @@ class DataService {
     }
   }
 
+  // ---------------- Perfil ----------------
+
+  /// Actualiza el nombre "de avatar" del propio usuario (RLS: users_update_self).
+  /// No cambia el `name` que ve el jefe.
+  Future<void> updateDisplayName(String? displayName) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('users').update({
+      'display_name': (displayName == null || displayName.trim().isEmpty) ? null : displayName.trim(),
+    }).eq('id', uid);
+  }
+
   // ---------------- Onboarding ----------------
   Future<void> completeOnboarding() async {
     final uid = _c.auth.currentUser?.id;

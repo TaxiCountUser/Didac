@@ -3,7 +3,8 @@ class Profile {
   final String id;
   final String tenantId;
   final String email;
-  final String? name;
+  final String? name; // lo pone el jefe (lo ve en su panel)
+  final String? displayName; // el conductor lo elige para SU app
   final String role; // 'owner' | 'driver'
   final bool hasCompletedOnboarding;
 
@@ -13,16 +14,26 @@ class Profile {
     required this.email,
     required this.role,
     this.name,
+    this.displayName,
     this.hasCompletedOnboarding = false,
   });
 
   bool get isOwner => role == 'owner';
+
+  /// Nombre a mostrar en la app del propio usuario: su display_name si lo
+  /// tiene, si no el que le puso el jefe, y si no, el email.
+  String get appName {
+    if (displayName != null && displayName!.trim().isNotEmpty) return displayName!.trim();
+    if (name != null && name!.trim().isNotEmpty) return name!.trim();
+    return email;
+  }
 
   factory Profile.fromMap(Map<String, dynamic> m) => Profile(
         id: m['id'] as String,
         tenantId: m['tenant_id'] as String,
         email: m['email'] as String,
         name: m['name'] as String?,
+        displayName: m['display_name'] as String?,
         role: m['role'] as String,
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
       );

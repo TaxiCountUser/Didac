@@ -170,7 +170,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final profile = widget.profile;
-    final displayName = profile.name?.isNotEmpty == true ? profile.name! : profile.email;
+    final displayName = profile.appName;
     return Scaffold(
       appBar: AppBar(
         title: const Text('TaxiCount'),
