@@ -25,7 +25,10 @@ void main() {
     );
     await tester.pumpWidget(const MaterialApp(home: DriverHomeScreen(profile: profile)));
 
-    expect(find.textContaining('Bienvenido'), findsOneWidget);
+    // Saludo + las dos acciones del conductor.
+    expect(find.textContaining('Hola'), findsOneWidget);
+    expect(find.text('Añadir registro'), findsOneWidget);
+    expect(find.text('Ver transacciones'), findsOneWidget);
     // No deben existir opciones de gestión propias del Owner.
     expect(find.text('Vehículos'), findsNothing);
     expect(find.text('Conductores'), findsNothing);
