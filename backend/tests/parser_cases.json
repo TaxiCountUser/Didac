@@ -53,5 +53,14 @@
   { "text": "gasoil 48 euros con tarjeta", "expected": { "amount": 48, "category": "gasoil", "type": "expense", "payment_method": "tarjeta" } },
   { "text": "pago 33 de aparcamiento", "expected": { "amount": 33, "category": "parking", "type": "expense" } },
   { "text": "cobré ochenta euros en efectivo", "expected": { "amount": 80, "category": "ingreso_tarjeta", "type": "income", "payment_method": "efectivo" } },
-  { "text": "multa 100 pagada con tarjeta", "expected": { "amount": 100, "category": "multa", "type": "expense", "payment_method": "tarjeta" } }
+  { "text": "multa 100 pagada con tarjeta", "expected": { "amount": 100, "category": "multa", "type": "expense", "payment_method": "tarjeta" } },
+
+  { "text": "carrera de sants a la sagrera por 18 euros con tarjeta de movitaxi", "expected": { "amount": 18, "type": "income", "payment_method": "tarjeta", "origin": "sants", "destination": "la sagrera", "client_name": "Movitaxi" } },
+  { "text": "desde el aeropuerto hasta plaza cataluña veinticinco euros en efectivo", "expected": { "amount": 25, "type": "income", "payment_method": "efectivo", "origin": "el aeropuerto", "destination": "plaza cataluña" } },
+  { "text": "de la estación a casa 12 con 50", "expected": { "amount": 12.5, "type": "income", "origin": "la estación", "destination": "casa" } },
+  { "text": "viaje a particular cobré 20 euros", "expected": { "amount": 20, "type": "income", "client_name": null } },
+  { "text": "carrera de sants a badalona quince euros ciento cincuenta mil kilómetros de gitaxi", "expected": { "amount": 15, "type": "income", "origin": "sants", "destination": "badalona", "odometer_km": 150000, "client_name": "Gitaxi" } },
+  { "text": "cobré 30 euros para onecab", "expected": { "amount": 30, "type": "income", "client_name": "OneCab" } },
+  { "text": "mutua asepeyo carrera de 40 euros", "expected": { "amount": 40, "type": "income", "client_name": "Mutua Asepeyo" } },
+  { "text": "ciento cincuenta mil kilómetros en el coche", "expected": { "odometer_km": 150000 } }
 ]

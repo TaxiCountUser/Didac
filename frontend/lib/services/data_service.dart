@@ -93,6 +93,10 @@ class DataService {
     required String type,
     String? paymentMethod,
     String? description,
+    String? origin,
+    String? destination,
+    int? odometerKm,
+    String? clientName,
   }) async {
     await _c.from('transactions').insert({
       'tenant_id': tenantId,
@@ -102,6 +106,10 @@ class DataService {
       'type': type,
       'payment_method': paymentMethod,
       'description': description,
+      'origin': origin,
+      'destination': destination,
+      'odometer_km': odometerKm,
+      'client_name': clientName,
     });
   }
 
@@ -177,6 +185,10 @@ class DataService {
     required String type,
     String? paymentMethod,
     String? description,
+    String? origin,
+    String? destination,
+    int? odometerKm,
+    String? clientName,
   }) async {
     final updated = await _c
         .from('transactions')
@@ -186,6 +198,10 @@ class DataService {
           'type': type,
           'payment_method': paymentMethod,
           'description': description,
+          'origin': origin,
+          'destination': destination,
+          'odometer_km': odometerKm,
+          'client_name': clientName,
         })
         .eq('id', id)
         .select();

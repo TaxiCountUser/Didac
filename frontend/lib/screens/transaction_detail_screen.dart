@@ -71,6 +71,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             'type': tx['type'],
             'payment_method': tx['payment_method'],
             'description': tx['description'],
+            'origin': tx['origin'],
+            'destination': tx['destination'],
+            'odometer_km': tx['odometer_km'],
+            'client_name': tx['client_name'],
           },
         ),
       ),
@@ -176,7 +180,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           ),
         ),
         const SizedBox(height: 28),
-        _row(Icons.category, 'Categoría', categoryLabel(tx['category'] as String?)),
+        if (type == 'income') ..._tripRows(tx) else
+          _row(Icons.category, 'Categoría', categoryLabel(tx['category'] as String?)),
         _row(Icons.calendar_today, 'Fecha y hora', fmtDateTime(created)),
         _row(
           tx['payment_method'] == 'efectivo' ? Icons.payments : Icons.credit_card,
@@ -191,6 +196,25 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           _row(Icons.directions_car, 'Vehículo', veh),
       ],
     );
+  }
+
+  // Datos propios de una carrera (ingreso).
+  List<Widget> _tripRows(Map<String, dynamic> tx) {
+    final origin = (tx['origin'] as String?)?.trim();
+    final destination = (tx['destination'] as String?)?.trim();
+    final km = tx['odometer_km'] as int?;
+    final client = (tx['client_name'] as String?)?.trim();
+    final rows = <Widget>[];
+    if ((origin?.isNotEmpty ?? false) || (destination?.isNotEmpty ?? false)) {
+      rows.add(_row(Icons.route, 'Trayecto',
+          '${origin?.isNotEmpty == true ? origin : '—'} → ${destination?.isNotEmpty == true ? destination : '—'}'));
+    }
+    rows.add(_row(Icons.business, 'Cliente',
+        (client?.isNotEmpty ?? false) ? client! : 'Particular'));
+    if (km != null) {
+      rows.add(_row(Icons.speed, 'Km del coche', '$km km'));
+    }
+    return rows;
   }
 
   Widget _row(IconData icon, String label, String value) {

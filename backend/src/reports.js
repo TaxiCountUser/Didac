@@ -81,8 +81,24 @@ function totals(txs) {
 }
 
 const fmtDate = (iso) => new Date(iso).toISOString().slice(0, 10);
+const fmtTime = (iso) => new Date(iso).toISOString().slice(11, 16); // HH:MM (UTC)
 const tipoLabel = (t) => (t === 'income' ? 'Ingreso' : 'Gasto');
 const money = (n) => Number(n).toFixed(2);
+
+// Concepto legible: carrera => "origen → destino (km)"; gasto => categoría.
+function concepto(t) {
+  if (t.type === 'income') {
+    const o = (t.origin || '').trim();
+    const d = (t.destination || '').trim();
+    let s = o || d ? `${o || '—'} → ${d || '—'}` : 'Carrera';
+    if (t.odometer_km != null) s += ` (${t.odometer_km} km)`;
+    return s;
+  }
+  return t.category || '';
+}
+// Cliente: en carreras, empresa nombrada o "Particular"; en gastos, vacío.
+const clienteLabel = (t) =>
+  t.type === 'income' ? (t.client_name && t.client_name.trim() ? t.client_name.trim() : 'Particular') : '';
 
 // Saneado del nombre de pestaña Excel (<=31 chars, sin []:*?/\), único.
 function sheetName(raw, used) {
@@ -99,19 +115,29 @@ function sheetName(raw, used) {
 
 // ---------------- Excel ----------------
 const COLS = [
-  { header: 'Fecha', key: 'fecha', width: 14 },
-  { header: 'Importe', key: 'importe', width: 12 },
-  { header: 'Categoría', key: 'categoria', width: 16 },
-  { header: 'Tipo', key: 'tipo', width: 10 },
-  { header: 'Método de pago', key: 'pago', width: 16 },
-  { header: 'Descripción', key: 'descripcion', width: 30 },
+  { header: 'Fecha', key: 'fecha', width: 12 },
+  { header: 'Hora', key: 'hora', width: 8 },
+  { header: 'Importe', key: 'importe', width: 11 },
+  { header: 'Tipo', key: 'tipo', width: 9 },
+  { header: 'Categoría', key: 'categoria', width: 14 },
+  { header: 'Origen', key: 'origen', width: 18 },
+  { header: 'Destino', key: 'destino', width: 18 },
+  { header: 'Km', key: 'km', width: 10 },
+  { header: 'Cliente', key: 'cliente', width: 18 },
+  { header: 'Método de pago', key: 'pago', width: 14 },
+  { header: 'Descripción', key: 'descripcion', width: 28 },
 ];
 
 const rowFor = (t) => ({
   fecha: fmtDate(t.created_at),
+  hora: fmtTime(t.created_at),
   importe: Number(t.amount),
-  categoria: t.category || '',
   tipo: tipoLabel(t.type),
+  categoria: t.type === 'income' ? '' : (t.category || ''),
+  origen: t.origin || '',
+  destino: t.destination || '',
+  km: t.odometer_km ?? '',
+  cliente: clienteLabel(t),
   pago: t.payment_method || '',
   descripcion: t.description || '',
 });
@@ -157,25 +183,37 @@ function detailTable(txs) {
   const body = [
     [
       { text: 'Fecha', bold: true },
+      { text: 'Concepto', bold: true },
+      { text: 'Cliente', bold: true },
       { text: 'Importe', bold: true },
-      { text: 'Categoría', bold: true },
       { text: 'Tipo', bold: true },
       { text: 'Pago', bold: true },
     ],
   ];
   for (const t of txs) {
-    body.push([fmtDate(t.created_at), `${money(t.amount)} €`, t.category || '', tipoLabel(t.type), t.payment_method || '']);
+    body.push([
+      `${fmtDate(t.created_at)} ${fmtTime(t.created_at)}`,
+      concepto(t),
+      clienteLabel(t),
+      `${money(t.amount)} €`,
+      tipoLabel(t.type),
+      t.payment_method || '',
+    ]);
   }
   const tt = totals(txs);
-  body.push([{ text: 'Totales', bold: true, colSpan: 5 }, {}, {}, {}, {}]);
+  body.push([{ text: 'Totales', bold: true, colSpan: 6 }, {}, {}, {}, {}, {}]);
   body.push([
     { text: `Ingresos: ${money(tt.income)} €`, colSpan: 2 },
     {},
     { text: `Gastos: ${money(tt.expense)} €`, colSpan: 2 },
     {},
-    { text: `Balance: ${money(tt.balance)} €` },
+    { text: `Balance: ${money(tt.balance)} €`, colSpan: 2 },
+    {},
   ]);
-  return { table: { headerRows: 1, widths: ['auto', 'auto', '*', 'auto', 'auto'], body }, margin: [0, 4, 0, 12] };
+  return {
+    table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'], body },
+    margin: [0, 4, 0, 12],
+  };
 }
 
 export function buildPdf(data) {

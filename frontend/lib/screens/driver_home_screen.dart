@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile.dart';
-import 'transaction_input_screen.dart';
+import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
 
-/// Home del Driver: vista limitada (sin vehículos ni conductores).
+/// Home del Driver: elige entre añadir un registro o ver sus transacciones.
 class DriverHomeScreen extends StatelessWidget {
   final Profile profile;
   const DriverHomeScreen({super.key, required this.profile});
@@ -18,59 +18,104 @@ class DriverHomeScreen extends StatelessWidget {
         title: const Text('TaxiCount'),
         actions: [
           IconButton(
-            key: const Key('driver_history_button'),
-            tooltip: 'Mis transacciones',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => DriverTransactionsScreen(profile: profile),
-              ),
-            ),
-            icon: const Icon(Icons.receipt_long),
-          ),
-          IconButton(
             tooltip: 'Cerrar sesión',
             onPressed: () => Supabase.instance.client.auth.signOut(),
             icon: const Icon(Icons.logout),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('add_transaction_fab'),
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => TransactionInputScreen(profile: profile)),
-        ),
-        icon: const Icon(Icons.add),
-        label: const Text('Registrar'),
-      ),
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.local_taxi, size: 64, color: Colors.amber),
-              const SizedBox(height: 16),
-              Text(
-                '¡Bienvenido, $displayName!',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Registra tus carreras y gastos con el botón "Registrar", '
-                'y revisa tu historial cuando quieras.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => DriverTransactionsScreen(profile: profile),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.local_taxi, size: 64, color: Colors.amber),
+                const SizedBox(height: 12),
+                Text(
+                  '¡Hola, $displayName!',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+                _BigButton(
+                  key: const Key('add_record_button'),
+                  icon: Icons.add_circle,
+                  label: 'Añadir registro',
+                  subtitle: 'Carrera o gasto (voz o manual)',
+                  color: Colors.amber.shade700,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => AddRecordScreen(profile: profile)),
                   ),
                 ),
-                icon: const Icon(Icons.receipt_long),
-                label: const Text('Ver mis transacciones'),
+                const SizedBox(height: 16),
+                _BigButton(
+                  key: const Key('view_transactions_button'),
+                  icon: Icons.receipt_long,
+                  label: 'Ver transacciones',
+                  subtitle: 'Tu historial de carreras y gastos',
+                  color: Colors.blueGrey,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => DriverTransactionsScreen(profile: profile),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BigButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+  const _BigButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: color,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+          child: Row(
+            children: [
+              Icon(icon, size: 40, color: Colors.white),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: const TextStyle(color: Colors.white70)),
+                  ],
+                ),
               ),
+              const Icon(Icons.chevron_right, color: Colors.white70),
             ],
           ),
         ),
