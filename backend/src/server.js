@@ -219,7 +219,12 @@ export async function buildApp(options = {}) {
         result = await withTimeout(run(), WHISPER_TIMEOUT_MS);
       }
     } catch (e) {
-      return reply.code(502).send({ error: 'Transcripción no disponible', detail: e.message });
+      request.log.error(`Transcripción falló: ${e.message}`);
+      const isKeyIssue = /api[ _-]?key|401|unauthor|incorrect|invalid/i.test(e.message || '');
+      const error = isKeyIssue
+        ? 'Transcripción de voz no disponible: falta configurar una API key válida de OpenAI (OPENAI_API_KEY). Usa el modo manual mientras tanto.'
+        : 'Transcripción de voz no disponible ahora mismo. Usa el modo manual mientras tanto.';
+      return reply.code(502).send({ error, detail: e.message });
     }
 
     transcriptionCache.set(cacheKey, result);

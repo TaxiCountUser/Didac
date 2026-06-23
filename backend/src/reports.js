@@ -97,9 +97,12 @@ function concepto(t) {
   }
   return t.category || '';
 }
-// Cliente: en carreras, empresa nombrada o "Particular"; en gastos, vacío.
+// Cliente: en carreras, empresa nombrada (1ª letra mayúscula) o "Particular".
+const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const clienteLabel = (t) =>
-  t.type === 'income' ? (t.client_name && t.client_name.trim() ? t.client_name.trim() : 'Particular') : '';
+  t.type === 'income'
+    ? (t.client_name && t.client_name.trim() ? capFirst(t.client_name.trim()) : 'Particular')
+    : '';
 
 // Saneado del nombre de pestaña Excel (<=31 chars, sin []:*?/\), único.
 function sheetName(raw, used) {

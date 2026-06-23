@@ -82,6 +82,11 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   Future<void> _loadVehicles() async {
     try {
       final vs = await DataService().myVehicles();
+      // Vehículo "activo" del día (el que eligió al empezar la jornada).
+      String? todays;
+      if (widget.editId == null) {
+        todays = await DataService().todaysVehicleId(widget.profile.id);
+      }
       if (!mounted) return;
       setState(() {
         _vehicles = vs;
@@ -89,6 +94,8 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         final initVid = widget.initial?['vehicle_id'] as String?;
         if (initVid != null && vs.any((v) => v['id'] == initVid)) {
           _vehicleId = initVid;
+        } else if (todays != null && vs.any((v) => v['id'] == todays)) {
+          _vehicleId = todays; // preselecciona el coche del día
         } else if (vs.length == 1) {
           _vehicleId = vs.first['id'] as String?;
         }

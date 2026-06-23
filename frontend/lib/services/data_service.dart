@@ -185,6 +185,21 @@ class DataService {
     return (rows as List).isNotEmpty;
   }
 
+  /// Vehículo elegido HOY por el conductor (última lectura de hoy), o null.
+  /// Sirve como vehículo "activo" del día para preseleccionar en el formulario.
+  Future<String?> todaysVehicleId(String userId) async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final rows = await _c
+        .from('odometer_readings')
+        .select('vehicle_id')
+        .eq('user_id', userId)
+        .gte('taken_at', start.toUtc().toIso8601String())
+        .order('taken_at', ascending: false)
+        .limit(1);
+    return (rows as List).isNotEmpty ? rows.first['vehicle_id'] as String? : null;
+  }
+
   /// Registra una lectura de km.
   Future<void> addOdometerReading({
     required String tenantId,

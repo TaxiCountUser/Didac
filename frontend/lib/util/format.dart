@@ -30,13 +30,20 @@ const kCategoryLabels = <String, String>{
 IconData categoryIcon(String? cat) => kCategoryIcons[cat] ?? Icons.receipt_long;
 String categoryLabel(String? cat) => kCategoryLabels[cat] ?? (cat ?? 'Sin categoría');
 
+/// Primera letra en mayúscula (resto sin tocar). P. ej. "gitaxi" -> "Gitaxi".
+String capitalizeFirst(String s) =>
+    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+/// Nombre de cliente/empresa para mostrar: empresa capitalizada o "Particular".
+String clientDisplay(Map<String, dynamic> tx) {
+  final c = (tx['client_name'] as String?)?.trim();
+  return (c != null && c.isNotEmpty) ? capitalizeFirst(c) : 'Particular';
+}
+
 /// Título de una transacción para listas/detalle: en una carrera (ingreso),
-/// la empresa nombrada o "Particular"; en un gasto, la categoría.
+/// la empresa nombrada (capitalizada) o "Particular"; en un gasto, la categoría.
 String txTitle(Map<String, dynamic> tx) {
-  if (tx['type'] == 'income') {
-    final c = (tx['client_name'] as String?)?.trim();
-    return (c != null && c.isNotEmpty) ? c : 'Particular';
-  }
+  if (tx['type'] == 'income') return clientDisplay(tx);
   return categoryLabel(tx['category'] as String?);
 }
 

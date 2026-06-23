@@ -205,14 +205,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     final origin = (tx['origin'] as String?)?.trim();
     final destination = (tx['destination'] as String?)?.trim();
     final km = tx['odometer_km'] as int?;
-    final client = (tx['client_name'] as String?)?.trim();
     final rows = <Widget>[];
     if ((origin?.isNotEmpty ?? false) || (destination?.isNotEmpty ?? false)) {
       rows.add(_row(Icons.route, 'Trayecto',
           '${origin?.isNotEmpty == true ? origin : '—'} → ${destination?.isNotEmpty == true ? destination : '—'}'));
     }
-    rows.add(_row(Icons.business, 'Cliente',
-        (client?.isNotEmpty ?? false) ? client! : 'Particular'));
+    rows.add(_row(Icons.business, 'Cliente', clientDisplay(tx)));
     if (km != null) {
       rows.add(_row(Icons.speed, 'Km del coche', '$km km'));
     }

@@ -26,7 +26,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAskDailyKm());
   }
 
-  // Aviso in-app de km al empezar el día (una vez por sesión).
+  // Selector emergente al empezar el día (una vez por sesión): elige el coche
+  // del día y apunta los km de inicio. El coche elegido queda como activo.
   Future<void> _maybeAskDailyKm() async {
     if (_askedDailyKm) return;
     _askedDailyKm = true;
@@ -41,12 +42,47 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         }
       }
       if (!mounted) return;
-      await _showDailyKmDialog(vehicles);
+      await _showKmDialog(vehicles, title: 'Empezar jornada', barrier: false);
     } catch (_) {/* no es crítico */}
   }
 
-  Future<void> _showDailyKmDialog(List<Map<String, dynamic>> vehicles) async {
-    var vehicleId = vehicles.first['id'] as String;
+  // Aviso de km al FINALIZAR el día (manual, desde el botón).
+  Future<void> _endOfDay() async {
+    try {
+      final vehicles = await _service.myVehicles();
+      if (!mounted) return;
+      if (vehicles.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No tienes vehículos asignados.')),
+        );
+        return;
+      }
+      final preId = await _service.todaysVehicleId(widget.profile.id);
+      if (!mounted) return;
+      await _showKmDialog(vehicles,
+          title: 'Finalizar jornada', preVehicleId: preId, barrier: true);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  String _vehicleLabel(Map<String, dynamic> v) {
+    final plate = (v['license_plate'] as String?) ?? '';
+    final model = (v['model'] as String?) ?? '';
+    if (plate.isNotEmpty && model.isNotEmpty) return '$plate · $model';
+    return plate.isNotEmpty ? plate : (model.isNotEmpty ? model : 'Vehículo');
+  }
+
+  // Diálogo reutilizable de km (inicio o fin de jornada).
+  Future<void> _showKmDialog(
+    List<Map<String, dynamic>> vehicles, {
+    required String title,
+    String? preVehicleId,
+    bool barrier = true,
+  }) async {
+    var vehicleId = (preVehicleId != null && vehicles.any((v) => v['id'] == preVehicleId))
+        ? preVehicleId
+        : vehicles.first['id'] as String;
     final kmCtrl = TextEditingController();
 
     Future<void> prefill(String vid) async {
@@ -57,18 +93,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     await prefill(vehicleId);
     if (!mounted) return;
 
-    String labelOf(Map<String, dynamic> v) {
-      final plate = (v['license_plate'] as String?) ?? '';
-      final model = (v['model'] as String?) ?? '';
-      if (plate.isNotEmpty && model.isNotEmpty) return '$plate · $model';
-      return plate.isNotEmpty ? plate : (model.isNotEmpty ? model : 'Vehículo');
-    }
-
     final saved = await showDialog<bool>(
       context: context,
+      barrierDismissible: barrier,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Km al empezar el día'),
+          title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -77,10 +107,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   key: const Key('daily_km_vehicle'),
                   initialValue: vehicleId,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Vehículo de hoy'),
+                  decoration: const InputDecoration(labelText: 'Vehículo'),
                   items: [
                     for (final v in vehicles)
-                      DropdownMenuItem(value: v['id'] as String, child: Text(labelOf(v))),
+                      DropdownMenuItem(value: v['id'] as String, child: Text(_vehicleLabel(v))),
                   ],
                   onChanged: (val) async {
                     if (val == null) return;
@@ -122,7 +152,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           );
           if (mounted) {
             ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('Km guardados. ¡Buen día!')));
+                .showSnackBar(const SnackBar(content: Text('Km guardados')));
           }
         } catch (e) {
           if (mounted) {
@@ -149,7 +179,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         ],
       ),
       body: Center(
-        child: ConstrainedBox(
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -188,8 +219,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  key: const Key('end_of_day_button'),
+                  onPressed: _endOfDay,
+                  icon: const Icon(Icons.nightlight_round),
+                  label: const Text('Finalizar jornada (km)'),
+                ),
               ],
             ),
+          ),
           ),
         ),
       ),
