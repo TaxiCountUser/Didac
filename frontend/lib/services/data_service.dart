@@ -97,8 +97,9 @@ class DataService {
     String? destination,
     int? odometerKm,
     String? clientName,
+    DateTime? createdAt,
   }) async {
-    await _c.from('transactions').insert({
+    final row = <String, dynamic>{
       'tenant_id': tenantId,
       'user_id': userId,
       'amount': amount,
@@ -110,7 +111,10 @@ class DataService {
       'destination': destination,
       'odometer_km': odometerKm,
       'client_name': clientName,
-    });
+    };
+    // Si no se indica, la BD pone now() por defecto.
+    if (createdAt != null) row['created_at'] = createdAt.toUtc().toIso8601String();
+    await _c.from('transactions').insert(row);
   }
 
   /// Lista transacciones (RLS: el driver ve las suyas; el owner las de su
@@ -189,20 +193,23 @@ class DataService {
     String? destination,
     int? odometerKm,
     String? clientName,
+    DateTime? createdAt,
   }) async {
+    final patch = <String, dynamic>{
+      'amount': amount,
+      'category': category,
+      'type': type,
+      'payment_method': paymentMethod,
+      'description': description,
+      'origin': origin,
+      'destination': destination,
+      'odometer_km': odometerKm,
+      'client_name': clientName,
+    };
+    if (createdAt != null) patch['created_at'] = createdAt.toUtc().toIso8601String();
     final updated = await _c
         .from('transactions')
-        .update({
-          'amount': amount,
-          'category': category,
-          'type': type,
-          'payment_method': paymentMethod,
-          'description': description,
-          'origin': origin,
-          'destination': destination,
-          'odometer_km': odometerKm,
-          'client_name': clientName,
-        })
+        .update(patch)
         .eq('id', id)
         .select();
     if ((updated as List).isEmpty) {

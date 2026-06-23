@@ -23,15 +23,19 @@ class TransactionTile extends StatelessWidget {
     final color = typeColor(type);
     final sign = type == 'income' ? '+' : '-';
 
-    final subtitleParts = <String>[fmtDate(created)];
-    if (showDriver) subtitleParts.add(driverName(tx));
+    final route = tripRoute(tx);
+    final subtitleParts = <String>[
+      if (route != null) route,
+      fmtDate(created),
+      if (showDriver) driverName(tx),
+    ];
 
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: color.withValues(alpha: 0.12),
-        child: Icon(categoryIcon(tx['category'] as String?), color: color),
+        child: Icon(txIcon(tx), color: color),
       ),
-      title: Text(categoryLabel(tx['category'] as String?)),
+      title: Text(txTitle(tx)),
       subtitle: Text(subtitleParts.join(' · ')),
       trailing: Text(
         '$sign${money(amount)}',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/format.dart';
 import 'voice_input_screen.dart';
 
 const kCategories = <String, String>{
@@ -50,11 +51,13 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   String? _category;
   String _type = 'income'; // por defecto, carrera
   String _payment = 'tarjeta';
+  late DateTime _when; // fecha y hora del registro (por defecto, ahora)
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _when = DateTime.now();
     final i = widget.initial;
     if (i != null) {
       if (i['amount'] != null) _amount.text = (i['amount']).toString();
@@ -66,7 +69,31 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       if (i['destination'] != null) _destination.text = i['destination'] as String;
       if (i['odometer_km'] != null) _km.text = (i['odometer_km']).toString();
       if (i['client_name'] != null) _client.text = i['client_name'] as String;
+      if (i['created_at'] != null) _when = parseCreatedAt(i['created_at']).toLocal();
     }
+  }
+
+  Future<void> _pickWhen() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _when,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 1, 12, 31),
+      helpText: 'Fecha del registro',
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_when),
+      helpText: 'Hora del registro',
+    );
+    if (!mounted) return;
+    setState(() {
+      _when = DateTime(
+        date.year, date.month, date.day,
+        time?.hour ?? _when.hour, time?.minute ?? _when.minute,
+      );
+    });
   }
 
   @override
@@ -117,6 +144,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           destination: destination,
           odometerKm: odometer,
           clientName: client,
+          createdAt: _when,
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context)
@@ -136,6 +164,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         destination: destination,
         odometerKm: odometer,
         clientName: client,
+        createdAt: _when,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -193,6 +222,18 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
             labelText: _isTrip ? 'Precio' : 'Importe',
             border: const OutlineInputBorder(),
           ),
+        ),
+        const SizedBox(height: 12),
+        // Fecha y hora (por defecto, ahora; editable).
+        OutlinedButton.icon(
+          key: const Key('when_field'),
+          onPressed: _pickWhen,
+          icon: const Icon(Icons.event),
+          style: OutlinedButton.styleFrom(
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          label: Text('Fecha y hora: ${fmtDateTime(_when)}'),
         ),
         const SizedBox(height: 20),
         if (_isTrip) ..._tripFields() else ..._expenseFields(),

@@ -75,6 +75,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             'destination': tx['destination'],
             'odometer_km': tx['odometer_km'],
             'client_name': tx['client_name'],
+            'created_at': tx['created_at'],
           },
         ),
       ),
