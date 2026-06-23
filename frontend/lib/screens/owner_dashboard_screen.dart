@@ -34,6 +34,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   DateTimeRange? _customRange;
   String? _driverId;
   String? _vehicleId;
+  String _clientSearch = ''; // buscador por empresa/cliente
+  final _searchCtrl = TextEditingController();
 
   // Catálogos para los dropdowns
   List<Map<String, dynamic>> _drivers = [];
@@ -60,10 +62,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   @override
   void dispose() {
     _scroll.dispose();
+    _searchCtrl.dispose();
     final ch = _channel;
     if (ch != null) _service.client.removeChannel(ch);
     super.dispose();
   }
+
+  String? get _client => _clientSearch.trim().isEmpty ? null : _clientSearch.trim();
 
   // --------------- rango de fechas según el periodo ---------------
   DateTime get _from {
@@ -132,6 +137,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         vehicleId: _vehicleId,
         from: _from,
         to: _to,
+        client: _client,
       );
       if (mounted) setState(() => _summary = s);
     } catch (e) {
@@ -154,6 +160,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         vehicleId: _vehicleId,
         from: _from,
         to: _to,
+        client: _client,
         offset: _items.length,
         limit: _pageSize,
       );
@@ -236,6 +243,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   bool _matchesFilters(Map<String, dynamic> tx) {
     if (_driverId != null && tx['user_id'] != _driverId) return false;
     if (_vehicleId != null && tx['vehicle_id'] != _vehicleId) return false;
+    final c = _client;
+    if (c != null) {
+      final name = (tx['client_name'] as String?)?.toLowerCase() ?? '';
+      if (!name.contains(c.toLowerCase())) return false;
+    }
     final created = parseCreatedAt(tx['created_at']);
     if (created.isBefore(_from) || !created.isBefore(_to)) return false;
     return true;
@@ -266,6 +278,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         to: _to,
         driverId: _driverId,
         vehicleId: _vehicleId,
+        client: _client,
       );
       final dir = await getTemporaryDirectory();
       final ext = format == 'excel' ? 'xlsx' : 'pdf';
@@ -291,6 +304,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       children: [
         if (_subStatus != null && !_subscriptionActive) _billingBanner(),
         _toolbar(),
+        _searchBar(),
         _filterBar(),
         const Divider(height: 1),
         Expanded(child: _content()),
@@ -506,6 +520,38 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: TextField(
+        key: const Key('client_search'),
+        controller: _searchCtrl,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Buscar por empresa (p. ej. Gitaxi)',
+          prefixIcon: const Icon(Icons.search),
+          border: const OutlineInputBorder(),
+          suffixIcon: _clientSearch.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    setState(() => _clientSearch = '');
+                    _reload();
+                  },
+                ),
+        ),
+        onChanged: (v) => setState(() => _clientSearch = v), // refresca el botón limpiar
+        onSubmitted: (v) {
+          setState(() => _clientSearch = v);
+          _reload();
+        },
       ),
     );
   }

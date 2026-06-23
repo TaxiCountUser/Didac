@@ -2,16 +2,140 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile.dart';
+import '../services/data_service.dart';
 import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
 
 /// Home del Driver: elige entre añadir un registro o ver sus transacciones.
-class DriverHomeScreen extends StatelessWidget {
+/// Al abrir, si procede, pide los km del coche con los que empieza el día.
+class DriverHomeScreen extends StatefulWidget {
   final Profile profile;
   const DriverHomeScreen({super.key, required this.profile});
 
   @override
+  State<DriverHomeScreen> createState() => _DriverHomeScreenState();
+}
+
+class _DriverHomeScreenState extends State<DriverHomeScreen> {
+  final _service = DataService();
+  bool _askedDailyKm = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAskDailyKm());
+  }
+
+  // Aviso in-app de km al empezar el día (una vez por sesión).
+  Future<void> _maybeAskDailyKm() async {
+    if (_askedDailyKm) return;
+    _askedDailyKm = true;
+    try {
+      final vehicles = await _service.myVehicles();
+      if (vehicles.isEmpty || !mounted) return;
+
+      // Si ya hay lectura de hoy para alguno de sus vehículos, no molestamos.
+      for (final v in vehicles) {
+        if (await _service.hasOdometerToday(v['id'] as String, widget.profile.id)) {
+          return;
+        }
+      }
+      if (!mounted) return;
+      await _showDailyKmDialog(vehicles);
+    } catch (_) {/* no es crítico */}
+  }
+
+  Future<void> _showDailyKmDialog(List<Map<String, dynamic>> vehicles) async {
+    var vehicleId = vehicles.first['id'] as String;
+    final kmCtrl = TextEditingController();
+
+    Future<void> prefill(String vid) async {
+      final last = await _service.lastOdometer(vid);
+      kmCtrl.text = last?.toString() ?? '';
+    }
+
+    await prefill(vehicleId);
+    if (!mounted) return;
+
+    String labelOf(Map<String, dynamic> v) {
+      final plate = (v['license_plate'] as String?) ?? '';
+      final model = (v['model'] as String?) ?? '';
+      if (plate.isNotEmpty && model.isNotEmpty) return '$plate · $model';
+      return plate.isNotEmpty ? plate : (model.isNotEmpty ? model : 'Vehículo');
+    }
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Km al empezar el día'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (vehicles.length > 1) ...[
+                DropdownButtonFormField<String>(
+                  key: const Key('daily_km_vehicle'),
+                  initialValue: vehicleId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Vehículo de hoy'),
+                  items: [
+                    for (final v in vehicles)
+                      DropdownMenuItem(value: v['id'] as String, child: Text(labelOf(v))),
+                  ],
+                  onChanged: (val) async {
+                    if (val == null) return;
+                    vehicleId = val;
+                    await prefill(val);
+                    setLocal(() {});
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                key: const Key('daily_km_field'),
+                controller: kmCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Km actuales del coche',
+                  prefixIcon: Icon(Icons.speed),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Ahora no')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+          ],
+        ),
+      ),
+    );
+
+    if (saved == true) {
+      final km = int.tryParse(kmCtrl.text.trim());
+      if (km != null && km >= 0) {
+        try {
+          await _service.addOdometerReading(
+            tenantId: widget.profile.tenantId,
+            vehicleId: vehicleId,
+            userId: widget.profile.id,
+            readingKm: km,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('Km guardados. ¡Buen día!')));
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          }
+        }
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final profile = widget.profile;
     final displayName = profile.name?.isNotEmpty == true ? profile.name! : profile.email;
     return Scaffold(
       appBar: AppBar(

@@ -102,6 +102,15 @@ void main() {
         .single();
     expect((ownerView['vehicles'] as Map)['license_plate'], 'DV-1-$ts');
 
+    // Odómetro: driver1 apunta km; el Owner lo ve, driver2 no (RLS).
+    await driver1.from('odometer_readings').insert(
+        {'tenant_id': tenantId, 'vehicle_id': v1['id'], 'user_id': d1, 'reading_km': 123456});
+    final ownerKm = await owner.from('odometer_readings').select('reading_km').eq('vehicle_id', v1['id']);
+    expect((ownerKm as List).length, 1);
+    expect(ownerKm.first['reading_km'], 123456);
+    final d2Km = await driver2.from('odometer_readings').select('id');
+    expect((d2Km as List).length, 0, reason: 'driver2 no ve lecturas ajenas');
+
     // Limpieza best-effort
     try {
       await admin.auth.admin.deleteUser(d1);

@@ -145,6 +145,61 @@ class DataService {
     return vehiclesForDriver(uid);
   }
 
+  // ---------------- Km diarios (odómetro) ----------------
+
+  /// Últimos km conocidos de un vehículo (máx. entre lecturas y transacciones).
+  Future<int?> lastOdometer(String vehicleId) async {
+    int? best;
+    final r = await _c
+        .from('odometer_readings')
+        .select('reading_km')
+        .eq('vehicle_id', vehicleId)
+        .order('reading_km', ascending: false)
+        .limit(1);
+    if ((r as List).isNotEmpty) best = (r.first['reading_km'] as num).toInt();
+    final t = await _c
+        .from('transactions')
+        .select('odometer_km')
+        .eq('vehicle_id', vehicleId)
+        .not('odometer_km', 'is', null)
+        .order('odometer_km', ascending: false)
+        .limit(1);
+    if ((t as List).isNotEmpty && t.first['odometer_km'] != null) {
+      final k = (t.first['odometer_km'] as num).toInt();
+      if (best == null || k > best) best = k;
+    }
+    return best;
+  }
+
+  /// ¿Hay ya una lectura de hoy para este vehículo y conductor?
+  Future<bool> hasOdometerToday(String vehicleId, String userId) async {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final rows = await _c
+        .from('odometer_readings')
+        .select('id')
+        .eq('vehicle_id', vehicleId)
+        .eq('user_id', userId)
+        .gte('taken_at', startOfDay.toUtc().toIso8601String())
+        .limit(1);
+    return (rows as List).isNotEmpty;
+  }
+
+  /// Registra una lectura de km.
+  Future<void> addOdometerReading({
+    required String tenantId,
+    required String vehicleId,
+    required String userId,
+    required int readingKm,
+  }) async {
+    await _c.from('odometer_readings').insert({
+      'tenant_id': tenantId,
+      'vehicle_id': vehicleId,
+      'user_id': userId,
+      'reading_km': readingKm,
+    });
+  }
+
   // ---------------- Transacciones ----------------
   Future<void> addTransaction({
     required String tenantId,
@@ -187,6 +242,7 @@ class DataService {
     String? vehicleId,
     DateTime? from,
     DateTime? to,
+    String? client,
     int offset = 0,
     int limit = 20,
   }) async {
@@ -196,6 +252,9 @@ class DataService {
     if (vehicleId != null) query = query.eq('vehicle_id', vehicleId);
     if (from != null) query = query.gte('created_at', from.toIso8601String());
     if (to != null) query = query.lt('created_at', to.toIso8601String());
+    if (client != null && client.isNotEmpty) {
+      query = query.ilike('client_name', '%$client%');
+    }
     final data = await query
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
@@ -220,12 +279,16 @@ class DataService {
     String? vehicleId,
     DateTime? from,
     DateTime? to,
+    String? client,
   }) async {
     var query = _c.from('transactions').select('amount, type, category');
     if (userId != null) query = query.eq('user_id', userId);
     if (vehicleId != null) query = query.eq('vehicle_id', vehicleId);
     if (from != null) query = query.gte('created_at', from.toIso8601String());
     if (to != null) query = query.lt('created_at', to.toIso8601String());
+    if (client != null && client.isNotEmpty) {
+      query = query.ilike('client_name', '%$client%');
+    }
     final rows = (await query as List).cast<Map<String, dynamic>>();
 
     double income = 0, expense = 0;
@@ -372,6 +435,7 @@ class DataService {
     DateTime? to,
     String? driverId,
     String? vehicleId,
+    String? client,
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
@@ -383,6 +447,7 @@ class DataService {
         'endDate': to?.toIso8601String(),
         'driverId': driverId,
         'vehicleId': vehicleId,
+        'client': client,
       }),
     );
     if (res.statusCode == 504) {
