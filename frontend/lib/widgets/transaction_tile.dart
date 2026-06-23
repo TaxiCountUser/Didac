@@ -24,9 +24,11 @@ class TransactionTile extends StatelessWidget {
     final sign = type == 'income' ? '+' : '-';
 
     final route = tripRoute(tx);
+    // En carreras (servicio) mostramos también la hora; en gastos, solo la fecha.
+    final whenStr = type == 'income' ? fmtDateTime(created) : fmtDate(created);
     final subtitleParts = <String>[
       if (route != null) route,
-      fmtDate(created),
+      whenStr,
       if (showDriver) driverName(tx),
     ];
 

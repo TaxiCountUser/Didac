@@ -66,6 +66,75 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     }
   }
 
+  /// Asigna conductores a un vehículo (multi-selección).
+  Future<void> _assignDrivers(Map<String, dynamic> vehicle) async {
+    final vehicleId = vehicle['id'] as String;
+    List<Map<String, dynamic>> drivers;
+    Set<String> selected;
+    try {
+      drivers = await _service.listDrivers();
+      final assigned = await _service.driversForVehicle(vehicleId);
+      selected = assigned.map((d) => d['id'] as String).toSet();
+    } catch (e) {
+      _showError(e);
+      return;
+    }
+    if (!mounted) return;
+    if (drivers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay conductores. Invita alguno primero.')),
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('Choferes de ${vehicle['license_plate'] ?? 'vehículo'}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final d in drivers)
+                  CheckboxListTile(
+                    value: selected.contains(d['id']),
+                    title: Text(d['name'] as String? ?? d['email'] as String),
+                    subtitle: Text(d['email'] as String),
+                    onChanged: (v) => setLocal(() {
+                      if (v == true) {
+                        selected.add(d['id'] as String);
+                      } else {
+                        selected.remove(d['id']);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      try {
+        await _service.setDriversForVehicle(
+          vehicleId: vehicleId,
+          tenantId: widget.profile.tenantId,
+          userIds: selected.toList(),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Asignación guardada')));
+      } catch (e) {
+        _showError(e);
+      }
+    }
+  }
+
   Future<void> _delete(String id) async {
     try {
       await _service.deleteVehicle(id);
@@ -124,6 +193,8 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                     leading: const Icon(Icons.directions_car),
                     title: Text(v['license_plate'] as String? ?? '—'),
                     subtitle: Text(v['model'] as String? ?? 'Sin modelo'),
+                    trailing: const Icon(Icons.people_outline),
+                    onTap: () => _assignDrivers(v),
                   ),
                 );
               },

@@ -84,6 +84,67 @@ class DataService {
     return (body['tempPassword'] as String?) ?? '';
   }
 
+  // ---------------- Asignación conductor <-> vehículo ----------------
+
+  /// Vehículos asignados a un conductor (vía driver_vehicles).
+  Future<List<Map<String, dynamic>>> vehiclesForDriver(String userId) async {
+    final data = await _c
+        .from('driver_vehicles')
+        .select('vehicle_id, vehicles:vehicle_id(id, license_plate, model)')
+        .eq('user_id', userId);
+    return (data as List)
+        .map((r) => (r['vehicles'] as Map?)?.cast<String, dynamic>())
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  /// Conductores asignados a un vehículo.
+  Future<List<Map<String, dynamic>>> driversForVehicle(String vehicleId) async {
+    final data = await _c
+        .from('driver_vehicles')
+        .select('user_id, users:user_id(id, name, email)')
+        .eq('vehicle_id', vehicleId);
+    return (data as List)
+        .map((r) => (r['users'] as Map?)?.cast<String, dynamic>())
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  /// Reemplaza el conjunto de vehículos de un conductor (solo Owner por RLS).
+  Future<void> setVehiclesForDriver({
+    required String userId,
+    required String tenantId,
+    required List<String> vehicleIds,
+  }) async {
+    await _c.from('driver_vehicles').delete().eq('user_id', userId);
+    if (vehicleIds.isEmpty) return;
+    await _c.from('driver_vehicles').insert([
+      for (final vid in vehicleIds)
+        {'tenant_id': tenantId, 'user_id': userId, 'vehicle_id': vid},
+    ]);
+  }
+
+  /// Reemplaza el conjunto de conductores de un vehículo (solo Owner por RLS).
+  Future<void> setDriversForVehicle({
+    required String vehicleId,
+    required String tenantId,
+    required List<String> userIds,
+  }) async {
+    await _c.from('driver_vehicles').delete().eq('vehicle_id', vehicleId);
+    if (userIds.isEmpty) return;
+    await _c.from('driver_vehicles').insert([
+      for (final uid in userIds)
+        {'tenant_id': tenantId, 'user_id': uid, 'vehicle_id': vehicleId},
+    ]);
+  }
+
+  /// Vehículos del conductor autenticado (para registrar / elegir al empezar).
+  Future<List<Map<String, dynamic>>> myVehicles() async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return [];
+    return vehiclesForDriver(uid);
+  }
+
   // ---------------- Transacciones ----------------
   Future<void> addTransaction({
     required String tenantId,
@@ -98,10 +159,12 @@ class DataService {
     int? odometerKm,
     String? clientName,
     DateTime? createdAt,
+    String? vehicleId,
   }) async {
     final row = <String, dynamic>{
       'tenant_id': tenantId,
       'user_id': userId,
+      'vehicle_id': vehicleId,
       'amount': amount,
       'category': category,
       'type': type,
@@ -194,6 +257,8 @@ class DataService {
     int? odometerKm,
     String? clientName,
     DateTime? createdAt,
+    String? vehicleId,
+    bool setVehicle = false,
   }) async {
     final patch = <String, dynamic>{
       'amount': amount,
@@ -206,6 +271,7 @@ class DataService {
       'odometer_km': odometerKm,
       'client_name': clientName,
     };
+    if (setVehicle) patch['vehicle_id'] = vehicleId;
     if (createdAt != null) patch['created_at'] = createdAt.toUtc().toIso8601String();
     final updated = await _c
         .from('transactions')

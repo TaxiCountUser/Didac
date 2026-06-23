@@ -54,10 +54,16 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   late DateTime _when; // fecha y hora del registro (por defecto, ahora)
   bool _saving = false;
 
+  // Vehículos asignados al conductor (para imputar el coche).
+  List<Map<String, dynamic>> _vehicles = const [];
+  String? _vehicleId;
+  bool _vehiclesLoaded = false;
+
   @override
   void initState() {
     super.initState();
     _when = DateTime.now();
+    if (!widget.profile.isOwner) _loadVehicles();
     final i = widget.initial;
     if (i != null) {
       if (i['amount'] != null) _amount.text = (i['amount']).toString();
@@ -71,6 +77,32 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       if (i['client_name'] != null) _client.text = i['client_name'] as String;
       if (i['created_at'] != null) _when = parseCreatedAt(i['created_at']).toLocal();
     }
+  }
+
+  Future<void> _loadVehicles() async {
+    try {
+      final vs = await DataService().myVehicles();
+      if (!mounted) return;
+      setState(() {
+        _vehicles = vs;
+        _vehiclesLoaded = true;
+        final initVid = widget.initial?['vehicle_id'] as String?;
+        if (initVid != null && vs.any((v) => v['id'] == initVid)) {
+          _vehicleId = initVid;
+        } else if (vs.length == 1) {
+          _vehicleId = vs.first['id'] as String?;
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _vehiclesLoaded = true);
+    }
+  }
+
+  String _vehicleLabel(Map<String, dynamic> v) {
+    final plate = (v['license_plate'] as String?) ?? '';
+    final model = (v['model'] as String?) ?? '';
+    if (plate.isNotEmpty && model.isNotEmpty) return '$plate · $model';
+    return plate.isNotEmpty ? plate : (model.isNotEmpty ? model : 'Vehículo');
   }
 
   Future<void> _pickWhen() async {
@@ -145,6 +177,8 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           odometerKm: odometer,
           clientName: client,
           createdAt: _when,
+          vehicleId: _vehicleId,
+          setVehicle: !widget.profile.isOwner,
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context)
@@ -165,6 +199,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         odometerKm: odometer,
         clientName: client,
         createdAt: _when,
+        vehicleId: _vehicleId,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -235,6 +270,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           ),
           label: Text('Fecha y hora: ${fmtDateTime(_when)}'),
         ),
+        ..._vehicleSelector(),
         const SizedBox(height: 20),
         if (_isTrip) ..._tripFields() else ..._expenseFields(),
         const SizedBox(height: 20),
@@ -297,6 +333,44 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       ),
       body: form,
     );
+  }
+
+  // Selector de vehículo (solo conductor): auto si tiene 1, desplegable si varios.
+  List<Widget> _vehicleSelector() {
+    if (widget.profile.isOwner || !_vehiclesLoaded || _vehicles.isEmpty) {
+      return const [];
+    }
+    if (_vehicles.length == 1) {
+      return [
+        const SizedBox(height: 12),
+        InputDecorator(
+          decoration: const InputDecoration(
+            labelText: 'Vehículo',
+            prefixIcon: Icon(Icons.directions_car),
+            border: OutlineInputBorder(),
+          ),
+          child: Text(_vehicleLabel(_vehicles.first)),
+        ),
+      ];
+    }
+    return [
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(
+        key: const Key('vehicle_dropdown'),
+        initialValue: _vehicleId,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Vehículo',
+          prefixIcon: Icon(Icons.directions_car),
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          for (final v in _vehicles)
+            DropdownMenuItem(value: v['id'] as String, child: Text(_vehicleLabel(v))),
+        ],
+        onChanged: (val) => setState(() => _vehicleId = val),
+      ),
+    ];
   }
 
   // Campos específicos de una carrera (ingreso).
