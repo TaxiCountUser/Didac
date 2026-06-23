@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import 'add_record_screen.dart';
@@ -43,7 +44,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         }
       }
       if (!mounted) return;
-      await _showKmDialog(vehicles, title: 'Empezar jornada', barrier: false);
+      await _showKmDialog(vehicles, title: context.l10n.t('dh_start_day'), barrier: false);
     } catch (_) {/* no es crítico */}
   }
 
@@ -54,14 +55,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       if (!mounted) return;
       if (vehicles.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No tienes vehículos asignados.')),
+          SnackBar(content: Text(context.l10n.t('dh_no_vehicles'))),
         );
         return;
       }
       final preId = await _service.todaysVehicleId(widget.profile.id);
       if (!mounted) return;
       await _showKmDialog(vehicles,
-          title: 'Finalizar jornada', preVehicleId: preId, barrier: true);
+          title: context.l10n.t('dh_finish_day'), preVehicleId: preId, barrier: true);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -81,6 +82,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     String? preVehicleId,
     bool barrier = true,
   }) async {
+    final l = context.l10n;
     var vehicleId = (preVehicleId != null && vehicles.any((v) => v['id'] == preVehicleId))
         ? preVehicleId
         : vehicles.first['id'] as String;
@@ -108,7 +110,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   key: const Key('daily_km_vehicle'),
                   initialValue: vehicleId,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Vehículo'),
+                  decoration: InputDecoration(labelText: l.t('dh_vehicle')),
                   items: [
                     for (final v in vehicles)
                       DropdownMenuItem(value: v['id'] as String, child: Text(_vehicleLabel(v))),
@@ -126,16 +128,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 key: const Key('daily_km_field'),
                 controller: kmCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Km actuales del coche',
-                  prefixIcon: Icon(Icons.speed),
+                decoration: InputDecoration(
+                  labelText: l.t('dh_km_now'),
+                  prefixIcon: const Icon(Icons.speed),
                 ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Ahora no')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('dh_not_now'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
           ],
         ),
       ),
@@ -153,11 +155,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           );
           if (mounted) {
             ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('Km guardados')));
+                .showSnackBar(SnackBar(content: Text(l.t('dh_km_saved'))));
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
           }
         }
       }
@@ -166,6 +168,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final profile = widget.profile;
     final displayName = profile.name?.isNotEmpty == true ? profile.name! : profile.email;
     return Scaffold(
@@ -174,14 +177,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         actions: [
           IconButton(
             key: const Key('settings_button'),
-            tooltip: 'Ajustes',
+            tooltip: l.t('settings'),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => SettingsScreen(profile: profile)),
             ),
             icon: const Icon(Icons.settings),
           ),
           IconButton(
-            tooltip: 'Cerrar sesión',
+            tooltip: l.t('logout'),
             onPressed: () => Supabase.instance.client.auth.signOut(),
             icon: const Icon(Icons.logout),
           ),
@@ -200,7 +203,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 const Icon(Icons.local_taxi, size: 64, color: Colors.amber),
                 const SizedBox(height: 12),
                 Text(
-                  '¡Hola, $displayName!',
+                  l.t('dh_hello', {'name': displayName}),
                   style: Theme.of(context).textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
@@ -208,8 +211,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 _BigButton(
                   key: const Key('add_record_button'),
                   icon: Icons.add_circle,
-                  label: 'Añadir registro',
-                  subtitle: 'Carrera o gasto (voz o manual)',
+                  label: l.t('dh_add_record'),
+                  subtitle: l.t('dh_add_record_sub'),
                   color: Colors.amber.shade700,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => AddRecordScreen(profile: profile)),
@@ -219,8 +222,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 _BigButton(
                   key: const Key('view_transactions_button'),
                   icon: Icons.receipt_long,
-                  label: 'Ver transacciones',
-                  subtitle: 'Tu historial de carreras y gastos',
+                  label: l.t('dh_view_tx'),
+                  subtitle: l.t('dh_view_tx_sub'),
                   color: Colors.blueGrey,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
@@ -233,7 +236,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   key: const Key('end_of_day_button'),
                   onPressed: _endOfDay,
                   icon: const Icon(Icons.nightlight_round),
-                  label: const Text('Finalizar jornada (km)'),
+                  label: Text(l.t('dh_end_day')),
                 ),
               ],
             ),

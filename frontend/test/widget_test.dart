@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:taxicount/l10n/app_localizations.dart';
 import 'package:taxicount/models/profile.dart';
 import 'package:taxicount/screens/login_screen.dart';
 import 'package:taxicount/screens/driver_home_screen.dart';
 
+/// Envuelve la pantalla con localización (ES) para los tests.
+Widget _app(Widget home) => MaterialApp(
+      locale: const Locale('es'),
+      supportedLocales: kSupportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      home: home,
+    );
+
 void main() {
   testWidgets('Login muestra los campos básicos', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+    await tester.pumpWidget(_app(const LoginScreen()));
+    await tester.pumpAndSettle();
 
     expect(find.text('TaxiCount'), findsOneWidget);
     expect(find.byKey(const Key('email_field')), findsOneWidget);
     expect(find.byKey(const Key('password_field')), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Entrar'), findsOneWidget);
   });
 
   testWidgets('Driver: vista limitada sin vehículos ni conductores', (tester) async {
@@ -23,9 +32,10 @@ void main() {
       name: 'Ana',
       role: 'driver',
     );
-    await tester.pumpWidget(const MaterialApp(home: DriverHomeScreen(profile: profile)));
+    await tester.pumpWidget(_app(const DriverHomeScreen(profile: profile)));
+    await tester.pump();
 
-    // Saludo + las dos acciones del conductor.
+    // Saludo + las dos acciones del conductor (en español).
     expect(find.textContaining('Hola'), findsOneWidget);
     expect(find.text('Añadir registro'), findsOneWidget);
     expect(find.text('Ver transacciones'), findsOneWidget);

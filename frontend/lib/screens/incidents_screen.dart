@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
@@ -28,24 +29,22 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   void _reload() => setState(() => _future = _service.listIncidents());
 
   Future<void> _addNote() async {
+    final l = context.l10n;
     final ctrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Mensaje al jefe'),
+        title: Text(l.t('inc_to_boss')),
         content: TextField(
           key: const Key('incident_body'),
           controller: ctrl,
           autofocus: true,
           maxLines: 4,
-          decoration: const InputDecoration(
-            hintText: 'Ej.: hoy escuché un ruido raro en la rueda derecha',
-            border: OutlineInputBorder(),
-          ),
+          decoration: InputDecoration(hintText: l.t('inc_hint'), border: const OutlineInputBorder()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Enviar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('send'))),
         ],
       ),
     );
@@ -58,12 +57,11 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
         );
         _reload();
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('Mensaje enviado al jefe')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('inc_sent'))));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
         }
       }
     }
@@ -82,6 +80,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final isOwner = widget.profile.isOwner;
     return Scaffold(
       floatingActionButton: isOwner
@@ -90,7 +89,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
               key: const Key('add_incident_fab'),
               onPressed: _addNote,
               icon: const Icon(Icons.edit),
-              label: const Text('Mensaje al jefe'),
+              label: Text(l.t('inc_to_boss')),
             ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
@@ -104,9 +103,8 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
           final items = snap.data ?? [];
           if (items.isEmpty) {
             return Center(
-              child: Text(isOwner
-                  ? 'No hay incidencias.'
-                  : 'No has enviado ninguna incidencia.\nPulsa "Mensaje al jefe".'),
+              child: Text(isOwner ? l.t('inc_none_owner') : l.t('inc_none_driver'),
+                  textAlign: TextAlign.center),
             );
           }
           return RefreshIndicator(
@@ -123,13 +121,14 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   }
 
   Widget _tile(Map<String, dynamic> it, bool isOwner) {
+    final l = context.l10n;
     final kind = it['kind'] as String? ?? 'nota';
     final resolved = it['status'] == 'resuelta';
     final created = parseCreatedAt(it['created_at']);
     final sub = <String>[
       if (isOwner) driverName(it),
       fmtDateTime(created),
-      if (kind == 'app') 'Fallo de la app',
+      if (kind == 'app') l.t('inc_app_bug'),
     ].join(' · ');
 
     return ListTile(
@@ -146,10 +145,10 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
       ),
       subtitle: Text(sub),
       trailing: resolved
-          ? const Chip(label: Text('Resuelta'), visualDensity: VisualDensity.compact)
+          ? Chip(label: Text(l.t('inc_resolved')), visualDensity: VisualDensity.compact)
           : (isOwner
-              ? TextButton(onPressed: () => _resolve(it['id'] as String), child: const Text('Resolver'))
-              : const Chip(label: Text('Abierta'), visualDensity: VisualDensity.compact)),
+              ? TextButton(onPressed: () => _resolve(it['id'] as String), child: Text(l.t('inc_resolve')))
+              : Chip(label: Text(l.t('inc_open')), visualDensity: VisualDensity.compact)),
     );
   }
 }

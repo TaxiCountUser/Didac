@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import 'transaction_input_screen.dart';
 import 'voice_capture.dart';
@@ -33,20 +34,21 @@ class _AddRecordScreenState extends State<AddRecordScreen>
     });
     _tabs.animateTo(0); // ir a "Manual" para revisar/confirmar
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Revisa los datos y guarda')),
+      SnackBar(content: Text(context.l10n.t('ar_review'))),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Añadir registro'),
+        title: Text(l.t('ar_title')),
         bottom: TabBar(
           controller: _tabs,
-          tabs: const [
-            Tab(icon: Icon(Icons.edit), text: 'Manual'),
-            Tab(icon: Icon(Icons.mic), text: 'Voz'),
+          tabs: [
+            Tab(icon: const Icon(Icons.edit), text: l.t('ar_manual')),
+            Tab(icon: const Icon(Icons.mic), text: l.t('ar_voice')),
           ],
         ),
       ),

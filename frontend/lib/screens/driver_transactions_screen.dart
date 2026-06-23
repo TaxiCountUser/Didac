@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../widgets/transaction_tile.dart';
@@ -126,7 +127,7 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis transacciones')),
+      appBar: AppBar(title: Text(context.l10n.t('dt_title'))),
       body: Column(
         children: [
           _periodSelector(),
@@ -138,15 +139,16 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   }
 
   Widget _periodSelector() {
+    final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _chip('Día', DriverPeriod.day),
-          _chip('Semana', DriverPeriod.week),
-          _chip('Mes', DriverPeriod.month),
-          _chip('Año', DriverPeriod.year),
+          _chip(l.t('per_day'), DriverPeriod.day),
+          _chip(l.t('per_week'), DriverPeriod.week),
+          _chip(l.t('per_month'), DriverPeriod.month),
+          _chip(l.t('per_year'), DriverPeriod.year),
         ],
       ),
     );
@@ -165,10 +167,10 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
 
   Widget _list() {
     if (_error != null && _items.isEmpty) {
-      return Center(child: Text('Error: $_error'));
+      return Center(child: Text('${context.l10n.t('error')}: $_error'));
     }
     if (!_loading && _items.isEmpty) {
-      return const Center(child: Text('No hay transacciones en este periodo.'));
+      return Center(child: Text(context.l10n.t('dt_empty')));
     }
     return RefreshIndicator(
       onRefresh: _reload,
