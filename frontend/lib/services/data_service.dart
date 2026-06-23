@@ -478,6 +478,42 @@ class DataService {
     return res.bodyBytes;
   }
 
+  // ---------------- Incidencias / notas al jefe ----------------
+
+  /// Lista incidencias (RLS: owner las de su tenant; conductor las suyas).
+  /// Incluye el autor para que el Owner sepa quién la escribió.
+  Future<List<Map<String, dynamic>>> listIncidents({String? kind}) async {
+    var q = _c.from('incidents').select('*, users:user_id(name, email)');
+    if (kind != null) q = q.eq('kind', kind);
+    final data = await q.order('created_at', ascending: false);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Crea una incidencia: kind 'nota' (mensaje al jefe) o 'app' (fallo de la app).
+  Future<void> addIncident({
+    required String tenantId,
+    required String kind,
+    required String body,
+  }) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) throw Exception('No hay sesión activa');
+    await _c.from('incidents').insert({
+      'tenant_id': tenantId,
+      'user_id': uid,
+      'kind': kind,
+      'body': body,
+    });
+  }
+
+  /// Marca una incidencia como resuelta (solo Owner por RLS).
+  Future<void> resolveIncident(String id) async {
+    final updated =
+        await _c.from('incidents').update({'status': 'resuelta'}).eq('id', id).select();
+    if ((updated as List).isEmpty) {
+      throw Exception('No se pudo actualizar la incidencia');
+    }
+  }
+
   // ---------------- Onboarding ----------------
   Future<void> completeOnboarding() async {
     final uid = _c.auth.currentUser?.id;

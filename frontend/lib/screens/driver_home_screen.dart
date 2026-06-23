@@ -5,6 +5,7 @@ import '../models/profile.dart';
 import '../services/data_service.dart';
 import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
+import 'settings_screen.dart';
 
 /// Home del Driver: elige entre añadir un registro o ver sus transacciones.
 /// Al abrir, si procede, pide los km del coche con los que empieza el día.
@@ -171,6 +172,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       appBar: AppBar(
         title: const Text('TaxiCount'),
         actions: [
+          IconButton(
+            key: const Key('settings_button'),
+            tooltip: 'Ajustes',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => SettingsScreen(profile: profile)),
+            ),
+            icon: const Icon(Icons.settings),
+          ),
           IconButton(
             tooltip: 'Cerrar sesión',
             onPressed: () => Supabase.instance.client.auth.signOut(),

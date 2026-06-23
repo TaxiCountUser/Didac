@@ -6,6 +6,8 @@ import 'owner_dashboard_screen.dart';
 import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
 import 'subscription_screen.dart';
+import 'incidents_screen.dart';
+import 'settings_screen.dart';
 
 /// Home del Owner: pestañas de Vehículos y Conductores.
 class OwnerHomeScreen extends StatefulWidget {
@@ -25,13 +27,22 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       OwnerDashboardScreen(profile: widget.profile),
       VehiclesScreen(profile: widget.profile),
       DriversScreen(profile: widget.profile),
+      IncidentsScreen(profile: widget.profile),
       SubscriptionScreen(profile: widget.profile),
     ];
-    const titles = ['Dashboard', 'Vehículos', 'Conductores', 'Suscripción'];
+    const titles = ['Dashboard', 'Vehículos', 'Conductores', 'Incidencias', 'Suscripción'];
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_index]),
         actions: [
+          IconButton(
+            key: const Key('settings_button'),
+            tooltip: 'Ajustes',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => SettingsScreen(profile: widget.profile)),
+            ),
+            icon: const Icon(Icons.settings),
+          ),
           IconButton(
             tooltip: 'Cerrar sesión',
             onPressed: () => Supabase.instance.client.auth.signOut(),
@@ -58,6 +69,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
             label: 'Conductores',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.report_problem_outlined),
+            selectedIcon: Icon(Icons.report_problem),
+            label: 'Incidencias',
           ),
           NavigationDestination(
             icon: Icon(Icons.workspace_premium_outlined),
