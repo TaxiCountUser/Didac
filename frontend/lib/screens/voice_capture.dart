@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 
 /// Captura de voz reutilizable: graba, transcribe (backend/Whisper) y entrega
@@ -31,13 +32,13 @@ class _VoiceCaptureState extends State<VoiceCapture> {
     setState(() => _error = null);
     try {
       if (!await _recorder.hasPermission()) {
-        setState(() => _error = 'Sin permiso de micrófono');
+        setState(() => _error = context.l10n.t('vc_no_perm'));
         return;
       }
       await _recorder.start(const RecordConfig(), path: 'voice_note.m4a');
       setState(() => _recording = true);
     } catch (e) {
-      setState(() => _error = 'No se pudo iniciar la grabación: $e');
+      setState(() => _error = '${context.l10n.t('vc_start_fail')}: $e');
     }
   }
 
@@ -49,7 +50,7 @@ class _VoiceCaptureState extends State<VoiceCapture> {
     });
     try {
       final path = await _recorder.stop();
-      if (path == null) throw Exception('No se grabó audio');
+      if (path == null) throw Exception(context.l10n.t('vc_no_audio'));
 
       // En web el path es un blob URL; leemos los bytes vía http.
       final bytes = (await http.get(Uri.parse(path))).bodyBytes;
@@ -65,13 +66,14 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Error al transcribir: $e';
+        _error = '${context.l10n.t('vc_transcribe_err')}: $e';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -81,16 +83,16 @@ class _VoiceCaptureState extends State<VoiceCapture> {
             if (_busy) ...[
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
-              const Text('Transcribiendo…'),
+              Text(l.t('vc_transcribing')),
             ] else ...[
               Text(
-                _recording ? 'Grabando… pulsa para terminar' : 'Pulsa el micrófono y dicta tu carrera',
+                _recording ? l.t('vc_recording') : l.t('vc_tap'),
                 style: Theme.of(context).textTheme.titleMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                'Ej.: "carrera de Sants a la Sagrera por 18 euros con tarjeta de Movitaxi"',
+                l.t('vc_example'),
                 style: Theme.of(context).textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),
@@ -114,7 +116,7 @@ class _VoiceCaptureState extends State<VoiceCapture> {
                   _error = null;
                   _busy = false;
                 }),
-                child: const Text('Reintentar'),
+                child: Text(l.t('retry')),
               ),
             ],
           ],

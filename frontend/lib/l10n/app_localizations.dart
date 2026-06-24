@@ -57,6 +57,13 @@ class AppLocalizations {
     }
     return s;
   }
+
+  /// Etiqueta de categoría de gasto localizada (con fallback al propio código).
+  String catLabel(String? cat) {
+    if (cat == null || cat.isEmpty) return t('uncategorized');
+    final lang = locale.languageCode;
+    return _values[lang]?['cat_$cat'] ?? _values['es']?['cat_$cat'] ?? cat;
+  }
 }
 
 extension L10nX on BuildContext {
@@ -142,6 +149,36 @@ const Map<String, Map<String, String>> _values = {
     // Historial chofer
     'dt_title': 'Mis transacciones', 'dt_empty': 'No hay transacciones en este periodo.',
     'per_day': 'Día', 'per_week': 'Semana', 'per_month': 'Mes', 'per_year': 'Año',
+    // Categorías / cliente
+    'uncategorized': 'Sin categoría', 'particular': 'Particular',
+    'cat_gasolina': 'Gasolina', 'cat_gasoil': 'Gasoil', 'cat_taller': 'Taller',
+    'cat_peaje': 'Peaje', 'cat_parking': 'Parking', 'cat_lavado': 'Lavado',
+    'cat_compra': 'Compra', 'cat_ingreso_tarjeta': 'Ingreso', 'cat_otros': 'Otros',
+    // Formulario de registro
+    'ti_new': 'Nueva transacción', 'ti_edit': 'Editar transacción', 'ti_review': 'Revisar transacción',
+    'ti_trip': 'Carrera', 'ti_expense': 'Gasto', 'ti_price': 'Precio', 'ti_amount': 'Importe',
+    'ti_datetime': 'Fecha y hora', 'ti_payment': 'Método de pago', 'ti_card': 'Tarjeta', 'ti_cash': 'Efectivo',
+    'ti_desc': 'Descripción (opcional)', 'ti_save': 'Guardar', 'ti_save_changes': 'Guardar cambios',
+    'ti_confirm_save': 'Confirmar y guardar', 'ti_origin': 'Origen', 'ti_destination': 'Destino',
+    'ti_km': 'Km del coche (opcional)', 'ti_client': 'Cliente / empresa',
+    'ti_client_help': 'Vacío = cliente particular', 'ti_category': 'Categoría', 'ti_vehicle': 'Vehículo',
+    'ti_dictate': 'Dictar por voz', 'ti_invalid_amount': 'Introduce un importe válido',
+    'ti_invalid_km': 'Los km deben ser un número entero', 'ti_trip_saved': 'Carrera guardada',
+    'ti_expense_saved': 'Gasto guardado', 'ti_updated': 'Transacción actualizada',
+    'ti_blocked': 'Operación bloqueada. Contacta con el administrador de la flota',
+    // Detalle
+    'td_title': 'Detalle', 'td_income': 'Ingreso', 'td_expense': 'Gasto', 'td_category': 'Categoría',
+    'td_datetime': 'Fecha y hora', 'td_payment': 'Método de pago', 'td_driver': 'Conductor',
+    'td_vehicle': 'Vehículo', 'td_route': 'Trayecto', 'td_client': 'Cliente', 'td_km': 'Km del coche',
+    'td_desc': 'Descripción', 'td_del_title': 'Eliminar transacción',
+    'td_del_msg': '¿Seguro que quieres eliminar esta transacción? Esta acción no se puede deshacer.',
+    'td_not_found': 'Transacción no encontrada', 'td_profile_fail': 'No se pudo cargar el perfil',
+    // Voz
+    'vc_tap': 'Pulsa el micrófono y dicta tu carrera',
+    'vc_example': 'Ej.: "carrera de Sants a la Sagrera por 18 euros con tarjeta de Movitaxi"',
+    'vc_recording': 'Grabando… pulsa para terminar', 'vc_transcribing': 'Transcribiendo…',
+    'vc_no_perm': 'Sin permiso de micrófono', 'vc_start_fail': 'No se pudo iniciar la grabación',
+    'vc_no_audio': 'No se grabó audio', 'vc_transcribe_err': 'Error al transcribir',
   },
   'en': {
     'save': 'Save', 'cancel': 'Cancel', 'delete': 'Delete', 'edit': 'Edit',
@@ -197,6 +234,32 @@ const Map<String, Map<String, String>> _values = {
     'ar_review': 'Review the data and save',
     'dt_title': 'My transactions', 'dt_empty': 'No transactions in this period.',
     'per_day': 'Day', 'per_week': 'Week', 'per_month': 'Month', 'per_year': 'Year',
+    'uncategorized': 'No category', 'particular': 'Private',
+    'cat_gasolina': 'Petrol', 'cat_gasoil': 'Diesel', 'cat_taller': 'Garage',
+    'cat_peaje': 'Toll', 'cat_parking': 'Parking', 'cat_lavado': 'Car wash',
+    'cat_compra': 'Purchase', 'cat_ingreso_tarjeta': 'Income', 'cat_otros': 'Other',
+    'ti_new': 'New transaction', 'ti_edit': 'Edit transaction', 'ti_review': 'Review transaction',
+    'ti_trip': 'Trip', 'ti_expense': 'Expense', 'ti_price': 'Price', 'ti_amount': 'Amount',
+    'ti_datetime': 'Date and time', 'ti_payment': 'Payment method', 'ti_card': 'Card', 'ti_cash': 'Cash',
+    'ti_desc': 'Description (optional)', 'ti_save': 'Save', 'ti_save_changes': 'Save changes',
+    'ti_confirm_save': 'Confirm and save', 'ti_origin': 'Origin', 'ti_destination': 'Destination',
+    'ti_km': 'Car mileage (optional)', 'ti_client': 'Client / company',
+    'ti_client_help': 'Empty = private client', 'ti_category': 'Category', 'ti_vehicle': 'Vehicle',
+    'ti_dictate': 'Dictate by voice', 'ti_invalid_amount': 'Enter a valid amount',
+    'ti_invalid_km': 'Mileage must be a whole number', 'ti_trip_saved': 'Trip saved',
+    'ti_expense_saved': 'Expense saved', 'ti_updated': 'Transaction updated',
+    'ti_blocked': 'Operation blocked. Contact the fleet administrator',
+    'td_title': 'Detail', 'td_income': 'Income', 'td_expense': 'Expense', 'td_category': 'Category',
+    'td_datetime': 'Date and time', 'td_payment': 'Payment method', 'td_driver': 'Driver',
+    'td_vehicle': 'Vehicle', 'td_route': 'Route', 'td_client': 'Client', 'td_km': 'Car mileage',
+    'td_desc': 'Description', 'td_del_title': 'Delete transaction',
+    'td_del_msg': 'Are you sure you want to delete this transaction? This cannot be undone.',
+    'td_not_found': 'Transaction not found', 'td_profile_fail': 'Could not load profile',
+    'vc_tap': 'Tap the microphone and dictate your trip',
+    'vc_example': 'E.g.: "trip from Sants to la Sagrera for 18 euros by card for Movitaxi"',
+    'vc_recording': 'Recording… tap to finish', 'vc_transcribing': 'Transcribing…',
+    'vc_no_perm': 'No microphone permission', 'vc_start_fail': 'Could not start recording',
+    'vc_no_audio': 'No audio recorded', 'vc_transcribe_err': 'Transcription error',
   },
   'ca': {
     'save': 'Desa', 'cancel': 'Cancel·la', 'delete': 'Elimina', 'edit': 'Edita',
@@ -252,5 +315,31 @@ const Map<String, Map<String, String>> _values = {
     'ar_review': 'Revisa les dades i desa',
     'dt_title': 'Les meves transaccions', 'dt_empty': 'No hi ha transaccions en aquest període.',
     'per_day': 'Dia', 'per_week': 'Setmana', 'per_month': 'Mes', 'per_year': 'Any',
+    'uncategorized': 'Sense categoria', 'particular': 'Particular',
+    'cat_gasolina': 'Benzina', 'cat_gasoil': 'Gasoil', 'cat_taller': 'Taller',
+    'cat_peaje': 'Peatge', 'cat_parking': 'Pàrquing', 'cat_lavado': 'Rentat',
+    'cat_compra': 'Compra', 'cat_ingreso_tarjeta': 'Ingrés', 'cat_otros': 'Altres',
+    'ti_new': 'Nova transacció', 'ti_edit': 'Edita la transacció', 'ti_review': 'Revisa la transacció',
+    'ti_trip': 'Cursa', 'ti_expense': 'Despesa', 'ti_price': 'Preu', 'ti_amount': 'Import',
+    'ti_datetime': 'Data i hora', 'ti_payment': 'Mètode de pagament', 'ti_card': 'Targeta', 'ti_cash': 'Efectiu',
+    'ti_desc': 'Descripció (opcional)', 'ti_save': 'Desa', 'ti_save_changes': 'Desa els canvis',
+    'ti_confirm_save': 'Confirma i desa', 'ti_origin': 'Origen', 'ti_destination': 'Destinació',
+    'ti_km': 'Km del cotxe (opcional)', 'ti_client': 'Client / empresa',
+    'ti_client_help': 'Buit = client particular', 'ti_category': 'Categoria', 'ti_vehicle': 'Vehicle',
+    'ti_dictate': 'Dicta per veu', 'ti_invalid_amount': 'Introdueix un import vàlid',
+    'ti_invalid_km': 'Els km han de ser un nombre enter', 'ti_trip_saved': 'Cursa desada',
+    'ti_expense_saved': 'Despesa desada', 'ti_updated': 'Transacció actualitzada',
+    'ti_blocked': "Operació bloquejada. Contacta amb l'administrador de la flota",
+    'td_title': 'Detall', 'td_income': 'Ingrés', 'td_expense': 'Despesa', 'td_category': 'Categoria',
+    'td_datetime': 'Data i hora', 'td_payment': 'Mètode de pagament', 'td_driver': 'Conductor',
+    'td_vehicle': 'Vehicle', 'td_route': 'Trajecte', 'td_client': 'Client', 'td_km': 'Km del cotxe',
+    'td_desc': 'Descripció', 'td_del_title': 'Elimina la transacció',
+    'td_del_msg': 'Segur que vols eliminar aquesta transacció? Aquesta acció no es pot desfer.',
+    'td_not_found': 'Transacció no trobada', 'td_profile_fail': 'No s’ha pogut carregar el perfil',
+    'vc_tap': 'Prem el micròfon i dicta la teva cursa',
+    'vc_example': 'Ex.: "cursa de Sants a la Sagrera per 18 euros amb targeta de Movitaxi"',
+    'vc_recording': 'Gravant… prem per acabar', 'vc_transcribing': 'Transcrivint…',
+    'vc_no_perm': 'Sense permís de micròfon', 'vc_start_fail': 'No s’ha pogut iniciar la gravació',
+    'vc_no_audio': 'No s’ha gravat àudio', 'vc_transcribe_err': 'Error en transcriure',
   },
 };

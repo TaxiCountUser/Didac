@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
@@ -149,16 +150,17 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   bool get _isTrip => _type == 'income';
 
   Future<void> _save() async {
+    final l = context.l10n;
     final amount = double.tryParse(_amount.text.replaceAll(',', '.'));
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Introduce un importe válido')));
+          .showSnackBar(SnackBar(content: Text(l.t('ti_invalid_amount'))));
       return;
     }
     final km = _km.text.trim().isEmpty ? null : int.tryParse(_km.text.trim());
     if (_isTrip && _km.text.trim().isNotEmpty && km == null) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Los km deben ser un número entero')));
+          .showSnackBar(SnackBar(content: Text(l.t('ti_invalid_km'))));
       return;
     }
     setState(() => _saving = true);
@@ -189,7 +191,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Transacción actualizada')));
+            .showSnackBar(SnackBar(content: Text(l.t('ti_updated'))));
         Navigator.of(context).pop(true); // devuelve true: hubo cambios
         return;
       }
@@ -210,7 +212,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isTrip ? 'Carrera guardada' : 'Gasto guardado')),
+        SnackBar(content: Text(_isTrip ? l.t('ti_trip_saved') : l.t('ti_expense_saved'))),
       );
       Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (e) {
@@ -225,9 +227,9 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     final s = e.toString().toLowerCase();
     if (s.contains('row-level security') || s.contains('row level security') ||
         s.contains('policy') || s.contains('42501')) {
-      return 'Operación bloqueada. Contacta con el administrador de la flota';
+      return context.l10n.t('ti_blocked');
     }
-    return 'Error: $e';
+    return '${context.l10n.t('error')}: $e';
   }
 
   void _openVoice() {
@@ -238,14 +240,15 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final form = ListView(
       padding: const EdgeInsets.all(20),
       children: [
         // Carrera (ingreso) vs Gasto
         SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'income', label: Text('Carrera'), icon: Icon(Icons.local_taxi)),
-            ButtonSegment(value: 'expense', label: Text('Gasto'), icon: Icon(Icons.receipt)),
+          segments: [
+            ButtonSegment(value: 'income', label: Text(l.t('ti_trip')), icon: const Icon(Icons.local_taxi)),
+            ButtonSegment(value: 'expense', label: Text(l.t('ti_expense')), icon: const Icon(Icons.receipt)),
           ],
           selected: {_type},
           onSelectionChanged: (s) => setState(() => _type = s.first),
@@ -261,7 +264,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           decoration: InputDecoration(
             prefixText: '€ ',
             hintText: '0',
-            labelText: _isTrip ? 'Precio' : 'Importe',
+            labelText: _isTrip ? l.t('ti_price') : l.t('ti_amount'),
             border: const OutlineInputBorder(),
           ),
         ),
@@ -275,18 +278,18 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
-          label: Text('Fecha y hora: ${fmtDateTime(_when)}'),
+          label: Text('${l.t('ti_datetime')}: ${fmtDateTime(_when)}'),
         ),
-        ..._vehicleSelector(),
+        ..._vehicleSelector(l),
         const SizedBox(height: 20),
-        if (_isTrip) ..._tripFields() else ..._expenseFields(),
+        if (_isTrip) ..._tripFields(l) else ..._expenseFields(l),
         const SizedBox(height: 20),
-        const Text('Método de pago'),
+        Text(l.t('ti_payment')),
         const SizedBox(height: 8),
         SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'tarjeta', label: Text('Tarjeta'), icon: Icon(Icons.credit_card)),
-            ButtonSegment(value: 'efectivo', label: Text('Efectivo'), icon: Icon(Icons.payments)),
+          segments: [
+            ButtonSegment(value: 'tarjeta', label: Text(l.t('ti_card')), icon: const Icon(Icons.credit_card)),
+            ButtonSegment(value: 'efectivo', label: Text(l.t('ti_cash')), icon: const Icon(Icons.payments)),
           ],
           selected: {_payment},
           onSelectionChanged: (s) => setState(() => _payment = s.first),
@@ -294,9 +297,9 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         const SizedBox(height: 20),
         TextField(
           controller: _description,
-          decoration: const InputDecoration(
-            labelText: 'Descripción (opcional)',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.t('ti_desc'),
+            border: const OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 28),
@@ -309,10 +312,10 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
                 ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2))
                 : Text(
                     widget.editId != null
-                        ? 'Guardar cambios'
+                        ? l.t('ti_save_changes')
                         : widget.isPreview
-                            ? 'Confirmar y guardar'
-                            : 'Guardar',
+                            ? l.t('ti_confirm_save')
+                            : l.t('ti_save'),
                     style: const TextStyle(fontSize: 18)),
           ),
         ),
@@ -324,15 +327,15 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.editId != null
-            ? 'Editar transacción'
+            ? l.t('ti_edit')
             : widget.isPreview
-                ? 'Revisar transacción'
-                : 'Nueva transacción'),
+                ? l.t('ti_review')
+                : l.t('ti_new')),
         actions: [
           if (!widget.isPreview)
             IconButton(
               key: const Key('mic_button'),
-              tooltip: 'Dictar por voz',
+              tooltip: l.t('ti_dictate'),
               icon: const Icon(Icons.mic),
               onPressed: _openVoice,
             ),
@@ -343,7 +346,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   }
 
   // Selector de vehículo (solo conductor): auto si tiene 1, desplegable si varios.
-  List<Widget> _vehicleSelector() {
+  List<Widget> _vehicleSelector(AppLocalizations l) {
     if (widget.profile.isOwner || !_vehiclesLoaded || _vehicles.isEmpty) {
       return const [];
     }
@@ -351,10 +354,10 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       return [
         const SizedBox(height: 12),
         InputDecorator(
-          decoration: const InputDecoration(
-            labelText: 'Vehículo',
-            prefixIcon: Icon(Icons.directions_car),
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.t('ti_vehicle'),
+            prefixIcon: const Icon(Icons.directions_car),
+            border: const OutlineInputBorder(),
           ),
           child: Text(_vehicleLabel(_vehicles.first)),
         ),
@@ -366,10 +369,10 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         key: const Key('vehicle_dropdown'),
         initialValue: _vehicleId,
         isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Vehículo',
-          prefixIcon: Icon(Icons.directions_car),
-          border: OutlineInputBorder(),
+        decoration: InputDecoration(
+          labelText: l.t('ti_vehicle'),
+          prefixIcon: const Icon(Icons.directions_car),
+          border: const OutlineInputBorder(),
         ),
         items: [
           for (final v in _vehicles)
@@ -381,15 +384,15 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   }
 
   // Campos específicos de una carrera (ingreso).
-  List<Widget> _tripFields() => [
+  List<Widget> _tripFields(AppLocalizations l) => [
         TextField(
           key: const Key('origin_field'),
           controller: _origin,
           textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'Origen',
-            prefixIcon: Icon(Icons.my_location),
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.t('ti_origin'),
+            prefixIcon: const Icon(Icons.my_location),
+            border: const OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 12),
@@ -397,10 +400,10 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           key: const Key('destination_field'),
           controller: _destination,
           textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'Destino',
-            prefixIcon: Icon(Icons.location_on),
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.t('ti_destination'),
+            prefixIcon: const Icon(Icons.location_on),
+            border: const OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 12),
@@ -408,10 +411,10 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           key: const Key('km_field'),
           controller: _km,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Km del coche (opcional)',
-            prefixIcon: Icon(Icons.speed),
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.t('ti_km'),
+            prefixIcon: const Icon(Icons.speed),
+            border: const OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 12),
@@ -419,18 +422,18 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           key: const Key('client_field'),
           controller: _client,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Cliente / empresa',
-            helperText: 'Vacío = cliente particular',
-            prefixIcon: Icon(Icons.business),
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.t('ti_client'),
+            helperText: l.t('ti_client_help'),
+            prefixIcon: const Icon(Icons.business),
+            border: const OutlineInputBorder(),
           ),
         ),
       ];
 
   // Campos específicos de un gasto.
-  List<Widget> _expenseFields() => [
-        const Text('Categoría'),
+  List<Widget> _expenseFields(AppLocalizations l) => [
+        Text(l.t('ti_category')),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -439,7 +442,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
               .where((e) => e.key != 'ingreso_tarjeta')
               .map((e) {
             return ChoiceChip(
-              label: Text(e.value),
+              label: Text(l.catLabel(e.key)),
               selected: _category == e.key,
               onSelected: (_) => setState(() => _category = e.key),
             );
