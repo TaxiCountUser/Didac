@@ -64,5 +64,10 @@
   { "text": "mutua asepeyo carrera de 40 euros", "expected": { "amount": 40, "type": "income", "client_name": "Mutua Asepeyo" } },
   { "text": "ciento cincuenta mil kilómetros en el coche", "expected": { "odometer_km": 150000 } },
   { "text": "292.000 km en el coche", "expected": { "odometer_km": 292000 } },
-  { "text": "gasto de 1.500 euros en el taller", "expected": { "amount": 1500, "type": "expense", "category": "taller" } }
+  { "text": "gasto de 1.500 euros en el taller", "expected": { "amount": 1500, "type": "expense", "category": "taller" } },
+  { "text": "cursa de sants a badalona vint-i-cinc euros amb targeta 292.000 quilometres", "expected": { "amount": 25, "type": "income", "origin": "sants", "destination": "badalona", "odometer_km": 292000, "payment_method": "tarjeta" } },
+  { "text": "servei des de gracia fins a sants divuit amb cinquanta amb tpv", "expected": { "amount": 18.5, "type": "income", "origin": "gracia", "destination": "sants", "payment_method": "tarjeta" } },
+  { "text": "recorregut de sabadell a terrassa quaranta-cinc euros en efectiu", "expected": { "amount": 45, "type": "income", "origin": "sabadell", "destination": "terrassa", "payment_method": "efectivo" } },
+  { "text": "divuit coma cinquanta amb targeta", "expected": { "amount": 18.5, "payment_method": "tarjeta" } },
+  { "text": "dues centes euros en benzina", "expected": { "amount": 200, "type": "expense", "category": "gasolina" } }
 ]

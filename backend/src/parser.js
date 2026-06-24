@@ -12,12 +12,33 @@
 // conductor lo confirma/corrige en el formulario antes de guardar.
 // ============================================================
 
+// Números compuestos catalanes "desena-i-unitat" (vint-i-cinc) o sin "i"
+// (trenta-dos). Se expanden a dígitos ANTES de partir guiones, para no generar
+// un "un"/"u" suelto (colisionaría con el artículo). 21->"21", 32->"32"...
+const CAT_TENS = {
+  vint: 20, trenta: 30, quaranta: 40, cinquanta: 50,
+  seixanta: 60, setanta: 70, vuitanta: 80, noranta: 90,
+};
+const CAT_UNIT1 = {
+  u: 1, un: 1, una: 1, dos: 2, dues: 2, tres: 3, quatre: 4,
+  cinc: 5, sis: 6, set: 7, vuit: 8, nou: 9,
+};
+function expandCatalanTens(s) {
+  return s.replace(
+    /\b(vint|trenta|quaranta|cinquanta|seixanta|setanta|vuitanta|noranta)(?:[\s-]i)?[\s-](u|un|una|dos|dues|tres|quatre|cinc|sis|set|vuit|nou)\b/g,
+    (_, t, u) => String(CAT_TENS[t] + CAT_UNIT1[u]),
+  );
+}
+
 function normalize(s) {
-  return (s || '')
+  let out = (s || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '') // quita acentos
-    .replace(/[€$]/g, ' ')
+    .replace(/[€$]/g, ' ');
+  out = expandCatalanTens(out); // vint-i-cinc -> 25
+  return out
+    .replace(/-/g, ' ') // dos-cents -> dos cents
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -33,6 +54,12 @@ const UNITS = {
   veinticinco: 25, veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29,
   treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70,
   ochenta: 80, noventa: 90,
+  // --- Catalán (unitats, desenes i tot menys 'un/una' per evitar l'article) ---
+  dues: 2, quatre: 4, cinc: 5, sis: 6, set: 7, vuit: 8, nou: 9, deu: 10,
+  onze: 11, dotze: 12, tretze: 13, catorze: 14, quinze: 15, setze: 16,
+  disset: 17, desset: 17, divuit: 18, devuit: 18, dinou: 19, denou: 19,
+  vint: 20, trenta: 30, quaranta: 40, cinquanta: 50, seixanta: 60,
+  setanta: 70, vuitanta: 80, noranta: 90,
 };
 const HUNDREDS = {
   cien: 100, ciento: 100, doscientos: 200, doscientas: 200, trescientos: 300,
@@ -40,9 +67,12 @@ const HUNDREDS = {
   quinientas: 500, seiscientos: 600, seiscientas: 600, setecientos: 700,
   setecientas: 700, ochocientos: 800, ochocientas: 800, novecientos: 900,
   novecientas: 900,
+  cent: 100, // catalán; els compostos (dos-cents) es resolen amb l'escala 'cents'
 };
 
 const isDigitTok = (t) => /^\d+(?:[.,]\d+)*$/.test(t);
+// Escala "cents"/"centes" (catalán): dos-cents -> dues centes -> ×100.
+const isCentScale = (t) => t === 'cents' || t === 'centes';
 
 // Interpreta separadores de miles/decimales en formato español (1.234,56) o
 // inglés (1,234.56). Ej.: "292.000" -> 292000, "18,50" -> 18.5, "18.50" -> 18.5.
@@ -70,7 +100,7 @@ function parseGroupedNumber(str) {
   return Number.isFinite(v) ? v : null;
 }
 const isNumTok = (t) =>
-  isDigitTok(t) || t === 'mil' || HUNDREDS[t] != null || UNITS[t] != null;
+  isDigitTok(t) || t === 'mil' || isCentScale(t) || HUNDREDS[t] != null || UNITS[t] != null;
 
 // Unidades de kilometraje (tras normalize() los acentos ya no están).
 const KM_UNITS = new Set([
@@ -84,11 +114,14 @@ function parseWords(tokens) {
   let current = 0;
   let found = false;
   for (const t of tokens) {
-    if (t === 'y') continue;
+    if (t === 'y' || t === 'i') continue; // conectores es/ca
     if (t === 'mil') {
       current = current === 0 ? 1000 : current * 1000;
       total += current;
       current = 0;
+      found = true;
+    } else if (isCentScale(t)) {
+      current = (current === 0 ? 1 : current) * 100; // dues centes -> 200
       found = true;
     } else if (HUNDREDS[t] != null) {
       current += HUNDREDS[t];
@@ -135,9 +168,10 @@ function extractAmount(tokens) {
     }
     let value = value0;
 
-    // Decimal con "con" SOLO si lo que sigue a 'con' es otro número (céntimos)
-    // y esos céntimos no son a su vez un kilometraje.
-    if (tokens[j] === 'con' && j + 1 < tokens.length && isNumTok(tokens[j + 1])) {
+    // Decimal con "con"/"amb"/"coma" (es/ca) SOLO si lo que sigue es otro número
+    // (céntimos) y esos céntimos no son a su vez un kilometraje.
+    const isDecimalConn = tokens[j] === 'con' || tokens[j] === 'amb' || tokens[j] === 'coma';
+    if (isDecimalConn && j + 1 < tokens.length && isNumTok(tokens[j + 1])) {
       const run2 = [];
       let k = j + 1;
       while (k < tokens.length && (isNumTok(tokens[k]) || tokens[k] === 'y')) {
@@ -185,6 +219,9 @@ const ROUTE_STOP = new Set([
   'pague', 'pagado', 'pago', 'cobre', 'cobrado', 'cobrada', 'cobro', 'ingreso',
   'tarjeta', 'efectivo', 'bizum', 'transferencia', 'metalico', 'contado',
   'marcando', 'marca', 'kilometros', 'km',
+  // catalán
+  'amb', 'per', 'fins', 'targeta', 'efectiu', 'tpv', 'cobrat', 'cobrament',
+  'quilometres', 'monedes', 'bitllets',
 ]);
 const isRouteStop = (t) => t === '' || isNumTok(t) || isKmUnit(t) || ROUTE_STOP.has(t);
 
@@ -196,14 +233,17 @@ function cleanPlace(s) {
 
 // Origen/destino con patrón "de X a Y" o "desde X hasta/a Y".
 // Trabaja sobre el texto original para conservar los nombres de lugar.
-const ROUTE_RE = /\b(?:desde|de)\s+(.+?)\s+(?:hasta|a)\s+(.+)$/i;
+const ROUTE_RE = /\b(?:des\s+de|desde|de)\s+(.+?)\s+(?:fins\s+a|fins|hasta|a)\s+(.+)$/i;
 function extractRoute(text) {
   const m = (text || '').match(ROUTE_RE);
   if (!m) return { origin: null, destination: null };
   const origin = cleanPlace(m[1]);
   const destWords = [];
   for (const w of m[2].split(/\s+/)) {
-    if (isRouteStop(normToken(w))) break;
+    // normalize() expande números catalanes (vint-i-cinc -> 25) y parte guiones,
+    // así el destino se corta también ante un número dicho en catalán.
+    const stopTok = normalize(w).split(' ')[0];
+    if (isRouteStop(stopTok)) break;
     destWords.push(w);
   }
   const destination = cleanPlace(destWords.join(' '));
@@ -251,7 +291,8 @@ const INCOME_WORDS = [
   'facturacion', 'carrera', 'carreras',
   // catalán
   'cobrat', 'cobrada', 'cobrament', 'ingressat', 'ingres', 'ingressos',
-  'cursa', 'curses', 'facturat',
+  'cursa', 'curses', 'facturat', 'servei', 'serveis', 'viatge', 'viatges',
+  'recorregut', 'recorreguts', 'trajecte', 'trajectes',
 ];
 const EXPENSE_WORDS = [
   'pagado', 'pagada', 'pago', 'pague', 'paga', 'gasto', 'gastado', 'gaste',
@@ -261,10 +302,13 @@ const EXPENSE_WORDS = [
 ];
 
 const PAYMENT_KEYWORDS = {
-  tarjeta: ['tarjeta', 'visa', 'credito', 'debito', 'targeta'],
-  efectivo: ['efectivo', 'metalico', 'contado', 'cash', 'efectiu', 'metallic'],
+  tarjeta: ['tarjeta', 'visa', 'credito', 'debito', 'targeta', 'tpv', 'datafono', 'datafon'],
+  efectivo: [
+    'efectivo', 'metalico', 'contado', 'cash', 'efectiu', 'metallic',
+    'monedas', 'moneda', 'monedes', 'billetes', 'billete', 'bitllets', 'bitllet',
+  ],
   bizum: ['bizum'],
-  transferencia: ['transferencia', 'transfer', 'transferencia'],
+  transferencia: ['transferencia', 'transfer'],
 };
 
 function findCategory(words) {
