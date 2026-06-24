@@ -24,6 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late String? _license = widget.profile.licenseNumber;
   String? _activeVehicleLabel;
   String? _companyName;
+  bool _hasVehicles = false; // el conductor solo ve/elige coches asignados
 
   @override
   void initState() {
@@ -50,7 +51,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         for (final e in vehicles) {
           if (e['id'] == vid) { v = e; break; }
         }
-        if (mounted) setState(() => _activeVehicleLabel = v == null ? null : _vehLabel(v));
+        if (mounted) {
+          setState(() {
+            _hasVehicles = vehicles.isNotEmpty;
+            _activeVehicleLabel = v == null ? null : _vehLabel(v);
+          });
+        }
       }
     } catch (_) {/* cabecera best-effort */}
   }
@@ -278,7 +284,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(l.t('set_report_bug_sub')),
             onTap: _reportBug,
           ),
-          if (!isOwner)
+          if (!isOwner && _hasVehicles)
             ListTile(
               key: const Key('change_vehicle_tile'),
               leading: const Icon(Icons.directions_car),
@@ -395,12 +401,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: const Icon(Icons.edit),
                   onPressed: _editName,
                 ),
-                IconButton(
-                  key: const Key('change_vehicle_button'),
-                  tooltip: l.t('set_change_vehicle'),
-                  icon: const Icon(Icons.directions_car),
-                  onPressed: _changeVehicle,
-                ),
+                if (_hasVehicles)
+                  IconButton(
+                    key: const Key('change_vehicle_button'),
+                    tooltip: l.t('set_change_vehicle'),
+                    icon: const Icon(Icons.directions_car),
+                    onPressed: _changeVehicle,
+                  ),
               ],
             ),
         ],

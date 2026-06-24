@@ -276,6 +276,7 @@ class DataService {
     DateTime? from,
     DateTime? to,
     String? client,
+    String? search,
     int offset = 0,
     int limit = 20,
   }) async {
@@ -287,6 +288,12 @@ class DataService {
     if (to != null) query = query.lt('created_at', to.toIso8601String());
     if (client != null && client.isNotEmpty) {
       query = query.ilike('client_name', '%$client%');
+    }
+    // Buscador libre: empresa (client_name), origen, destino o descripción.
+    if (search != null && search.trim().isNotEmpty) {
+      final s = search.trim().replaceAll(',', ' ').replaceAll('%', '');
+      query = query.or(
+          'client_name.ilike.%$s%,description.ilike.%$s%,origin.ilike.%$s%,destination.ilike.%$s%');
     }
     final data = await query
         .order('created_at', ascending: false)
