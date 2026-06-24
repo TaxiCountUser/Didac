@@ -60,7 +60,7 @@ function withTimeout(promise, ms) {
 // Transcriptor real (Whisper). Compatible con OpenAI o cualquier proveedor con
 // API compatible (p. ej. Groq, gratis). Import dinámico para no exigir el
 // paquete cuando se usa un mock en tests.
-async function defaultTranscribe({ buffer, filename }) {
+async function defaultTranscribe({ buffer, filename, language }) {
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY no configurada');
   const { default: OpenAI, toFile } = await import('openai');
   const client = new OpenAI({
@@ -68,9 +68,17 @@ async function defaultTranscribe({ buffer, filename }) {
     ...(OPENAI_BASE_URL ? { baseURL: OPENAI_BASE_URL } : {}),
   });
   const file = await toFile(buffer, filename || 'audio.m4a');
-  const res = await client.audio.transcriptions.create({ file, model: WHISPER_MODEL });
+  // Pista de idioma (es/ca/en): mejora mucho catalán y frases cortas.
+  const res = await client.audio.transcriptions.create({
+    file,
+    model: WHISPER_MODEL,
+    ...(language ? { language } : {}),
+  });
   return { text: res.text, confidence: 0.95 };
 }
+
+// Idiomas soportados como pista para Whisper (ISO-639-1).
+const TRANSCRIBE_LANGS = new Set(['es', 'ca', 'en']);
 
 /**
  * @param {object} [options]
@@ -171,6 +179,10 @@ export async function buildApp(options = {}) {
     const caller = await getCaller(request);
     if (!caller) return reply.code(401).send({ error: 'No autenticado' });
 
+    // Idioma del hablante (pista para Whisper): ?language=es|ca|en.
+    const langRaw = (request.query?.language || '').toLowerCase();
+    const language = TRANSCRIBE_LANGS.has(langRaw) ? langRaw : null;
+
     // Obtener el audio: multipart (campo 'audio'), o JSON { storagePath } / mock_text.
     let buffer = null;
     let filename = 'audio.m4a';
@@ -223,7 +235,7 @@ export async function buildApp(options = {}) {
       const run = () =>
         ALLOW_MOCK && mockText
           ? Promise.resolve({ text: mockText, confidence: 0.99 })
-          : transcribe({ buffer, filename });
+          : transcribe({ buffer, filename, language });
       try {
         result = await withTimeout(run(), WHISPER_TIMEOUT_MS);
       } catch (e) {

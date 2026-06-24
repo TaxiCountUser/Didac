@@ -42,12 +42,41 @@ const HUNDREDS = {
   novecientas: 900,
 };
 
-const isDigitTok = (t) => /^\d+(?:[.,]\d+)?$/.test(t);
+const isDigitTok = (t) => /^\d+(?:[.,]\d+)*$/.test(t);
+
+// Interpreta separadores de miles/decimales en formato español (1.234,56) o
+// inglés (1,234.56). Ej.: "292.000" -> 292000, "18,50" -> 18.5, "18.50" -> 18.5.
+function regroup(s, sep) {
+  const parts = s.split(sep);
+  if (parts.length > 2) return parts.join(''); // varios separadores -> miles
+  // Un separador: 3 dígitos a la derecha -> miles (292.000); 1-2 -> decimal (18,50).
+  return parts[1].length === 3 ? parts[0] + parts[1] : `${parts[0]}.${parts[1]}`;
+}
+function parseGroupedNumber(str) {
+  let s = String(str);
+  const hasDot = s.includes('.');
+  const hasComma = s.includes(',');
+  if (hasDot && hasComma) {
+    // El separador más a la derecha es el decimal.
+    s = s.lastIndexOf(',') > s.lastIndexOf('.')
+      ? s.replace(/\./g, '').replace(',', '.') // 1.234,56 (español)
+      : s.replace(/,/g, ''); // 1,234.56 (inglés)
+  } else if (hasDot) {
+    s = regroup(s, '.');
+  } else if (hasComma) {
+    s = regroup(s, ',');
+  }
+  const v = parseFloat(s);
+  return Number.isFinite(v) ? v : null;
+}
 const isNumTok = (t) =>
   isDigitTok(t) || t === 'mil' || HUNDREDS[t] != null || UNITS[t] != null;
 
 // Unidades de kilometraje (tras normalize() los acentos ya no están).
-const KM_UNITS = new Set(['km', 'kms', 'kilometro', 'kilometros', 'kilometraje']);
+const KM_UNITS = new Set([
+  'km', 'kms', 'kilometro', 'kilometros', 'kilometraje',
+  'quilometre', 'quilometres', 'quilometratge', // catalán
+]);
 const isKmUnit = (t) => t != null && KM_UNITS.has(t);
 
 function parseWords(tokens) {
@@ -74,7 +103,7 @@ function parseWords(tokens) {
 
 function valueOfRun(run) {
   const digit = run.find(isDigitTok);
-  if (digit) return parseFloat(digit.replace(',', '.'));
+  if (digit) return parseGroupedNumber(digit);
   return parseWords(run);
 }
 
@@ -204,33 +233,38 @@ function findClient(norm) {
 
 // --- Diccionarios de palabras clave ---
 const CATEGORY_KEYWORDS = {
-  gasolina: ['gasolina'],
-  gasoil: ['gasoil', 'gasoleo', 'diesel'],
-  taller: ['taller', 'mecanico', 'reparacion', 'revision', 'averia'],
+  gasolina: ['gasolina', 'benzina'],
+  gasoil: ['gasoil', 'gasoleo', 'diesel', 'gasoil'],
+  taller: ['taller', 'mecanico', 'reparacion', 'revision', 'averia', 'reparacio', 'avaria'],
   peaje: ['peaje', 'autopista'],
-  parking: ['parking', 'aparcamiento', 'aparcar', 'estacionamiento', 'garaje'],
-  lavado: ['lavado', 'lavar', 'lavadero', 'lavacoches'],
-  multa: ['multa', 'sancion'],
-  seguro: ['seguro'],
-  comida: ['comida', 'dieta', 'dietas', 'menu'],
-  compra: ['compra', 'comprado', 'comprar', 'material', 'recambio', 'recambios', 'pieza', 'piezas'],
+  parking: ['parking', 'aparcamiento', 'aparcar', 'estacionamiento', 'garaje', 'aparcament'],
+  lavado: ['lavado', 'lavar', 'lavadero', 'lavacoches', 'rentat', 'rentar'],
+  multa: ['multa', 'sancion', 'sancio'],
+  seguro: ['seguro', 'assegurança', 'asseguranca'],
+  comida: ['comida', 'dieta', 'dietas', 'menu', 'menjar'],
+  compra: ['compra', 'comprado', 'comprar', 'material', 'recambio', 'recambios', 'pieza', 'piezas', 'comprat', 'recanvi', 'recanvis'],
 };
 
 const INCOME_WORDS = [
   'cobrado', 'cobrada', 'cobre', 'cobrar', 'cobro', 'ingreso', 'ingresos',
   'ingresado', 'ingresar', 'ganado', 'recaudado', 'recaudacion', 'facturado',
   'facturacion', 'carrera', 'carreras',
+  // catalán
+  'cobrat', 'cobrada', 'cobrament', 'ingressat', 'ingres', 'ingressos',
+  'cursa', 'curses', 'facturat',
 ];
 const EXPENSE_WORDS = [
   'pagado', 'pagada', 'pago', 'pague', 'paga', 'gasto', 'gastado', 'gaste',
   'gastar', 'comprado', 'compra', 'comprar',
+  // catalán
+  'pagat', 'pagament', 'despesa', 'despeses', 'gastat', 'comprat',
 ];
 
 const PAYMENT_KEYWORDS = {
-  tarjeta: ['tarjeta', 'visa', 'credito', 'debito'],
-  efectivo: ['efectivo', 'metalico', 'contado', 'cash'],
+  tarjeta: ['tarjeta', 'visa', 'credito', 'debito', 'targeta'],
+  efectivo: ['efectivo', 'metalico', 'contado', 'cash', 'efectiu', 'metallic'],
   bizum: ['bizum'],
-  transferencia: ['transferencia', 'transfer'],
+  transferencia: ['transferencia', 'transfer', 'transferencia'],
 };
 
 function findCategory(words) {

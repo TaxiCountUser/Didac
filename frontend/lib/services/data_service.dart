@@ -394,19 +394,23 @@ class DataService {
     List<int>? audioBytes,
     String? filename,
     String? mockText,
+    String? language, // pista de idioma para Whisper (es/ca/en)
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
 
+    final qp = (language != null && language.isNotEmpty) ? '?language=$language' : '';
+    final uri = Uri.parse('$backendUrl/api/v1/transcribe$qp');
+
     http.Response res;
     if (mockText != null) {
       res = await http.post(
-        Uri.parse('$backendUrl/api/v1/transcribe'),
+        uri,
         headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
         body: jsonEncode({'mock_text': mockText}),
       );
     } else {
-      final req = http.MultipartRequest('POST', Uri.parse('$backendUrl/api/v1/transcribe'))
+      final req = http.MultipartRequest('POST', uri)
         ..headers['Authorization'] = 'Bearer $token'
         ..files.add(http.MultipartFile.fromBytes('audio', audioBytes ?? const [],
             filename: filename ?? 'audio.m4a'));

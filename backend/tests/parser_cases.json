@@ -62,5 +62,7 @@
   { "text": "carrera de sants a badalona quince euros ciento cincuenta mil kilómetros de gitaxi", "expected": { "amount": 15, "type": "income", "origin": "sants", "destination": "badalona", "odometer_km": 150000, "client_name": "Gitaxi" } },
   { "text": "cobré 30 euros para onecab", "expected": { "amount": 30, "type": "income", "client_name": "OneCab" } },
   { "text": "mutua asepeyo carrera de 40 euros", "expected": { "amount": 40, "type": "income", "client_name": "Mutua Asepeyo" } },
-  { "text": "ciento cincuenta mil kilómetros en el coche", "expected": { "odometer_km": 150000 } }
+  { "text": "ciento cincuenta mil kilómetros en el coche", "expected": { "odometer_km": 150000 } },
+  { "text": "292.000 km en el coche", "expected": { "odometer_km": 292000 } },
+  { "text": "gasto de 1.500 euros en el taller", "expected": { "amount": 1500, "type": "expense", "category": "taller" } }
 ]

@@ -56,7 +56,11 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       // En web el path es un blob URL; leemos los bytes vía http.
       final bytes = (await http.get(Uri.parse(path))).bodyBytes;
 
-      final res = await DataService().transcribe(audioBytes: bytes, filename: 'voice_note.m4a');
+      final res = await DataService().transcribe(
+        audioBytes: bytes,
+        filename: 'voice_note.m4a',
+        language: localeController.value.languageCode, // es / ca / en
+      );
       final parsed = Map<String, dynamic>.from(res['parsed'] as Map);
       parsed['description'] = res['text'];
 
