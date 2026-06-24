@@ -207,6 +207,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     final profile = widget.profile;
     final displayName = profile.appName;
     return Scaffold(
+      // Atajo de voz: graba directamente sin entrar en "Añadir registro".
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('voice_shortcut_fab'),
+        backgroundColor: Colors.amber.shade800,
+        icon: const Icon(Icons.mic, color: Colors.white),
+        label: Text(l.t('dh_voice_shortcut'), style: const TextStyle(color: Colors.white)),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => AddRecordScreen(profile: profile, startOnVoice: true),
+          ),
+        ),
+      ),
       appBar: AppBar(
         title: const Text('TaxiCount'),
         actions: [

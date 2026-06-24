@@ -9,7 +9,8 @@ import 'voice_capture.dart';
 /// Si dicta, el resultado rellena el formulario manual para confirmarlo.
 class AddRecordScreen extends StatefulWidget {
   final Profile profile;
-  const AddRecordScreen({super.key, required this.profile});
+  final bool startOnVoice; // atajo: abrir directamente en la pestaña de voz
+  const AddRecordScreen({super.key, required this.profile, this.startOnVoice = false});
 
   @override
   State<AddRecordScreen> createState() => _AddRecordScreenState();
@@ -17,7 +18,8 @@ class AddRecordScreen extends StatefulWidget {
 
 class _AddRecordScreenState extends State<AddRecordScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  late final TabController _tabs =
+      TabController(length: 2, vsync: this, initialIndex: widget.startOnVoice ? 1 : 0);
   Map<String, dynamic>? _initial; // valores precargados por la voz
   int _formSeq = 0; // fuerza re-init del formulario al llegar datos de voz
 

@@ -30,6 +30,8 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   bool _hasMore = true;
   String? _error;
   double? _income; // beneficios del periodo (solo ingresos)
+  final _searchCtrl = TextEditingController();
+  String _search = ''; // empresa o cliente (descripción/origen/destino)
 
   @override
   void initState() {
@@ -41,6 +43,7 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   @override
   void dispose() {
     _scroll.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -107,6 +110,7 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
         userId: widget.profile.id,
         from: _from,
         to: _to,
+        search: _search,
         offset: _items.length,
         limit: _pageSize,
       );
@@ -143,11 +147,44 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
       appBar: AppBar(title: Text(context.l10n.t('dt_title'))),
       body: Column(
         children: [
+          _searchBox(),
           _periodSelector(),
           _earningsBanner(),
           const Divider(height: 1),
           Expanded(child: _list()),
         ],
+      ),
+    );
+  }
+
+  // Buscador por empresa o cliente (también busca en descripción/origen/destino).
+  Widget _searchBox() {
+    final l = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: TextField(
+        controller: _searchCtrl,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: l.t('dt_search_hint'),
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _search.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    setState(() => _search = '');
+                    _reload();
+                  },
+                ),
+          border: const OutlineInputBorder(),
+        ),
+        onSubmitted: (v) {
+          setState(() => _search = v.trim());
+          _reload();
+        },
       ),
     );
   }
