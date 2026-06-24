@@ -131,6 +131,7 @@ const Map<String, Map<String, String>> _values = {
     // Ajustes (cabecera + acciones)
     'set_active_vehicle': 'Vehículo activo', 'set_no_vehicle': 'Sin vehículo activo',
     'set_change_vehicle': 'Cambiar vehículo activo', 'set_change_account': 'Cambiar de cuenta',
+    'set_change_vehicle_sub': 'Elige entre los vehículos que te ha asignado la empresa',
     'set_edit_name': 'Editar mi nombre', 'set_name_hint': 'Nombre que verás en tu app',
     'set_name_updated': 'Nombre actualizado', 'set_company': 'Empresa',
     'set_license': 'Nº de licencia', 'set_soon': 'Próximamente',
@@ -257,6 +258,7 @@ const Map<String, Map<String, String>> _values = {
     'nav_drivers': 'Drivers', 'nav_incidents': 'Incidents', 'nav_subscription': 'Subscription',
     'set_active_vehicle': 'Active vehicle', 'set_no_vehicle': 'No active vehicle',
     'set_change_vehicle': 'Change active vehicle', 'set_change_account': 'Switch account',
+    'set_change_vehicle_sub': 'Pick one of the vehicles the company assigned to you',
     'set_edit_name': 'Edit my name', 'set_name_hint': 'Name shown in your app',
     'set_name_updated': 'Name updated', 'set_company': 'Company',
     'set_license': 'License number', 'set_soon': 'Coming soon',
@@ -371,6 +373,7 @@ const Map<String, Map<String, String>> _values = {
     'nav_drivers': 'Conductors', 'nav_incidents': 'Incidències', 'nav_subscription': 'Subscripció',
     'set_active_vehicle': 'Vehicle actiu', 'set_no_vehicle': 'Sense vehicle actiu',
     'set_change_vehicle': 'Canvia el vehicle actiu', 'set_change_account': 'Canvia de compte',
+    'set_change_vehicle_sub': "Tria un dels vehicles que t'ha assignat l'empresa",
     'set_edit_name': 'Edita el meu nom', 'set_name_hint': "Nom que veuràs a la teva app",
     'set_name_updated': 'Nom actualitzat', 'set_company': 'Empresa',
     'set_license': 'Núm. de llicència', 'set_soon': 'Properament',

@@ -128,7 +128,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('dh_no_vehicles'))));
       return;
     }
-    var vehicleId = vehicles.first['id'] as String;
+    // Preselecciona el vehículo activo de hoy si existe; si no, el primero.
+    final activeId = await _service.todaysVehicleId(widget.profile.id);
+    if (!mounted) return;
+    var vehicleId = vehicles.any((v) => v['id'] == activeId)
+        ? activeId!
+        : vehicles.first['id'] as String;
     final kmCtrl = TextEditingController();
     Future<void> prefill(String vid) async => kmCtrl.text = (await _service.lastOdometer(vid))?.toString() ?? '';
     await prefill(vehicleId);
@@ -140,7 +145,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: Text(l.t('set_change_vehicle')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(l.t('set_change_vehicle_sub'),
+                  style: Theme.of(ctx).textTheme.bodySmall),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: vehicleId,
                 isExpanded: true,
@@ -269,6 +278,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(l.t('set_report_bug_sub')),
             onTap: _reportBug,
           ),
+          if (!isOwner)
+            ListTile(
+              key: const Key('change_vehicle_tile'),
+              leading: const Icon(Icons.directions_car),
+              title: Text(l.t('set_change_vehicle')),
+              subtitle: Text(_activeVehicleLabel == null
+                  ? l.t('set_change_vehicle_sub')
+                  : '${_activeVehicleLabel!}\n${l.t('set_change_vehicle_sub')}'),
+              isThreeLine: _activeVehicleLabel != null,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _changeVehicle,
+            ),
           ListTile(
             leading: const Icon(Icons.car_crash),
             title: Text(isOwner ? l.t('set_incidents_owner') : l.t('set_incidents_driver')),
