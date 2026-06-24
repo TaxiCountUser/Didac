@@ -43,6 +43,7 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   }
 
   Future<void> _stopAndTranscribe() async {
+    final l = context.l10n; // capturado antes de los await (lint async-gap)
     setState(() {
       _recording = false;
       _busy = true;
@@ -50,7 +51,7 @@ class _VoiceCaptureState extends State<VoiceCapture> {
     });
     try {
       final path = await _recorder.stop();
-      if (path == null) throw Exception(context.l10n.t('vc_no_audio'));
+      if (path == null) throw Exception(l.t('vc_no_audio'));
 
       // En web el path es un blob URL; leemos los bytes vía http.
       final bytes = (await http.get(Uri.parse(path))).bodyBytes;

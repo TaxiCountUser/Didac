@@ -1,0 +1,46 @@
+# Blueprint de Render para el backend Fastify de TaxiCount.
+# Despliegue en la nube (24/7) para probar la app con profesionales.
+#
+# Uso:
+#   1. Crea una cuenta en https://render.com (gratis).
+#   2. New + -> Blueprint -> conecta este repo -> Render lee este archivo.
+#   3. Rellena las variables marcadas como sync:false (no se guardan en el repo):
+#      - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (de tu proyecto Supabase Cloud)
+#      - OPENAI_API_KEY                            (para la voz real; opcional)
+#      - CORS_ORIGIN                               (URL de tu web, o * en pruebas)
+#   4. Deploy. La URL pública (https://taxicount-backend.onrender.com) es la que
+#      pondrás como PROD_BACKEND_URL en los secrets de GitHub para construir el APK.
+#
+# Nota: el plan free "duerme" tras inactividad (primer arranque ~30 s). Para
+# pruebas serias con profesionales, sube a un plan starter (~7 $/mes) para que
+# esté siempre despierto.
+
+services:
+  - type: web
+    name: taxicount-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: frankfurt          # EU (cámbialo si tu Supabase está en otra región)
+    healthCheckPath: /health
+    autoDeploy: false          # despliega solo cuando tú lo pidas
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # En prod NO devolvemos transcripciones de ejemplo.
+      - key: ALLOW_MOCK_TRANSCRIBE
+        value: "false"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      # Stripe (solo si vas a probar suscripciones; opcionales para el MVP).
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

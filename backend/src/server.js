@@ -20,7 +20,8 @@ import {
 const REPORT_TIMEOUT_MS = Number(process.env.REPORT_TIMEOUT_MS || 30000);
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-const PORT = Number(process.env.BACKEND_PORT || 3000);
+// Render/Railway/Fly inyectan PORT; en local usamos BACKEND_PORT (3000).
+const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 3000);
 const HOST = '0.0.0.0';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'http://kong:8000';

@@ -94,7 +94,15 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: flutter build apk --release
+      - name: Build APK (release)
+        run: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL=${{ secrets.PROD_SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.PROD_SUPABASE_ANON_KEY }} \
+            --dart-define=BACKEND_URL=${{ secrets.PROD_BACKEND_URL }} \
+            --dart-define=STRIPE_PRICE_STARTER=${{ secrets.PROD_STRIPE_PRICE_STARTER }} \
+            --dart-define=STRIPE_PRICE_PRO=${{ secrets.PROD_STRIPE_PRICE_PRO }} \
+            --dart-define=STRIPE_PRICE_BUSINESS=${{ secrets.PROD_STRIPE_PRICE_BUSINESS }}
       - uses: actions/upload-artifact@v4
         with:
           name: taxicount-apk-${{ github.ref_name }}
