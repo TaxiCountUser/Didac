@@ -26,6 +26,12 @@ dependencies:
   sentry_flutter: ^8.9.0
   cupertino_icons: ^1.0.6
 
+# record_linux 0.7.2 (impl. de escritorio del plugin 'record') no implementa la
+# interfaz 1.6.0 y rompe la compilación Android. Fijamos record_platform_interface
+# a 1.5.0, que record_android/record_web aceptan (^1.5.0) y record_linux compila.
+dependency_overrides:
+  record_platform_interface: 1.5.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
