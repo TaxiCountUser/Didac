@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import 'incidents_screen.dart';
+import 'locate_vehicle_screen.dart';
 import 'subscription_screen.dart';
 
 /// Ajustes. Cabecera con nombre/cuenta/vehículo (chofer) o empresa (jefe) y
@@ -205,11 +206,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _open(Widget screen) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
-  void _soon() {
-    final l = context.l10n;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('set_soon')}…')));
-  }
-
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -254,8 +250,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: const Icon(Icons.my_location),
               title: Text(l.t('set_locate_vehicle')),
-              subtitle: Text('${l.t('set_locate_sub')} · ${l.t('set_soon')}'),
-              onTap: _soon,
+              subtitle: Text(l.t('set_locate_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(LocateVehicleScreen(profile: widget.profile)),
             ),
           ],
           const Divider(height: 1),

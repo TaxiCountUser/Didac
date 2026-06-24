@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../services/location_service.dart';
 import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
 import 'settings_screen.dart';
@@ -26,6 +27,21 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAskDailyKm());
+    _shareLocation();
+  }
+
+  // Comparte la última ubicación con el jefe (best-effort, con permiso del SO).
+  Future<void> _shareLocation() async {
+    try {
+      final pos = await LocationService.currentPosition();
+      if (pos == null) return;
+      await _service.updateMyLocation(
+        tenantId: widget.profile.tenantId,
+        lat: pos.latitude,
+        lng: pos.longitude,
+        accuracy: pos.accuracy,
+      );
+    } catch (_) {/* sin ubicación: no pasa nada */}
   }
 
   // Selector emergente al empezar el día (una vez por sesión): elige el coche

@@ -22,6 +22,7 @@ dependencies:
   url_launcher: ^6.3.0
   open_filex: ^4.5.0
   path_provider: ^2.1.4
+  geolocator: ^13.0.1
   sentry_flutter: ^8.9.0
   cupertino_icons: ^1.0.6
 

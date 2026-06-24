@@ -514,6 +514,36 @@ class DataService {
     }
   }
 
+  // ---------------- Ubicación (localizar vehículo) ----------------
+
+  /// Guarda/actualiza la última ubicación del conductor autenticado (upsert).
+  Future<void> updateMyLocation({
+    required String tenantId,
+    required double lat,
+    required double lng,
+    double? accuracy,
+  }) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('driver_locations').upsert({
+      'user_id': uid,
+      'tenant_id': tenantId,
+      'lat': lat,
+      'lng': lng,
+      'accuracy': accuracy,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  /// Últimas ubicaciones de los conductores (RLS: el owner ve las de su tenant).
+  Future<List<Map<String, dynamic>>> listDriverLocations() async {
+    final data = await _c
+        .from('driver_locations')
+        .select('*, users:user_id(name, email)')
+        .order('updated_at', ascending: false);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
   // ---------------- Perfil ----------------
 
   /// Actualiza el nombre "de avatar" del propio usuario (RLS: users_update_self).
