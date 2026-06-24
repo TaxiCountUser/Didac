@@ -53,6 +53,11 @@ services:
       # ponlo a false (o quítalo) en producción real.
       - key: ENABLE_PARSE_TEST
         value: "true"
+      # Datos de la política de privacidad (/privacy), requerida por Google Play.
+      - key: PRIVACY_COMPANY
+        sync: false
+      - key: PRIVACY_CONTACT
+        sync: false
       - key: CORS_ORIGIN
         sync: false
       # Stripe (solo si vas a probar suscripciones; opcionales para el MVP).

@@ -44,6 +44,64 @@ const LLM_PARSE_TIMEOUT_MS = Number(process.env.LLM_PARSE_TIMEOUT_MS || 8000);
 // Solo se activa con ENABLE_PARSE_TEST=true (apágalo en producción real).
 const ENABLE_PARSE_TEST = process.env.ENABLE_PARSE_TEST === 'true';
 
+// Datos para la política de privacidad (Google Play exige una URL pública).
+const PRIVACY_COMPANY = process.env.PRIVACY_COMPANY || 'TaxiCount';
+const PRIVACY_CONTACT = process.env.PRIVACY_CONTACT || 'didakdp.5@gmail.com';
+
+// Política de privacidad (HTML). Honesta con lo que hace la app: cuenta, GPS de
+// conductores, audio de voz enviado a un transcriptor (Groq/OpenAI) y datos de
+// actividad. Empresa/contacto configurables por env.
+function privacyHtml() {
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de privacidad · TaxiCount</title>
+<style>body{font-family:system-ui,Arial,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#222;line-height:1.5}h1{font-size:22px}h2{font-size:17px;margin-top:24px}code{background:#f2f2f2;padding:1px 4px;border-radius:4px}</style>
+</head><body>
+<h1>Política de privacidad de TaxiCount</h1>
+<p><em>Última actualización: 24 de junio de 2026</em></p>
+<p>Esta política explica qué datos trata la aplicación <strong>TaxiCount</strong> (gestión de flota de taxi) y con qué fin. Responsable del tratamiento: <strong>${PRIVACY_COMPANY}</strong>. Contacto: <strong>${PRIVACY_CONTACT}</strong>.</p>
+
+<h2>1. Datos que tratamos</h2>
+<ul>
+  <li><strong>Cuenta</strong>: correo electrónico, nombre y, si lo indicas, número de licencia.</li>
+  <li><strong>Ubicación (GPS)</strong>: de los conductores, mientras la app está abierta, para que el titular de la flota pueda localizar el vehículo durante la jornada laboral.</li>
+  <li><strong>Audio de voz</strong>: cuando usas el registro por voz, el audio se envía a un proveedor de transcripción (Groq u OpenAI) para convertirlo en texto. El audio no se almacena de forma permanente; solo se guarda el texto/los datos de la carrera.</li>
+  <li><strong>Actividad</strong>: carreras, importes, gastos, kilómetros, vehículos e incidencias que registras.</li>
+</ul>
+
+<h2>2. Para qué los usamos</h2>
+<p>Para prestar el servicio: registrar carreras y gastos, calcular informes, gestionar vehículos y conductores, y permitir al titular de la flota el seguimiento operativo. No vendemos tus datos ni los usamos para publicidad.</p>
+
+<h2>3. Base legal</h2>
+<p>Ejecución del servicio contratado y, para la ubicación y el micrófono, tu consentimiento (puedes revocarlo en los ajustes del móvil).</p>
+
+<h2>4. Proveedores que tratan datos por nuestra cuenta</h2>
+<ul>
+  <li><strong>Supabase</strong> — base de datos, autenticación y almacenamiento.</li>
+  <li><strong>Groq / OpenAI</strong> — transcripción de las notas de voz.</li>
+  <li><strong>Stripe</strong> — pagos de la suscripción (si procede).</li>
+  <li><strong>Render</strong> — alojamiento del servidor.</li>
+</ul>
+<p>Algunos pueden tratar datos fuera de la UE con las garantías legales aplicables.</p>
+
+<h2>5. Conservación</h2>
+<p>Conservamos los datos mientras la cuenta esté activa. Puedes solicitar su supresión escribiendo a ${PRIVACY_CONTACT}.</p>
+
+<h2>6. Tus derechos (RGPD)</h2>
+<p>Acceso, rectificación, supresión, oposición, limitación y portabilidad, escribiendo a ${PRIVACY_CONTACT}. También puedes reclamar ante la Agencia Española de Protección de Datos (AEPD).</p>
+
+<h2>7. Permisos del dispositivo</h2>
+<p>La app pide <strong>ubicación</strong> (seguimiento del vehículo) y <strong>micrófono</strong> (registro por voz). Son opcionales y revocables desde los ajustes del sistema.</p>
+
+<h2>8. Menores</h2>
+<p>TaxiCount es una herramienta profesional y no está dirigida a menores de edad.</p>
+
+<h2>9. Cambios</h2>
+<p>Si actualizamos esta política, publicaremos la nueva versión en esta misma dirección.</p>
+</body></html>`;
+}
+
 // Página web mínima para probar la interpretación desde el navegador.
 const PARSE_TEST_HTML = `<!doctype html>
 <html lang="ca"><head><meta charset="utf-8">
@@ -249,6 +307,11 @@ export async function buildApp(options = {}) {
     service: 'taxicount-backend',
     timestamp: new Date().toISOString(),
   }));
+
+  // Política de privacidad (URL pública requerida por Google Play).
+  app.get('/privacy', async (_request, reply) => {
+    reply.type('text/html').send(privacyHtml());
+  });
 
   // --- Transcripción + parseo (Fase 2) ---
   app.post('/api/v1/transcribe', async (request, reply) => {
