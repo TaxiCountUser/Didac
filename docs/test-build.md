@@ -119,6 +119,16 @@ Secrets nuevos en GitHub:
 
 - **iPhone (iOS):** requiere un Mac y cuenta de Apple Developer (99 $/año). No se
   puede construir desde este PC Windows; queda fuera de esta guía.
-- **Voz real:** pon `OPENAI_API_KEY` en Render y deja `ALLOW_MOCK_TRANSCRIBE=false`.
+- **Voz real (gratis con Groq):** no hace falta pagar OpenAI. Groq ofrece
+  transcripción Whisper **gratis** con API compatible. Crea una clave en
+  https://console.groq.com y configura en el backend (Render o `.env`):
+  ```
+  OPENAI_BASE_URL=https://api.groq.com/openai/v1
+  WHISPER_MODEL=whisper-large-v3
+  OPENAI_API_KEY=<tu clave de Groq>
+  ALLOW_MOCK_TRANSCRIBE=false
+  ```
+  Si prefieres OpenAI, deja `OPENAI_BASE_URL` y `WHISPER_MODEL` vacíos y pon tu
+  clave `sk-...` de OpenAI (cuesta ~0,006 $/min).
 - **Versión de la app:** se controla en `frontend/pubspec.yaml` (`version: x.y.z+build`).
   Sube el número de build en cada APK que mandes para no confundir versiones.

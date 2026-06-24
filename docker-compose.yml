@@ -188,6 +188,10 @@ services:
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Proveedor de transcripción compatible con OpenAI. Vacío = OpenAI.
+      # Groq (GRATIS): OPENAI_BASE_URL=https://api.groq.com/openai/v1 y WHISPER_MODEL=whisper-large-v3
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      WHISPER_MODEL: ${WHISPER_MODEL:-whisper-1}
       # Dev/local: permite mock_text en /transcribe sin llamar a Whisper.
       ALLOW_MOCK_TRANSCRIBE: ${ALLOW_MOCK_TRANSCRIBE:-true}
       TRANSCRIBE_DAILY_LIMIT: ${TRANSCRIBE_DAILY_LIMIT:-150}

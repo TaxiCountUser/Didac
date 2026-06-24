@@ -37,6 +37,14 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      # Para usar Groq (transcripción GRATIS) en vez de OpenAI:
+      #   OPENAI_BASE_URL = https://api.groq.com/openai/v1
+      #   WHISPER_MODEL   = whisper-large-v3
+      #   OPENAI_API_KEY  = tu clave de Groq
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: WHISPER_MODEL
+        sync: false
       - key: CORS_ORIGIN
         sync: false
       # Stripe (solo si vas a probar suscripciones; opcionales para el MVP).

@@ -27,6 +27,13 @@ const HOST = '0.0.0.0';
 const SUPABASE_URL = process.env.SUPABASE_URL || 'http://kong:8000';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+// Proveedor de transcripción compatible con la API de OpenAI. Por defecto OpenAI
+// (modelo whisper-1). Para usar una alternativa GRATIS como Groq, define:
+//   OPENAI_BASE_URL=https://api.groq.com/openai/v1
+//   WHISPER_MODEL=whisper-large-v3
+//   OPENAI_API_KEY=<tu clave de Groq>
+const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || '';
+const WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
 
 const SENTRY_DSN = process.env.SENTRY_DSN || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
@@ -50,14 +57,18 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-// Transcriptor real (Whisper de OpenAI). Import dinámico para no exigir el
+// Transcriptor real (Whisper). Compatible con OpenAI o cualquier proveedor con
+// API compatible (p. ej. Groq, gratis). Import dinámico para no exigir el
 // paquete cuando se usa un mock en tests.
 async function defaultTranscribe({ buffer, filename }) {
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY no configurada');
   const { default: OpenAI, toFile } = await import('openai');
-  const client = new OpenAI({ apiKey: OPENAI_API_KEY });
+  const client = new OpenAI({
+    apiKey: OPENAI_API_KEY,
+    ...(OPENAI_BASE_URL ? { baseURL: OPENAI_BASE_URL } : {}),
+  });
   const file = await toFile(buffer, filename || 'audio.m4a');
-  const res = await client.audio.transcriptions.create({ file, model: 'whisper-1' });
+  const res = await client.audio.transcriptions.create({ file, model: WHISPER_MODEL });
   return { text: res.text, confidence: 0.95 };
 }
 

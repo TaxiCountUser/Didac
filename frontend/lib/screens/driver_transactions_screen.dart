@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/format.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
 
@@ -28,6 +29,7 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   bool _loading = false;
   bool _hasMore = true;
   String? _error;
+  double? _income; // beneficios del periodo (solo ingresos)
 
   @override
   void initState() {
@@ -77,7 +79,18 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
       _hasMore = true;
       _error = null;
     });
+    _loadEarnings();
     await _loadMore();
+  }
+
+  // Beneficios del periodo: SOLO ingresos (carreras), sin restar gastos, que
+  // van a cargo de la empresa.
+  Future<void> _loadEarnings() async {
+    try {
+      final s = await _service.transactionsSummary(
+        userId: widget.profile.id, from: _from, to: _to);
+      if (mounted) setState(() => _income = s.income);
+    } catch (_) {/* el banner es best-effort */}
   }
 
   void _onScroll() {
@@ -131,6 +144,7 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
       body: Column(
         children: [
           _periodSelector(),
+          _earningsBanner(),
           const Divider(height: 1),
           Expanded(child: _list()),
         ],
@@ -149,6 +163,42 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
           _chip(l.t('per_week'), DriverPeriod.week),
           _chip(l.t('per_month'), DriverPeriod.month),
           _chip(l.t('per_year'), DriverPeriod.year),
+        ],
+      ),
+    );
+  }
+
+  // Banner con los beneficios (ingresos) del periodo seleccionado.
+  Widget _earningsBanner() {
+    final l = context.l10n;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B5E20), // verde "ingreso"
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.payments, color: Colors.white, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.t('dt_earnings'),
+                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(l.t('dh_earnings_note'),
+                    style: const TextStyle(color: Colors.white60, fontSize: 10)),
+              ],
+            ),
+          ),
+          Text(
+            _income == null ? '—' : money(_income!),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
