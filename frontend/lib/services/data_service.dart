@@ -56,6 +56,24 @@ class DataService {
     await _c.from('vehicles').delete().eq('id', id);
   }
 
+  /// Actualiza la ficha de mantenimiento de un vehículo (solo Owner por RLS).
+  /// Solo escribe las claves presentes en [fields]; usa null para borrar un dato.
+  Future<void> updateVehicleMaintenance(String id, Map<String, dynamic> fields) async {
+    if (fields.isEmpty) return;
+    await _c.from('vehicles').update(fields).eq('id', id);
+  }
+
+  /// Km actuales (máx. conocido) de varios vehículos a la vez, para la lista.
+  /// Devuelve {vehicleId: km} solo con los que tienen alguna lectura.
+  Future<Map<String, int>> currentKmFor(List<String> vehicleIds) async {
+    final out = <String, int>{};
+    for (final id in vehicleIds) {
+      final km = await lastOdometer(id);
+      if (km != null) out[id] = km;
+    }
+    return out;
+  }
+
   // ---------------- Conductores ----------------
   Future<List<Map<String, dynamic>>> listDrivers() async {
     final data =

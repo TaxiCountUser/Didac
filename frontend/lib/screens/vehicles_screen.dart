@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import 'vehicle_detail_screen.dart';
 
 /// Panel de vehículos (solo Owner). Listar / añadir / eliminar.
 class VehiclesScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class VehiclesScreen extends StatefulWidget {
 class _VehiclesScreenState extends State<VehiclesScreen> {
   final _service = DataService();
   late Future<List<Map<String, dynamic>>> _future;
+  Map<String, int> _km = {};
 
   @override
   void initState() {
@@ -23,7 +26,18 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     _reload();
   }
 
-  void _reload() => setState(() => _future = _service.listVehicles());
+  void _reload() {
+    setState(() => _future = _service.listVehicles());
+    _loadKm();
+  }
+
+  Future<void> _loadKm() async {
+    try {
+      final vehicles = await _future;
+      final km = await _service.currentKmFor([for (final v in vehicles) v['id'] as String]);
+      if (mounted) setState(() => _km = km);
+    } catch (_) {/* km best-effort */}
+  }
 
   Future<void> _addDialog() async {
     final plate = TextEditingController();
@@ -67,73 +81,27 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     }
   }
 
-  /// Asigna conductores a un vehículo (multi-selección).
-  Future<void> _assignDrivers(Map<String, dynamic> vehicle) async {
-    final vehicleId = vehicle['id'] as String;
-    List<Map<String, dynamic>> drivers;
-    Set<String> selected;
-    try {
-      drivers = await _service.listDrivers();
-      final assigned = await _service.driversForVehicle(vehicleId);
-      selected = assigned.map((d) => d['id'] as String).toSet();
-    } catch (e) {
-      _showError(e);
-      return;
-    }
-    if (!mounted) return;
-    if (drivers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.t('vh_no_drivers'))),
-      );
-      return;
-    }
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text(ctx.l10n.t('vh_drivers_of', {'plate': '${vehicle['license_plate'] ?? ''}'})),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final d in drivers)
-                  CheckboxListTile(
-                    value: selected.contains(d['id']),
-                    title: Text(d['name'] as String? ?? d['email'] as String),
-                    subtitle: Text(d['email'] as String),
-                    onChanged: (v) => setLocal(() {
-                      if (v == true) {
-                        selected.add(d['id'] as String);
-                      } else {
-                        selected.remove(d['id']);
-                      }
-                    }),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('save'))),
-          ],
-        ),
-      ),
+  /// Abre la ficha detallada del vehículo (km, mantenimiento, conductores).
+  Future<void> _openDetail(Map<String, dynamic> vehicle) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => VehicleDetailScreen(profile: widget.profile, vehicle: vehicle),
+    ));
+    _reload();
+  }
+
+  /// Pequeña insignia con los km actuales del coche (si se conocen).
+  Widget _kmBadge(BuildContext context, String vehicleId) {
+    final km = _km[vehicleId];
+    if (km == null) return const Icon(Icons.chevron_right);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('${NumberFormat.decimalPattern('es').format(km)} km',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(width: 4),
+        const Icon(Icons.chevron_right),
+      ],
     );
-    if (ok == true) {
-      try {
-        await _service.setDriversForVehicle(
-          vehicleId: vehicleId,
-          tenantId: widget.profile.tenantId,
-          userIds: selected.toList(),
-        );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(context.l10n.t('vh_assign_saved'))));
-      } catch (e) {
-        _showError(e);
-      }
-    }
   }
 
   Future<void> _delete(String id) async {
@@ -194,8 +162,8 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                     leading: const Icon(Icons.directions_car),
                     title: Text(v['license_plate'] as String? ?? '—'),
                     subtitle: Text(v['model'] as String? ?? context.l10n.t('vh_no_model')),
-                    trailing: const Icon(Icons.people_outline),
-                    onTap: () => _assignDrivers(v),
+                    trailing: _kmBadge(context, v['id'] as String),
+                    onTap: () => _openDetail(v),
                   ),
                 );
               },
