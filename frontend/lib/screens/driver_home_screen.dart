@@ -24,14 +24,26 @@ class DriverHomeScreen extends StatefulWidget {
 
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
   final _service = DataService();
-  bool _askedDailyKm = false;
   StreamSubscription<Position>? _posSub;
+  bool _jornadaStarted = false; // ¿hay lectura de km de HOY? (jornada iniciada)
+  bool _loadingJornada = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAskDailyKm());
+    _loadJornada();
     _startTracking();
+  }
+
+  // La jornada está "iniciada" si hoy ya hay una lectura de km. A las 00:00
+  // deja de haberla (es de otro día) y el botón vuelve a "Iniciar jornada".
+  Future<void> _loadJornada() async {
+    try {
+      final vid = await _service.todaysVehicleId(widget.profile.id);
+      if (mounted) setState(() { _jornadaStarted = vid != null; _loadingJornada = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingJornada = false);
+    }
   }
 
   @override
@@ -63,24 +75,22 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     } catch (_) {}
   }
 
-  // Selector emergente al empezar el día (una vez por sesión): elige el coche
-  // del día y apunta los km de inicio. El coche elegido queda como activo.
-  Future<void> _maybeAskDailyKm() async {
-    if (_askedDailyKm) return;
-    _askedDailyKm = true;
+  // INICIAR jornada (botón): elige el coche del día y apunta los km de inicio.
+  // El campo viene precargado con los últimos km conocidos.
+  Future<void> _startDay() async {
     try {
       final vehicles = await _service.myVehicles();
-      if (vehicles.isEmpty || !mounted) return;
-
-      // Si ya hay lectura de hoy para alguno de sus vehículos, no molestamos.
-      for (final v in vehicles) {
-        if (await _service.hasOdometerToday(v['id'] as String, widget.profile.id)) {
-          return;
-        }
-      }
       if (!mounted) return;
-      await _showKmDialog(vehicles, title: context.l10n.t('dh_start_day'), barrier: false);
-    } catch (_) {/* no es crítico */}
+      if (vehicles.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.t('dh_no_vehicles'))));
+        return;
+      }
+      await _showKmDialog(vehicles, title: context.l10n.t('dh_start_day'), barrier: true);
+      await _loadJornada();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   // Aviso de km al FINALIZAR el día (manual, desde el botón).
@@ -98,6 +108,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       if (!mounted) return;
       await _showKmDialog(vehicles,
           title: context.l10n.t('dh_finish_day'), preVehicleId: preId, barrier: true);
+      await _loadJornada();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -279,12 +290,27 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextButton.icon(
-                  key: const Key('end_of_day_button'),
-                  onPressed: _endOfDay,
-                  icon: const Icon(Icons.nightlight_round),
-                  label: Text(l.t('dh_end_day')),
-                ),
+                if (_loadingJornada)
+                  const Center(child: Padding(
+                    padding: EdgeInsets.all(8),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ))
+                else if (_jornadaStarted)
+                  FilledButton.icon(
+                    key: const Key('end_of_day_button'),
+                    style: FilledButton.styleFrom(backgroundColor: Colors.blueGrey),
+                    onPressed: _endOfDay,
+                    icon: const Icon(Icons.nightlight_round),
+                    label: Text(l.t('dh_finish_day')),
+                  )
+                else
+                  FilledButton.icon(
+                    key: const Key('start_of_day_button'),
+                    style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
+                    onPressed: _startDay,
+                    icon: const Icon(Icons.wb_sunny),
+                    label: Text(l.t('dh_start_day')),
+                  ),
               ],
             ),
           ),
