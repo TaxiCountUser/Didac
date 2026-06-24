@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 
@@ -30,25 +31,25 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Nuevo vehículo'),
+        title: Text(ctx.l10n.t('vh_new')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               key: const Key('plate_field'),
               controller: plate,
-              decoration: const InputDecoration(labelText: 'Matrícula'),
+              decoration: InputDecoration(labelText: ctx.l10n.t('vh_plate')),
             ),
             TextField(
               key: const Key('model_field'),
               controller: model,
-              decoration: const InputDecoration(labelText: 'Modelo'),
+              decoration: InputDecoration(labelText: ctx.l10n.t('vh_model')),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('save'))),
         ],
       ),
     );
@@ -82,7 +83,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     if (!mounted) return;
     if (drivers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay conductores. Invita alguno primero.')),
+        SnackBar(content: Text(context.l10n.t('vh_no_drivers'))),
       );
       return;
     }
@@ -90,7 +91,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text('Choferes de ${vehicle['license_plate'] ?? 'vehículo'}'),
+          title: Text(ctx.l10n.t('vh_drivers_of', {'plate': '${vehicle['license_plate'] ?? ''}'})),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView(
@@ -113,8 +114,8 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('save'))),
           ],
         ),
       ),
@@ -128,7 +129,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Asignación guardada')));
+            .showSnackBar(SnackBar(content: Text(context.l10n.t('vh_assign_saved'))));
       } catch (e) {
         _showError(e);
       }
@@ -157,7 +158,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
         key: const Key('add_vehicle_fab'),
         onPressed: _addDialog,
         icon: const Icon(Icons.add),
-        label: const Text('Añadir'),
+        label: Text(context.l10n.t('vh_add')),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
@@ -170,7 +171,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
           }
           final vehicles = snap.data ?? [];
           if (vehicles.isEmpty) {
-            return const Center(child: Text('No hay vehículos. Añade el primero.'));
+            return Center(child: Text(context.l10n.t('vh_empty')));
           }
           return RefreshIndicator(
             onRefresh: () async => _reload(),
@@ -192,7 +193,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.directions_car),
                     title: Text(v['license_plate'] as String? ?? '—'),
-                    subtitle: Text(v['model'] as String? ?? 'Sin modelo'),
+                    subtitle: Text(v['model'] as String? ?? context.l10n.t('vh_no_model')),
                     trailing: const Icon(Icons.people_outline),
                     onTap: () => _assignDrivers(v),
                   ),
