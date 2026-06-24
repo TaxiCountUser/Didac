@@ -24,7 +24,7 @@ const SYSTEM_PROMPT = `Ets un assistent que extreu dades d'una frase dita per un
 
 Retorna NOMÉS un objecte JSON (sense text addicional) amb aquestes claus exactes:
 - "type": "income" si és una carrera/cobrament, "expense" si és una despesa/gasto.
-- "amount": número en euros (decimals amb punt, p. ex. 18.5) o null. Compte amb els milers: "292.000" = 292000.
+- "amount": el PREU de la carrera/despesa en EUROS que es paga (decimals amb punt, p. ex. 18.5), o null. NO són els quilòmetres. Si la frase NO esmenta cap preu en euros, ha de ser null (no l'inventis ni el dedueixis dels km). Compte amb els milers: "292.000" = 292000.
 - "payment_method": un de "tarjeta", "efectivo", "bizum", "transferencia" o null. (targeta/visa/tpv/datàfon => tarjeta; efectiu/metàl·lic/monedes/bitllets => efectivo)
 - "origin": lloc d'origen de la carrera (string) o null.
 - "destination": lloc de destí (string) o null.
@@ -32,7 +32,7 @@ Retorna NOMÉS un objecte JSON (sense text addicional) amb aquestes claus exacte
 - "client_name": nom de l'empresa si es menciona (p. ex. Gitaxi, Movitaxi, OneCab, Asepeyo, Mutua Asepeyo, Radio Taxi, Cooperativa), amb la primera lletra en majúscula; null si és un client particular.
 - "category": NOMÉS per a despeses, un de "gasolina", "gasoil", "taller", "peaje", "parking", "lavado", "multa", "seguro", "comida", "compra"; o null.
 
-Regles: escriu els llocs i l'empresa amb majúscula inicial. Si un camp no apareix clarament, posa null. No inventis. Respon només amb el JSON.`;
+Regles: escriu els llocs i l'empresa amb majúscula inicial. Si un camp NO apareix clarament a la frase, posa null; no inventis ni dedueixis cap valor que no s'hagi dit (especialment l'import). Respon només amb el JSON.`;
 
 /**
  * Extrae los campos de la transcripción usando un LLM compatible con OpenAI.
