@@ -89,9 +89,19 @@ const TRANSCRIBE_LANGS = new Set(['es', 'ca', 'en']);
 // Interpreta la transcripción: si hay LLM configurado lo usa (mejor en catalán)
 // y completa con el parser determinista; si no, solo el determinista. Nunca
 // lanza: ante cualquier fallo del LLM, devuelve el resultado determinista.
+// Si no se dijo ningún precio, anotamos 0 (NO se inventa) para que un importe de
+// 0 € en la lista sea la señal visible de que esa carrera hay que revisarla.
+function zeroIfNoAmount(parsed) {
+  if (parsed.amount == null) {
+    parsed.amount = 0;
+    parsed.missing_fields = (parsed.missing_fields || []).filter((f) => f !== 'amount');
+  }
+  return parsed;
+}
+
 async function parseSmart(text, { language, log } = {}) {
   const deterministic = parseTransactionText(text);
-  if (!LLM_PARSE_MODEL || !OPENAI_API_KEY) return deterministic;
+  if (!LLM_PARSE_MODEL || !OPENAI_API_KEY) return zeroIfNoAmount(deterministic);
   try {
     const llm = await withTimeout(
       llmParse(text, {
@@ -102,10 +112,10 @@ async function parseSmart(text, { language, log } = {}) {
       }),
       LLM_PARSE_TIMEOUT_MS,
     );
-    return mergeParsed(llm, deterministic);
+    return zeroIfNoAmount(mergeParsed(llm, deterministic));
   } catch (e) {
     log?.warn?.(`LLM parse falló (${e.message}); uso parser determinista`);
-    return deterministic;
+    return zeroIfNoAmount(deterministic);
   }
 }
 
