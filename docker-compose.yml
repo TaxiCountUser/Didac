@@ -188,6 +188,18 @@ services:
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Proveedor de transcripción compatible con OpenAI. Vacío = OpenAI.
+      # Groq (GRATIS): OPENAI_BASE_URL=https://api.groq.com/openai/v1 y WHISPER_MODEL=whisper-large-v3
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      WHISPER_MODEL: ${WHISPER_MODEL:-whisper-1}
+      # LLM que interpreta la transcripción (origen/destino/empresa) en catalán
+      # y castellano. Vacío = solo parser de reglas. Groq (gratis): llama-3.3-70b-versatile
+      LLM_PARSE_MODEL: ${LLM_PARSE_MODEL:-}
+      # Endpoint /parse-test (probar frases sin audio). Apágalo en producción real.
+      ENABLE_PARSE_TEST: ${ENABLE_PARSE_TEST:-true}
+      # Datos para la política de privacidad (/privacy), requerida por Google Play.
+      PRIVACY_COMPANY: ${PRIVACY_COMPANY:-TaxiCount}
+      PRIVACY_CONTACT: ${PRIVACY_CONTACT:-didakdp.5@gmail.com}
       # Dev/local: permite mock_text en /transcribe sin llamar a Whisper.
       ALLOW_MOCK_TRANSCRIBE: ${ALLOW_MOCK_TRANSCRIBE:-true}
       TRANSCRIBE_DAILY_LIMIT: ${TRANSCRIBE_DAILY_LIMIT:-150}

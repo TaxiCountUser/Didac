@@ -34,7 +34,10 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npm test
+      # CI sin infraestructura: health + parser. Los tests que requieren el
+      # stack Supabase vivo (webhook, billing, excel, pdf) y los de integración
+      # Dart se ejecutan en local con `docker compose up` (ver docs/README.md).
+      - run: npm run test:ci
 
   lint-flutter:
     runs-on: ubuntu-latest

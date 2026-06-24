@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 
@@ -30,7 +31,7 @@ class _DriversScreenState extends State<DriversScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Invitar conductor'),
+        title: Text(ctx.l10n.t('dr_invite_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -38,18 +39,18 @@ class _DriversScreenState extends State<DriversScreen> {
               key: const Key('driver_email_field'),
               controller: email,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: InputDecoration(labelText: ctx.l10n.t('dr_email')),
             ),
             TextField(
               key: const Key('driver_name_field'),
               controller: name,
-              decoration: const InputDecoration(labelText: 'Nombre'),
+              decoration: InputDecoration(labelText: ctx.l10n.t('dr_name')),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Invitar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('dr_invite'))),
         ],
       ),
     );
@@ -64,13 +65,10 @@ class _DriversScreenState extends State<DriversScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Conductor invitado'),
-            content: Text(
-              'Se ha creado el conductor.\n\n'
-              'Contraseña temporal (desarrollo):\n$tempPwd',
-            ),
+            title: Text(ctx.l10n.t('dr_invited_title')),
+            content: Text(ctx.l10n.t('dr_invited_msg', {'pwd': tempPwd})),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l10n.t('ok'))),
             ],
           ),
         );
@@ -82,6 +80,78 @@ class _DriversScreenState extends State<DriversScreen> {
     }
   }
 
+  /// Asigna vehículos a un conductor (multi-selección).
+  Future<void> _assignVehicles(Map<String, dynamic> driver) async {
+    final userId = driver['id'] as String;
+    List<Map<String, dynamic>> vehicles;
+    Set<String> selected;
+    try {
+      vehicles = await _service.listVehicles();
+      final assigned = await _service.vehiclesForDriver(userId);
+      selected = assigned.map((v) => v['id'] as String).toSet();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      return;
+    }
+    if (!mounted) return;
+    if (vehicles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.t('dr_no_vehicles'))),
+      );
+      return;
+    }
+    final name = driver['name'] as String? ?? driver['email'] as String;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(ctx.l10n.t('dr_vehicles_of', {'name': name})),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final v in vehicles)
+                  CheckboxListTile(
+                    value: selected.contains(v['id']),
+                    title: Text(v['license_plate'] as String? ?? '—'),
+                    subtitle: Text(v['model'] as String? ?? ctx.l10n.t('vh_no_model')),
+                    onChanged: (val) => setLocal(() {
+                      if (val == true) {
+                        selected.add(v['id'] as String);
+                      } else {
+                        selected.remove(v['id']);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('save'))),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      try {
+        await _service.setVehiclesForDriver(
+          userId: userId,
+          tenantId: widget.profile.tenantId,
+          vehicleIds: selected.toList(),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.t('vh_assign_saved'))));
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,7 +159,7 @@ class _DriversScreenState extends State<DriversScreen> {
         key: const Key('invite_driver_fab'),
         onPressed: _inviteDialog,
         icon: const Icon(Icons.person_add),
-        label: const Text('Invitar'),
+        label: Text(context.l10n.t('dr_invite')),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
@@ -102,7 +172,7 @@ class _DriversScreenState extends State<DriversScreen> {
           }
           final drivers = snap.data ?? [];
           if (drivers.isEmpty) {
-            return const Center(child: Text('Aún no hay conductores. Invita al primero.'));
+            return Center(child: Text(context.l10n.t('dr_empty')));
           }
           return RefreshIndicator(
             onRefresh: () async => _reload(),
@@ -115,6 +185,8 @@ class _DriversScreenState extends State<DriversScreen> {
                   leading: const Icon(Icons.person),
                   title: Text(d['name'] as String? ?? d['email'] as String),
                   subtitle: Text(d['email'] as String),
+                  trailing: const Icon(Icons.directions_car_outlined),
+                  onTap: () => _assignVehicles(d),
                 );
               },
             ),

@@ -30,6 +30,36 @@ const kCategoryLabels = <String, String>{
 IconData categoryIcon(String? cat) => kCategoryIcons[cat] ?? Icons.receipt_long;
 String categoryLabel(String? cat) => kCategoryLabels[cat] ?? (cat ?? 'Sin categoría');
 
+/// Primera letra en mayúscula (resto sin tocar). P. ej. "gitaxi" -> "Gitaxi".
+String capitalizeFirst(String s) =>
+    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+/// Nombre de cliente/empresa para mostrar: empresa capitalizada o "Particular".
+String clientDisplay(Map<String, dynamic> tx) {
+  final c = (tx['client_name'] as String?)?.trim();
+  return (c != null && c.isNotEmpty) ? capitalizeFirst(c) : 'Particular';
+}
+
+/// Título de una transacción para listas/detalle: en una carrera (ingreso),
+/// la empresa nombrada (capitalizada) o "Particular"; en un gasto, la categoría.
+String txTitle(Map<String, dynamic> tx) {
+  if (tx['type'] == 'income') return clientDisplay(tx);
+  return categoryLabel(tx['category'] as String?);
+}
+
+/// Icono de una transacción: taxi para carreras, icono de categoría para gastos.
+IconData txIcon(Map<String, dynamic> tx) =>
+    tx['type'] == 'income' ? Icons.local_taxi : categoryIcon(tx['category'] as String?);
+
+/// Trayecto "origen → destino" de una carrera, o null si no aplica/está vacío.
+String? tripRoute(Map<String, dynamic> tx) {
+  if (tx['type'] != 'income') return null;
+  final o = (tx['origin'] as String?)?.trim();
+  final d = (tx['destination'] as String?)?.trim();
+  if ((o == null || o.isEmpty) && (d == null || d.isEmpty)) return null;
+  return '${o?.isNotEmpty == true ? o : '—'} → ${d?.isNotEmpty == true ? d : '—'}';
+}
+
 final _money = NumberFormat.currency(locale: 'es_ES', symbol: '€', decimalDigits: 2);
 String money(num v) => _money.format(v);
 

@@ -2,8 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+
+/// Clave i18n del estado de suscripción.
+String subscriptionStatusKey(String? status) => switch (status) {
+      'active' => 'st_active',
+      'trialing' => 'st_trial',
+      'past_due' => 'st_past_due',
+      'canceled' => 'st_canceled',
+      _ => 'st_inactive',
+    };
 
 /// Etiqueta legible del estado de suscripción.
 String subscriptionStatusLabel(String? status) {
@@ -86,7 +96,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('No se pudo abrir el navegador')));
+          .showSnackBar(SnackBar(content: Text(context.l10n.t('sub_no_browser'))));
     }
   }
 
@@ -120,8 +130,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Text('Error: $_error'));
+    if (_error != null) return Center(child: Text('${l.t('error')}: $_error'));
 
     final b = _billing ?? {};
     final status = b['subscription_status'] as String?;
@@ -134,14 +145,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _currentPlanCard(status, planId, limit, hasCustomer),
+          _currentPlanCard(l, status, planId, limit, hasCustomer),
           const SizedBox(height: 24),
           Text(
-            subscriptionIsActive(status) ? 'Cambiar de plan' : 'Elige un plan',
+            subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_choose_plan'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          ...kPlans.map((p) => _planCard(p, planId)),
+          ...kPlans.map((p) => _planCard(l, p, planId)),
           if (_busy) const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),
@@ -151,8 +162,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _currentPlanCard(String? status, String? planId, dynamic limit, bool hasCustomer) {
-    final limitText = limit == null ? 'Ilimitados' : '$limit';
+  Widget _currentPlanCard(AppLocalizations l, String? status, String? planId, dynamic limit, bool hasCustomer) {
+    final limitText = limit == null ? l.t('sub_unlimited') : '$limit';
+    final planName = kPlans.where((e) => e.id == planId).isNotEmpty
+        ? kPlans.firstWhere((e) => e.id == planId).name
+        : l.t('sub_no_plan');
     return Card(
       key: const Key('current_plan_card'),
       child: Padding(
@@ -164,24 +178,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               children: [
                 const Icon(Icons.workspace_premium, color: Colors.amber),
                 const SizedBox(width: 8),
-                Text('Plan ${planDisplayName(planId)}',
+                Text('${l.t('sub_plan_prefix')} $planName',
                     style: Theme.of(context).textTheme.titleLarge),
                 const Spacer(),
                 Chip(
-                  label: Text(subscriptionStatusLabel(status),
+                  label: Text(l.t(subscriptionStatusKey(status)),
                       style: const TextStyle(color: Colors.white, fontSize: 12)),
                   backgroundColor: subscriptionStatusColor(status),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Text('Conductores incluidos: $limitText'),
+            Text(l.t('sub_drivers_included', {'n': limitText})),
             if (!subscriptionIsActive(status)) ...[
               const SizedBox(height: 8),
-              const Text(
-                'Tu suscripción no está activa. Contrata o reactiva un plan para '
-                'seguir registrando transacciones.',
-                style: TextStyle(color: Color(0xFFC62828)),
+              Text(
+                l.t('sub_inactive_msg'),
+                style: const TextStyle(color: Color(0xFFC62828)),
               ),
             ],
             if (hasCustomer) ...[
@@ -190,7 +203,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 key: const Key('open_portal_button'),
                 onPressed: _busy ? null : _openPortal,
                 icon: const Icon(Icons.receipt_long),
-                label: const Text('Gestionar facturación'),
+                label: Text(l.t('sub_manage_billing')),
               ),
             ],
           ],
@@ -199,18 +212,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _planCard(PlanInfo plan, String? currentPlanId) {
+  Widget _planCard(AppLocalizations l, PlanInfo plan, String? currentPlanId) {
     final isCurrent = plan.id == currentPlanId;
     return Card(
       child: ListTile(
         title: Text(plan.name),
         subtitle: Text(plan.driversText),
         trailing: isCurrent
-            ? const Chip(label: Text('Actual'))
+            ? Chip(label: Text(l.t('sub_current')))
             : FilledButton(
                 key: Key('choose_plan_${plan.id}'),
                 onPressed: _busy ? null : () => _choosePlan(plan),
-                child: const Text('Elegir'),
+                child: Text(l.t('sub_choose')),
               ),
       ),
     );

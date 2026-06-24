@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import 'vehicle_detail_screen.dart';
 
 /// Panel de vehículos (solo Owner). Listar / añadir / eliminar.
 class VehiclesScreen extends StatefulWidget {
@@ -15,6 +18,7 @@ class VehiclesScreen extends StatefulWidget {
 class _VehiclesScreenState extends State<VehiclesScreen> {
   final _service = DataService();
   late Future<List<Map<String, dynamic>>> _future;
+  Map<String, int> _km = {};
 
   @override
   void initState() {
@@ -22,7 +26,18 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     _reload();
   }
 
-  void _reload() => setState(() => _future = _service.listVehicles());
+  void _reload() {
+    setState(() => _future = _service.listVehicles());
+    _loadKm();
+  }
+
+  Future<void> _loadKm() async {
+    try {
+      final vehicles = await _future;
+      final km = await _service.currentKmFor([for (final v in vehicles) v['id'] as String]);
+      if (mounted) setState(() => _km = km);
+    } catch (_) {/* km best-effort */}
+  }
 
   Future<void> _addDialog() async {
     final plate = TextEditingController();
@@ -30,25 +45,25 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Nuevo vehículo'),
+        title: Text(ctx.l10n.t('vh_new')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               key: const Key('plate_field'),
               controller: plate,
-              decoration: const InputDecoration(labelText: 'Matrícula'),
+              decoration: InputDecoration(labelText: ctx.l10n.t('vh_plate')),
             ),
             TextField(
               key: const Key('model_field'),
               controller: model,
-              decoration: const InputDecoration(labelText: 'Modelo'),
+              decoration: InputDecoration(labelText: ctx.l10n.t('vh_model')),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('save'))),
         ],
       ),
     );
@@ -64,6 +79,29 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
         _showError(e);
       }
     }
+  }
+
+  /// Abre la ficha detallada del vehículo (km, mantenimiento, conductores).
+  Future<void> _openDetail(Map<String, dynamic> vehicle) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => VehicleDetailScreen(profile: widget.profile, vehicle: vehicle),
+    ));
+    _reload();
+  }
+
+  /// Pequeña insignia con los km actuales del coche (si se conocen).
+  Widget _kmBadge(BuildContext context, String vehicleId) {
+    final km = _km[vehicleId];
+    if (km == null) return const Icon(Icons.chevron_right);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('${NumberFormat.decimalPattern('es').format(km)} km',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(width: 4),
+        const Icon(Icons.chevron_right),
+      ],
+    );
   }
 
   Future<void> _delete(String id) async {
@@ -88,7 +126,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
         key: const Key('add_vehicle_fab'),
         onPressed: _addDialog,
         icon: const Icon(Icons.add),
-        label: const Text('Añadir'),
+        label: Text(context.l10n.t('vh_add')),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
@@ -101,7 +139,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
           }
           final vehicles = snap.data ?? [];
           if (vehicles.isEmpty) {
-            return const Center(child: Text('No hay vehículos. Añade el primero.'));
+            return Center(child: Text(context.l10n.t('vh_empty')));
           }
           return RefreshIndicator(
             onRefresh: () async => _reload(),
@@ -123,7 +161,9 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.directions_car),
                     title: Text(v['license_plate'] as String? ?? '—'),
-                    subtitle: Text(v['model'] as String? ?? 'Sin modelo'),
+                    subtitle: Text(v['model'] as String? ?? context.l10n.t('vh_no_model')),
+                    trailing: _kmBadge(context, v['id'] as String),
+                    onTap: () => _openDetail(v),
                   ),
                 );
               },

@@ -56,6 +56,24 @@ class DataService {
     await _c.from('vehicles').delete().eq('id', id);
   }
 
+  /// Actualiza la ficha de mantenimiento de un vehículo (solo Owner por RLS).
+  /// Solo escribe las claves presentes en [fields]; usa null para borrar un dato.
+  Future<void> updateVehicleMaintenance(String id, Map<String, dynamic> fields) async {
+    if (fields.isEmpty) return;
+    await _c.from('vehicles').update(fields).eq('id', id);
+  }
+
+  /// Km actuales (máx. conocido) de varios vehículos a la vez, para la lista.
+  /// Devuelve {vehicleId: km} solo con los que tienen alguna lectura.
+  Future<Map<String, int>> currentKmFor(List<String> vehicleIds) async {
+    final out = <String, int>{};
+    for (final id in vehicleIds) {
+      final km = await lastOdometer(id);
+      if (km != null) out[id] = km;
+    }
+    return out;
+  }
+
   // ---------------- Conductores ----------------
   Future<List<Map<String, dynamic>>> listDrivers() async {
     final data =
@@ -84,6 +102,137 @@ class DataService {
     return (body['tempPassword'] as String?) ?? '';
   }
 
+  // ---------------- Asignación conductor <-> vehículo ----------------
+
+  /// Vehículos asignados a un conductor (vía driver_vehicles).
+  Future<List<Map<String, dynamic>>> vehiclesForDriver(String userId) async {
+    final data = await _c
+        .from('driver_vehicles')
+        .select('vehicle_id, vehicles:vehicle_id(id, license_plate, model)')
+        .eq('user_id', userId);
+    return (data as List)
+        .map((r) => (r['vehicles'] as Map?)?.cast<String, dynamic>())
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  /// Conductores asignados a un vehículo.
+  Future<List<Map<String, dynamic>>> driversForVehicle(String vehicleId) async {
+    final data = await _c
+        .from('driver_vehicles')
+        .select('user_id, users:user_id(id, name, email)')
+        .eq('vehicle_id', vehicleId);
+    return (data as List)
+        .map((r) => (r['users'] as Map?)?.cast<String, dynamic>())
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  /// Reemplaza el conjunto de vehículos de un conductor (solo Owner por RLS).
+  Future<void> setVehiclesForDriver({
+    required String userId,
+    required String tenantId,
+    required List<String> vehicleIds,
+  }) async {
+    await _c.from('driver_vehicles').delete().eq('user_id', userId);
+    if (vehicleIds.isEmpty) return;
+    await _c.from('driver_vehicles').insert([
+      for (final vid in vehicleIds)
+        {'tenant_id': tenantId, 'user_id': userId, 'vehicle_id': vid},
+    ]);
+  }
+
+  /// Reemplaza el conjunto de conductores de un vehículo (solo Owner por RLS).
+  Future<void> setDriversForVehicle({
+    required String vehicleId,
+    required String tenantId,
+    required List<String> userIds,
+  }) async {
+    await _c.from('driver_vehicles').delete().eq('vehicle_id', vehicleId);
+    if (userIds.isEmpty) return;
+    await _c.from('driver_vehicles').insert([
+      for (final uid in userIds)
+        {'tenant_id': tenantId, 'user_id': uid, 'vehicle_id': vehicleId},
+    ]);
+  }
+
+  /// Vehículos del conductor autenticado (para registrar / elegir al empezar).
+  Future<List<Map<String, dynamic>>> myVehicles() async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return [];
+    return vehiclesForDriver(uid);
+  }
+
+  // ---------------- Km diarios (odómetro) ----------------
+
+  /// Últimos km conocidos de un vehículo (máx. entre lecturas y transacciones).
+  Future<int?> lastOdometer(String vehicleId) async {
+    int? best;
+    final r = await _c
+        .from('odometer_readings')
+        .select('reading_km')
+        .eq('vehicle_id', vehicleId)
+        .order('reading_km', ascending: false)
+        .limit(1);
+    if ((r as List).isNotEmpty) best = (r.first['reading_km'] as num).toInt();
+    final t = await _c
+        .from('transactions')
+        .select('odometer_km')
+        .eq('vehicle_id', vehicleId)
+        .not('odometer_km', 'is', null)
+        .order('odometer_km', ascending: false)
+        .limit(1);
+    if ((t as List).isNotEmpty && t.first['odometer_km'] != null) {
+      final k = (t.first['odometer_km'] as num).toInt();
+      if (best == null || k > best) best = k;
+    }
+    return best;
+  }
+
+  /// ¿Hay ya una lectura de hoy para este vehículo y conductor?
+  Future<bool> hasOdometerToday(String vehicleId, String userId) async {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final rows = await _c
+        .from('odometer_readings')
+        .select('id')
+        .eq('vehicle_id', vehicleId)
+        .eq('user_id', userId)
+        .gte('taken_at', startOfDay.toUtc().toIso8601String())
+        .limit(1);
+    return (rows as List).isNotEmpty;
+  }
+
+  /// Vehículo elegido HOY por el conductor (última lectura de hoy), o null.
+  /// Sirve como vehículo "activo" del día para preseleccionar en el formulario.
+  Future<String?> todaysVehicleId(String userId) async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final rows = await _c
+        .from('odometer_readings')
+        .select('vehicle_id')
+        .eq('user_id', userId)
+        .gte('taken_at', start.toUtc().toIso8601String())
+        .order('taken_at', ascending: false)
+        .limit(1);
+    return (rows as List).isNotEmpty ? rows.first['vehicle_id'] as String? : null;
+  }
+
+  /// Registra una lectura de km.
+  Future<void> addOdometerReading({
+    required String tenantId,
+    required String vehicleId,
+    required String userId,
+    required int readingKm,
+  }) async {
+    await _c.from('odometer_readings').insert({
+      'tenant_id': tenantId,
+      'vehicle_id': vehicleId,
+      'user_id': userId,
+      'reading_km': readingKm,
+    });
+  }
+
   // ---------------- Transacciones ----------------
   Future<void> addTransaction({
     required String tenantId,
@@ -93,16 +242,30 @@ class DataService {
     required String type,
     String? paymentMethod,
     String? description,
+    String? origin,
+    String? destination,
+    int? odometerKm,
+    String? clientName,
+    DateTime? createdAt,
+    String? vehicleId,
   }) async {
-    await _c.from('transactions').insert({
+    final row = <String, dynamic>{
       'tenant_id': tenantId,
       'user_id': userId,
+      'vehicle_id': vehicleId,
       'amount': amount,
       'category': category,
       'type': type,
       'payment_method': paymentMethod,
       'description': description,
-    });
+      'origin': origin,
+      'destination': destination,
+      'odometer_km': odometerKm,
+      'client_name': clientName,
+    };
+    // Si no se indica, la BD pone now() por defecto.
+    if (createdAt != null) row['created_at'] = createdAt.toUtc().toIso8601String();
+    await _c.from('transactions').insert(row);
   }
 
   /// Lista transacciones (RLS: el driver ve las suyas; el owner las de su
@@ -112,6 +275,7 @@ class DataService {
     String? vehicleId,
     DateTime? from,
     DateTime? to,
+    String? client,
     int offset = 0,
     int limit = 20,
   }) async {
@@ -121,6 +285,9 @@ class DataService {
     if (vehicleId != null) query = query.eq('vehicle_id', vehicleId);
     if (from != null) query = query.gte('created_at', from.toIso8601String());
     if (to != null) query = query.lt('created_at', to.toIso8601String());
+    if (client != null && client.isNotEmpty) {
+      query = query.ilike('client_name', '%$client%');
+    }
     final data = await query
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
@@ -145,12 +312,16 @@ class DataService {
     String? vehicleId,
     DateTime? from,
     DateTime? to,
+    String? client,
   }) async {
     var query = _c.from('transactions').select('amount, type, category');
     if (userId != null) query = query.eq('user_id', userId);
     if (vehicleId != null) query = query.eq('vehicle_id', vehicleId);
     if (from != null) query = query.gte('created_at', from.toIso8601String());
     if (to != null) query = query.lt('created_at', to.toIso8601String());
+    if (client != null && client.isNotEmpty) {
+      query = query.ilike('client_name', '%$client%');
+    }
     final rows = (await query as List).cast<Map<String, dynamic>>();
 
     double income = 0, expense = 0;
@@ -177,16 +348,30 @@ class DataService {
     required String type,
     String? paymentMethod,
     String? description,
+    String? origin,
+    String? destination,
+    int? odometerKm,
+    String? clientName,
+    DateTime? createdAt,
+    String? vehicleId,
+    bool setVehicle = false,
   }) async {
+    final patch = <String, dynamic>{
+      'amount': amount,
+      'category': category,
+      'type': type,
+      'payment_method': paymentMethod,
+      'description': description,
+      'origin': origin,
+      'destination': destination,
+      'odometer_km': odometerKm,
+      'client_name': clientName,
+    };
+    if (setVehicle) patch['vehicle_id'] = vehicleId;
+    if (createdAt != null) patch['created_at'] = createdAt.toUtc().toIso8601String();
     final updated = await _c
         .from('transactions')
-        .update({
-          'amount': amount,
-          'category': category,
-          'type': type,
-          'payment_method': paymentMethod,
-          'description': description,
-        })
+        .update(patch)
         .eq('id', id)
         .select();
     if ((updated as List).isEmpty) {
@@ -209,19 +394,23 @@ class DataService {
     List<int>? audioBytes,
     String? filename,
     String? mockText,
+    String? language, // pista de idioma para Whisper (es/ca/en)
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
 
+    final qp = (language != null && language.isNotEmpty) ? '?language=$language' : '';
+    final uri = Uri.parse('$backendUrl/api/v1/transcribe$qp');
+
     http.Response res;
     if (mockText != null) {
       res = await http.post(
-        Uri.parse('$backendUrl/api/v1/transcribe'),
+        uri,
         headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
         body: jsonEncode({'mock_text': mockText}),
       );
     } else {
-      final req = http.MultipartRequest('POST', Uri.parse('$backendUrl/api/v1/transcribe'))
+      final req = http.MultipartRequest('POST', uri)
         ..headers['Authorization'] = 'Bearer $token'
         ..files.add(http.MultipartFile.fromBytes('audio', audioBytes ?? const [],
             filename: filename ?? 'audio.m4a'));
@@ -283,6 +472,7 @@ class DataService {
     DateTime? to,
     String? driverId,
     String? vehicleId,
+    String? client,
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
@@ -294,6 +484,7 @@ class DataService {
         'endDate': to?.toIso8601String(),
         'driverId': driverId,
         'vehicleId': vehicleId,
+        'client': client,
       }),
     );
     if (res.statusCode == 504) {
@@ -307,6 +498,93 @@ class DataService {
       throw Exception(msg);
     }
     return res.bodyBytes;
+  }
+
+  // ---------------- Incidencias / notas al jefe ----------------
+
+  /// Lista incidencias (RLS: owner las de su tenant; conductor las suyas).
+  /// Incluye el autor para que el Owner sepa quién la escribió.
+  Future<List<Map<String, dynamic>>> listIncidents({String? kind}) async {
+    var q = _c.from('incidents').select('*, users:user_id(name, email)');
+    if (kind != null) q = q.eq('kind', kind);
+    final data = await q.order('created_at', ascending: false);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Crea una incidencia: kind 'nota' (mensaje al jefe) o 'app' (fallo de la app).
+  Future<void> addIncident({
+    required String tenantId,
+    required String kind,
+    required String body,
+  }) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) throw Exception('No hay sesión activa');
+    await _c.from('incidents').insert({
+      'tenant_id': tenantId,
+      'user_id': uid,
+      'kind': kind,
+      'body': body,
+    });
+  }
+
+  /// Marca una incidencia como resuelta (solo Owner por RLS).
+  Future<void> resolveIncident(String id) async {
+    final updated =
+        await _c.from('incidents').update({'status': 'resuelta'}).eq('id', id).select();
+    if ((updated as List).isEmpty) {
+      throw Exception('No se pudo actualizar la incidencia');
+    }
+  }
+
+  // ---------------- Ubicación (localizar vehículo) ----------------
+
+  /// Guarda/actualiza la última ubicación del conductor autenticado (upsert).
+  Future<void> updateMyLocation({
+    required String tenantId,
+    required double lat,
+    required double lng,
+    double? accuracy,
+  }) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('driver_locations').upsert({
+      'user_id': uid,
+      'tenant_id': tenantId,
+      'lat': lat,
+      'lng': lng,
+      'accuracy': accuracy,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  /// Últimas ubicaciones de los conductores (RLS: el owner ve las de su tenant).
+  Future<List<Map<String, dynamic>>> listDriverLocations() async {
+    final data = await _c
+        .from('driver_locations')
+        .select('*, users:user_id(name, email)')
+        .order('updated_at', ascending: false);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  // ---------------- Perfil ----------------
+
+  /// Actualiza el nombre "de avatar" del propio usuario (RLS: users_update_self).
+  /// No cambia el `name` que ve el jefe.
+  Future<void> updateDisplayName(String? displayName) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('users').update({
+      'display_name': (displayName == null || displayName.trim().isEmpty) ? null : displayName.trim(),
+    }).eq('id', uid);
+  }
+
+  /// Actualiza el nº de licencia del propio conductor.
+  Future<void> updateLicenseNumber(String? license) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('users').update({
+      'license_number': (license == null || license.trim().isEmpty) ? null : license.trim(),
+    }).eq('id', uid);
   }
 
   // ---------------- Onboarding ----------------

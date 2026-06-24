@@ -7,6 +7,15 @@
     <meta name="description" content="TaxiCount - gestión para taxistas autónomos" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TaxiCount</title>
+    <script>
+      // Shim para passkeys_web (dependencia transitiva vía supabase_flutter).
+      // TaxiCount usa login email/contrasena y NO usa passkeys, pero el plugin
+      // se auto-registra y llama PasskeyAuthenticator.init() al arrancar; sin el
+      // bundle.js de Corbado eso lanza "reading 'init' of undefined" y tumba la
+      // app. Damos un no-op para esa unica llamada. Si algun dia se quieren
+      // passkeys de verdad, sustituir por el bundle oficial de Corbado.
+      window.PasskeyAuthenticator = window.PasskeyAuthenticator || { init: function () {} };
+    </script>
   </head>
   <body>
     <script src="flutter_bootstrap.js" async></script>

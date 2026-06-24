@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/format.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
 
+enum DriverPeriod { day, week, month, year }
+
 /// Historial de transacciones del driver: lista paginada (scroll infinito)
-/// con filtro por mes/año. Toca una tarjeta para ver el detalle.
+/// con filtro por día / semana / mes / año. Toca una tarjeta para el detalle.
 class DriverTransactionsScreen extends StatefulWidget {
   final Profile profile;
   const DriverTransactionsScreen({super.key, required this.profile});
@@ -21,10 +25,11 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   final _scroll = ScrollController();
   final _items = <Map<String, dynamic>>[];
 
-  DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  DriverPeriod _period = DriverPeriod.day;
   bool _loading = false;
   bool _hasMore = true;
   String? _error;
+  double? _income; // beneficios del periodo (solo ingresos)
 
   @override
   void initState() {
@@ -39,8 +44,34 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
     super.dispose();
   }
 
-  DateTime get _from => _month;
-  DateTime get _to => DateTime(_month.year, _month.month + 1);
+  DateTime get _from {
+    final now = DateTime.now();
+    switch (_period) {
+      case DriverPeriod.day:
+        return DateTime(now.year, now.month, now.day);
+      case DriverPeriod.week:
+        final monday = now.subtract(Duration(days: now.weekday - 1));
+        return DateTime(monday.year, monday.month, monday.day);
+      case DriverPeriod.month:
+        return DateTime(now.year, now.month);
+      case DriverPeriod.year:
+        return DateTime(now.year);
+    }
+  }
+
+  DateTime get _to {
+    final now = DateTime.now();
+    switch (_period) {
+      case DriverPeriod.day:
+        return _from.add(const Duration(days: 1));
+      case DriverPeriod.week:
+        return _from.add(const Duration(days: 7));
+      case DriverPeriod.month:
+        return DateTime(now.year, now.month + 1);
+      case DriverPeriod.year:
+        return DateTime(now.year + 1);
+    }
+  }
 
   Future<void> _reload() async {
     setState(() {
@@ -48,7 +79,18 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
       _hasMore = true;
       _error = null;
     });
+    _loadEarnings();
     await _loadMore();
+  }
+
+  // Beneficios del periodo: SOLO ingresos (carreras), sin restar gastos, que
+  // van a cargo de la empresa.
+  Future<void> _loadEarnings() async {
+    try {
+      final s = await _service.transactionsSummary(
+        userId: widget.profile.id, from: _from, to: _to);
+      if (mounted) setState(() => _income = s.income);
+    } catch (_) {/* el banner es best-effort */}
   }
 
   void _onScroll() {
@@ -83,21 +125,6 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
     }
   }
 
-  Future<void> _pickMonth() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _month,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(DateTime.now().year + 1, 12),
-      helpText: 'Selecciona un mes',
-      initialDatePickerMode: DatePickerMode.year,
-    );
-    if (picked != null) {
-      setState(() => _month = DateTime(picked.year, picked.month));
-      _reload();
-    }
-  }
-
   Future<void> _openDetail(Map<String, dynamic> tx) async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -113,10 +140,11 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis transacciones')),
+      appBar: AppBar(title: Text(context.l10n.t('dt_title'))),
       body: Column(
         children: [
-          _monthSelector(),
+          _periodSelector(),
+          _earningsBanner(),
           const Divider(height: 1),
           Expanded(child: _list()),
         ],
@@ -124,46 +152,75 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
     );
   }
 
-  Widget _monthSelector() {
+  Widget _periodSelector() {
+    final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            tooltip: 'Mes anterior',
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              setState(() => _month = DateTime(_month.year, _month.month - 1));
-              _reload();
-            },
-          ),
+          _chip(l.t('per_day'), DriverPeriod.day),
+          _chip(l.t('per_week'), DriverPeriod.week),
+          _chip(l.t('per_month'), DriverPeriod.month),
+          _chip(l.t('per_year'), DriverPeriod.year),
+        ],
+      ),
+    );
+  }
+
+  // Banner con los beneficios (ingresos) del periodo seleccionado.
+  Widget _earningsBanner() {
+    final l = context.l10n;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B5E20), // verde "ingreso"
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.payments, color: Colors.white, size: 28),
+          const SizedBox(width: 12),
           Expanded(
-            child: TextButton.icon(
-              key: const Key('month_selector'),
-              onPressed: _pickMonth,
-              icon: const Icon(Icons.calendar_month),
-              label: Text(fmtMonth(_month)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.t('dt_earnings'),
+                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(l.t('dh_earnings_note'),
+                    style: const TextStyle(color: Colors.white60, fontSize: 10)),
+              ],
             ),
           ),
-          IconButton(
-            tooltip: 'Mes siguiente',
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {
-              setState(() => _month = DateTime(_month.year, _month.month + 1));
-              _reload();
-            },
+          Text(
+            _income == null ? '—' : money(_income!),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
   }
 
+  Widget _chip(String label, DriverPeriod p) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _period == p,
+      onSelected: (_) {
+        setState(() => _period = p);
+        _reload();
+      },
+    );
+  }
+
   Widget _list() {
     if (_error != null && _items.isEmpty) {
-      return Center(child: Text('Error: $_error'));
+      return Center(child: Text('${context.l10n.t('error')}: $_error'));
     }
     if (!_loading && _items.isEmpty) {
-      return const Center(child: Text('No hay transacciones este mes.'));
+      return Center(child: Text(context.l10n.t('dt_empty')));
     }
     return RefreshIndicator(
       onRefresh: _reload,
@@ -184,13 +241,4 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
       ),
     );
   }
-}
-
-String fmtMonth(DateTime d) {
-  const months = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-  ];
-  final name = months[d.month - 1];
-  return '${name[0].toUpperCase()}${name.substring(1)} ${d.year}';
 }

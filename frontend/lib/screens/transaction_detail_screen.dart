@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
@@ -41,7 +42,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       setState(() {
         _tx = tx;
         _loading = false;
-        _error = tx == null ? 'Transacción no encontrada' : null;
+        _error = tx == null ? context.l10n.t('td_not_found') : null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -71,6 +72,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             'type': tx['type'],
             'payment_method': tx['payment_method'],
             'description': tx['description'],
+            'origin': tx['origin'],
+            'destination': tx['destination'],
+            'odometer_km': tx['odometer_km'],
+            'client_name': tx['client_name'],
+            'created_at': tx['created_at'],
+            'vehicle_id': tx['vehicle_id'],
           },
         ),
       ),
@@ -85,15 +92,15 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar transacción'),
-        content: const Text('¿Seguro que quieres eliminar esta transacción? Esta acción no se puede deshacer.'),
+        title: Text(ctx.l10n.t('td_del_title')),
+        content: Text(ctx.l10n.t('td_del_msg')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
           FilledButton(
             key: const Key('confirm_delete_button'),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar'),
+            child: Text(ctx.l10n.t('delete')),
           ),
         ],
       ),
@@ -118,18 +125,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Detalle'),
+          title: Text(context.l10n.t('td_title')),
           actions: [
             if (_canEdit) ...[
               IconButton(
                 key: const Key('edit_transaction_button'),
-                tooltip: 'Editar',
+                tooltip: context.l10n.t('edit'),
                 icon: const Icon(Icons.edit),
                 onPressed: _edit,
               ),
               IconButton(
                 key: const Key('delete_transaction_button'),
-                tooltip: 'Eliminar',
+                tooltip: context.l10n.t('delete'),
                 icon: const Icon(Icons.delete),
                 onPressed: _delete,
               ),
@@ -146,6 +153,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   }
 
   Widget _buildBody() {
+    final l = context.l10n;
     final tx = _tx!;
     final type = tx['type'] as String?;
     final amount = (tx['amount'] as num).toDouble();
@@ -170,27 +178,47 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                 style: TextStyle(
                     fontSize: 36, fontWeight: FontWeight.bold, color: typeColor(type)),
               ),
-              Text(type == 'income' ? 'Ingreso' : 'Gasto',
+              Text(type == 'income' ? l.t('td_income') : l.t('td_expense'),
                   style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
         ),
         const SizedBox(height: 28),
-        _row(Icons.category, 'Categoría', categoryLabel(tx['category'] as String?)),
-        _row(Icons.calendar_today, 'Fecha y hora', fmtDateTime(created)),
+        if (type == 'income') ..._tripRows(l, tx) else
+          _row(Icons.category, l.t('td_category'), l.catLabel(tx['category'] as String?)),
+        _row(Icons.calendar_today, l.t('td_datetime'), fmtDateTime(created)),
         _row(
           tx['payment_method'] == 'efectivo' ? Icons.payments : Icons.credit_card,
-          'Método de pago',
-          tx['payment_method'] == 'efectivo' ? 'Efectivo' : 'Tarjeta',
+          l.t('td_payment'),
+          tx['payment_method'] == 'efectivo' ? l.t('ti_cash') : l.t('ti_card'),
         ),
         if ((tx['description'] as String?)?.isNotEmpty == true)
-          _row(Icons.notes, 'Descripción', tx['description'] as String),
+          _row(Icons.notes, l.t('td_desc'), tx['description'] as String),
         if (widget.profile.isOwner)
-          _row(Icons.person, 'Conductor', driverName(tx)),
+          _row(Icons.person, l.t('td_driver'), driverName(tx)),
         if (widget.profile.isOwner && veh != null)
-          _row(Icons.directions_car, 'Vehículo', veh),
+          _row(Icons.directions_car, l.t('td_vehicle'), veh),
       ],
     );
+  }
+
+  // Datos propios de una carrera (ingreso).
+  List<Widget> _tripRows(AppLocalizations l, Map<String, dynamic> tx) {
+    final origin = (tx['origin'] as String?)?.trim();
+    final destination = (tx['destination'] as String?)?.trim();
+    final km = tx['odometer_km'] as int?;
+    final client = (tx['client_name'] as String?)?.trim();
+    final rows = <Widget>[];
+    if ((origin?.isNotEmpty ?? false) || (destination?.isNotEmpty ?? false)) {
+      rows.add(_row(Icons.route, l.t('td_route'),
+          '${origin?.isNotEmpty == true ? origin : '—'} → ${destination?.isNotEmpty == true ? destination : '—'}'));
+    }
+    rows.add(_row(Icons.business, l.t('td_client'),
+        (client != null && client.isNotEmpty) ? capitalizeFirst(client) : l.t('particular')));
+    if (km != null) {
+      rows.add(_row(Icons.speed, l.t('td_km'), '$km km'));
+    }
+    return rows;
   }
 
   Widget _row(IconData icon, String label, String value) {

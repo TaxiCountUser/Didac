@@ -12,14 +12,24 @@ import { parseTransactionText } from '../src/parser.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const cases = JSON.parse(readFileSync(join(__dirname, 'parser_cases.json'), 'utf8'));
 
-const FIELDS = ['amount', 'category', 'type', 'payment_method'];
+const FIELDS = [
+  'amount', 'category', 'type', 'payment_method',
+  'origin', 'destination', 'odometer_km', 'client_name',
+];
 const fieldStats = Object.fromEntries(FIELDS.map((f) => [f, { ok: 0, total: 0 }]));
 
 let passed = 0;
 const failures = [];
 
+const normText = (s) =>
+  s == null ? null : String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
 function eq(field, got, exp) {
   if (field === 'amount') return Math.abs((got ?? NaN) - exp) < 0.001;
+  if (field === 'odometer_km') return (got ?? null) === exp;
+  if (field === 'origin' || field === 'destination' || field === 'client_name') {
+    return normText(got) === normText(exp);
+  }
   return got === exp;
 }
 

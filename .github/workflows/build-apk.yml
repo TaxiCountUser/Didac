@@ -1,0 +1,115 @@
+name: Build APK / AAB (manual)
+
+# Construye la app Android en la nube (sin Android SDK local) y la deja como
+# artefacto descargable. Pensado para probar con profesionales:
+#   - app-release.apk  -> instalación manual (sideload) en cualquier Android.
+#   - app-release.aab  -> subir a Google Play (test interno/cerrado).
+#
+# Lánzalo a mano: pestaña Actions -> "Build APK / AAB (manual)" -> Run workflow.
+#
+# Apunta la app al backend en la nube mediante estos secrets del repo
+# (Settings -> Secrets and variables -> Actions). Si falta alguno, se usa el
+# valor por defecto de lib/config.dart (localhost, NO sirve en un móvil real):
+#   PROD_SUPABASE_URL, PROD_SUPABASE_ANON_KEY, PROD_BACKEND_URL
+#
+# Firma para Play Store (opcional, solo necesaria para el .aab):
+#   ANDROID_KEYSTORE_BASE64   -> el keystore .jks codificado en base64
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+# Sin estos secrets, el APK se firma con la clave debug (vale para sideload).
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_aab:
+        description: "Construir también el .aab para Google Play"
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+
+      # Firma de release: si hay keystore en secrets, lo materializa.
+      - name: Configurar firma de release
+        id: signing
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > android/app/upload-keystore.jks
+            cat > android/key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Sin keystore: el APK se firmará con la clave debug (vale para sideload, NO para Play Store)."
+          fi
+
+      # Construye los --dart-define solo para los secrets que existan; si falta
+      # alguno, la app usa el valor por defecto de lib/config.dart (no rompe el
+      # build, solo apunta a localhost). Así el workflow valida la compilación
+      # aunque aún no hayas configurado los secrets de la nube.
+      - name: Preparar --dart-define
+        id: defines
+        env:
+          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+          BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+          STRIPE_PRICE_STARTER: ${{ secrets.PROD_STRIPE_PRICE_STARTER }}
+          STRIPE_PRICE_PRO: ${{ secrets.PROD_STRIPE_PRICE_PRO }}
+          STRIPE_PRICE_BUSINESS: ${{ secrets.PROD_STRIPE_PRICE_BUSINESS }}
+        run: |
+          D=""
+          add(){ [ -n "$2" ] && D="$D --dart-define=$1=$2"; return 0; }
+          add SUPABASE_URL "$SUPABASE_URL"
+          add SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+          add BACKEND_URL "$BACKEND_URL"
+          add STRIPE_PRICE_STARTER "$STRIPE_PRICE_STARTER"
+          add STRIPE_PRICE_PRO "$STRIPE_PRICE_PRO"
+          add STRIPE_PRICE_BUSINESS "$STRIPE_PRICE_BUSINESS"
+          echo "args=$D" >> "$GITHUB_OUTPUT"
+          [ -z "$D" ] && echo "::warning::Sin secrets PROD_*: el APK apuntará a localhost (solo sirve para validar la compilación)."
+
+      - name: Build APK (release)
+        run: flutter build apk --release ${{ steps.defines.outputs.args }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxicount-apk
+          path: frontend/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Build AAB (Play Store)
+        if: ${{ inputs.build_aab && steps.signing.outputs.signed == 'true' }}
+        run: flutter build appbundle --release ${{ steps.defines.outputs.args }}
+
+      - name: Upload AAB
+        if: ${{ inputs.build_aab && steps.signing.outputs.signed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxicount-aab
+          path: frontend/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error

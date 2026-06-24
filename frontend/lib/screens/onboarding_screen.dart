@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import 'vehicles_screen.dart';
@@ -18,9 +19,10 @@ class OnboardingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final service = DataService();
     return Scaffold(
-      appBar: AppBar(title: const Text('Bienvenido a TaxiCount')),
+      appBar: AppBar(title: Text(l.t('ob_title'))),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -28,23 +30,21 @@ class OnboardingScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 8),
             Text(
-              '¡Empecemos! 🚕',
+              l.t('ob_lets_start'),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Configura tu flota en dos pasos. Puedes hacerlo ahora o más tarde.',
-            ),
+            Text(l.t('ob_intro')),
             const SizedBox(height: 24),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.directions_car),
-                title: const Text('1. Añade tu primer vehículo'),
+                title: Text(l.t('ob_step1')),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => Scaffold(
-                      appBar: AppBar(title: const Text('Vehículos')),
+                      appBar: AppBar(title: Text(l.t('nav_vehicles'))),
                       body: VehiclesScreen(profile: profile),
                     ),
                   ),
@@ -54,12 +54,12 @@ class OnboardingScreen extends StatelessWidget {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.people),
-                title: const Text('2. Invita a tu primer conductor'),
+                title: Text(l.t('ob_step2')),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => Scaffold(
-                      appBar: AppBar(title: const Text('Conductores')),
+                      appBar: AppBar(title: Text(l.t('nav_drivers'))),
                       body: DriversScreen(profile: profile),
                     ),
                   ),
@@ -73,9 +73,9 @@ class OnboardingScreen extends StatelessWidget {
                 await service.completeOnboarding();
                 onFinished();
               },
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('Finalizar configuración'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(l.t('ob_finish')),
               ),
             ),
           ],

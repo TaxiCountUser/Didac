@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../l10n/app_localizations.dart';
+
 /// Login / registro de Owners.
 /// El signUp crea un Owner (el trigger de BD crea su tenant automáticamente).
 class LoginScreen extends StatefulWidget {
@@ -61,6 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -80,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   Text(
-                    _isSignUp ? 'Crear cuenta de propietario' : 'Iniciar sesión',
+                    _isSignUp ? l.t('login_subtitle_signup') : l.t('login_subtitle_signin'),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
@@ -89,10 +92,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: const Key('email_field'),
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email_outlined),
+                    decoration: InputDecoration(
+                      labelText: l.t('login_email'),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.email_outlined),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -100,10 +103,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: const Key('password_field'),
                     controller: _password,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Contraseña',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock_outline),
+                    decoration: InputDecoration(
+                      labelText: l.t('login_password'),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_outline),
                     ),
                   ),
                   if (_isSignUp) ...[
@@ -111,10 +114,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextField(
                       key: const Key('company_field'),
                       controller: _company,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre de la empresa / flota',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.business_outlined),
+                      decoration: InputDecoration(
+                        labelText: l.t('login_company_fleet'),
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.business_outlined),
                       ),
                     ),
                   ],
@@ -133,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Text(_isSignUp ? 'Registrarse' : 'Entrar'),
+                          : Text(_isSignUp ? l.t('login_btn_register') : l.t('login_btn_enter')),
                     ),
                   ),
                   TextButton(
@@ -144,8 +147,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               _error = null;
                             }),
                     child: Text(_isSignUp
-                        ? '¿Ya tienes cuenta? Inicia sesión'
-                        : '¿Eres propietario? Crea tu cuenta'),
+                        ? l.t('login_toggle_to_signin')
+                        : l.t('login_toggle_to_signup')),
                   ),
                 ],
               ),

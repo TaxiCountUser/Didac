@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
 import 'auth_gate.dart';
+import 'l10n/app_localizations.dart';
 
 // DSN de Sentry (Fase 6). Vacío -> sin captura (dev/tests).
 const sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
@@ -12,6 +13,7 @@ const sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es');
+  await localeController.load();
   // ignore: deprecated_member_use
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 
@@ -33,11 +35,17 @@ class TaxiCountApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'TaxiCount',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: Colors.amber, useMaterial3: true),
-      home: const AuthGate(),
+    return ValueListenableBuilder<Locale>(
+      valueListenable: localeController,
+      builder: (context, locale, _) => MaterialApp(
+        title: 'TaxiCount',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(colorSchemeSeed: Colors.amber, useMaterial3: true),
+        locale: locale,
+        supportedLocales: kSupportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        home: const AuthGate(),
+      ),
     );
   }
 }

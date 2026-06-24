@@ -101,6 +101,51 @@ void main() {
     final ownerTx = await owner.from('transactions').select().eq('id', inserted['id']);
     expect((ownerTx as List).length, 1, reason: 'el owner ve la transacción de su tenant');
 
+    // 6) Carrera por voz: origen/destino/km/empresa + inserción y lectura
+    const trip =
+        'carrera de sants a la sagrera por 18 euros con tarjeta de movitaxi ciento cincuenta mil kilómetros';
+    final t3 = await http.post(
+      Uri.parse('$backend/api/v1/transcribe'),
+      headers: {'Authorization': 'Bearer $driverToken', 'Content-Type': 'application/json'},
+      body: jsonEncode({'mock_text': trip}),
+    );
+    expect(t3.statusCode, 200, reason: t3.body);
+    final pt = (jsonDecode(t3.body) as Map<String, dynamic>)['parsed'] as Map<String, dynamic>;
+    expect(pt['amount'], 18);
+    expect(pt['type'], 'income');
+    expect(pt['payment_method'], 'tarjeta');
+    expect((pt['origin'] as String).toLowerCase(), 'sants');
+    expect((pt['destination'] as String).toLowerCase(), 'la sagrera');
+    expect(pt['odometer_km'], 150000);
+    expect(pt['client_name'], 'Movitaxi');
+
+    final trip1 = await driver.from('transactions').insert({
+      'tenant_id': tenantId,
+      'user_id': ds.user!.id,
+      'amount': pt['amount'],
+      'type': pt['type'],
+      'payment_method': pt['payment_method'],
+      'origin': pt['origin'],
+      'destination': pt['destination'],
+      'odometer_km': pt['odometer_km'],
+      'client_name': pt['client_name'],
+      'description': trip,
+    }).select().single();
+    expect(trip1['origin'], 'Sants');
+    expect(trip1['client_name'], 'Movitaxi');
+    expect(trip1['odometer_km'], 150000);
+
+    // 7) Cliente particular: sin empresa nombrada -> client_name null
+    final t4 = await http.post(
+      Uri.parse('$backend/api/v1/transcribe'),
+      headers: {'Authorization': 'Bearer $driverToken', 'Content-Type': 'application/json'},
+      body: jsonEncode({'mock_text': 'cobré 12 con 50 de una carrera particular'}),
+    );
+    final pp = (jsonDecode(t4.body) as Map<String, dynamic>)['parsed'] as Map<String, dynamic>;
+    expect(pp['amount'], 12.5);
+    expect(pp['type'], 'income');
+    expect(pp['client_name'], isNull);
+
     // Limpieza best-effort
     try {
       await admin.auth.admin.deleteUser(ds.user!.id);

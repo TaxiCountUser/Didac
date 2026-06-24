@@ -5,6 +5,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
@@ -34,6 +35,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   DateTimeRange? _customRange;
   String? _driverId;
   String? _vehicleId;
+  String _clientSearch = ''; // buscador por empresa/cliente
+  final _searchCtrl = TextEditingController();
 
   // Catálogos para los dropdowns
   List<Map<String, dynamic>> _drivers = [];
@@ -60,10 +63,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   @override
   void dispose() {
     _scroll.dispose();
+    _searchCtrl.dispose();
     final ch = _channel;
     if (ch != null) _service.client.removeChannel(ch);
     super.dispose();
   }
+
+  String? get _client => _clientSearch.trim().isEmpty ? null : _clientSearch.trim();
 
   // --------------- rango de fechas según el periodo ---------------
   DateTime get _from {
@@ -132,6 +138,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         vehicleId: _vehicleId,
         from: _from,
         to: _to,
+        client: _client,
       );
       if (mounted) setState(() => _summary = s);
     } catch (e) {
@@ -154,6 +161,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         vehicleId: _vehicleId,
         from: _from,
         to: _to,
+        client: _client,
         offset: _items.length,
         limit: _pageSize,
       );
@@ -228,7 +236,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 2),
-        content: Text('Nuevo registro de ${driverName(full)}'),
+        content: Text(context.l10n.t('od_new_record', {'name': driverName(full)})),
       ),
     );
   }
@@ -236,6 +244,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   bool _matchesFilters(Map<String, dynamic> tx) {
     if (_driverId != null && tx['user_id'] != _driverId) return false;
     if (_vehicleId != null && tx['vehicle_id'] != _vehicleId) return false;
+    final c = _client;
+    if (c != null) {
+      final name = (tx['client_name'] as String?)?.toLowerCase() ?? '';
+      if (!name.contains(c.toLowerCase())) return false;
+    }
     final created = parseCreatedAt(tx['created_at']);
     if (created.isBefore(_from) || !created.isBefore(_to)) return false;
     return true;
@@ -257,7 +270,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Future<void> _export(String format) async {
     setState(() => _exporting = true);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Generando informe ${format == 'excel' ? 'Excel' : 'PDF'}…')),
+      SnackBar(content: Text(context.l10n.t('od_generating', {'fmt': format == 'excel' ? 'Excel' : 'PDF'}))),
     );
     try {
       final bytes = await _service.downloadReport(
@@ -266,6 +279,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         to: _to,
         driverId: _driverId,
         vehicleId: _vehicleId,
+        client: _client,
       );
       final dir = await getTemporaryDirectory();
       final ext = format == 'excel' ? 'xlsx' : 'pdf';
@@ -274,7 +288,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       await File(path).writeAsBytes(bytes, flush: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Informe generado')));
+          .showSnackBar(SnackBar(content: Text(context.l10n.t('od_generated'))));
       await OpenFilex.open(path);
     } catch (e) {
       if (!mounted) return;
@@ -291,6 +305,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       children: [
         if (_subStatus != null && !_subscriptionActive) _billingBanner(),
         _toolbar(),
+        _searchBar(),
         _filterBar(),
         const Divider(height: 1),
         Expanded(child: _content()),
@@ -303,7 +318,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
       child: Row(
         children: [
-          Text('Resumen de la flota', style: Theme.of(context).textTheme.titleMedium),
+          Text(context.l10n.t('od_summary'), style: Theme.of(context).textTheme.titleMedium),
           const Spacer(),
           if (_exporting)
             const Padding(
@@ -314,18 +329,18 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             PopupMenuButton<String>(
               key: const Key('export_menu'),
               icon: const Icon(Icons.download),
-              tooltip: 'Exportar',
+              tooltip: context.l10n.t('od_export'),
               onSelected: _export,
-              itemBuilder: (_) => const [
+              itemBuilder: (_) => [
                 PopupMenuItem(
-                  key: Key('export_excel'),
+                  key: const Key('export_excel'),
                   value: 'excel',
-                  child: ListTile(leading: Icon(Icons.table_chart), title: Text('Exportar Excel')),
+                  child: ListTile(leading: const Icon(Icons.table_chart), title: Text(context.l10n.t('od_export_excel'))),
                 ),
                 PopupMenuItem(
-                  key: Key('export_pdf'),
+                  key: const Key('export_pdf'),
                   value: 'pdf',
-                  child: ListTile(leading: Icon(Icons.picture_as_pdf), title: Text('Exportar PDF')),
+                  child: ListTile(leading: const Icon(Icons.picture_as_pdf), title: Text(context.l10n.t('od_export_pdf'))),
                 ),
               ],
             ),
@@ -340,15 +355,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       width: double.infinity,
       color: const Color(0xFFC62828),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.warning_amber, color: Colors.white, size: 20),
-          SizedBox(width: 8),
+          const Icon(Icons.warning_amber, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Tu suscripción no está activa. Actualiza tu método de pago para '
-              'seguir usando TaxiCount.',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              context.l10n.t('od_billing'),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -392,14 +406,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       children: [
         _kpiRow(),
         _expenseChart(),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Text('Transacciones', style: TextStyle(fontWeight: FontWeight.bold)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text(context.l10n.t('od_transactions'), style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
         if (!_loadingPage && _items.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: Text('No hay transacciones para este filtro.')),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(child: Text(context.l10n.t('od_no_tx'))),
           ),
       ],
     );
@@ -410,13 +424,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          _kpiCard('Ingresos', _summary.income, const Color(0xFF2E7D32),
+          _kpiCard(context.l10n.t('od_kpi_income'), _summary.income, const Color(0xFF2E7D32),
               Icons.arrow_upward, const Key('kpi_income')),
           const SizedBox(width: 8),
-          _kpiCard('Gastos', _summary.expense, const Color(0xFFC62828),
+          _kpiCard(context.l10n.t('od_kpi_expense'), _summary.expense, const Color(0xFFC62828),
               Icons.arrow_downward, const Key('kpi_expense')),
           const SizedBox(width: 8),
-          _kpiCard('Balance', _summary.balance,
+          _kpiCard(context.l10n.t('od_kpi_balance'), _summary.balance,
               _summary.balance >= 0 ? const Color(0xFF1565C0) : const Color(0xFFC62828),
               Icons.account_balance_wallet, const Key('kpi_balance')),
         ],
@@ -456,9 +470,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Widget _expenseChart() {
     final byCat = _summary.expenseByCategory;
     if (byCat.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: Text('Sin gastos en este periodo.')),
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(child: Text(context.l10n.t('od_no_expenses'))),
       );
     }
     final entries = byCat.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
@@ -482,7 +496,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Gastos por categoría', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(context.l10n.t('od_expenses_chart'), style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           SizedBox(
             height: 180,
@@ -499,7 +513,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   children: [
                     Container(width: 12, height: 12, color: _palette[i % _palette.length]),
                     const SizedBox(width: 4),
-                    Text('${categoryLabel(entries[i].key)} (${money(entries[i].value)})',
+                    Text('${context.l10n.catLabel(entries[i].key)} (${money(entries[i].value)})',
                         style: const TextStyle(fontSize: 12)),
                   ],
                 ),
@@ -510,16 +524,48 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: TextField(
+        key: const Key('client_search'),
+        controller: _searchCtrl,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: context.l10n.t('od_search'),
+          prefixIcon: const Icon(Icons.search),
+          border: const OutlineInputBorder(),
+          suffixIcon: _clientSearch.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    setState(() => _clientSearch = '');
+                    _reload();
+                  },
+                ),
+        ),
+        onChanged: (v) => setState(() => _clientSearch = v), // refresca el botón limpiar
+        onSubmitted: (v) {
+          setState(() => _clientSearch = v);
+          _reload();
+        },
+      ),
+    );
+  }
+
   Widget _filterBar() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          _periodChip('Hoy', Period.today),
-          _periodChip('Semana', Period.week),
-          _periodChip('Mes', Period.month),
-          _periodChip('Personalizado', Period.custom),
+          _periodChip(context.l10n.t('od_today'), Period.today),
+          _periodChip(context.l10n.t('per_week'), Period.week),
+          _periodChip(context.l10n.t('per_month'), Period.month),
+          _periodChip(context.l10n.t('od_custom'), Period.custom),
           const SizedBox(width: 12),
           _driverDropdown(),
           const SizedBox(width: 8),
@@ -561,9 +607,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return DropdownButton<String?>(
       key: const Key('driver_filter'),
       value: _driverId,
-      hint: const Text('Conductor'),
+      hint: Text(context.l10n.t('od_driver')),
       items: [
-        const DropdownMenuItem(value: null, child: Text('Todos')),
+        DropdownMenuItem(value: null, child: Text(context.l10n.t('all'))),
         for (final d in _drivers)
           DropdownMenuItem(
             value: d['id'] as String,
@@ -583,9 +629,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return DropdownButton<String?>(
       key: const Key('vehicle_filter'),
       value: _vehicleId,
-      hint: const Text('Vehículo'),
+      hint: Text(context.l10n.t('od_vehicle')),
       items: [
-        const DropdownMenuItem(value: null, child: Text('Todos')),
+        DropdownMenuItem(value: null, child: Text(context.l10n.t('all'))),
         for (final v in _vehicles)
           DropdownMenuItem(
             value: v['id'] as String,
