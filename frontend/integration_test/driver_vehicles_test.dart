@@ -69,6 +69,21 @@ void main() {
     expect((seenByD1 as List).length, 1);
     expect(seenByD1.first['vehicle_id'], v1['id']);
 
+    // driver1 puede LEER el vehículo asignado vía el join que usa la app
+    // (myVehicles -> vehiclesForDriver). Antes de la migración 014 esto
+    // devolvía null por RLS y el selector salía vacío.
+    final myVeh = await driver1
+        .from('driver_vehicles')
+        .select('vehicle_id, vehicles:vehicle_id(id, license_plate, model)')
+        .eq('user_id', d1);
+    final embedded = (myVeh as List).first['vehicles'] as Map?;
+    expect(embedded, isNotNull, reason: 'el chofer debe poder leer su vehículo asignado');
+    expect(embedded!['license_plate'], 'DV-1-$ts');
+
+    // pero NO puede leer un vehículo que NO le han asignado (v2)
+    final notMine = await driver1.from('vehicles').select('id').eq('id', v2['id']);
+    expect((notMine as List).length, 0, reason: 'el chofer no ve vehículos no asignados');
+
     // driver2 NO ve la asignación de driver1 (RLS)
     final seenByD2 = await driver2.from('driver_vehicles').select('vehicle_id');
     expect((seenByD2 as List).length, 0, reason: 'driver2 no debe ver asignaciones ajenas');
