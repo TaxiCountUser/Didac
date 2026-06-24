@@ -220,6 +220,17 @@ export async function buildApp(options = {}) {
       }
     } catch (e) {
       request.log.error(`Transcripción falló: ${e.message}`);
+      // Fallback de DESARROLLO: si Whisper no está disponible (p. ej. sin una
+      // OPENAI_API_KEY válida) y se permite el modo mock, devolvemos una
+      // transcripción de ejemplo marcada como `mock` para poder probar el flujo
+      // de voz en local. En producción, configura una API key real y pon
+      // ALLOW_MOCK_TRANSCRIBE=false.
+      if (ALLOW_MOCK) {
+        const text = 'carrera de Sants a la Sagrera por 18 euros con tarjeta';
+        const result = { text, confidence: 0 };
+        transcriptionCache.set(cacheKey, result);
+        return reply.send({ ...result, parsed: parseTransactionText(text), cached: false, mock: true });
+      }
       const isKeyIssue = /api[ _-]?key|401|unauthor|incorrect|invalid/i.test(e.message || '');
       const error = isKeyIssue
         ? 'Transcripción de voz no disponible: falta configurar una API key válida de OpenAI (OPENAI_API_KEY). Usa el modo manual mientras tanto.'

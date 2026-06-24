@@ -556,6 +556,15 @@ class DataService {
     }).eq('id', uid);
   }
 
+  /// Actualiza el nº de licencia del propio conductor.
+  Future<void> updateLicenseNumber(String? license) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('users').update({
+      'license_number': (license == null || license.trim().isEmpty) ? null : license.trim(),
+    }).eq('id', uid);
+  }
+
   // ---------------- Onboarding ----------------
   Future<void> completeOnboarding() async {
     final uid = _c.auth.currentUser?.id;

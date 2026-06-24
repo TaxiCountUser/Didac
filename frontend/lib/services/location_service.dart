@@ -20,4 +20,24 @@ class LocationService {
       return null;
     }
   }
+
+  /// Asegura permiso y devuelve un stream de posiciones (seguimiento continuo
+  /// mientras la app esté abierta). null si no hay permiso/servicio.
+  static Future<Stream<Position>?> positionStream() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return null;
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        return null;
+      }
+      return Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 20),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

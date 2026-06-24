@@ -21,6 +21,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _service = DataService();
   late String _displayName = widget.profile.appName;
+  late String? _license = widget.profile.licenseNumber;
   String? _activeVehicleLabel;
   String? _companyName;
 
@@ -78,6 +79,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await _service.updateDisplayName(ctrl.text);
         if (mounted) {
           setState(() => _displayName = ctrl.text.trim().isEmpty ? widget.profile.email : ctrl.text.trim());
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('set_name_updated'))));
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+      }
+    }
+  }
+
+  Future<void> _editLicense() async {
+    final l = context.l10n;
+    final ctrl = TextEditingController(text: _license ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('set_license')),
+        content: TextField(
+          key: const Key('license_field'),
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      try {
+        await _service.updateLicenseNumber(ctrl.text);
+        if (mounted) {
+          setState(() => _license = ctrl.text.trim().isEmpty ? null : ctrl.text.trim());
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('set_name_updated'))));
         }
       } catch (e) {
@@ -206,6 +240,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _open(Widget screen) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
+  Future<void> _changeAccount() async {
+    await Supabase.instance.client.auth.signOut();
+    // Cierra Ajustes (y lo que haya encima) para que el AuthGate muestre el login.
+    if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -234,7 +274,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: Text(isOwner ? l.t('set_incidents_owner') : l.t('set_incidents_driver')),
             subtitle: Text(isOwner ? l.t('set_incidents_owner_sub') : l.t('set_incidents_driver_sub')),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => _open(IncidentsScreen(profile: widget.profile)),
+            onTap: () => _open(IncidentsScreen(profile: widget.profile, standalone: true)),
           ),
           if (isOwner) ...[
             ListTile(
@@ -259,7 +299,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.switch_account),
             title: Text(l.t('set_change_account')),
-            onTap: () => Supabase.instance.client.auth.signOut(),
+            onTap: _changeAccount,
           ),
           AboutListTile(
             icon: const Icon(Icons.info_outline),
@@ -308,8 +348,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
-                  Text('${l.t('set_license')}: — (${l.t('set_soon')})',
-                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  InkWell(
+                    onTap: _editLicense,
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text('${l.t('set_license')}: ${_license ?? '—'}',
+                              style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.edit, size: 12, color: Colors.grey),
+                      ],
+                    ),
+                  ),
                 ],
               ],
             ),

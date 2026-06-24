@@ -61,6 +61,10 @@ class _VoiceCaptureState extends State<VoiceCapture> {
 
       if (!mounted) return;
       setState(() => _busy = false);
+      if (res['mock'] == true) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.t('vc_mock'))));
+      }
       widget.onParsed(parsed);
     } catch (e) {
       if (!mounted) return;

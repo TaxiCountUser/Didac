@@ -5,6 +5,7 @@ class Profile {
   final String email;
   final String? name; // lo pone el jefe (lo ve en su panel)
   final String? displayName; // el conductor lo elige para SU app
+  final String? licenseNumber; // nº de licencia del conductor
   final String role; // 'owner' | 'driver'
   final bool hasCompletedOnboarding;
 
@@ -15,6 +16,7 @@ class Profile {
     required this.role,
     this.name,
     this.displayName,
+    this.licenseNumber,
     this.hasCompletedOnboarding = false,
   });
 
@@ -34,6 +36,7 @@ class Profile {
         email: m['email'] as String,
         name: m['name'] as String?,
         displayName: m['display_name'] as String?,
+        licenseNumber: m['license_number'] as String?,
         role: m['role'] as String,
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
       );

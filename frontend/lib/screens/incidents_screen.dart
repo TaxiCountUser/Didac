@@ -10,7 +10,10 @@ import '../util/format.dart';
 ///  - Owner: ve las de toda la flota (con autor) y puede marcarlas resueltas.
 class IncidentsScreen extends StatefulWidget {
   final Profile profile;
-  const IncidentsScreen({super.key, required this.profile});
+  /// true cuando se abre como pantalla propia (desde Ajustes): muestra AppBar
+  /// con flecha de volver. false cuando es una pestaña del panel del jefe.
+  final bool standalone;
+  const IncidentsScreen({super.key, required this.profile, this.standalone = false});
 
   @override
   State<IncidentsScreen> createState() => _IncidentsScreenState();
@@ -83,6 +86,9 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     final l = context.l10n;
     final isOwner = widget.profile.isOwner;
     return Scaffold(
+      appBar: widget.standalone
+          ? AppBar(title: Text(isOwner ? l.t('set_incidents_owner') : l.t('set_incidents_driver')))
+          : null,
       floatingActionButton: isOwner
           ? null
           : FloatingActionButton.extended(
