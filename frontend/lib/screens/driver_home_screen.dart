@@ -25,25 +25,11 @@ class DriverHomeScreen extends StatefulWidget {
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
   final _service = DataService();
   StreamSubscription<Position>? _posSub;
-  bool _jornadaStarted = false; // ¿hay lectura de km de HOY? (jornada iniciada)
-  bool _loadingJornada = true;
 
   @override
   void initState() {
     super.initState();
-    _loadJornada();
     _startTracking();
-  }
-
-  // La jornada está "iniciada" si hoy ya hay una lectura de km. A las 00:00
-  // deja de haberla (es de otro día) y el botón vuelve a "Iniciar jornada".
-  Future<void> _loadJornada() async {
-    try {
-      final vid = await _service.todaysVehicleId(widget.profile.id);
-      if (mounted) setState(() { _jornadaStarted = vid != null; _loadingJornada = false; });
-    } catch (_) {
-      if (mounted) setState(() => _loadingJornada = false);
-    }
   }
 
   @override
@@ -87,7 +73,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         return;
       }
       await _showKmDialog(vehicles, title: context.l10n.t('dh_start_day'), barrier: true);
-      await _loadJornada();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -108,7 +93,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       if (!mounted) return;
       await _showKmDialog(vehicles,
           title: context.l10n.t('dh_finish_day'), preVehicleId: preId, barrier: true);
-      await _loadJornada();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -290,27 +274,31 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (_loadingJornada)
-                  const Center(child: Padding(
-                    padding: EdgeInsets.all(8),
-                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  ))
-                else if (_jornadaStarted)
-                  FilledButton.icon(
-                    key: const Key('end_of_day_button'),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.blueGrey),
-                    onPressed: _endOfDay,
-                    icon: const Icon(Icons.nightlight_round),
-                    label: Text(l.t('dh_finish_day')),
-                  )
-                else
-                  FilledButton.icon(
-                    key: const Key('start_of_day_button'),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
-                    onPressed: _startDay,
-                    icon: const Icon(Icons.wb_sunny),
-                    label: Text(l.t('dh_start_day')),
-                  ),
+                // Ambos disponibles: se puede iniciar y finalizar varias veces
+                // el mismo día (p. ej. parar a comer y volver a empezar).
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: const Key('start_of_day_button'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
+                        onPressed: _startDay,
+                        icon: const Icon(Icons.wb_sunny),
+                        label: Text(l.t('dh_start_day')),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: const Key('end_of_day_button'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.blueGrey),
+                        onPressed: _endOfDay,
+                        icon: const Icon(Icons.nightlight_round),
+                        label: Text(l.t('dh_finish_day')),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

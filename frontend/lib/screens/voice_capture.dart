@@ -10,7 +10,8 @@ import '../services/data_service.dart';
 /// hacer (p. ej. rellenar el formulario manual para confirmar).
 class VoiceCapture extends StatefulWidget {
   final void Function(Map<String, dynamic> parsed) onParsed;
-  const VoiceCapture({super.key, required this.onParsed});
+  final bool autoStart; // empezar a grabar nada más abrir (atajo de voz)
+  const VoiceCapture({super.key, required this.onParsed, this.autoStart = false});
 
   @override
   State<VoiceCapture> createState() => _VoiceCaptureState();
@@ -21,6 +22,14 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   bool _recording = false;
   bool _busy = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+    }
+  }
 
   @override
   void dispose() {
