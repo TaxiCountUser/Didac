@@ -1,0 +1,25 @@
+# Stub no-op de record_linux. El paquete oficial (0.7.2) está abandonado y no
+# implementa la interfaz 1.5.0, lo que ROMPE el build de Android cuando se hace
+# en un host Linux (GitHub Actions), que arrastra la implementación de escritorio.
+# TaxiCount solo se usa en Android y web, así que aquí va un stub que compila y
+# nunca se ejecuta. Se activa vía dependency_overrides en frontend/pubspec.yaml.
+name: record_linux
+description: No-op stub for record_linux so Android builds on Linux hosts compile.
+version: 0.7.2
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  record_platform_interface: ^1.5.0
+
+flutter:
+  plugin:
+    implements: record
+    platforms:
+      linux:
+        dartPluginClass: RecordLinux
