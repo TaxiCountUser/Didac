@@ -49,6 +49,10 @@ services:
       #   LLM_PARSE_MODEL = llama-3.3-70b-versatile
       - key: LLM_PARSE_MODEL
         sync: false
+      # Página /parse-test para probar frases sin audio. Útil en pruebas;
+      # ponlo a false (o quítalo) en producción real.
+      - key: ENABLE_PARSE_TEST
+        value: "true"
       - key: CORS_ORIGIN
         sync: false
       # Stripe (solo si vas a probar suscripciones; opcionales para el MVP).

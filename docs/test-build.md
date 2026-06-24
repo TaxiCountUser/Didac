@@ -115,6 +115,18 @@ Secrets nuevos en GitHub:
 > La primera vez Google revisa la cuenta/app; la prueba interna suele activarse
 > en minutos/horas, no días.
 
+## Probar la interpretación de voz sin grabar (página /parse-test)
+
+Con `ENABLE_PARSE_TEST=true` (por defecto en local y en el `render.yaml`), el
+backend sirve una página para escribir frases en catalán/castellano y ver cómo
+se interpretan (origen, destino, importe, empresa, km, pago), sin audio:
+
+- Local: abre **http://localhost:3000/parse-test**
+- Nube: **https://<tu-backend>.onrender.com/parse-test**
+
+También por API: `POST /api/v1/parse-test` con `{ "text": "...", "language": "ca" }`.
+Apágalo (`ENABLE_PARSE_TEST=false`) cuando salgas a producción de verdad.
+
 ## Notas
 
 - **iPhone (iOS):** requiere un Mac y cuenta de Apple Developer (99 $/año). No se

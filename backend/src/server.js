@@ -40,6 +40,43 @@ const WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
 // de chat, p. ej. llama-3.3-70b-versatile.
 const LLM_PARSE_MODEL = process.env.LLM_PARSE_MODEL || '';
 const LLM_PARSE_TIMEOUT_MS = Number(process.env.LLM_PARSE_TIMEOUT_MS || 8000);
+// Endpoint de prueba (escribir una frase y ver cómo se interpreta) SIN audio.
+// Solo se activa con ENABLE_PARSE_TEST=true (apágalo en producción real).
+const ENABLE_PARSE_TEST = process.env.ENABLE_PARSE_TEST === 'true';
+
+// Página web mínima para probar la interpretación desde el navegador.
+const PARSE_TEST_HTML = `<!doctype html>
+<html lang="ca"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TaxiCount · Prova d'interpretació</title>
+<style>
+ body{font-family:system-ui,Arial,sans-serif;max-width:680px;margin:24px auto;padding:0 16px;color:#222}
+ h1{font-size:20px} textarea{width:100%;height:90px;font-size:16px;padding:8px;box-sizing:border-box}
+ select,button{font-size:16px;padding:8px}
+ button{background:#f5a623;border:0;border-radius:8px;color:#fff;font-weight:600;cursor:pointer}
+ pre{background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto;white-space:pre-wrap}
+ .row{display:flex;gap:8px;align-items:center;margin:8px 0} .ex{color:#777;font-size:13px}
+</style></head><body>
+<h1>🚕 TaxiCount · Prova d'interpretació</h1>
+<p class="ex">Escriu una frase com la diries de viva veu i mira com s'interpreta (origen, destí, import, empresa, km, pagament). Ctrl+Enter per provar.</p>
+<textarea id="t" placeholder="cursa des de la rambla de Figueres fins al museu Dalí, vint euros amb targeta, gitaxi"></textarea>
+<div class="row">Idioma:
+  <select id="lang"><option value="ca">Català</option><option value="es">Castellà</option><option value="en">English</option></select>
+  <button id="go">Provar</button></div>
+<pre id="out">El resultat sortirà aquí…</pre>
+<script>
+ const out=document.getElementById('out'), go=document.getElementById('go');
+ async function run(){
+   out.textContent='Interpretant…';
+   try{
+     const r=await fetch('/api/v1/parse-test',{method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({text:document.getElementById('t').value,language:document.getElementById('lang').value})});
+     const j=await r.json(); out.textContent=JSON.stringify(j.parsed||j,null,2);
+   }catch(e){ out.textContent='Error: '+e.message; }
+ }
+ go.addEventListener('click',run);
+ document.getElementById('t').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) run(); });
+</script></body></html>`;
 
 const SENTRY_DSN = process.env.SENTRY_DSN || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
@@ -306,6 +343,26 @@ export async function buildApp(options = {}) {
     const parsed = await parseSmart(result.text, { language, log: request.log });
     return reply.send({ ...result, parsed, cached: false });
   });
+
+  // --- Endpoint de PRUEBA (sin audio): escribe una frase y mira el parseo ---
+  // Útil para validar catalán/castellano antes de probar con la voz real.
+  // Solo activo si ENABLE_PARSE_TEST=true.
+  if (ENABLE_PARSE_TEST) {
+    app.post('/api/v1/parse-test', async (request, reply) => {
+      const body = request.body || {};
+      const text = (body.text || '').toString();
+      if (!text.trim()) return reply.code(400).send({ error: 'Falta "text"' });
+      const langRaw = (body.language || request.query?.language || '').toLowerCase();
+      const language = TRANSCRIBE_LANGS.has(langRaw) ? langRaw : null;
+      const parsed = await parseSmart(text, { language, log: request.log });
+      return reply.send({ text, language, parsed });
+    });
+
+    // Pequeña página web para probar desde el navegador.
+    app.get('/parse-test', async (_request, reply) => {
+      reply.type('text/html').send(PARSE_TEST_HTML);
+    });
+  }
 
   // --- Invitar conductor (Fase 1) ---
   app.post('/api/v1/drivers', async (request, reply) => {
