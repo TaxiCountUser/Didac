@@ -98,6 +98,7 @@ const Map<String, Map<String, String>> _values = {
     'login_no_account': '¿No tienes cuenta? Regístrate',
     // Driver home
     'dh_hello': '¡Hola, {name}!',
+    'dh_today_earnings': 'Beneficios de hoy', 'dh_earnings_note': 'Solo ingresos · los gastos van a cargo de la empresa',
     'dh_add_record': 'Añadir registro', 'dh_add_record_sub': 'Carrera o gasto (voz o manual)',
     'dh_view_tx': 'Ver transacciones', 'dh_view_tx_sub': 'Tu historial de carreras y gastos',
     'dh_end_day': 'Finalizar jornada (km)',
@@ -242,6 +243,7 @@ const Map<String, Map<String, String>> _values = {
     'login_name': 'Your name', 'login_have_account': 'Already have an account? Sign in',
     'login_no_account': "Don't have an account? Sign up",
     'dh_hello': 'Hi, {name}!',
+    'dh_today_earnings': "Today's earnings", 'dh_earnings_note': 'Income only · expenses are paid by the company',
     'dh_add_record': 'Add record', 'dh_add_record_sub': 'Trip or expense (voice or manual)',
     'dh_view_tx': 'View transactions', 'dh_view_tx_sub': 'Your trips and expenses history',
     'dh_end_day': 'End shift (km)',
@@ -370,6 +372,7 @@ const Map<String, Map<String, String>> _values = {
     'login_name': 'El teu nom', 'login_have_account': 'Ja tens compte? Entra',
     'login_no_account': 'No tens compte? Registra’t',
     'dh_hello': 'Hola, {name}!',
+    'dh_today_earnings': 'Beneficis d’avui', 'dh_earnings_note': 'Només ingressos · les despeses van a càrrec de l’empresa',
     'dh_add_record': 'Afegir registre', 'dh_add_record_sub': 'Cursa o despesa (veu o manual)',
     'dh_view_tx': 'Veure transaccions', 'dh_view_tx_sub': "L'historial de curses i despeses",
     'dh_end_day': 'Finalitzar jornada (km)',

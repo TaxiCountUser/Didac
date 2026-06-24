@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../services/location_service.dart';
+import '../util/format.dart';
 import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
 import 'settings_screen.dart';
@@ -26,12 +27,30 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   final _service = DataService();
   bool _askedDailyKm = false;
   StreamSubscription<Position>? _posSub;
+  double? _todayEarnings;
+  bool _loadingEarnings = true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAskDailyKm());
     _startTracking();
+    _loadTodayEarnings();
+  }
+
+  // Beneficios del día del conductor: SOLO ingresos (las carreras), sin restar
+  // gastos, porque esos van a cargo de la empresa.
+  Future<void> _loadTodayEarnings() async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final end = start.add(const Duration(days: 1));
+    try {
+      final s = await _service.transactionsSummary(
+        userId: widget.profile.id, from: start, to: end);
+      if (mounted) setState(() { _todayEarnings = s.income; _loadingEarnings = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingEarnings = false);
+    }
   }
 
   @override
@@ -242,16 +261,26 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   style: Theme.of(context).textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
+                _EarningsCard(
+                  loading: _loadingEarnings,
+                  amount: _todayEarnings,
+                  title: l.t('dh_today_earnings'),
+                  note: l.t('dh_earnings_note'),
+                ),
+                const SizedBox(height: 24),
                 _BigButton(
                   key: const Key('add_record_button'),
                   icon: Icons.add_circle,
                   label: l.t('dh_add_record'),
                   subtitle: l.t('dh_add_record_sub'),
                   color: Colors.amber.shade700,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => AddRecordScreen(profile: profile)),
-                  ),
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => AddRecordScreen(profile: profile)),
+                    );
+                    _loadTodayEarnings();
+                  },
                 ),
                 const SizedBox(height: 16),
                 _BigButton(
@@ -260,11 +289,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   label: l.t('dh_view_tx'),
                   subtitle: l.t('dh_view_tx_sub'),
                   color: Colors.blueGrey,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => DriverTransactionsScreen(profile: profile),
-                    ),
-                  ),
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DriverTransactionsScreen(profile: profile),
+                      ),
+                    );
+                    _loadTodayEarnings();
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextButton.icon(
@@ -277,6 +309,58 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             ),
           ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tarjeta de beneficios del día (solo ingresos) en el home del conductor.
+class _EarningsCard extends StatelessWidget {
+  final bool loading;
+  final double? amount;
+  final String title;
+  final String note;
+  const _EarningsCard({
+    required this.loading,
+    required this.amount,
+    required this.title,
+    required this.note,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFF1B5E20), // verde "ingreso"
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.payments, color: Colors.white, size: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(title,
+                      style: const TextStyle(color: Colors.white70, fontSize: 15)),
+                ),
+                loading
+                    ? const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(
+                        money(amount ?? 0),
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                      ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(note, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+            ),
+          ],
         ),
       ),
     );
