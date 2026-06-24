@@ -45,6 +45,10 @@ services:
         sync: false
       - key: WHISPER_MODEL
         sync: false
+      # LLM que interpreta el texto (catalán/castellano). Groq gratis:
+      #   LLM_PARSE_MODEL = llama-3.3-70b-versatile
+      - key: LLM_PARSE_MODEL
+        sync: false
       - key: CORS_ORIGIN
         sync: false
       # Stripe (solo si vas a probar suscripciones; opcionales para el MVP).

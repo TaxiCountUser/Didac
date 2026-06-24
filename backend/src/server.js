@@ -7,6 +7,7 @@ import multipart from '@fastify/multipart';
 import { createClient } from '@supabase/supabase-js';
 
 import { parseTransactionText } from './parser.js';
+import { llmParse, mergeParsed } from './llm_parser.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
 import {
   fetchReportData,
@@ -34,6 +35,11 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 //   OPENAI_API_KEY=<tu clave de Groq>
 const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || '';
 const WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
+// LLM para interpretar la transcripción (origen/destino/empresa) en catalán y
+// castellano. Vacío = solo parser determinista. Con Groq (gratis) usa un modelo
+// de chat, p. ej. llama-3.3-70b-versatile.
+const LLM_PARSE_MODEL = process.env.LLM_PARSE_MODEL || '';
+const LLM_PARSE_TIMEOUT_MS = Number(process.env.LLM_PARSE_TIMEOUT_MS || 8000);
 
 const SENTRY_DSN = process.env.SENTRY_DSN || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
@@ -79,6 +85,29 @@ async function defaultTranscribe({ buffer, filename, language }) {
 
 // Idiomas soportados como pista para Whisper (ISO-639-1).
 const TRANSCRIBE_LANGS = new Set(['es', 'ca', 'en']);
+
+// Interpreta la transcripción: si hay LLM configurado lo usa (mejor en catalán)
+// y completa con el parser determinista; si no, solo el determinista. Nunca
+// lanza: ante cualquier fallo del LLM, devuelve el resultado determinista.
+async function parseSmart(text, { language, log } = {}) {
+  const deterministic = parseTransactionText(text);
+  if (!LLM_PARSE_MODEL || !OPENAI_API_KEY) return deterministic;
+  try {
+    const llm = await withTimeout(
+      llmParse(text, {
+        apiKey: OPENAI_API_KEY,
+        baseURL: OPENAI_BASE_URL,
+        model: LLM_PARSE_MODEL,
+        language,
+      }),
+      LLM_PARSE_TIMEOUT_MS,
+    );
+    return mergeParsed(llm, deterministic);
+  } catch (e) {
+    log?.warn?.(`LLM parse falló (${e.message}); uso parser determinista`);
+    return deterministic;
+  }
+}
 
 /**
  * @param {object} [options]
@@ -220,7 +249,8 @@ export async function buildApp(options = {}) {
 
     if (transcriptionCache.has(cacheKey)) {
       const cached = transcriptionCache.get(cacheKey);
-      return reply.send({ ...cached, parsed: parseTransactionText(cached.text), cached: true });
+      const parsed = await parseSmart(cached.text, { language, log: request.log });
+      return reply.send({ ...cached, parsed, cached: true });
     }
 
     // Límite diario (solo cuando vamos a llamar de verdad a Whisper)
@@ -263,7 +293,8 @@ export async function buildApp(options = {}) {
     }
 
     transcriptionCache.set(cacheKey, result);
-    return reply.send({ ...result, parsed: parseTransactionText(result.text), cached: false });
+    const parsed = await parseSmart(result.text, { language, log: request.log });
+    return reply.send({ ...result, parsed, cached: false });
   });
 
   // --- Invitar conductor (Fase 1) ---

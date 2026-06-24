@@ -130,5 +130,12 @@ Secrets nuevos en GitHub:
   ```
   Si prefieres OpenAI, deja `OPENAI_BASE_URL` y `WHISPER_MODEL` vacíos y pon tu
   clave `sk-...` de OpenAI (cuesta ~0,006 $/min).
+- **Entender catalán (origen/destino/empresa):** además de transcribir, un LLM
+  interpreta el texto. Con Groq es gratis (misma clave). Activa:
+  ```
+  LLM_PARSE_MODEL=llama-3.3-70b-versatile
+  ```
+  Vacío = solo el parser de reglas (peor en catalán). Si el LLM falla, el sistema
+  cae automáticamente al parser de reglas.
 - **Versión de la app:** se controla en `frontend/pubspec.yaml` (`version: x.y.z+build`).
   Sube el número de build en cada APK que mandes para no confundir versiones.
