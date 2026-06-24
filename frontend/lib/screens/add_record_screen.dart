@@ -64,7 +64,7 @@ class _AddRecordScreenState extends State<AddRecordScreen>
             isPreview: _initial != null,
             embedded: true,
           ),
-          VoiceCapture(onParsed: _onParsed),
+          VoiceCapture(onParsed: _onParsed, autoStart: widget.startOnVoice),
         ],
       ),
     );
