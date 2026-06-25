@@ -635,6 +635,15 @@ class DataService {
     }).eq('id', uid);
   }
 
+  /// Actualiza el avatar (foto base64 o null = icono) del propio usuario.
+  Future<void> updateAvatar(String? avatarBase64) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('users').update({
+      'avatar_url': (avatarBase64 == null || avatarBase64.isEmpty) ? null : avatarBase64,
+    }).eq('id', uid);
+  }
+
   /// Actualiza el nº de licencia del propio conductor.
   Future<void> updateLicenseNumber(String? license) async {
     final uid = _c.auth.currentUser?.id;
