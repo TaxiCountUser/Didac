@@ -10,6 +10,7 @@ import '../services/data_service.dart';
 import '../widgets/lang_flag.dart';
 import 'admin_screen.dart';
 import 'incidents_screen.dart';
+import 'referral_screen.dart';
 import 'locate_vehicle_screen.dart';
 import 'subscription_screen.dart';
 
@@ -421,6 +422,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(_username == null ? l.t('set_username_hint') : '@$_username'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _editUsername,
+          ),
+          ListTile(
+            leading: const Icon(Icons.card_giftcard, color: Colors.amber),
+            title: Text(l.t('set_referral')),
+            subtitle: Text(l.t('set_referral_sub')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _open(ReferralScreen(profile: widget.profile)),
           ),
           ListTile(
             leading: const Icon(Icons.support_agent),

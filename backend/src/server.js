@@ -1026,6 +1026,55 @@ export async function buildApp(options = {}) {
   });
 
   // --- Webhook de Stripe (Fase 4) ---
+  // Recompensa de referido: cuando la empresa `tenantId` paga, el que la invitó
+  // gana un mes gratis (extiende su trial_ends_at +30 días y, si paga por
+  // Stripe, empuja su próximo cobro). Idempotente: solo premia referidos
+  // 'pending' (una vez por empresa referida).
+  async function rewardReferralIfApplicable(tenantId) {
+    if (!tenantId) return;
+    const { data: ref } = await supabase
+      .from('referrals')
+      .select('id, referrer_user_id')
+      .eq('referred_tenant_id', tenantId)
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (!ref) return;
+    const { data: referrer } = await supabase
+      .from('users').select('tenant_id').eq('id', ref.referrer_user_id).maybeSingle();
+    if (!referrer?.tenant_id) return;
+    const { data: t } = await supabase
+      .from('tenants').select('trial_ends_at, stripe_subscription_id').eq('id', referrer.tenant_id).maybeSingle();
+
+    // Mes gratis a nivel de acceso (+30 días desde el final actual o desde hoy).
+    const now = Date.now();
+    const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : 0;
+    const base = cur > now ? cur : now;
+    await supabase
+      .from('tenants')
+      .update({ trial_ends_at: new Date(base + 30 * 86400000).toISOString() })
+      .eq('id', referrer.tenant_id);
+
+    // Si el que invita paga por Stripe, empuja el próximo cobro 30 días.
+    if (stripe && t?.stripe_subscription_id) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(t.stripe_subscription_id);
+        const end = sub.current_period_end || Math.floor(now / 1000);
+        await stripe.subscriptions.update(t.stripe_subscription_id, {
+          trial_end: end + 30 * 24 * 3600,
+          proration_behavior: 'none',
+        });
+      } catch (e) {
+        app.log.warn(`[referral] no se pudo empujar el cobro de Stripe: ${e.message}`);
+      }
+    }
+
+    await supabase
+      .from('referrals')
+      .update({ status: 'rewarded', rewarded_at: new Date().toISOString() })
+      .eq('id', ref.id);
+    app.log.info(`[referral] mes gratis al referidor del tenant ${referrer.tenant_id} (pago de ${tenantId})`);
+  }
+
   app.post('/webhooks/stripe', async (request, reply) => {
     if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
@@ -1041,6 +1090,15 @@ export async function buildApp(options = {}) {
     try {
       const result = await applyStripeEvent(supabase, event);
       app.log.info(`[stripe-webhook] ${result.type} handled=${result.handled} tenant=${result.tenant_id ?? '-'}`);
+      // Si este evento es un pago que activa la suscripción, premia el referido.
+      if (result.handled && result.tenant_id &&
+          (result.type === 'checkout.session.completed' || result.type === 'invoice.paid')) {
+        try {
+          await rewardReferralIfApplicable(result.tenant_id);
+        } catch (e) {
+          request.log.error(`[referral] ${e.message}`);
+        }
+      }
       return reply.send({ received: true, ...result });
     } catch (e) {
       request.log.error(e);

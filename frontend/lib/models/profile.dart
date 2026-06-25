@@ -12,6 +12,8 @@ class Profile {
   final bool active; // false = el jefe lo sacó de la flota (despedido)
   final bool isAdmin; // admin de plataforma: ve/resuelve incidencias de todas
   final bool hasCompletedOnboarding;
+  final String? referralCode; // mi código para invitar
+  final String? referredBy; // id de quien me invitó (null = nadie)
 
   const Profile({
     required this.id,
@@ -26,6 +28,8 @@ class Profile {
     this.active = true,
     this.isAdmin = false,
     this.hasCompletedOnboarding = false,
+    this.referralCode,
+    this.referredBy,
   });
 
   bool get isOwner => role == 'owner';
@@ -57,5 +61,7 @@ class Profile {
         active: (m['active'] as bool?) ?? true,
         isAdmin: (m['is_admin'] as bool?) ?? false,
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
+        referralCode: m['referral_code'] as String?,
+        referredBy: m['referred_by'] as String?,
       );
 }

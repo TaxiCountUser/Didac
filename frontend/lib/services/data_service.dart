@@ -48,6 +48,23 @@ class DataService {
     await _c.rpc('create_solo_company', params: {'p_name': name});
   }
 
+  // ---------------- Referidos ----------------
+
+  /// Aplica el código de quien me invitó (una sola vez).
+  Future<void> setMyReferrer(String code) async {
+    await _c.rpc('set_my_referrer', params: {'p_code': code});
+  }
+
+  /// Estadísticas de mis referidos: {total, rewarded} (los que ya han pagado).
+  Future<Map<String, int>> myReferralStats() async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return {'total': 0, 'rewarded': 0};
+    final rows = await _c.from('referrals').select('status').eq('referrer_user_id', uid);
+    final list = (rows as List).cast<Map<String, dynamic>>();
+    final rewarded = list.where((r) => r['status'] == 'rewarded').length;
+    return {'total': list.length, 'rewarded': rewarded};
+  }
+
   /// Estado de mi empresa (modo autónomo, suscripción y prueba de 15 días).
   Future<TenantState?> fetchMyTenantState(String tenantId) async {
     if (tenantId.isEmpty) return null;
