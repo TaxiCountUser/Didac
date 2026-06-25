@@ -263,6 +263,7 @@ const Map<String, Map<String, String>> _values = {
     'ob_finish': 'Finalizar configuración',
     // Suscripción
     'sub_change_plan': 'Cambiar de plan', 'sub_choose_plan': 'Elige un plan', 'sub_no_plan': 'Sin plan',
+    'sub_monthly': 'Mensual', 'sub_yearly': 'Anual',
     'sub_drivers_included': 'Conductores incluidos: {n}', 'sub_unlimited': 'Ilimitados',
     'sub_inactive_msg': 'Tu suscripción no está activa. Contrata o reactiva un plan para seguir registrando transacciones.',
     'sub_manage_billing': 'Gestionar facturación', 'sub_current': 'Actual', 'sub_choose': 'Elegir',
@@ -431,6 +432,7 @@ const Map<String, Map<String, String>> _values = {
     'ob_step1': '1. Add your first vehicle', 'ob_step2': '2. Invite your first driver',
     'ob_finish': 'Finish setup',
     'sub_change_plan': 'Change plan', 'sub_choose_plan': 'Choose a plan', 'sub_no_plan': 'No plan',
+    'sub_monthly': 'Monthly', 'sub_yearly': 'Yearly',
     'sub_drivers_included': 'Drivers included: {n}', 'sub_unlimited': 'Unlimited',
     'sub_inactive_msg': 'Your subscription is not active. Subscribe or reactivate a plan to keep recording transactions.',
     'sub_manage_billing': 'Manage billing', 'sub_current': 'Current', 'sub_choose': 'Choose',
@@ -599,6 +601,7 @@ const Map<String, Map<String, String>> _values = {
     'ob_step1': '1. Afegeix el teu primer vehicle', 'ob_step2': '2. Convida el teu primer conductor',
     'ob_finish': 'Finalitza la configuració',
     'sub_change_plan': 'Canvia de pla', 'sub_choose_plan': 'Tria un pla', 'sub_no_plan': 'Sense pla',
+    'sub_monthly': 'Mensual', 'sub_yearly': 'Anual',
     'sub_drivers_included': 'Conductors inclosos: {n}', 'sub_unlimited': 'Il·limitats',
     'sub_inactive_msg': 'La teva subscripció no està activa. Contracta o reactiva un pla per seguir registrant transaccions.',
     'sub_manage_billing': 'Gestiona la facturació', 'sub_current': 'Actual', 'sub_choose': 'Tria',

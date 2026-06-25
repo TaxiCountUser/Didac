@@ -9,16 +9,30 @@
 // Los Price IDs vienen de variables de entorno (modo test).
 export function plans() {
   return {
-    starter: { plan_id: 'starter', drivers_limit: 2, priceId: process.env.STRIPE_PRICE_STARTER || '' },
-    pro: { plan_id: 'pro', drivers_limit: 10, priceId: process.env.STRIPE_PRICE_PRO || '' },
-    business: { plan_id: 'business', drivers_limit: null, priceId: process.env.STRIPE_PRICE_BUSINESS || '' },
+    starter: {
+      plan_id: 'starter', drivers_limit: 2,
+      priceId: process.env.STRIPE_PRICE_STARTER || '',
+      priceIdYearly: process.env.STRIPE_PRICE_STARTER_YEARLY || '',
+    },
+    pro: {
+      plan_id: 'pro', drivers_limit: 10,
+      priceId: process.env.STRIPE_PRICE_PRO || '',
+      priceIdYearly: process.env.STRIPE_PRICE_PRO_YEARLY || '',
+    },
+    business: {
+      plan_id: 'business', drivers_limit: null,
+      priceId: process.env.STRIPE_PRICE_BUSINESS || '',
+      priceIdYearly: process.env.STRIPE_PRICE_BUSINESS_YEARLY || '',
+    },
   };
 }
 
-/** Devuelve {plan_id, drivers_limit} a partir de un Price ID, o null. */
+/** Devuelve {plan_id, drivers_limit} a partir de un Price ID (mensual o anual), o null. */
 export function planForPrice(priceId) {
   if (!priceId) return null;
-  const found = Object.values(plans()).find((p) => p.priceId && p.priceId === priceId);
+  const found = Object.values(plans()).find(
+    (p) => priceId === p.priceId || priceId === p.priceIdYearly,
+  );
   return found ? { plan_id: found.plan_id, drivers_limit: found.drivers_limit } : null;
 }
 

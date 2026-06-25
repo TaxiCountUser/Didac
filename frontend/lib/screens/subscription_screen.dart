@@ -64,6 +64,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Map<String, dynamic>? _billing;
   bool _loading = true;
   bool _busy = false;
+  bool _yearly = false; // periodo elegido para suscribirse
   String? _error;
 
   @override
@@ -103,7 +104,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Future<void> _choosePlan(PlanInfo plan) async {
     setState(() => _busy = true);
     try {
-      final url = await _service.createCheckoutSession(plan.priceId);
+      final url = await _service.createCheckoutSession(plan.priceFor(_yearly));
       await _openExternal(url);
     } catch (e) {
       if (mounted) {
@@ -156,6 +157,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
+          if (kHasYearlyPlans) ...[
+            Center(
+              child: SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(value: false, label: Text(l.t('sub_monthly'))),
+                  ButtonSegment(value: true, label: Text(l.t('sub_yearly'))),
+                ],
+                selected: {_yearly},
+                onSelectionChanged: (s) => setState(() => _yearly = s.first),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           ...kPlans.map((p) => _planCard(l, p, planId)),
           if (_busy) const Padding(
             padding: EdgeInsets.all(16),

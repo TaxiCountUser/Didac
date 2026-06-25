@@ -80,6 +80,9 @@ jobs:
           STRIPE_PRICE_STARTER: ${{ secrets.PROD_STRIPE_PRICE_STARTER }}
           STRIPE_PRICE_PRO: ${{ secrets.PROD_STRIPE_PRICE_PRO }}
           STRIPE_PRICE_BUSINESS: ${{ secrets.PROD_STRIPE_PRICE_BUSINESS }}
+          STRIPE_PRICE_STARTER_YEARLY: ${{ secrets.PROD_STRIPE_PRICE_STARTER_YEARLY }}
+          STRIPE_PRICE_PRO_YEARLY: ${{ secrets.PROD_STRIPE_PRICE_PRO_YEARLY }}
+          STRIPE_PRICE_BUSINESS_YEARLY: ${{ secrets.PROD_STRIPE_PRICE_BUSINESS_YEARLY }}
         run: |
           D=""
           add(){ [ -n "$2" ] && D="$D --dart-define=$1=$2"; return 0; }
@@ -89,6 +92,9 @@ jobs:
           add STRIPE_PRICE_STARTER "$STRIPE_PRICE_STARTER"
           add STRIPE_PRICE_PRO "$STRIPE_PRICE_PRO"
           add STRIPE_PRICE_BUSINESS "$STRIPE_PRICE_BUSINESS"
+          add STRIPE_PRICE_STARTER_YEARLY "$STRIPE_PRICE_STARTER_YEARLY"
+          add STRIPE_PRICE_PRO_YEARLY "$STRIPE_PRICE_PRO_YEARLY"
+          add STRIPE_PRICE_BUSINESS_YEARLY "$STRIPE_PRICE_BUSINESS_YEARLY"
           echo "args=$D" >> "$GITHUB_OUTPUT"
           if [ -z "$D" ]; then
             echo "::warning::Sin secrets PROD_*: el APK apuntará a localhost (solo sirve para validar la compilación)."
