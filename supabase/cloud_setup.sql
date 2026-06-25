@@ -1,0 +1,745 @@
+-- ============================================================
+-- TaxiCount - Esquema completo para Supabase Cloud (todas las migraciones).
+-- Pega TODO esto en el SQL Editor de Supabase Cloud y ejecuta una vez.
+-- NO incluye el seed (datos de ejemplo); es solo el esquema + RLS.
+-- ============================================================
+
+
+-- ====== 001_initial_schema.sql ======
+-- ============================================================
+-- TaxiCount - Esquema inicial (Fase 0)
+-- Tablas: tenants, users, vehicles, transactions
+-- Multi-tenant con RLS (owner / driver).
+-- ============================================================
+
+-- Usamos gen_random_uuid() (core de Postgres 15), sin depender de
+-- extensiones instaladas en el esquema "extensions".
+
+-- ------------------------------------------------------------
+-- Funciones auxiliares de auth (idempotentes).
+-- supabase/postgres ya las trae; las (re)definimos por seguridad
+-- para que el esquema sea autocontenido. No colisionan con GoTrue.
+-- ------------------------------------------------------------
+create schema if not exists auth;
+
+create or replace function auth.uid()
+returns uuid
+language sql stable
+as $$
+  select nullif(current_setting('request.jwt.claims', true)::json ->> 'sub', '')::uuid
+$$;
+
+create or replace function auth.role()
+returns text
+language sql stable
+as $$
+  select nullif(current_setting('request.jwt.claims', true)::json ->> 'role', '')
+$$;
+
+-- ------------------------------------------------------------
+-- Enums
+-- ------------------------------------------------------------
+do $$ begin
+  create type user_role as enum ('owner', 'driver');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type transaction_type as enum ('income', 'expense');
+exception when duplicate_object then null; end $$;
+
+-- ------------------------------------------------------------
+-- Tablas
+-- ------------------------------------------------------------
+create table if not exists public.tenants (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  created_at  timestamptz not null default now()
+);
+
+create table if not exists public.users (
+  id            uuid primary key default gen_random_uuid(),
+  tenant_id     uuid not null references public.tenants(id) on delete cascade on update cascade,
+  email         text not null unique,
+  password_hash text,
+  role          user_role not null default 'driver',
+  created_at    timestamptz not null default now()
+);
+
+create table if not exists public.vehicles (
+  id            uuid primary key default gen_random_uuid(),
+  tenant_id     uuid not null references public.tenants(id) on delete cascade on update cascade,
+  license_plate text not null,
+  model         text,
+  created_at    timestamptz not null default now()
+);
+
+create table if not exists public.transactions (
+  id             uuid primary key default gen_random_uuid(),
+  tenant_id      uuid not null references public.tenants(id) on delete cascade on update cascade,
+  user_id        uuid not null references public.users(id) on delete cascade on update cascade,
+  vehicle_id     uuid references public.vehicles(id) on delete set null on update cascade,
+  amount         decimal(12,2) not null,
+  category       varchar(100),
+  type           transaction_type not null,
+  payment_method varchar(50),
+  description    text,
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists idx_users_tenant on public.users(tenant_id);
+create index if not exists idx_vehicles_tenant on public.vehicles(tenant_id);
+create index if not exists idx_transactions_tenant on public.transactions(tenant_id);
+create index if not exists idx_transactions_user on public.transactions(user_id);
+
+-- ------------------------------------------------------------
+-- Helpers SECURITY DEFINER: obtienen tenant/rol del usuario
+-- autenticado SIN disparar RLS (evita recursión en políticas).
+-- ------------------------------------------------------------
+create or replace function public.current_tenant_id()
+returns uuid
+language sql stable security definer
+set search_path = public
+as $$
+  select tenant_id from public.users where id = auth.uid()
+$$;
+
+create or replace function public.current_role_name()
+returns text
+language sql stable security definer
+set search_path = public
+as $$
+  select role::text from public.users where id = auth.uid()
+$$;
+
+-- ------------------------------------------------------------
+-- Privilegios para PostgREST (RLS sigue filtrando por fila)
+-- ------------------------------------------------------------
+grant usage on schema public to anon, authenticated, service_role;
+grant select, insert, update, delete on all tables in schema public to authenticated, service_role;
+grant select on all tables in schema public to anon;
+grant usage, select on all sequences in schema public to authenticated, service_role;
+grant execute on all functions in schema public to anon, authenticated, service_role;
+
+-- ------------------------------------------------------------
+-- RLS
+-- ------------------------------------------------------------
+alter table public.tenants       enable row level security;
+alter table public.users         enable row level security;
+alter table public.vehicles      enable row level security;
+alter table public.transactions  enable row level security;
+
+-- tenants: cualquier autenticado del propio tenant puede verlo
+drop policy if exists tenants_select on public.tenants;
+create policy tenants_select on public.tenants
+  for select to authenticated
+  using (id = public.current_tenant_id());
+
+-- users:
+--   - cada usuario ve su propia fila
+--   - un owner ve todas las filas de su tenant
+drop policy if exists users_select on public.users;
+create policy users_select on public.users
+  for select to authenticated
+  using (
+    id = auth.uid()
+    or (public.current_role_name() = 'owner' and tenant_id = public.current_tenant_id())
+  );
+
+drop policy if exists users_update_self on public.users;
+create policy users_update_self on public.users
+  for update to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid());
+
+-- vehicles: todos los del propio tenant; owner además puede gestionar
+drop policy if exists vehicles_select on public.vehicles;
+create policy vehicles_select on public.vehicles
+  for select to authenticated
+  using (tenant_id = public.current_tenant_id());
+
+drop policy if exists vehicles_owner_write on public.vehicles;
+create policy vehicles_owner_write on public.vehicles
+  for all to authenticated
+  using (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner')
+  with check (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner');
+
+-- transactions:
+--   - driver: solo ve/crea las suyas (de su tenant)
+--   - owner: ve todas las de su tenant
+drop policy if exists transactions_select on public.transactions;
+create policy transactions_select on public.transactions
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  );
+
+drop policy if exists transactions_insert on public.transactions;
+create policy transactions_insert on public.transactions
+  for insert to authenticated
+  with check (
+    tenant_id = public.current_tenant_id()
+    and user_id = auth.uid()
+  );
+
+drop policy if exists transactions_update_own on public.transactions;
+create policy transactions_update_own on public.transactions
+  for update to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  )
+  with check (tenant_id = public.current_tenant_id());
+
+-- ====== 002_tenant_trigger.sql ======
+-- ============================================================
+-- TaxiCount - Fase 1
+-- Tarea 2: creación automática de tenant + perfil al registrarse.
+-- Tarea 8: campo de onboarding.
+--
+-- Al insertarse un usuario en auth.users:
+--   - Si el metadata trae tenant_id  -> es un DRIVER invitado a un
+--     tenant existente (lo crea el Owner vía service_role).
+--   - Si NO trae tenant_id           -> es un OWNER nuevo: se crea un
+--     tenant y su perfil con rol 'owner'.
+-- ============================================================
+
+-- Columnas nuevas en el perfil de usuario
+alter table public.users add column if not exists name text;
+alter table public.users add column if not exists has_completed_onboarding boolean not null default false;
+
+-- Función del trigger (SECURITY DEFINER -> corre como owner, omite RLS)
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_meta      jsonb;
+  v_tenant_id uuid;
+  v_role      user_role;
+begin
+  v_meta := coalesce(NEW.raw_user_meta_data, '{}'::jsonb);
+
+  if (v_meta ? 'tenant_id') and nullif(v_meta ->> 'tenant_id', '') is not null then
+    -- Driver invitado a un tenant existente
+    v_tenant_id := (v_meta ->> 'tenant_id')::uuid;
+    v_role := coalesce(nullif(v_meta ->> 'role', ''), 'driver')::user_role;
+  else
+    -- Owner nuevo: crear su tenant
+    v_role := 'owner';
+    insert into public.tenants (name)
+    values (coalesce(nullif(v_meta ->> 'company_name', ''), split_part(NEW.email, '@', 1)))
+    returning id into v_tenant_id;
+  end if;
+
+  insert into public.users (id, tenant_id, email, name, role)
+  values (NEW.id, v_tenant_id, NEW.email, nullif(v_meta ->> 'name', ''), v_role)
+  on conflict (id) do nothing;
+
+  return NEW;
+end;
+$$;
+
+-- (Re)crear el trigger en auth.users
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_auth_user();
+
+-- ====== 003_rls_refinement.sql ======
+-- ============================================================
+-- TaxiCount - Fase 1
+-- Tarea 7: refinamiento de políticas RLS.
+--
+--   users        : self + Owner ve todo su tenant            (sin cambios)
+--   vehicles     : SOLO Owners (leer y gestionar). Drivers NO leen.
+--   transactions : Owner lee las de su tenant. Inserción de
+--                  clientes deshabilitada (se habilita en Fase 2);
+--                  service_role la sigue pudiendo hacer (bypass RLS).
+-- ============================================================
+
+-- ---------- vehicles: solo Owner del tenant ----------
+drop policy if exists vehicles_select on public.vehicles;
+create policy vehicles_select on public.vehicles
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and public.current_role_name() = 'owner'
+  );
+
+-- (vehicles_owner_write ya existe en 001: ALL solo para owner del tenant)
+
+-- ---------- transactions: lectura del Owner; sin insert/update de cliente ----------
+drop policy if exists transactions_select on public.transactions;
+create policy transactions_select on public.transactions
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  );
+
+-- Inserción/actualización por clientes deshabilitada en Fase 1
+-- (no hay política -> denegado para authenticated; service_role hace bypass).
+drop policy if exists transactions_insert on public.transactions;
+drop policy if exists transactions_update_own on public.transactions;
+
+-- ====== 004_transactions_input.sql ======
+-- ============================================================
+-- TaxiCount - Fase 2
+-- Habilita la entrada de transacciones (manual + voz) y el
+-- contador diario de transcripciones por usuario.
+-- ============================================================
+
+-- ---------- transactions: el driver/owner inserta las suyas ----------
+drop policy if exists transactions_insert on public.transactions;
+create policy transactions_insert on public.transactions
+  for insert to authenticated
+  with check (
+    tenant_id = public.current_tenant_id()
+    and user_id = auth.uid()
+  );
+
+drop policy if exists transactions_update_own on public.transactions;
+create policy transactions_update_own on public.transactions
+  for update to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  )
+  with check (tenant_id = public.current_tenant_id());
+
+-- ---------- contador diario de transcripciones (Tarea 7) ----------
+alter table public.users
+  add column if not exists daily_transcription_count integer not null default 0;
+alter table public.users
+  add column if not exists transcription_count_date date;
+
+-- ====== 005_indexes.sql ======
+-- ============================================================
+-- TaxiCount - Fase 3 (DashboardSyncLoop)
+-- Índices para las consultas frecuentes del dashboard:
+--   - listado/paginación por tenant ordenado por fecha
+--   - historial del driver ordenado por fecha
+-- (idx_transactions_tenant e idx_transactions_user ya existen en 001;
+--  aquí añadimos los que faltan para ORDER BY created_at eficiente.)
+-- ============================================================
+
+-- Orden descendente por fecha dentro de un tenant (dashboard del Owner).
+create index if not exists idx_transactions_tenant_created
+  on public.transactions (tenant_id, created_at desc);
+
+-- Orden descendente por fecha de un usuario (historial del Driver).
+create index if not exists idx_transactions_user_created
+  on public.transactions (user_id, created_at desc);
+
+-- Índice plano por fecha (filtros de periodo globales).
+create index if not exists idx_transactions_created
+  on public.transactions (created_at desc);
+
+-- ---------- Realtime: esquemas del servidor (opcional) ----------
+-- El servicio supabase/realtime migra en _realtime (repo principal) y en
+-- realtime (extensión CDC por tenant); ambos deben existir de antemano.
+create schema if not exists _realtime;
+create schema if not exists realtime;
+
+-- ---------- Realtime: publicar la tabla transactions (Tarea 4) ----------
+do $$ begin
+  alter publication supabase_realtime add table public.transactions;
+exception
+  when duplicate_object then null;  -- ya está en la publicación
+  when undefined_object then null;  -- la publicación no existe en este stack
+end $$;
+
+-- ---------- transactions: política DELETE (Tarea 6) ----------
+-- Owner: cualquiera de su tenant. Driver: solo las suyas.
+drop policy if exists transactions_delete on public.transactions;
+create policy transactions_delete on public.transactions
+  for delete to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  );
+
+-- ====== 006_tenant_billing.sql ======
+-- ============================================================
+-- TaxiCount - Fase 4 (SubscriptionBillingLoop)
+-- Monetización con Stripe: datos de suscripción en `tenants`,
+-- límite de conductores por plan y bloqueo de escritura por impago.
+--
+-- NOTA de numeración: la especificación la llama "004_tenant_billing"
+-- pero 004 ya existe (transactions_input); usamos el siguiente libre.
+-- ============================================================
+
+-- ---------- Columnas de facturación en tenants ----------
+alter table public.tenants
+  add column if not exists stripe_customer_id     text,
+  add column if not exists stripe_subscription_id text,
+  -- trialing | active | past_due | canceled | inactive
+  add column if not exists subscription_status    text not null default 'trialing',
+  add column if not exists plan_id                 text,
+  -- NULL = ilimitado (plan Business o periodo de prueba)
+  add column if not exists drivers_limit           integer;
+
+-- ---------- Helper: ¿la suscripción del tenant permite escribir? ----------
+-- SECURITY DEFINER para leer tenants sin disparar RLS (igual patrón que los
+-- otros helpers). Activa con 'active' o 'trialing'.
+create or replace function public.current_subscription_active()
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select subscription_status in ('active', 'trialing')
+       from public.tenants
+      where id = public.current_tenant_id()),
+    false)
+$$;
+
+grant execute on function public.current_subscription_active() to anon, authenticated, service_role;
+
+-- ---------- transactions: añadir el bloqueo por suscripción ----------
+-- Se re-crean las políticas de escritura (insert/update/delete) para exigir
+-- además una suscripción activa. La lectura NO se bloquea (el Owner debe
+-- poder consultar su histórico aunque esté impagado).
+
+drop policy if exists transactions_insert on public.transactions;
+create policy transactions_insert on public.transactions
+  for insert to authenticated
+  with check (
+    tenant_id = public.current_tenant_id()
+    and user_id = auth.uid()
+    and public.current_subscription_active()
+  );
+
+drop policy if exists transactions_update_own on public.transactions;
+create policy transactions_update_own on public.transactions
+  for update to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  )
+  with check (
+    tenant_id = public.current_tenant_id()
+    and public.current_subscription_active()
+  );
+
+drop policy if exists transactions_delete on public.transactions;
+create policy transactions_delete on public.transactions
+  for delete to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+    and public.current_subscription_active()
+  );
+
+-- ====== 007_carrera_fields.sql ======
+-- ============================================================
+-- TaxiCount - Carreras: metadatos extra para los ingresos.
+--
+-- Una "carrera" es una transacción de tipo income con datos
+-- adicionales que el conductor apunta para llevar un registro
+-- detallado (útil p. ej. ante consultas/investigaciones) y para
+-- que el propietario controle los km diarios del coche.
+--
+--   origin        origen del viaje (texto libre, opcional)
+--   destination   destino del viaje (texto libre, opcional)
+--   odometer_km   km del coche en ese momento (opcional)
+--   client_name   empresa/cliente; vacío/NULL => cliente particular
+--
+-- La "hora" del viaje es created_at (ya existente). Los gastos
+-- (type = expense) no usan estos campos.
+-- ============================================================
+
+alter table public.transactions
+  add column if not exists origin       text,
+  add column if not exists destination  text,
+  add column if not exists odometer_km  integer,
+  add column if not exists client_name  text;
+
+-- Búsqueda/filtrado por empresa (case-insensitive) en informes.
+create index if not exists idx_transactions_client_name
+  on public.transactions (lower(client_name));
+
+-- El odómetro, si se informa, no puede ser negativo.
+alter table public.transactions
+  drop constraint if exists transactions_odometer_km_nonneg;
+alter table public.transactions
+  add constraint transactions_odometer_km_nonneg
+  check (odometer_km is null or odometer_km >= 0);
+
+-- ====== 008_driver_vehicles.sql ======
+-- ============================================================
+-- TaxiCount - Asignación conductor <-> vehículo (M:N).
+--
+-- El Owner decide a qué vehículos puede acceder cada conductor:
+--   - desde un coche, asignarle uno o varios choferes;
+--   - desde un chofer, asignarle uno o varios coches.
+-- Si un conductor tiene 1 vehículo, la app lo usa automáticamente; si
+-- tiene varios, elige cuál al registrar (o al empezar el día).
+-- Esto permite imputar gastos/carreras y km a cada coche con exactitud.
+-- ============================================================
+
+create table if not exists public.driver_vehicles (
+  tenant_id  uuid not null references public.tenants(id)  on delete cascade on update cascade,
+  user_id    uuid not null references public.users(id)    on delete cascade on update cascade,
+  vehicle_id uuid not null references public.vehicles(id) on delete cascade on update cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, vehicle_id)
+);
+
+create index if not exists idx_driver_vehicles_tenant  on public.driver_vehicles(tenant_id);
+create index if not exists idx_driver_vehicles_user    on public.driver_vehicles(user_id);
+create index if not exists idx_driver_vehicles_vehicle on public.driver_vehicles(vehicle_id);
+
+-- Privilegios (tabla nueva: el grant global de 001 no la cubre).
+grant select, insert, update, delete on public.driver_vehicles to authenticated, service_role;
+grant select on public.driver_vehicles to anon;
+
+alter table public.driver_vehicles enable row level security;
+
+-- SELECT: el owner ve todas las de su tenant; el driver, solo las suyas.
+drop policy if exists driver_vehicles_select on public.driver_vehicles;
+create policy driver_vehicles_select on public.driver_vehicles
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  );
+
+-- WRITE (insert/update/delete): solo el owner, dentro de su tenant.
+drop policy if exists driver_vehicles_owner_write on public.driver_vehicles;
+create policy driver_vehicles_owner_write on public.driver_vehicles
+  for all to authenticated
+  using (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner')
+  with check (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner');
+
+-- ====== 009_odometer_readings.sql ======
+-- ============================================================
+-- TaxiCount - Lecturas de odómetro (km diarios por vehículo).
+--
+-- Al empezar el día, el conductor apunta los km del coche activo
+-- (prerellenados con los últimos conocidos). Sirve para que el
+-- propietario sepa los km diarios de cada vehículo. Si el conductor
+-- no contesta, se siguen usando los últimos km apuntados.
+-- ============================================================
+
+create table if not exists public.odometer_readings (
+  id          uuid primary key default gen_random_uuid(),
+  tenant_id   uuid not null references public.tenants(id)  on delete cascade on update cascade,
+  vehicle_id  uuid not null references public.vehicles(id) on delete cascade on update cascade,
+  user_id     uuid not null references public.users(id)    on delete cascade on update cascade,
+  reading_km  integer not null check (reading_km >= 0),
+  taken_at    timestamptz not null default now(),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists idx_odometer_tenant         on public.odometer_readings(tenant_id);
+create index if not exists idx_odometer_vehicle_taken  on public.odometer_readings(vehicle_id, taken_at desc);
+
+-- Privilegios (tabla nueva: el grant global de 001 no la cubre).
+grant select, insert, update, delete on public.odometer_readings to authenticated, service_role;
+grant select on public.odometer_readings to anon;
+
+alter table public.odometer_readings enable row level security;
+
+-- SELECT: el owner ve las de su tenant; el driver, las suyas.
+drop policy if exists odometer_select on public.odometer_readings;
+create policy odometer_select on public.odometer_readings
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  );
+
+-- INSERT: el conductor apunta las suyas (de su tenant).
+drop policy if exists odometer_insert on public.odometer_readings;
+create policy odometer_insert on public.odometer_readings
+  for insert to authenticated
+  with check (
+    tenant_id = public.current_tenant_id()
+    and user_id = auth.uid()
+  );
+
+-- ====== 010_incidents.sql ======
+-- ============================================================
+-- TaxiCount - Incidencias / notas al jefe.
+--
+-- Dos usos en una sola tabla (campo kind):
+--   'nota' -> mensaje del conductor al jefe (p. ej. "ruido en la rueda
+--             derecha"). El Owner las ve en su panel de Incidencias.
+--   'app'  -> reporte de un fallo de la app (ticket).
+-- El Owner puede marcarlas como resueltas.
+-- ============================================================
+
+create table if not exists public.incidents (
+  id          uuid primary key default gen_random_uuid(),
+  tenant_id   uuid not null references public.tenants(id) on delete cascade on update cascade,
+  user_id     uuid not null references public.users(id)   on delete cascade on update cascade,
+  kind        text not null default 'nota' check (kind in ('nota', 'app')),
+  body        text not null check (length(btrim(body)) > 0),
+  status      text not null default 'abierta' check (status in ('abierta', 'resuelta')),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists idx_incidents_tenant on public.incidents(tenant_id, created_at desc);
+create index if not exists idx_incidents_user   on public.incidents(user_id);
+
+grant select, insert, update, delete on public.incidents to authenticated, service_role;
+grant select on public.incidents to anon;
+
+alter table public.incidents enable row level security;
+
+-- SELECT: el owner ve las de su tenant; el autor (conductor) ve las suyas.
+drop policy if exists incidents_select on public.incidents;
+create policy incidents_select on public.incidents
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  );
+
+-- INSERT: cualquier autenticado crea las suyas (de su tenant).
+drop policy if exists incidents_insert on public.incidents;
+create policy incidents_insert on public.incidents
+  for insert to authenticated
+  with check (
+    tenant_id = public.current_tenant_id()
+    and user_id = auth.uid()
+  );
+
+-- UPDATE: el owner gestiona el estado (resuelta) dentro de su tenant.
+drop policy if exists incidents_owner_update on public.incidents;
+create policy incidents_owner_update on public.incidents
+  for update to authenticated
+  using (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner')
+  with check (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner');
+
+-- ====== 011_user_display_name.sql ======
+-- ============================================================
+-- TaxiCount - Nombre "de avatar" del conductor.
+--
+-- `name` lo pone el jefe (lo ve en SU panel y no cambia). `display_name` es
+-- opcional y lo elige el propio conductor para mostrarse en SU app. Si está
+-- vacío, la app del conductor usa `name`.
+-- ============================================================
+
+alter table public.users
+  add column if not exists display_name text;
+
+-- ====== 012_driver_locations.sql ======
+-- ============================================================
+-- TaxiCount - Última ubicación conocida del conductor (localizar vehículo).
+--
+-- Una fila por conductor (PK = user_id): se sobreescribe (upsert) con su
+-- posición más reciente. El jefe la ve en "Localizar vehículo".
+-- Privacidad: el conductor comparte su ubicación con permiso del dispositivo;
+-- solo la ve el Owner de su propia flota.
+-- ============================================================
+
+create table if not exists public.driver_locations (
+  user_id    uuid primary key references public.users(id)   on delete cascade on update cascade,
+  tenant_id  uuid not null      references public.tenants(id) on delete cascade on update cascade,
+  lat        double precision not null,
+  lng        double precision not null,
+  accuracy   double precision,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_driver_locations_tenant on public.driver_locations(tenant_id);
+
+grant select, insert, update, delete on public.driver_locations to authenticated, service_role;
+grant select on public.driver_locations to anon;
+
+alter table public.driver_locations enable row level security;
+
+-- SELECT: el owner ve las de su tenant; el conductor, la suya.
+drop policy if exists driver_locations_select on public.driver_locations;
+create policy driver_locations_select on public.driver_locations
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+  );
+
+-- INSERT/UPDATE: el conductor escribe SOLO la suya (de su tenant).
+drop policy if exists driver_locations_insert on public.driver_locations;
+create policy driver_locations_insert on public.driver_locations
+  for insert to authenticated
+  with check (tenant_id = public.current_tenant_id() and user_id = auth.uid());
+
+drop policy if exists driver_locations_update on public.driver_locations;
+create policy driver_locations_update on public.driver_locations
+  for update to authenticated
+  using (tenant_id = public.current_tenant_id() and user_id = auth.uid())
+  with check (tenant_id = public.current_tenant_id() and user_id = auth.uid());
+
+-- ====== 013_user_license.sql ======
+-- ============================================================
+-- TaxiCount - Número de licencia del conductor.
+-- Lo edita el propio conductor en su app (RLS users_update_self).
+-- ============================================================
+
+alter table public.users
+  add column if not exists license_number text;
+
+-- ====== 014_driver_reads_assigned_vehicles.sql ======
+-- ============================================================
+-- TaxiCount - El chofer puede LEER los vehículos que el jefe le ha asignado.
+--
+-- Problema: 003 dejó vehicles.select SOLO para owners. Por eso, cuando la app
+-- del chofer hace el join driver_vehicles -> vehicles (para elegir coche en
+-- Ajustes / al empezar el día), RLS bloquea la fila de vehicles y el embed
+-- devuelve null => el selector sale vacío aunque el jefe ya haya asignado coche.
+--
+-- Solución: el owner sigue viendo todos los vehículos de su tenant; el chofer
+-- puede leer únicamente los vehículos vinculados a él en driver_vehicles.
+-- No le damos write: la asignación la sigue gestionando solo el owner.
+-- ============================================================
+
+drop policy if exists vehicles_select on public.vehicles;
+create policy vehicles_select on public.vehicles
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (
+      public.current_role_name() = 'owner'
+      or exists (
+        select 1
+        from public.driver_vehicles dv
+        where dv.vehicle_id = public.vehicles.id
+          and dv.user_id = auth.uid()
+      )
+    )
+  );
+
+-- ====== 015_vehicle_maintenance.sql ======
+-- ============================================================
+-- TaxiCount - Ficha de mantenimiento por vehículo (solo panel del jefe).
+--
+-- El jefe quiere controlar, por coche, el estado de:
+--   - ITV         : próxima fecha de inspección.
+--   - Seguro      : próxima fecha de renovación.
+--   - Tarjeta de transporte: fecha del último visado/renovación + periodo
+--                   (en España el visado periódico se suprimió en 2019; se deja
+--                   el periodo configurable, por defecto 4 años, por si el
+--                   operador quiere seguir avisándose).
+--   - Revisiones  : intervalo en km + km del coche en la última revisión
+--                   (para calcular cuántos km quedan hasta la siguiente).
+--
+-- Los km "actuales" del coche NO se guardan aquí: se derivan de odometer_readings
+-- / transactions (lastOdometer). Aquí solo guardamos la configuración/fechas.
+-- Solo el owner gestiona estos campos (RLS de vehicles ya lo cubre: write owner).
+-- ============================================================
+
+alter table public.vehicles
+  add column if not exists itv_expiry              date,
+  add column if not exists insurance_expiry        date,
+  add column if not exists transport_card_date     date,
+  add column if not exists transport_card_years    int  not null default 4,
+  add column if not exists revision_interval_km    int  not null default 15000,
+  add column if not exists last_revision_km        int,
+  add column if not exists maintenance_notes        text;
+
+-- Recarga el esquema en PostgREST tras aplicar.
