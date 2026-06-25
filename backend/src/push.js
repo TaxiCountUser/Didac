@@ -8,13 +8,24 @@
 //   Firebase Console -> Configuración del proyecto -> Cuentas de servicio
 //   -> "Generar nueva clave privada".
 
+import { readFileSync } from 'node:fs';
+
 let _appPromise = null;
 
+// La cuenta de servicio puede venir como:
+//   1) FCM_SERVICE_ACCOUNT  -> el JSON pegado como variable de entorno.
+//   2) Secret File de Render (u otra ruta): FCM_SERVICE_ACCOUNT_FILE o, por
+//      defecto, /etc/secrets/fcm.json.
 function serviceAccount() {
   const raw = (process.env.FCM_SERVICE_ACCOUNT || '').trim();
-  if (!raw) return null;
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch {/* probamos con el archivo */}
+  }
+  const path = (process.env.FCM_SERVICE_ACCOUNT_FILE || '/etc/secrets/fcm.json').trim();
   try {
-    return JSON.parse(raw);
+    return JSON.parse(readFileSync(path, 'utf8'));
   } catch {
     return null;
   }

@@ -317,6 +317,7 @@ export async function buildApp(options = {}) {
   app.get('/health', async () => ({
     status: 'ok',
     service: 'taxicount-backend',
+    push: pushEnabled(),
     timestamp: new Date().toISOString(),
   }));
 

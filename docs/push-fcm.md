@@ -22,10 +22,13 @@ La base ya está hecha en el código:
 ## 3. Clave de servidor para enviar (cuenta de servicio)
 1. Firebase Console → **⚙ Configuración del proyecto → Cuentas de servicio**.
 2. **Generar nueva clave privada** → descarga un JSON. **Esto SÍ es secreto.**
-3. En **Render** (servicio del backend) → **Environment** → añade:
-   - `FCM_SERVICE_ACCOUNT` = el contenido del JSON en **una sola línea**.
-   - (Para probar en local, ponlo en `backend/.env` igual.)
-   - No lo pegues en el chat ni lo subas al repo.
+3. En **Render** (servicio del backend), dos opciones:
+   - **Secret File** (recomendado): Environment → Secret Files → nombre
+     `fcm.json`, contenido = el JSON. Se monta en `/etc/secrets/fcm.json` y el
+     backend lo lee solo. (Si usas otro nombre, define `FCM_SERVICE_ACCOUNT_FILE`
+     con la ruta `/etc/secrets/<nombre>`.)
+   - **Variable de entorno**: `FCM_SERVICE_ACCOUNT` = el JSON (vale multilínea).
+   - No lo pegues en el chat ni lo subas al repo. Tras ponerlo, **Manual Deploy**.
 
 ## 4. (Lo hago yo) Cableado en la app
 Cuando exista el `google-services.json`:
