@@ -94,6 +94,7 @@ const Map<String, Map<String, String>> _values = {
     // Login
     'login_email': 'Email', 'login_password': 'Contraseña', 'login_enter': 'Entrar',
     'login_email_or_user': 'Email o usuario', 'login_user_not_found': 'No existe ese usuario',
+    'login_or': 'o', 'login_with_google': 'Entrar con Google',
     'set_username': 'Nombre de usuario', 'set_username_hint': 'Para iniciar sesión sin escribir el correo',
     'set_username_taken': 'Ese nombre de usuario ya está en uso',
     'login_register': 'Crear cuenta', 'login_company': 'Nombre de la empresa',
@@ -253,6 +254,7 @@ const Map<String, Map<String, String>> _values = {
     'income': 'Income', 'expense': 'Expense', 'all': 'All',
     'login_email': 'Email', 'login_password': 'Password', 'login_enter': 'Sign in',
     'login_email_or_user': 'Email or username', 'login_user_not_found': 'No such username',
+    'login_or': 'or', 'login_with_google': 'Sign in with Google',
     'set_username': 'Username', 'set_username_hint': 'To sign in without typing your email',
     'set_username_taken': 'That username is already taken',
     'login_register': 'Create account', 'login_company': 'Company name',
@@ -395,6 +397,7 @@ const Map<String, Map<String, String>> _values = {
     'income': 'Ingrés', 'expense': 'Despesa', 'all': 'Tots',
     'login_email': 'Correu', 'login_password': 'Contrasenya', 'login_enter': 'Entra',
     'login_email_or_user': 'Correu o usuari', 'login_user_not_found': 'No existeix aquest usuari',
+    'login_or': 'o', 'login_with_google': 'Entra amb Google',
     'set_username': "Nom d'usuari", 'set_username_hint': "Per iniciar sessió sense escriure el correu",
     'set_username_taken': "Aquest nom d'usuari ja està en ús",
     'login_register': 'Crea un compte', 'login_company': "Nom de l'empresa",

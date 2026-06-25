@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -63,6 +64,26 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
       // AuthGate reaccionará al cambio de sesión.
+    } on AuthException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // Inicio de sesión con Google (OAuth de Supabase). En móvil vuelve por deep
+  // link; en web redirige en el navegador. Requiere configurar el proveedor
+  // Google en Supabase (y un cliente OAuth en Google Cloud).
+  Future<void> _googleSignIn() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: kIsWeb ? null : 'app.taxicount://login-callback',
+      );
+      // En móvil abre el navegador; el AuthGate reaccionará al volver.
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
@@ -160,6 +181,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Text(_isSignUp
                         ? l.t('login_toggle_to_signin')
                         : l.t('login_toggle_to_signup')),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(l.t('login_or'), style: const TextStyle(color: Colors.grey)),
+                    ),
+                    const Expanded(child: Divider()),
+                  ]),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const Key('google_signin_button'),
+                    onPressed: _loading ? null : _googleSignIn,
+                    icon: const Icon(Icons.g_mobiledata, size: 28),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(l.t('login_with_google')),
+                    ),
                   ),
                 ],
               ),
