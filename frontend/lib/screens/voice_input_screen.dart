@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
 
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../services/recording_bytes.dart';
 import 'transaction_preview_screen.dart';
 
 /// Grabación de voz -> transcripción (backend/Whisper) -> previsualización.
@@ -51,8 +51,10 @@ class _VoiceInputScreenState extends State<VoiceInputScreen> {
       final path = await _recorder.stop();
       if (path == null) throw Exception('No se grabó audio');
 
-      // En web el path es un blob URL; leemos los bytes vía http.
-      final bytes = (await http.get(Uri.parse(path))).bodyBytes;
+      // En web `path` es un blob URL; en Android/iOS es una ruta de fichero.
+      // El helper lee los bytes según la plataforma (la APK fallaba al hacer
+      // http.get sobre una ruta de fichero local).
+      final bytes = await readRecordingBytes(path);
 
       final res = await DataService().transcribe(audioBytes: bytes, filename: 'voice_note.m4a');
       final parsed = Map<String, dynamic>.from(res['parsed'] as Map);

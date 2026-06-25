@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../services/recording_bytes.dart';
 
 /// Captura de voz reutilizable: graba, transcribe (backend/Whisper) y entrega
 /// el resultado parseado vía [onParsed]. No navega: el contenedor decide qué
@@ -62,8 +62,10 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       final path = await _recorder.stop();
       if (path == null) throw Exception(l.t('vc_no_audio'));
 
-      // En web el path es un blob URL; leemos los bytes vía http.
-      final bytes = (await http.get(Uri.parse(path))).bodyBytes;
+      // En web `path` es un blob URL; en Android/iOS es una ruta de fichero.
+      // El helper lee los bytes según la plataforma (antes la APK fallaba
+      // porque intentaba http.get sobre una ruta de fichero local).
+      final bytes = await readRecordingBytes(path);
 
       final res = await DataService().transcribe(
         audioBytes: bytes,
