@@ -9,6 +9,7 @@ class Profile {
   final String? avatarUrl; // foto del avatar (base64) o null = icono
   final String? username; // para iniciar sesión con usuario (además del correo)
   final String role; // 'owner' | 'driver'
+  final bool active; // false = el jefe lo sacó de la flota (despedido)
   final bool hasCompletedOnboarding;
 
   const Profile({
@@ -21,10 +22,14 @@ class Profile {
     this.licenseNumber,
     this.avatarUrl,
     this.username,
+    this.active = true,
     this.hasCompletedOnboarding = false,
   });
 
   bool get isOwner => role == 'owner';
+
+  /// Conductor que el jefe sacó de la flota: solo puede ver la pantalla de aviso.
+  bool get isInactiveDriver => role == 'driver' && !active;
 
   /// Nombre a mostrar en la app del propio usuario: su display_name si lo
   /// tiene, si no el que le puso el jefe, y si no, el email.
@@ -44,6 +49,7 @@ class Profile {
         avatarUrl: m['avatar_url'] as String?,
         username: m['username'] as String?,
         role: m['role'] as String,
+        active: (m['active'] as bool?) ?? true,
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
       );
 }
