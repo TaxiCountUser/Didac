@@ -25,6 +25,8 @@ dependencies:
   geolocator: ^13.0.1
   image_picker: ^1.1.2
   cupertino_icons: ^1.0.6
+  firebase_core: ^4.11.0
+  firebase_messaging: ^16.4.1
 
 # record_linux 0.7.2 (abandonado) no implementa la interfaz 1.5.0 y rompe el
 # build de Android en hosts Linux (CI). Lo sustituimos por un stub no-op local

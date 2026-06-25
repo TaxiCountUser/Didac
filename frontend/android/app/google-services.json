@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1063875764382",
+    "project_id": "taxicount-75bc2",
+    "storage_bucket": "taxicount-75bc2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1063875764382:android:6c6fa4bbd17470ddbf1b8f",
+        "android_client_info": {
+          "package_name": "app.taxicount"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_nhQLXsaD1KuBQ3-L-q_VJXkwGPg0iXM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -620,6 +621,34 @@ class DataService {
       'user_id': uid,
       'body': body,
     });
+    await _notifyIncident(incidentId: incidentId, kind: 'new_message', body: body);
+  }
+
+  /// Pide al backend que envíe el push de una incidencia/mensaje. Best-effort:
+  /// si push no está configurado o falla, no pasa nada (la app sigue igual).
+  Future<void> _notifyIncident({
+    required String incidentId,
+    required String kind,
+    String? body,
+  }) async {
+    try {
+      final token = _c.auth.currentSession?.accessToken;
+      if (token == null) return;
+      await http
+          .post(
+            Uri.parse('$backendUrl/api/v1/notify-incident'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'incidentId': incidentId,
+              'kind': kind,
+              if (body != null) 'body': body,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {/* best-effort */}
   }
 
   /// Nº de incidencias abiertas (para el badge del panel del jefe).
@@ -636,12 +665,16 @@ class DataService {
   }) async {
     final uid = _c.auth.currentUser?.id;
     if (uid == null) throw Exception('No hay sesión activa');
-    await _c.from('incidents').insert({
+    final rows = await _c.from('incidents').insert({
       'tenant_id': tenantId,
       'user_id': uid,
       'kind': kind,
       'body': body,
-    });
+    }).select('id');
+    final id = (rows as List).isNotEmpty ? rows.first['id'] as String? : null;
+    if (id != null) {
+      await _notifyIncident(incidentId: id, kind: 'new_incident', body: body);
+    }
   }
 
   /// Elimina una incidencia (solo Owner por RLS).

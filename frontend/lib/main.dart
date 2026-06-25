@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'auth_gate.dart';
 import 'l10n/app_localizations.dart';
+import 'services/push_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +13,8 @@ Future<void> main() async {
   await localeController.load();
   // ignore: deprecated_member_use
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  // Push (FCM): solo en móvil; en web es no-op. No bloquea el arranque si falla.
+  await PushService.instance.init();
   runApp(const TaxiCountApp());
 }
 

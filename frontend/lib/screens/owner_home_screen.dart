@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../services/push_service.dart';
 import 'owner_dashboard_screen.dart';
 import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
@@ -27,6 +28,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   void initState() {
     super.initState();
     _loadIncidentCount();
+    PushService.instance.register(widget.profile.tenantId);
   }
 
   Future<void> _loadIncidentCount() async {

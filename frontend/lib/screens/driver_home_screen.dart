@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../services/location_service.dart';
+import '../services/push_service.dart';
 import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
 import 'settings_screen.dart';
@@ -30,6 +31,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   void initState() {
     super.initState();
     _startTracking();
+    PushService.instance.register(widget.profile.tenantId);
   }
 
   @override

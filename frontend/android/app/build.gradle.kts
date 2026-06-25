@@ -5,6 +5,8 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Firebase (push): debe ir después del plugin de Android.
+    id("com.google.gms.google-services")
 }
 
 // Firma de release (Play Store): si existe android/key.properties se usa la
@@ -28,7 +30,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.taxicount.taxicount"
+        // Debe coincidir con el package registrado en Firebase (google-services.json).
+        applicationId = "app.taxicount"
         // record (audio) y geolocator requieren Android 6 (API 23) o superior.
         minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
