@@ -841,3 +841,7 @@ drop policy if exists incident_messages_owner_delete on public.incident_messages
 create policy incident_messages_owner_delete on public.incident_messages
   for delete to authenticated
   using (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner');
+
+-- ====== 019_user_avatar.sql ======
+-- TaxiCount - Avatar del usuario (foto en base64 o null = icono).
+alter table public.users add column if not exists avatar_url text;

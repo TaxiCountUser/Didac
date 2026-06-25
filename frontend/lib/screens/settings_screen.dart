@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
@@ -22,6 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _service = DataService();
   late String _displayName = widget.profile.appName;
   late String? _license = widget.profile.licenseNumber;
+  late String? _avatarB64 = widget.profile.avatarUrl; // foto base64 o null = icono
   String? _activeVehicleLabel;
   String? _companyName;
   bool _hasVehicles = false; // el conductor solo ve/elige coches asignados
@@ -59,6 +63,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
     } catch (_) {/* cabecera best-effort */}
+  }
+
+  // Avatar: elegir foto (comprimida a base64) o quitarla (vuelve al icono).
+  // El cambio es solo en la cuenta del propio usuario.
+  Future<void> _editAvatar() async {
+    final l = context.l10n;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: Text(l.t('set_pick_photo')),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera),
+              title: Text(l.t('set_take_photo')),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+            if (_avatarB64 != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: Text(l.t('set_remove_photo')),
+                onTap: () => Navigator.pop(ctx, 'remove'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (action == null) return;
+    try {
+      if (action == 'remove') {
+        await _service.updateAvatar(null);
+        if (mounted) setState(() => _avatarB64 = null);
+        return;
+      }
+      final picker = ImagePicker();
+      final x = await picker.pickImage(
+        source: action == 'camera' ? ImageSource.camera : ImageSource.gallery,
+        maxWidth: 256, maxHeight: 256, imageQuality: 60,
+      );
+      if (x == null) return;
+      final bytes = await x.readAsBytes();
+      final b64 = base64Encode(bytes);
+      await _service.updateAvatar(b64);
+      if (mounted) {
+        setState(() => _avatarB64 = b64);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('set_name_updated'))));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+    }
   }
 
   Future<void> _editCompanyName() async {
@@ -377,10 +436,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: Colors.amber,
-            child: Icon(isOwner ? Icons.business : Icons.person, size: 30, color: Colors.white),
+          GestureDetector(
+            onTap: _editAvatar,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.amber,
+                  backgroundImage: _avatarB64 != null ? MemoryImage(base64Decode(_avatarB64!)) : null,
+                  child: _avatarB64 != null
+                      ? null
+                      : Icon(isOwner ? Icons.business : Icons.person, size: 30, color: Colors.white),
+                ),
+                Positioned(
+                  right: 0, bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: const Icon(Icons.camera_alt, size: 14, color: Colors.black54),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
