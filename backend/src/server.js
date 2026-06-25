@@ -471,6 +471,21 @@ export async function buildApp(options = {}) {
       }
     }
 
+    // Pre-comprobación: si ya hay una cuenta con ese correo, avisamos claro
+    // (si no, el trigger de alta falla con un error vacío y confuso).
+    const emailNorm = String(email).trim().toLowerCase();
+    const { data: dup } = await supabase
+      .from('users')
+      .select('id, tenant_id')
+      .ilike('email', emailNorm)
+      .maybeSingle();
+    if (dup) {
+      const msg = dup.tenant_id === caller.tenant_id
+        ? 'Ya tienes un conductor con ese correo.'
+        : 'Ese correo ya está registrado en TaxiCount; usa otro.';
+      return reply.code(409).send({ error: msg });
+    }
+
     const tempPassword = generateTempPassword();
     const { data: created, error: createErr } = await supabase.auth.admin.createUser({
       email,
@@ -479,8 +494,11 @@ export async function buildApp(options = {}) {
       user_metadata: { role: 'driver', tenant_id: caller.tenant_id, name: name ?? null },
     });
     if (createErr) {
-      const code = /already|registered|exists/i.test(createErr.message || '') ? 409 : 400;
-      return reply.code(code).send({ error: createErr.message });
+      const m = createErr.message || '';
+      const dupErr = /already|registered|exists|duplicate|23505/i.test(m) || m === '{}' || m === '';
+      return reply
+        .code(dupErr ? 409 : 400)
+        .send({ error: dupErr ? 'Ese correo ya está registrado; usa otro.' : m });
     }
 
     app.log.info(`[create-driver] ${email} en tenant ${caller.tenant_id}. Pwd temporal: ${tempPassword}`);
