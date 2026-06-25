@@ -845,3 +845,28 @@ create policy incident_messages_owner_delete on public.incident_messages
 -- ====== 019_user_avatar.sql ======
 -- TaxiCount - Avatar del usuario (foto en base64 o null = icono).
 alter table public.users add column if not exists avatar_url text;
+
+-- ====== 020_owner_edit_driver.sql ======
+-- ============================================================
+-- TaxiCount - El Owner puede editar el NOMBRE de un conductor de su flota.
+-- Vía RPC SECURITY DEFINER (comprueba que es owner del mismo tenant).
+-- El correo de acceso NO se cambia aquí (es de auth; requiere admin API).
+-- ============================================================
+create or replace function public.owner_set_driver_name(p_driver uuid, p_name text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.current_role_name() <> 'owner' then
+    raise exception 'Solo el owner puede editar conductores';
+  end if;
+  update public.users
+     set name = nullif(btrim(p_name), '')
+   where id = p_driver
+     and tenant_id = public.current_tenant_id()
+     and role = 'driver';
+end;
+$$;
+grant execute on function public.owner_set_driver_name(uuid, text) to authenticated;

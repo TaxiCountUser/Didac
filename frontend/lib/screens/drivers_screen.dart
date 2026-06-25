@@ -80,6 +80,35 @@ class _DriversScreenState extends State<DriversScreen> {
     }
   }
 
+  /// El Owner edita el nombre del conductor (el correo de acceso no se cambia).
+  Future<void> _editDriverName(Map<String, dynamic> driver) async {
+    final l = context.l10n;
+    final ctrl = TextEditingController(text: driver['name'] as String? ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('dr_edit_name')),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(labelText: l.t('dr_name'), border: const OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      try {
+        await _service.ownerSetDriverName(driver['id'] as String, ctrl.text.trim());
+        _reload();
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   /// Asigna vehículos a un conductor (multi-selección).
   Future<void> _assignVehicles(Map<String, dynamic> driver) async {
     final userId = driver['id'] as String;
@@ -185,8 +214,17 @@ class _DriversScreenState extends State<DriversScreen> {
                   leading: const Icon(Icons.person),
                   title: Text(d['name'] as String? ?? d['email'] as String),
                   subtitle: Text(d['email'] as String),
-                  trailing: const Icon(Icons.directions_car_outlined),
                   onTap: () => _assignVehicles(d),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (v) {
+                      if (v == 'vehicles') _assignVehicles(d);
+                      if (v == 'name') _editDriverName(d);
+                    },
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(value: 'vehicles', child: Text(ctx.l10n.t('dr_assign_vehicles'))),
+                      PopupMenuItem(value: 'name', child: Text(ctx.l10n.t('dr_edit_name'))),
+                    ],
+                  ),
                 );
               },
             ),

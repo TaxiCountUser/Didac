@@ -156,6 +156,11 @@ class DataService {
     ]);
   }
 
+  /// El Owner edita el nombre de un conductor de su flota (RPC con permisos).
+  Future<void> ownerSetDriverName(String driverId, String name) async {
+    await _c.rpc('owner_set_driver_name', params: {'p_driver': driverId, 'p_name': name});
+  }
+
   /// Vehículos del conductor autenticado (para registrar / elegir al empezar).
   Future<List<Map<String, dynamic>>> myVehicles() async {
     final uid = _c.auth.currentUser?.id;

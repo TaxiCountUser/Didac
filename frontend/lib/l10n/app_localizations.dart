@@ -223,6 +223,7 @@ const Map<String, Map<String, String>> _values = {
     'vh_date_transport': 'Último visado de la tarjeta', 'vh_pick_date': 'Elegir fecha', 'vh_clear': 'Quitar',
     // Conductores
     'dr_invite': 'Invitar', 'dr_invite_title': 'Invitar conductor', 'dr_email': 'Email', 'dr_name': 'Nombre',
+    'dr_edit_name': 'Editar nombre', 'dr_assign_vehicles': 'Asignar vehículos',
     'dr_empty': 'Aún no hay conductores. Invita al primero.', 'dr_invited_title': 'Conductor invitado',
     'dr_invited_msg': 'Se ha creado el conductor.\n\nContraseña temporal (desarrollo):\n{pwd}',
     'dr_vehicles_of': 'Vehículos de {name}', 'dr_no_vehicles': 'No hay vehículos. Añade alguno primero.',
@@ -363,6 +364,7 @@ const Map<String, Map<String, String>> _values = {
     'vh_date_itv': 'Next ITV', 'vh_date_insurance': 'Insurance renewal',
     'vh_date_transport': 'Last transport-card stamp', 'vh_pick_date': 'Pick date', 'vh_clear': 'Clear',
     'dr_invite': 'Invite', 'dr_invite_title': 'Invite driver', 'dr_email': 'Email', 'dr_name': 'Name',
+    'dr_edit_name': 'Edit name', 'dr_assign_vehicles': 'Assign vehicles',
     'dr_empty': 'No drivers yet. Invite the first one.', 'dr_invited_title': 'Driver invited',
     'dr_invited_msg': 'Driver created.\n\nTemporary password (dev):\n{pwd}',
     'dr_vehicles_of': 'Vehicles of {name}', 'dr_no_vehicles': 'No vehicles. Add one first.',
@@ -501,6 +503,7 @@ const Map<String, Map<String, String>> _values = {
     'vh_date_itv': 'Pròxima ITV', 'vh_date_insurance': 'Renovació de l’assegurança',
     'vh_date_transport': 'Últim visat de la targeta', 'vh_pick_date': 'Tria data', 'vh_clear': 'Treu',
     'dr_invite': 'Convida', 'dr_invite_title': 'Convida un conductor', 'dr_email': 'Correu', 'dr_name': 'Nom',
+    'dr_edit_name': 'Edita el nom', 'dr_assign_vehicles': 'Assigna vehicles',
     'dr_empty': 'Encara no hi ha conductors. Convida el primer.', 'dr_invited_title': 'Conductor convidat',
     'dr_invited_msg': 'S’ha creat el conductor.\n\nContrasenya temporal (desenvolupament):\n{pwd}',
     'dr_vehicles_of': 'Vehicles de {name}', 'dr_no_vehicles': 'No hi ha vehicles. Afegeix-ne algun primer.',
