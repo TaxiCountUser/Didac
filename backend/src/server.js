@@ -313,31 +313,12 @@ export async function buildApp(options = {}) {
     return true;
   }
 
-  // Prueba real de la service key: intenta una operación de admin. Si falla,
-  // la clave no es válida para este proyecto. Se memoiza el éxito.
-  let _svcOk = null;
-  async function serviceKeyValid() {
-    if (!supabase) return false;
-    if (_svcOk === true) return true;
-    try {
-      const { error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
-      _svcOk = !error;
-      return _svcOk;
-    } catch {
-      return false;
-    }
-  }
-
   // --- Health ---
   app.get('/health', async () => ({
     status: 'ok',
     service: 'taxicount-backend',
     push: pushEnabled(),
     stripe: !!stripe,
-    // Diagnóstico (no secreto): proyecto Supabase y validez de la service key.
-    supabaseHost: SUPABASE_URL.replace(/^https?:\/\//, '').replace(/\/.*$/, ''),
-    serviceKey: SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'missing',
-    serviceKeyValid: await serviceKeyValid(),
     timestamp: new Date().toISOString(),
   }));
 
