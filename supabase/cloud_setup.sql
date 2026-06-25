@@ -1,7 +1,9 @@
 -- ============================================================
 -- TaxiCount - Esquema completo para Supabase Cloud (todas las migraciones).
 -- Pega TODO esto en el SQL Editor de Supabase Cloud y ejecuta una vez.
--- NO incluye el seed (datos de ejemplo); es solo el esquema + RLS.
+-- NOTA: en Cloud, auth.uid()/auth.role() ya las provee Supabase, por eso
+-- aqui NO se redefinen (eso daba 'permission denied for schema auth').
+-- No incluye el seed (datos de ejemplo); es solo el esquema + RLS.
 -- ============================================================
 
 
@@ -20,21 +22,6 @@
 -- supabase/postgres ya las trae; las (re)definimos por seguridad
 -- para que el esquema sea autocontenido. No colisionan con GoTrue.
 -- ------------------------------------------------------------
-create schema if not exists auth;
-
-create or replace function auth.uid()
-returns uuid
-language sql stable
-as $$
-  select nullif(current_setting('request.jwt.claims', true)::json ->> 'sub', '')::uuid
-$$;
-
-create or replace function auth.role()
-returns text
-language sql stable
-as $$
-  select nullif(current_setting('request.jwt.claims', true)::json ->> 'role', '')
-$$;
 
 -- ------------------------------------------------------------
 -- Enums
