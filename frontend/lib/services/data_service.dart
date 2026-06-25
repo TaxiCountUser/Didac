@@ -447,6 +447,11 @@ class DataService {
         .maybeSingle();
   }
 
+  /// Actualiza el nombre de la empresa (solo Owner, solo columna name por RLS).
+  Future<void> updateCompanyName(String tenantId, String name) async {
+    await _c.from('tenants').update({'name': name}).eq('id', tenantId);
+  }
+
   /// Crea una sesión de Stripe Checkout y devuelve su URL.
   Future<String> createCheckoutSession(String priceId) =>
       _postBilling('/api/v1/create-checkout-session', {'priceId': priceId});
@@ -516,6 +521,12 @@ class DataService {
     if (kind != null) q = q.eq('kind', kind);
     final data = await q.order('created_at', ascending: false);
     return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Nº de incidencias abiertas (para el badge del panel del jefe).
+  Future<int> openIncidentsCount() async {
+    final data = await _c.from('incidents').select('id').eq('status', 'abierta');
+    return (data as List).length;
   }
 
   /// Crea una incidencia: kind 'nota' (mensaje al jefe) o 'app' (fallo de la app).

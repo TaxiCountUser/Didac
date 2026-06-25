@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
+import '../services/data_service.dart';
 import 'owner_dashboard_screen.dart';
 import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
@@ -20,6 +21,20 @@ class OwnerHomeScreen extends StatefulWidget {
 
 class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int _index = 0;
+  int _openIncidents = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIncidentCount();
+  }
+
+  Future<void> _loadIncidentCount() async {
+    try {
+      final n = await DataService().openIncidentsCount();
+      if (mounted) setState(() => _openIncidents = n);
+    } catch (_) {/* badge best-effort */}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +71,10 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       body: pages[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) {
+          setState(() => _index = i);
+          _loadIncidentCount(); // refresca el badge al navegar
+        },
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.dashboard_outlined),
@@ -74,8 +92,16 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             label: l.t('nav_drivers'),
           ),
           NavigationDestination(
-            icon: const Icon(Icons.report_problem_outlined),
-            selectedIcon: const Icon(Icons.report_problem),
+            icon: Badge(
+              isLabelVisible: _openIncidents > 0,
+              label: Text('$_openIncidents'),
+              child: const Icon(Icons.report_problem_outlined),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: _openIncidents > 0,
+              label: Text('$_openIncidents'),
+              child: const Icon(Icons.report_problem),
+            ),
             label: l.t('nav_incidents'),
           ),
         ],

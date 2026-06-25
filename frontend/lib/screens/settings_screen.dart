@@ -61,6 +61,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {/* cabecera best-effort */}
   }
 
+  Future<void> _editCompanyName() async {
+    final l = context.l10n;
+    final ctrl = TextEditingController(text: _companyName ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('set_edit_company')),
+        content: TextField(
+          key: const Key('company_name_field'),
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
+        ],
+      ),
+    );
+    if (ok == true && ctrl.text.trim().isNotEmpty) {
+      try {
+        await _service.updateCompanyName(widget.profile.tenantId, ctrl.text.trim());
+        if (mounted) {
+          setState(() => _companyName = ctrl.text.trim());
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('set_name_updated'))));
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+      }
+    }
+  }
+
   Future<void> _editName() async {
     final l = context.l10n;
     final ctrl = TextEditingController(text: _displayName);
@@ -392,6 +425,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+          if (isOwner)
+            IconButton(
+              key: const Key('edit_company_button'),
+              tooltip: l.t('set_edit_company'),
+              icon: const Icon(Icons.edit),
+              onPressed: _editCompanyName,
+            ),
           if (!isOwner)
             Column(
               children: [
