@@ -107,7 +107,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       await _openExternal(url);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        // Stripe sin configurar -> mensaje claro en vez del error técnico.
+        final msg = e.toString().toLowerCase().contains('configurado')
+            ? context.l10n.t('sub_unavailable')
+            : '${context.l10n.t('error')}: $e';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -217,7 +221,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return Card(
       child: ListTile(
         title: Text(plan.name),
-        subtitle: Text(plan.driversText),
+        subtitle: Text(l.t('plan_${plan.id}_desc')),
         trailing: isCurrent
             ? Chip(label: Text(l.t('sub_current')))
             : FilledButton(
