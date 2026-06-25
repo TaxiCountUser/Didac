@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
@@ -16,14 +17,53 @@ class DriversScreen extends StatefulWidget {
 class _DriversScreenState extends State<DriversScreen> {
   final _service = DataService();
   late Future<List<Map<String, dynamic>>> _future;
+  String? _fleetCode;
 
   @override
   void initState() {
     super.initState();
     _reload();
+    _loadCode();
   }
 
   void _reload() => setState(() => _future = _service.listDrivers());
+
+  Future<void> _loadCode() async {
+    try {
+      final code = await _service.myFleetCode(widget.profile.tenantId);
+      if (mounted) setState(() => _fleetCode = code);
+    } catch (_) {/* no crítico */}
+  }
+
+  Widget _fleetCodeBanner() {
+    final l = context.l10n;
+    final code = _fleetCode;
+    if (code == null || code.isEmpty) return const SizedBox.shrink();
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: ListTile(
+        leading: const Icon(Icons.key, color: Colors.amber),
+        title: Text(l.t('dr_fleet_code')),
+        subtitle: Text(l.t('dr_fleet_code_help')),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SelectableText(code,
+                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2, fontSize: 16)),
+            IconButton(
+              tooltip: l.t('copy'),
+              icon: const Icon(Icons.copy),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: code));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(l.t('copied'))));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _inviteDialog() async {
     final email = TextEditingController();
@@ -295,7 +335,11 @@ class _DriversScreenState extends State<DriversScreen> {
         icon: const Icon(Icons.person_add),
         label: Text(context.l10n.t('dr_invite')),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: Column(
+        children: [
+          _fleetCodeBanner(),
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
@@ -388,6 +432,9 @@ class _DriversScreenState extends State<DriversScreen> {
             ),
           );
         },
+            ),
+          ),
+        ],
       ),
     );
   }

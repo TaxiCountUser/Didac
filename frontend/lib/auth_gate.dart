@@ -8,6 +8,7 @@ import 'screens/owner_home_screen.dart';
 import 'screens/driver_home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/no_fleet_screen.dart';
+import 'screens/choose_path_screen.dart';
 
 /// Decide qué pantalla mostrar según la sesión y el rol del usuario.
 class AuthGate extends StatelessWidget {
@@ -76,6 +77,10 @@ class _ProfileRouterState extends State<ProfileRouter> {
 
         if (profile.isInactiveDriver) {
           return const NoFleetScreen();
+        }
+        // Entró (p. ej. con Google) pero aún no tiene flota: que elija.
+        if (!profile.hasFleet) {
+          return ChoosePathScreen(onDone: _reload);
         }
         if (!profile.isOwner) {
           return DriverHomeScreen(profile: profile);

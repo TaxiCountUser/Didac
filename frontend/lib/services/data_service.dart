@@ -34,6 +34,28 @@ class DataService {
     return row == null ? null : Profile.fromMap(row);
   }
 
+  // ---------------- Alta diferida (elegir flota) ----------------
+
+  /// Crea la empresa del usuario pendiente y lo convierte en propietario.
+  Future<void> createOwnerCompany(String name) async {
+    await _c.rpc('create_owner_company', params: {'p_name': name});
+  }
+
+  /// Une al usuario pendiente a una flota usando el código del jefe.
+  /// Devuelve el nombre de la flota a la que se ha unido.
+  Future<String> joinFleetWithCode(String code) async {
+    final res = await _c.rpc('join_fleet_with_code', params: {'p_code': code});
+    final map = (res as Map?)?.cast<String, dynamic>();
+    return (map?['name'] as String?) ?? '';
+  }
+
+  /// Código para que los trabajadores se unan a esta flota (solo Owner).
+  Future<String?> myFleetCode(String tenantId) async {
+    if (tenantId.isEmpty) return null;
+    final row = await _c.from('tenants').select('join_code').eq('id', tenantId).maybeSingle();
+    return row?['join_code'] as String?;
+  }
+
   // ---------------- Vehículos ----------------
   Future<List<Map<String, dynamic>>> listVehicles() async {
     final data = await _c.from('vehicles').select().order('created_at');
