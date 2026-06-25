@@ -90,7 +90,9 @@ jobs:
           add STRIPE_PRICE_PRO "$STRIPE_PRICE_PRO"
           add STRIPE_PRICE_BUSINESS "$STRIPE_PRICE_BUSINESS"
           echo "args=$D" >> "$GITHUB_OUTPUT"
-          [ -z "$D" ] && echo "::warning::Sin secrets PROD_*: el APK apuntará a localhost (solo sirve para validar la compilación)."
+          if [ -z "$D" ]; then
+            echo "::warning::Sin secrets PROD_*: el APK apuntará a localhost (solo sirve para validar la compilación)."
+          fi
 
       - name: Build APK (release)
         run: flutter build apk --release ${{ steps.defines.outputs.args }}
