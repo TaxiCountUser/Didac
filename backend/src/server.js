@@ -721,10 +721,46 @@ export async function buildApp(options = {}) {
       countOf('incidents'),
     ]);
 
+    // Resumen financiero: sumamos importes por tipo (ingreso/gasto).
+    const { data: txAll } = await supabase
+      .from('transactions')
+      .select('amount, type')
+      .eq('tenant_id', id);
+    let income = 0;
+    let expense = 0;
+    for (const t of txAll || []) {
+      const amt = Number(t.amount) || 0;
+      if (t.type === 'income') income += amt;
+      else expense += amt;
+    }
+    const summary = {
+      income: Math.round(income * 100) / 100,
+      expense: Math.round(expense * 100) / 100,
+      balance: Math.round((income - expense) * 100) / 100,
+    };
+
+    // Transacciones recientes (con el autor) para inspección.
+    const { data: recentTx } = await supabase
+      .from('transactions')
+      .select('id, amount, type, category, payment_method, description, created_at, users(email)')
+      .eq('tenant_id', id)
+      .order('created_at', { ascending: false })
+      .limit(40);
+
+    // Vehículos de la empresa.
+    const { data: vehicleList } = await supabase
+      .from('vehicles')
+      .select('id, license_plate, model')
+      .eq('tenant_id', id)
+      .order('created_at', { ascending: true });
+
     return reply.send({
       tenant,
       users: users || [],
       counts: { vehicles, transactions, incidents },
+      summary,
+      recent_transactions: recentTx || [],
+      vehicles_list: vehicleList || [],
     });
   });
 

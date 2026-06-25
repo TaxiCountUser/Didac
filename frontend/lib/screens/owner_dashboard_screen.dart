@@ -1,13 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../services/file_download.dart';
 import '../util/format.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
@@ -281,15 +279,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         vehicleId: _vehicleId,
         client: _client,
       );
-      final dir = await getTemporaryDirectory();
       final ext = format == 'excel' ? 'xlsx' : 'pdf';
-      final path =
-          '${dir.path}/taxicount_export_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      await File(path).writeAsBytes(bytes, flush: true);
+      final filename = 'taxicount_export_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      // Web: descarga del navegador. Nativo: guarda y abre con la app del sistema.
+      await saveAndOpenDownload(bytes, filename);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(context.l10n.t('od_generated'))));
-      await OpenFilex.open(path);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));

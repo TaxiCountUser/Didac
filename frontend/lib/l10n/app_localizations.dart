@@ -324,6 +324,7 @@ const Map<String, Map<String, String>> _values = {
     'admin_delete_company': 'Eliminar empresa',
     'admin_delete_company_confirm': '¿Eliminar la empresa "{name}" y todos sus datos? No se puede deshacer.',
     'admin_delete_confirm_btn': 'Sí, eliminar',
+    'admin_recent_tx': 'Transacciones recientes', 'admin_no_tx': 'Sin transacciones',
   },
   'en': {
     'save': 'Save', 'cancel': 'Cancel', 'delete': 'Delete', 'edit': 'Edit',
@@ -540,6 +541,7 @@ const Map<String, Map<String, String>> _values = {
     'admin_delete_company': 'Delete company',
     'admin_delete_company_confirm': 'Delete company "{name}" and all its data? Cannot be undone.',
     'admin_delete_confirm_btn': 'Yes, delete',
+    'admin_recent_tx': 'Recent transactions', 'admin_no_tx': 'No transactions',
   },
   'ca': {
     'save': 'Desa', 'cancel': 'Cancel·la', 'delete': 'Elimina', 'edit': 'Edita',
@@ -756,5 +758,6 @@ const Map<String, Map<String, String>> _values = {
     'admin_delete_company': 'Eliminar empresa',
     'admin_delete_company_confirm': 'Eliminar l\'empresa "{name}" i totes les seves dades? No es pot desfer.',
     'admin_delete_confirm_btn': 'Sí, elimina',
+    'admin_recent_tx': 'Transaccions recents', 'admin_no_tx': 'Sense transaccions',
   },
 };

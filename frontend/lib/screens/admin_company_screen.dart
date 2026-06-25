@@ -74,16 +74,35 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
             final tenant = (data['tenant'] as Map?)?.cast<String, dynamic>() ?? {};
             final users = ((data['users'] as List?) ?? []).cast<Map<String, dynamic>>();
             final counts = (data['counts'] as Map?)?.cast<String, dynamic>() ?? {};
+            final summary = (data['summary'] as Map?)?.cast<String, dynamic>() ?? {};
+            final txs = ((data['recent_transactions'] as List?) ?? []).cast<Map<String, dynamic>>();
+            final vehicles = ((data['vehicles_list'] as List?) ?? []).cast<Map<String, dynamic>>();
             return ListView(
               padding: const EdgeInsets.all(12),
               children: [
                 _subscriptionCard(l, tenant),
+                const SizedBox(height: 8),
+                _financeCard(l, summary),
                 const SizedBox(height: 8),
                 _countsCard(l, counts),
                 const SizedBox(height: 16),
                 Text(l.t('admin_users_title'), style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
                 for (final u in users) _userTile(l, u),
+                if (vehicles.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(l.t('nav_vehicles'), style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  for (final v in vehicles) _vehicleTile(v),
+                ],
+                const SizedBox(height: 16),
+                ExpansionTile(
+                  title: Text(l.t('admin_recent_tx')),
+                  childrenPadding: EdgeInsets.zero,
+                  children: txs.isEmpty
+                      ? [ListTile(title: Text(l.t('admin_no_tx')))]
+                      : [for (final t in txs) _txTile(t)],
+                ),
                 const SizedBox(height: 24),
                 _dangerZone(l),
               ],
@@ -177,6 +196,69 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
           Text(label, style: Theme.of(context).textTheme.bodySmall),
         ],
       );
+
+  String _money(dynamic v) => '${(double.tryParse('$v') ?? 0).toStringAsFixed(2)} €';
+
+  // Resumen financiero de la empresa (ingresos / gastos / balance).
+  Widget _financeCard(AppLocalizations l, Map<String, dynamic> s) {
+    final balance = double.tryParse('${s['balance']}') ?? 0;
+    return Card(
+      color: Colors.green.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.t('od_summary'), style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _stat(_money(s['income'] ?? 0), l.t('od_kpi_income')),
+                _stat(_money(s['expense'] ?? 0), l.t('od_kpi_expense')),
+                _stat(_money(s['balance'] ?? 0), l.t('od_kpi_balance')),
+              ],
+            ),
+            if (balance < 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('⚠️ ${l.t('od_kpi_balance')} < 0',
+                    style: const TextStyle(color: Colors.red)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _vehicleTile(Map<String, dynamic> v) {
+    final plate = (v['license_plate'] as String?) ?? '';
+    final model = (v['model'] as String?) ?? '';
+    return Card(
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.directions_car),
+        title: Text([plate, model].where((e) => e.isNotEmpty).join(' · ')),
+      ),
+    );
+  }
+
+  Widget _txTile(Map<String, dynamic> t) {
+    final type = (t['type'] as String?) ?? 'expense';
+    final income = type == 'income';
+    final author = ((t['users'] as Map?)?['email'] as String?) ?? '';
+    final desc = (t['description'] as String?) ?? (t['category'] as String?) ?? '';
+    final date = DateTime.tryParse('${t['created_at']}')?.toLocal();
+    final dateStr = date == null ? '' : '${date.day}/${date.month}/${date.year}';
+    return ListTile(
+      dense: true,
+      leading: Icon(income ? Icons.south_west : Icons.north_east,
+          color: income ? Colors.green : Colors.red, size: 20),
+      title: Text(_money(t['amount']), style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text([desc, author, dateStr].where((e) => e.isNotEmpty).join(' · '),
+          maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
+  }
 
   Widget _row(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
