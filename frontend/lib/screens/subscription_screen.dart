@@ -144,12 +144,38 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final planId = b['plan_id'] as String?;
     final limit = b['drivers_limit'];
     final hasCustomer = (b['stripe_customer_id'] as String?)?.isNotEmpty == true;
+    final solo = b['solo'] == true;
+    // En modo autónomo solo se ofrece el plan Starter (1 €/mes).
+    final plans = solo ? kPlans.where((p) => p.id == 'starter').toList() : kPlans;
+    // Días de prueba restantes (si sigue dentro del periodo de prueba).
+    final trialEnds = b['trial_ends_at'] == null
+        ? null
+        : DateTime.tryParse(b['trial_ends_at'] as String)?.toLocal();
+    final trialDaysLeft = (trialEnds != null && DateTime.now().isBefore(trialEnds))
+        ? trialEnds.difference(DateTime.now()).inDays + 1
+        : 0;
 
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (trialDaysLeft > 0 && !subscriptionIsActive(status)) ...[
+            Card(
+              color: Colors.amber.shade100,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.hourglass_bottom, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(l.t('trial_days_left', {'n': '$trialDaysLeft'}))),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           _currentPlanCard(l, status, planId, limit, hasCustomer),
           const SizedBox(height: 24),
           Text(
@@ -157,7 +183,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          if (kHasYearlyPlans) ...[
+          if (kHasYearlyPlans && !solo) ...[
             Center(
               child: SegmentedButton<bool>(
                 segments: [
@@ -170,7 +196,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ),
             const SizedBox(height: 8),
           ],
-          ...kPlans.map((p) => _planCard(l, p, planId)),
+          ...plans.map((p) => _planCard(l, p, planId)),
           if (_busy) const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),

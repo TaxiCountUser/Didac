@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'models/profile.dart';
+import 'models/tenant_state.dart';
 import 'services/data_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/owner_home_screen.dart';
 import 'screens/driver_home_screen.dart';
+import 'screens/solo_home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/no_fleet_screen.dart';
 import 'screens/choose_path_screen.dart';
+import 'screens/subscription_gate_screen.dart';
 
 /// Decide qué pantalla mostrar según la sesión y el rol del usuario.
 class AuthGate extends StatelessWidget {
@@ -35,27 +38,43 @@ class ProfileRouter extends StatefulWidget {
   State<ProfileRouter> createState() => _ProfileRouterState();
 }
 
+/// Perfil + estado de la empresa, cargados juntos para enrutar.
+class _Account {
+  final Profile profile;
+  final TenantState? tenant;
+  const _Account(this.profile, this.tenant);
+}
+
 class _ProfileRouterState extends State<ProfileRouter> {
   final _service = DataService();
-  late Future<Profile?> _future;
+  late Future<_Account?> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _service.fetchMyProfile();
+    _future = _load();
   }
 
-  void _reload() => setState(() => _future = _service.fetchMyProfile());
+  Future<_Account?> _load() async {
+    final p = await _service.fetchMyProfile();
+    if (p == null) return null;
+    // El estado de la empresa solo aplica si ya pertenece a una flota.
+    final t = p.hasFleet ? await _service.fetchMyTenantState(p.tenantId) : null;
+    return _Account(p, t);
+  }
+
+  void _reload() => setState(() => _future = _load());
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Profile?>(
+    return FutureBuilder<_Account?>(
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        final profile = snap.data;
+        final account = snap.data;
+        final profile = account?.profile;
         if (profile == null) {
           return Scaffold(
             body: Center(
@@ -81,6 +100,15 @@ class _ProfileRouterState extends State<ProfileRouter> {
         // Entró (p. ej. con Google) pero aún no tiene flota: que elija.
         if (!profile.hasFleet) {
           return ChoosePathScreen(onDone: _reload);
+        }
+        // Prueba de 15 días caducada y sin suscripción activa: bloqueo.
+        final tenant = account!.tenant;
+        if (tenant != null && !tenant.isUsable) {
+          return SubscriptionGateScreen(profile: profile, onChanged: _reload);
+        }
+        // Modo autónomo: empresa y chófer en uno (conmutador arriba).
+        if (tenant != null && tenant.solo) {
+          return SoloHomeScreen(profile: profile);
         }
         if (!profile.isOwner) {
           return DriverHomeScreen(profile: profile);

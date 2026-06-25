@@ -17,7 +17,11 @@ import 'settings_screen.dart';
 /// Al abrir, si procede, pide los km del coche con los que empieza el día.
 class DriverHomeScreen extends StatefulWidget {
   final Profile profile;
-  const DriverHomeScreen({super.key, required this.profile});
+
+  /// [embedded] = true en modo autónomo (SoloHome): se omite la AppBar (el
+  /// conmutador la aporta el contenedor) y NO se hace seguimiento GPS.
+  final bool embedded;
+  const DriverHomeScreen({super.key, required this.profile, this.embedded = false});
 
   @override
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
@@ -30,7 +34,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _startTracking();
+    // En modo autónomo no se comparte ubicación (no hay jefe que la consulte).
+    if (!widget.embedded) _startTracking();
     PushService.instance.register(widget.profile.tenantId);
   }
 
@@ -216,24 +221,26 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           ),
         ),
       ),
-      appBar: AppBar(
-        title: const Text('TaxiCount'),
-        actions: [
-          IconButton(
-            key: const Key('settings_button'),
-            tooltip: l.t('settings'),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => SettingsScreen(profile: profile)),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('TaxiCount'),
+              actions: [
+                IconButton(
+                  key: const Key('settings_button'),
+                  tooltip: l.t('settings'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => SettingsScreen(profile: profile)),
+                  ),
+                  icon: const Icon(Icons.settings),
+                ),
+                IconButton(
+                  tooltip: l.t('logout'),
+                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  icon: const Icon(Icons.logout),
+                ),
+              ],
             ),
-            icon: const Icon(Icons.settings),
-          ),
-          IconButton(
-            tooltip: l.t('logout'),
-            onPressed: () => Supabase.instance.client.auth.signOut(),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
       body: Center(
         child: SingleChildScrollView(
           child: ConstrainedBox(

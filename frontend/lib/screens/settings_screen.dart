@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../widgets/lang_flag.dart';
 import 'incidents_screen.dart';
 import 'locate_vehicle_screen.dart';
 import 'subscription_screen.dart';
@@ -337,7 +338,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           for (final entry in kLanguageNames.entries)
             ListTile(
-              leading: Text(_flag(entry.key), style: const TextStyle(fontSize: 24)),
+              leading: LangFlag(entry.key, size: 24),
               trailing: entry.key == current ? const Icon(Icons.check, color: Colors.green) : null,
               title: Text(entry.value),
               onTap: () => Navigator.pop(ctx, entry.key),
@@ -350,8 +351,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) setState(() {});
     }
   }
-
-  String _flag(String code) => switch (code) { 'es' => '🇪🇸', 'en' => '🇬🇧', 'ca' => '🔵🟡', _ => '🏳️' };
 
   Future<void> _reportBug() async {
     final l = context.l10n;
@@ -405,7 +404,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.language),
             title: Text(l.t('set_language')),
-            subtitle: Text('${_flag(localeController.value.languageCode)}  ${kLanguageNames[localeController.value.languageCode] ?? 'Español'}'),
+            subtitle: Row(
+              children: [
+                LangFlag(localeController.value.languageCode, size: 18),
+                const SizedBox(width: 8),
+                Text(kLanguageNames[localeController.value.languageCode] ?? 'Español'),
+              ],
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: _pickLanguage,
           ),

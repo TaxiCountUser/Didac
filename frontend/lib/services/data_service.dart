@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config.dart';
 import '../models/profile.dart';
+import '../models/tenant_state.dart';
 
 /// Resumen financiero de un conjunto de transacciones.
 class TxSummary {
@@ -40,6 +41,22 @@ class DataService {
   /// Crea la empresa del usuario pendiente y lo convierte en propietario.
   Future<void> createOwnerCompany(String name) async {
     await _c.rpc('create_owner_company', params: {'p_name': name});
+  }
+
+  /// Crea la empresa en modo autónomo (el usuario es empresa y chófer a la vez).
+  Future<void> createSoloCompany(String name) async {
+    await _c.rpc('create_solo_company', params: {'p_name': name});
+  }
+
+  /// Estado de mi empresa (modo autónomo, suscripción y prueba de 15 días).
+  Future<TenantState?> fetchMyTenantState(String tenantId) async {
+    if (tenantId.isEmpty) return null;
+    final row = await _c
+        .from('tenants')
+        .select('id, name, solo, subscription_status, plan_id, trial_ends_at')
+        .eq('id', tenantId)
+        .maybeSingle();
+    return row == null ? null : TenantState.fromMap(row);
   }
 
   /// Une al usuario pendiente a una flota usando el código del jefe.
@@ -515,7 +532,7 @@ class DataService {
     return _c
         .from('tenants')
         .select(
-            'id, name, subscription_status, plan_id, drivers_limit, stripe_customer_id, stripe_subscription_id')
+            'id, name, subscription_status, plan_id, drivers_limit, stripe_customer_id, stripe_subscription_id, solo, trial_ends_at')
         .eq('id', tenantId)
         .maybeSingle();
   }

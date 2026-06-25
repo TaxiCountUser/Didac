@@ -43,6 +43,37 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
     await _run(() => _service.createOwnerCompany(ctrl.text.trim()));
   }
 
+  Future<void> _createSolo() async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.t('cp_solo_title')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(ctx.l10n.t('cp_solo_help'), style: Theme.of(ctx).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: ctx.l10n.t('cp_solo_name'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('cp_solo_btn'))),
+        ],
+      ),
+    );
+    if (ok != true || ctrl.text.trim().isEmpty) return;
+    await _run(() => _service.createSoloCompany(ctrl.text.trim()));
+  }
+
   Future<void> _joinFleet() async {
     final ctrl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -131,6 +162,14 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
                       style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 28),
                   if (_loading) const Center(child: CircularProgressIndicator()) else ...[
+                    _PathCard(
+                      icon: Icons.person_pin_circle,
+                      color: Colors.teal.shade600,
+                      label: l.t('cp_solo_card'),
+                      subtitle: l.t('cp_solo_card_sub'),
+                      onTap: _createSolo,
+                    ),
+                    const SizedBox(height: 16),
                     _PathCard(
                       icon: Icons.business,
                       color: Colors.amber.shade700,

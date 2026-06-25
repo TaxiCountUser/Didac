@@ -12,9 +12,13 @@ import 'incidents_screen.dart';
 import 'settings_screen.dart';
 
 /// Home del Owner: pestañas de Vehículos y Conductores.
+///
+/// [embedded] = true cuando se muestra dentro del modo autónomo (SoloHome):
+/// se omite la AppBar (el conmutador Empresa/Chófer ya la aporta el contenedor).
 class OwnerHomeScreen extends StatefulWidget {
   final Profile profile;
-  const OwnerHomeScreen({super.key, required this.profile});
+  final bool embedded;
+  const OwnerHomeScreen({super.key, required this.profile, this.embedded = false});
 
   @override
   State<OwnerHomeScreen> createState() => _OwnerHomeScreenState();
@@ -54,24 +58,26 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       l.t('nav_incidents'),
     ];
     return Scaffold(
-      appBar: AppBar(
-        title: Text(titles[_index]),
-        actions: [
-          IconButton(
-            key: const Key('settings_button'),
-            tooltip: l.t('settings'),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => SettingsScreen(profile: widget.profile)),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: Text(titles[_index]),
+              actions: [
+                IconButton(
+                  key: const Key('settings_button'),
+                  tooltip: l.t('settings'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => SettingsScreen(profile: widget.profile)),
+                  ),
+                  icon: const Icon(Icons.settings),
+                ),
+                IconButton(
+                  tooltip: l.t('logout'),
+                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  icon: const Icon(Icons.logout),
+                ),
+              ],
             ),
-            icon: const Icon(Icons.settings),
-          ),
-          IconButton(
-            tooltip: l.t('logout'),
-            onPressed: () => Supabase.instance.client.auth.signOut(),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
       body: pages[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

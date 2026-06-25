@@ -10,6 +10,7 @@ class Profile {
   final String? username; // para iniciar sesión con usuario (además del correo)
   final String role; // 'owner' | 'driver'
   final bool active; // false = el jefe lo sacó de la flota (despedido)
+  final bool isAdmin; // admin de plataforma: ve/resuelve incidencias de todas
   final bool hasCompletedOnboarding;
 
   const Profile({
@@ -23,6 +24,7 @@ class Profile {
     this.avatarUrl,
     this.username,
     this.active = true,
+    this.isAdmin = false,
     this.hasCompletedOnboarding = false,
   });
 
@@ -53,6 +55,7 @@ class Profile {
         username: m['username'] as String?,
         role: m['role'] as String,
         active: (m['active'] as bool?) ?? true,
+        isAdmin: (m['is_admin'] as bool?) ?? false,
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
       );
 }
