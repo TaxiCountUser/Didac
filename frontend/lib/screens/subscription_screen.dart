@@ -232,9 +232,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _planCard(AppLocalizations l, PlanInfo plan, String? currentPlanId) {
     final isCurrent = plan.id == currentPlanId;
+    final price = plan.priceText(_yearly);
     return Card(
       child: ListTile(
-        title: Text(plan.name),
+        title: Text(price.isEmpty ? plan.name : '${plan.name} · $price'),
         subtitle: Text(l.t('plan_${plan.id}_desc')),
         trailing: isCurrent
             ? Chip(label: Text(l.t('sub_current')))

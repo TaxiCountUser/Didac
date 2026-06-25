@@ -37,23 +37,38 @@ const stripePriceProYearly = String.fromEnvironment('STRIPE_PRICE_PRO_YEARLY', d
 const stripePriceBusinessYearly = String.fromEnvironment('STRIPE_PRICE_BUSINESS_YEARLY', defaultValue: '');
 
 /// Catálogo de planes para la UI (nombre, límite y priceId mensual/anual).
+/// Los importes son SOLO para mostrar; deben coincidir con los de Stripe.
 class PlanInfo {
   final String id;
   final String name;
   final String driversText;
   final String priceId; // mensual
   final String priceIdYearly; // anual (vacío = no disponible)
-  const PlanInfo(this.id, this.name, this.driversText, this.priceId, [this.priceIdYearly = '']);
+  final String priceMonthlyText; // p. ej. "1 €/mes"
+  final String priceYearlyText; // p. ej. "10 €/año"
+  const PlanInfo(
+    this.id,
+    this.name,
+    this.driversText,
+    this.priceId, [
+    this.priceIdYearly = '',
+    this.priceMonthlyText = '',
+    this.priceYearlyText = '',
+  ]);
 
   /// Price ID según el periodo elegido (cae al mensual si no hay anual).
   String priceFor(bool yearly) =>
       (yearly && priceIdYearly.isNotEmpty) ? priceIdYearly : priceId;
+
+  /// Importe a mostrar según el periodo.
+  String priceText(bool yearly) =>
+      (yearly && priceYearlyText.isNotEmpty) ? priceYearlyText : priceMonthlyText;
 }
 
 const kPlans = <PlanInfo>[
-  PlanInfo('starter', 'Starter', 'Hasta 2 conductores', stripePriceStarter, stripePriceStarterYearly),
-  PlanInfo('pro', 'Pro', 'Hasta 10 conductores', stripePricePro, stripePriceProYearly),
-  PlanInfo('business', 'Business', 'Conductores ilimitados', stripePriceBusiness, stripePriceBusinessYearly),
+  PlanInfo('starter', 'Starter', 'Hasta 2 conductores', stripePriceStarter, stripePriceStarterYearly, '1 €/mes', '10 €/año'),
+  PlanInfo('pro', 'Pro', 'Hasta 10 conductores', stripePricePro, stripePriceProYearly, '2 €/mes', '20 €/año'),
+  PlanInfo('business', 'Business', 'Conductores ilimitados', stripePriceBusiness, stripePriceBusinessYearly, '3 €/mes', '30 €/año'),
 ];
 
 /// ¿Hay algún plan con precio anual configurado? (para mostrar el selector).
