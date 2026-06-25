@@ -44,7 +44,9 @@ class _VoiceCaptureState extends State<VoiceCapture> {
         setState(() => _error = context.l10n.t('vc_no_perm'));
         return;
       }
-      await _recorder.start(const RecordConfig(), path: 'voice_note.m4a');
+      // En Android la ruta debe ser absoluta; recordingPath la resuelve.
+      final out = await recordingPath('voice_note.m4a');
+      await _recorder.start(const RecordConfig(), path: out);
       setState(() => _recording = true);
     } catch (e) {
       setState(() => _error = '${context.l10n.t('vc_start_fail')}: $e');

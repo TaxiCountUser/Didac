@@ -34,7 +34,9 @@ class _VoiceInputScreenState extends State<VoiceInputScreen> {
         setState(() => _error = 'Sin permiso de micrófono');
         return;
       }
-      await _recorder.start(const RecordConfig(), path: 'voice_note.m4a');
+      // En Android la ruta debe ser absoluta; recordingPath la resuelve.
+      final out = await recordingPath('voice_note.m4a');
+      await _recorder.start(const RecordConfig(), path: out);
       setState(() => _recording = true);
     } catch (e) {
       setState(() => _error = 'No se pudo iniciar la grabación: $e');
