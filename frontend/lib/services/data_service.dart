@@ -238,6 +238,64 @@ class DataService {
     }
   }
 
+  /// Detalle completo de una empresa (tenant + usuarios + recuentos).
+  Future<Map<String, dynamic>> adminCompany(String id) async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/company/$id'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Modificar una empresa (suscripción, plan, límite, prueba, nombre, solo).
+  Future<void> adminUpdateCompany(String id, Map<String, dynamic> patch) async {
+    final res = await http.patch(
+      Uri.parse('$backendUrl/api/v1/admin/company/$id'),
+      headers: _bearer,
+      body: jsonEncode(patch),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo actualizar la empresa');
+    }
+  }
+
+  /// Eliminar una empresa entera (cascada) y las cuentas de sus usuarios.
+  Future<void> adminDeleteCompany(String id) async {
+    final res = await http.delete(
+      Uri.parse('$backendUrl/api/v1/admin/company/$id'),
+      headers: _bearer,
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo eliminar la empresa');
+    }
+  }
+
+  /// Modificar un usuario de cualquier empresa (activar, rol, nombre, admin).
+  Future<void> adminUpdateUser(String id, Map<String, dynamic> patch) async {
+    final res = await http.patch(
+      Uri.parse('$backendUrl/api/v1/admin/user/$id'),
+      headers: _bearer,
+      body: jsonEncode(patch),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo actualizar el usuario');
+    }
+  }
+
+  /// Eliminar un usuario (perfil + cuenta de auth).
+  Future<void> adminDeleteUser(String id) async {
+    final res = await http.delete(
+      Uri.parse('$backendUrl/api/v1/admin/user/$id'),
+      headers: _bearer,
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo eliminar el usuario');
+    }
+  }
+
   // ---------------- Asignación conductor <-> vehículo ----------------
 
   /// Vehículos asignados a un conductor (vía driver_vehicles).

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_company_screen.dart';
 
 /// Panel de administrador de plataforma: ve TODAS las empresas y todas las
 /// incidencias, las resuelve, y puede nombrar a otros administradores.
@@ -157,12 +158,27 @@ class _CompaniesTabState extends State<_CompaniesTab> {
             color: solo ? Colors.teal : Colors.amber.shade800),
         title: Text(name),
         subtitle: Text('${l.t('admin_users')}: $users · ${l.t('admin_open')}: $open'),
-        trailing: Chip(
-          label: Text(status, style: const TextStyle(fontSize: 11)),
-          backgroundColor: (status == 'active')
-              ? Colors.green.shade100
-              : (status == 'trialing' ? Colors.blue.shade100 : Colors.red.shade100),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Chip(
+              label: Text(status, style: const TextStyle(fontSize: 11)),
+              backgroundColor: (status == 'active')
+                  ? Colors.green.shade100
+                  : (status == 'trialing' ? Colors.blue.shade100 : Colors.red.shade100),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
         ),
+        onTap: () async {
+          await Navigator.of(context).push<bool>(MaterialPageRoute(
+            builder: (_) => AdminCompanyScreen(
+              tenantId: t['id'] as String,
+              tenantName: name,
+            ),
+          ));
+          _reload(); // refresca por si cambió/eliminó algo
+        },
       ),
     );
   }

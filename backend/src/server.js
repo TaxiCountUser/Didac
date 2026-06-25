@@ -688,6 +688,127 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, user: data[0] });
   });
 
+  // Detalle completo de una empresa: tenant + usuarios + recuentos.
+  app.get('/api/v1/admin/company/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+
+    const { data: tenant, error } = await supabase
+      .from('tenants')
+      .select('id, name, solo, subscription_status, plan_id, drivers_limit, trial_ends_at, created_at, stripe_customer_id, stripe_subscription_id, join_code')
+      .eq('id', id)
+      .single();
+    if (error || !tenant) return reply.code(404).send({ error: 'Empresa no encontrada' });
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, email, name, username, role, active, is_admin, created_at')
+      .eq('tenant_id', id)
+      .order('role', { ascending: true });
+
+    // Recuentos (head:true devuelve solo el count, sin filas).
+    const countOf = async (table) => {
+      const { count } = await supabase
+        .from(table)
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', id);
+      return count || 0;
+    };
+    const [vehicles, transactions, incidents] = await Promise.all([
+      countOf('vehicles'),
+      countOf('transactions'),
+      countOf('incidents'),
+    ]);
+
+    return reply.send({
+      tenant,
+      users: users || [],
+      counts: { vehicles, transactions, incidents },
+    });
+  });
+
+  // Modificar una empresa (suscripción, plan, límite, prueba, nombre, solo).
+  app.patch('/api/v1/admin/company/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const b = request.body ?? {};
+    const patch = {};
+    if (b.name !== undefined) patch.name = String(b.name).trim();
+    if (b.subscription_status !== undefined) patch.subscription_status = b.subscription_status;
+    if (b.plan_id !== undefined) patch.plan_id = b.plan_id === '' ? null : b.plan_id;
+    if (b.drivers_limit !== undefined) {
+      patch.drivers_limit = (b.drivers_limit === null || b.drivers_limit === '')
+        ? null : Number(b.drivers_limit);
+    }
+    if (b.solo !== undefined) patch.solo = b.solo === true || b.solo === 'true';
+    if (b.trial_ends_at !== undefined) patch.trial_ends_at = b.trial_ends_at; // ISO o null
+    // Atajo: extender la prueba N días desde ahora.
+    if (b.extend_trial_days !== undefined && b.extend_trial_days !== null) {
+      const days = Number(b.extend_trial_days);
+      if (!Number.isNaN(days)) {
+        patch.trial_ends_at = new Date(Date.now() + days * 86400000).toISOString();
+      }
+    }
+    if (Object.keys(patch).length === 0) {
+      return reply.code(400).send({ error: 'Nada que actualizar' });
+    }
+    const { error } = await supabase.from('tenants').update(patch).eq('id', request.params.id);
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // Eliminar una empresa entera: borra el tenant (cascada a usuarios, vehículos,
+  // transacciones, incidencias…) y las cuentas de auth de sus usuarios.
+  app.delete('/api/v1/admin/company/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+
+    const { data: users } = await supabase.from('users').select('id').eq('tenant_id', id);
+    const { error } = await supabase.from('tenants').delete().eq('id', id);
+    if (error) return reply.code(400).send({ error: error.message });
+    // Borra las cuentas de auth (las filas de public.users ya cayeron por cascada).
+    for (const u of users || []) {
+      try { await supabase.auth.admin.deleteUser(u.id); } catch (_) {}
+    }
+    return reply.send({ ok: true, deleted_users: (users || []).length });
+  });
+
+  // Modificar un usuario de cualquier empresa (activar, rol, nombre, admin).
+  app.patch('/api/v1/admin/user/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const b = request.body ?? {};
+    const patch = {};
+    if (b.active !== undefined) patch.active = b.active === true || b.active === 'true';
+    if (b.role !== undefined && (b.role === 'owner' || b.role === 'driver')) patch.role = b.role;
+    if (b.name !== undefined) patch.name = String(b.name).trim() || null;
+    if (b.is_admin !== undefined) patch.is_admin = b.is_admin === true || b.is_admin === 'true';
+    if (Object.keys(patch).length === 0) {
+      return reply.code(400).send({ error: 'Nada que actualizar' });
+    }
+    const { error } = await supabase.from('users').update(patch).eq('id', request.params.id);
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // Eliminar un usuario (su perfil + su cuenta de auth).
+  app.delete('/api/v1/admin/user/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+    await supabase.from('users').delete().eq('id', id);
+    try {
+      await supabase.auth.admin.deleteUser(id);
+    } catch (e) {
+      if (!/not.*found|404/i.test(e?.message || '')) {
+        return reply.code(400).send({ error: `No se pudo eliminar la cuenta: ${e.message}` });
+      }
+    }
+    return reply.send({ ok: true });
+  });
+
   // --- Notificación push de una incidencia / mensaje (FCM) ---
   // La app lo llama tras crear una incidencia o un mensaje de chat. Si push no
   // está configurado (sin FCM_SERVICE_ACCOUNT), responde ok sin hacer nada.
