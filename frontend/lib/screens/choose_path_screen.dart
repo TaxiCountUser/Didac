@@ -163,19 +163,19 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
                   const SizedBox(height: 28),
                   if (_loading) const Center(child: CircularProgressIndicator()) else ...[
                     _PathCard(
-                      icon: Icons.person_pin_circle,
-                      color: Colors.teal.shade600,
-                      label: l.t('cp_solo_card'),
-                      subtitle: l.t('cp_solo_card_sub'),
-                      onTap: _createSolo,
-                    ),
-                    const SizedBox(height: 16),
-                    _PathCard(
                       icon: Icons.business,
                       color: Colors.amber.shade700,
                       label: l.t('cp_create_card'),
                       subtitle: l.t('cp_create_card_sub'),
                       onTap: _createCompany,
+                    ),
+                    const SizedBox(height: 16),
+                    _PathCard(
+                      icon: Icons.person_pin_circle,
+                      color: Colors.teal.shade600,
+                      label: l.t('cp_solo_card'),
+                      subtitle: l.t('cp_solo_card_sub'),
+                      onTap: _createSolo,
                     ),
                     const SizedBox(height: 16),
                     _PathCard(

@@ -325,6 +325,41 @@ function findPayment(words) {
   return null;
 }
 
+// --- Empresa/cliente dicho explícitamente: "empresa X" / "cliente X" ---
+// Tras la palabra "empresa" (o "cliente"/"client") se toma el nombre que sigue,
+// PERO con criterios de corte para no tragarse el resto de la frase:
+//   - se detiene ante un número, kilometraje, conector de ruta (desde/hasta/a/
+//     de), forma de pago o palabra de ingreso/gasto.
+//   - máximo 4 palabras (los nombres de empresa no suelen ser más largos).
+// Ej.: "10 € empresa ramon bilbao desde barcelona hasta madrid pagado con visa"
+//      -> client_name = "Ramon Bilbao" (corta en "desde").
+const COMPANY_TRIGGER = new Set(['empresa', 'cliente', 'client']);
+const COMPANY_STOP = new Set([
+  ...ROUTE_STOP, ...INCOME_WORDS, ...EXPENSE_WORDS,
+  'desde', 'des', 'hasta', 'fins', 'a', 'empresa', 'cliente', 'client',
+  'euros', 'euro',
+]);
+function extractCompany(text) {
+  const raw = (text || '').split(/\s+/).filter(Boolean);
+  let idx = -1;
+  for (let i = 0; i < raw.length; i++) {
+    if (COMPANY_TRIGGER.has(normToken(raw[i]))) { idx = i; break; }
+  }
+  if (idx === -1) return null;
+
+  const nameWords = [];
+  for (let j = idx + 1; j < raw.length; j++) {
+    const tok = normalize(raw[j]).split(' ')[0]; // expande nº catalanes, quita acentos
+    if (!tok || isNumTok(tok) || isKmUnit(tok) || COMPANY_STOP.has(tok)) break;
+    nameWords.push(raw[j].replace(/[.,;:!?]+$/g, ''));
+    if (nameWords.length >= 4) break;
+  }
+  const name = nameWords.join(' ').replace(/\s+/g, ' ').trim();
+  if (!name) return null;
+  // Mayúscula inicial en cada palabra: "ramon bilbao" -> "Ramon Bilbao".
+  return name.split(' ').map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
+}
+
 export function parseTransactionText(text) {
   const norm = normalize(text);
   const tokens = norm.split(' ').filter(Boolean);
@@ -333,7 +368,8 @@ export function parseTransactionText(text) {
 
   const amount = extractAmount(tokens);
   const odometer_km = extractKm(tokens);
-  const client_name = findClient(norm);
+  // "empresa X" dicho explícitamente tiene prioridad; si no, empresas conocidas.
+  const client_name = extractCompany(text) || findClient(norm);
 
   // Categoría de GASTO por palabra clave (gasolina, taller, peaje…).
   let category = findCategory(tokens);

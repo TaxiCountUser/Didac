@@ -69,5 +69,9 @@
   { "text": "servei des de gracia fins a sants divuit amb cinquanta amb tpv", "expected": { "amount": 18.5, "type": "income", "origin": "gracia", "destination": "sants", "payment_method": "tarjeta" } },
   { "text": "recorregut de sabadell a terrassa quaranta-cinc euros en efectiu", "expected": { "amount": 45, "type": "income", "origin": "sabadell", "destination": "terrassa", "payment_method": "efectivo" } },
   { "text": "divuit coma cinquanta amb targeta", "expected": { "amount": 18.5, "payment_method": "tarjeta" } },
-  { "text": "dues centes euros en benzina", "expected": { "amount": 200, "type": "expense", "category": "gasolina" } }
+  { "text": "dues centes euros en benzina", "expected": { "amount": 200, "type": "expense", "category": "gasolina" } },
+  { "text": "empresa raul", "expected": { "type": "income", "client_name": "Raul" } },
+  { "text": "empresa ramon bilbao", "expected": { "type": "income", "client_name": "Ramon Bilbao" } },
+  { "text": "10 euros empresa ramon bilbao desde barcelona hasta madrid pagado con visa", "expected": { "amount": 10, "type": "income", "client_name": "Ramon Bilbao", "origin": "Barcelona", "destination": "Madrid", "payment_method": "tarjeta" } },
+  { "text": "cliente raul 20 euros en efectivo", "expected": { "amount": 20, "type": "income", "client_name": "Raul", "payment_method": "efectivo" } }
 ]
