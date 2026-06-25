@@ -318,6 +318,7 @@ export async function buildApp(options = {}) {
     status: 'ok',
     service: 'taxicount-backend',
     push: pushEnabled(),
+    stripe: !!stripe,
     timestamp: new Date().toISOString(),
   }));
 
