@@ -319,6 +319,10 @@ export async function buildApp(options = {}) {
     service: 'taxicount-backend',
     push: pushEnabled(),
     stripe: !!stripe,
+    // Host del proyecto Supabase al que valida el backend (para diagnóstico;
+    // no es secreto: es el mismo que la app trae en su configuración).
+    supabaseHost: SUPABASE_URL.replace(/^https?:\/\//, '').replace(/\/.*$/, ''),
+    serviceKey: SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'missing',
     timestamp: new Date().toISOString(),
   }));
 
