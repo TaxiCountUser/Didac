@@ -102,6 +102,51 @@ class DataService {
     return (body['tempPassword'] as String?) ?? '';
   }
 
+  /// Edita un conductor desde el panel del Owner (vía backend service_role).
+  /// Pasa solo los campos que quieras cambiar; [username]/[name] '' borran el dato.
+  /// [active]=false lo saca de la flota; true lo reincorpora.
+  Future<void> updateDriver({
+    required String id,
+    String? username,
+    String? password,
+    String? name,
+    bool? active,
+  }) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.patch(
+      Uri.parse('$backendUrl/api/v1/drivers/$id'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        if (username != null) 'username': username,
+        if (password != null && password.isNotEmpty) 'password': password,
+        if (name != null) 'name': name,
+        if (active != null) 'active': active,
+      }),
+    );
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo actualizar el conductor');
+    }
+  }
+
+  /// Elimina definitivamente la cuenta de un conductor (vía backend).
+  Future<void> deleteDriver(String id) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.delete(
+      Uri.parse('$backendUrl/api/v1/drivers/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo eliminar el conductor');
+    }
+  }
+
   // ---------------- Asignación conductor <-> vehículo ----------------
 
   /// Vehículos asignados a un conductor (vía driver_vehicles).

@@ -484,6 +484,88 @@ export async function buildApp(options = {}) {
     return reply.code(201).send({ id: created.user.id, email, tenant_id: caller.tenant_id, tempPassword });
   });
 
+  // Comprueba que el llamante es Owner y que `driverId` es un conductor de su
+  // propio tenant. Devuelve {error, code} o {driver} (fila de public.users).
+  async function ownerDriverGuard(request, driverId) {
+    if (!supabase) return { code: 500, error: 'Supabase no configurado' };
+    const caller = await getCaller(request);
+    if (!caller) return { code: 401, error: 'No autenticado' };
+    if (caller.role !== 'owner') return { code: 403, error: 'Solo un Owner puede gestionar conductores' };
+    if (!driverId) return { code: 400, error: 'Falta el id del conductor' };
+    const { data: driver, error } = await supabase
+      .from('users')
+      .select('id, role, tenant_id')
+      .eq('id', driverId)
+      .single();
+    if (error || !driver) return { code: 404, error: 'Conductor no encontrado' };
+    if (driver.tenant_id !== caller.tenant_id || driver.role !== 'driver') {
+      return { code: 403, error: 'Ese conductor no pertenece a tu flota' };
+    }
+    return { caller, driver };
+  }
+
+  // --- Editar conductor: usuario, contraseña, nombre, activar/desactivar ---
+  // El Owner define las credenciales del trabajador (para que pueda entrar con
+  // usuario o correo + contraseña), corrige el nombre, o lo saca/devuelve a la
+  // flota (active). Cambiar la contraseña requiere service_role (Admin API).
+  app.patch('/api/v1/drivers/:id', async (request, reply) => {
+    const driverId = request.params.id;
+    const guard = await ownerDriverGuard(request, driverId);
+    if (guard.error) return reply.code(guard.code).send({ error: guard.error });
+
+    const { username, password, name, active } = request.body ?? {};
+
+    // Contraseña (Admin API): mínimo 6 caracteres como exige GoTrue.
+    if (password !== undefined && password !== null && password !== '') {
+      if (String(password).length < 6) {
+        return reply.code(400).send({ error: 'La contraseña debe tener al menos 6 caracteres' });
+      }
+      const { error: pErr } = await supabase.auth.admin.updateUserById(driverId, {
+        password: String(password),
+      });
+      if (pErr) return reply.code(400).send({ error: `No se pudo cambiar la contraseña: ${pErr.message}` });
+    }
+
+    // Campos de public.users (service_role omite RLS).
+    const patch = {};
+    if (username !== undefined) {
+      const u = (username == null ? '' : String(username)).trim();
+      patch.username = u === '' ? null : u;
+    }
+    if (name !== undefined) {
+      const n = (name == null ? '' : String(name)).trim();
+      patch.name = n === '' ? null : n;
+    }
+    if (active !== undefined) patch.active = active === true || active === 'true';
+
+    if (Object.keys(patch).length > 0) {
+      const { error: uErr } = await supabase.from('users').update(patch).eq('id', driverId);
+      if (uErr) {
+        const dup = /duplicate|unique|23505/i.test(uErr.message || '');
+        return reply
+          .code(dup ? 409 : 400)
+          .send({ error: dup ? 'Ese nombre de usuario ya está en uso' : uErr.message });
+      }
+    }
+
+    return reply.send({ ok: true, id: driverId });
+  });
+
+  // --- Eliminar conductor (definitivo): borra su cuenta y sus datos ---
+  app.delete('/api/v1/drivers/:id', async (request, reply) => {
+    const driverId = request.params.id;
+    const guard = await ownerDriverGuard(request, driverId);
+    if (guard.error) return reply.code(guard.code).send({ error: guard.error });
+
+    // Borrar la fila de perfil (cascada a sus datos por FK) y la cuenta de auth.
+    await supabase.from('users').delete().eq('id', driverId);
+    const { error: dErr } = await supabase.auth.admin.deleteUser(driverId);
+    if (dErr && !/not.*found|404/i.test(dErr.message || '')) {
+      return reply.code(400).send({ error: `No se pudo eliminar la cuenta: ${dErr.message}` });
+    }
+    return reply.send({ ok: true, id: driverId });
+  });
+
   // --- Stripe Checkout (Fase 4) ---
   app.post('/api/v1/create-checkout-session', async (request, reply) => {
     if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
