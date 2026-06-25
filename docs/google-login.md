@@ -27,6 +27,15 @@ configuración, que se hace una vez (yo no puedo crear cuentas/credenciales):
   app por el deep link `app.taxicount://login-callback` (ya configurado en el
   AndroidManifest). No hace falta reconstruir el APK por esto.
 
+## Error frecuente
+> "Se requiere al menos un ID de cliente cuando el inicio de sesión de Google
+> está habilitado. Lista separada por comas de ID de clientes…"
+
+Es el campo **Client IDs** de Supabase (Authentication → Providers → Google).
+Está vacío porque aún no has creado el cliente OAuth en Google Cloud. Haz el
+**paso 1** (crear "Aplicación web" y copiar su Client ID), pega ese Client ID en
+ese campo **Client IDs** y el secreto en **Client Secret**, y guarda.
+
 ## Notas
 - El primer usuario que entre con Google se crea como **dueño** (se le crea una
   empresa con el nombre de su correo); puedes cambiar el nombre en Ajustes.
