@@ -81,7 +81,10 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: kIsWeb ? null : 'app.taxicount://login-callback',
+        // En web volvemos SIEMPRE al origen donde corre la app (localhost:8080
+        // en pruebas, o el dominio al publicar): así no dependemos de la
+        // "Site URL" de Supabase. En móvil volvemos por el deep link.
+        redirectTo: kIsWeb ? Uri.base.origin : 'app.taxicount://login-callback',
       );
       // En móvil abre el navegador; el AuthGate reaccionará al volver.
     } on AuthException catch (e) {
