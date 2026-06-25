@@ -640,6 +640,21 @@ class DataService {
     }).eq('id', uid);
   }
 
+  /// Traduce un nombre de usuario a su correo (para iniciar sesión con usuario).
+  Future<String?> emailForUsername(String username) async {
+    final res = await _c.rpc('email_for_username', params: {'p_username': username});
+    return res as String?;
+  }
+
+  /// Define el nombre de usuario del propio usuario (único; null para quitarlo).
+  Future<void> updateUsername(String? username) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('users').update({
+      'username': (username == null || username.trim().isEmpty) ? null : username.trim(),
+    }).eq('id', uid);
+  }
+
   /// Actualiza el avatar (foto base64 o null = icono) del propio usuario.
   Future<void> updateAvatar(String? avatarBase64) async {
     final uid = _c.auth.currentUser?.id;

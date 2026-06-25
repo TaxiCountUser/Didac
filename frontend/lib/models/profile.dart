@@ -7,6 +7,7 @@ class Profile {
   final String? displayName; // el conductor lo elige para SU app
   final String? licenseNumber; // nº de licencia del conductor
   final String? avatarUrl; // foto del avatar (base64) o null = icono
+  final String? username; // para iniciar sesión con usuario (además del correo)
   final String role; // 'owner' | 'driver'
   final bool hasCompletedOnboarding;
 
@@ -19,6 +20,7 @@ class Profile {
     this.displayName,
     this.licenseNumber,
     this.avatarUrl,
+    this.username,
     this.hasCompletedOnboarding = false,
   });
 
@@ -40,6 +42,7 @@ class Profile {
         displayName: m['display_name'] as String?,
         licenseNumber: m['license_number'] as String?,
         avatarUrl: m['avatar_url'] as String?,
+        username: m['username'] as String?,
         role: m['role'] as String,
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
       );
