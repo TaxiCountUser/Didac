@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/data_service.dart';
 
 /// Login / registro de Owners.
 /// El signUp crea un Owner (el trigger de BD crea su tenant automáticamente).
@@ -46,8 +47,18 @@ class _LoginScreenState extends State<LoginScreen> {
           },
         );
       } else {
+        // Permite entrar con email O con nombre de usuario (sin '@' => usuario).
+        var loginEmail = _email.text.trim();
+        if (!loginEmail.contains('@')) {
+          final mapped = await DataService().emailForUsername(loginEmail);
+          if (mapped == null) {
+            setState(() => _error = context.l10n.t('login_user_not_found'));
+            return;
+          }
+          loginEmail = mapped;
+        }
         await auth.signInWithPassword(
-          email: _email.text.trim(),
+          email: loginEmail,
           password: _password.text,
         );
       }
@@ -93,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: l.t('login_email'),
+                      labelText: _isSignUp ? l.t('login_email') : l.t('login_email_or_user'),
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.email_outlined),
                     ),

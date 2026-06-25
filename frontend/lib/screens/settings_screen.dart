@@ -26,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late String _displayName = widget.profile.appName;
   late String? _license = widget.profile.licenseNumber;
   late String? _avatarB64 = widget.profile.avatarUrl; // foto base64 o null = icono
+  late String? _username = widget.profile.username; // para login con usuario
   String? _activeVehicleLabel;
   String? _companyName;
   bool _hasVehicles = false; // el conductor solo ve/elige coches asignados
@@ -63,6 +64,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
     } catch (_) {/* cabecera best-effort */}
+  }
+
+  Future<void> _editUsername() async {
+    final l = context.l10n;
+    final ctrl = TextEditingController(text: _username ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('set_username')),
+        content: TextField(
+          key: const Key('username_field'),
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(
+            helperText: l.t('set_username_hint'), helperMaxLines: 2,
+            border: const OutlineInputBorder(), prefixText: '@',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _service.updateUsername(ctrl.text);
+      if (mounted) {
+        setState(() => _username = ctrl.text.trim().isEmpty ? null : ctrl.text.trim());
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('set_name_updated'))));
+      }
+    } catch (e) {
+      final taken = e.toString().contains('23505') || e.toString().toLowerCase().contains('duplicate');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(taken ? l.t('set_username_taken') : '${l.t('error')}: $e')));
+      }
+    }
   }
 
   // Avatar: elegir foto (comprimida a base64) o quitarla (vuelve al icono).
@@ -369,6 +408,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text('${_flag(localeController.value.languageCode)}  ${kLanguageNames[localeController.value.languageCode] ?? 'Español'}'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _pickLanguage,
+          ),
+          ListTile(
+            leading: const Icon(Icons.alternate_email),
+            title: Text(l.t('set_username')),
+            subtitle: Text(_username == null ? l.t('set_username_hint') : '@$_username'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _editUsername,
           ),
           ListTile(
             leading: const Icon(Icons.support_agent),
