@@ -18,6 +18,7 @@
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "fastify": "^5.8.5",
+    "firebase-admin": "^13.0.0",
     "openai": "^4.67.3",
     "pdfmake": "^0.2.10",
     "stripe": "^17.7.0"

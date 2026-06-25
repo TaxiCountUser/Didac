@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { parseTransactionText } from './parser.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
+import { sendToTokens, pushEnabled } from './push.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
 import {
   fetchReportData,
@@ -564,6 +565,63 @@ export async function buildApp(options = {}) {
       return reply.code(400).send({ error: `No se pudo eliminar la cuenta: ${dErr.message}` });
     }
     return reply.send({ ok: true, id: driverId });
+  });
+
+  // --- Notificación push de una incidencia / mensaje (FCM) ---
+  // La app lo llama tras crear una incidencia o un mensaje de chat. Si push no
+  // está configurado (sin FCM_SERVICE_ACCOUNT), responde ok sin hacer nada.
+  app.post('/api/v1/notify-incident', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (!pushEnabled()) return reply.send({ ok: true, push: false });
+
+    const { incidentId, kind, body } = request.body ?? {};
+    if (!incidentId) return reply.code(400).send({ error: 'incidentId es obligatorio' });
+
+    const { data: inc } = await supabase
+      .from('incidents')
+      .select('id, tenant_id, user_id, body')
+      .eq('id', incidentId)
+      .single();
+    if (!inc || inc.tenant_id !== caller.tenant_id) {
+      return reply.code(404).send({ error: 'Incidencia no encontrada' });
+    }
+
+    // Destinatarios: si escribe el conductor -> los owners; si escribe el owner
+    // -> el autor (conductor). Nunca te notificas a ti mismo.
+    let recipientIds;
+    if (caller.role === 'owner') {
+      recipientIds = [inc.user_id];
+    } else {
+      const { data: owners } = await supabase
+        .from('users')
+        .select('id')
+        .eq('tenant_id', inc.tenant_id)
+        .eq('role', 'owner');
+      recipientIds = (owners || []).map((o) => o.id);
+    }
+    recipientIds = recipientIds.filter((id) => id && id !== caller.id);
+    if (recipientIds.length === 0) return reply.send({ ok: true, push: true, sent: 0 });
+
+    const { data: toks } = await supabase
+      .from('device_tokens')
+      .select('token')
+      .in('user_id', recipientIds);
+    const tokens = (toks || []).map((t) => t.token);
+
+    const title = kind === 'new_message' ? 'Nuevo mensaje de incidencia' : 'Nueva incidencia';
+    const text = (body || inc.body || '').toString().slice(0, 140);
+    const result = await sendToTokens(
+      tokens,
+      { title, body: text, data: { type: 'incident', incidentId: inc.id } },
+      request.log,
+    );
+
+    if (result.invalidTokens.length > 0) {
+      await supabase.from('device_tokens').delete().in('token', result.invalidTokens);
+    }
+    return reply.send({ ok: true, push: true, sent: result.sent });
   });
 
   // --- Stripe Checkout (Fase 4) ---
