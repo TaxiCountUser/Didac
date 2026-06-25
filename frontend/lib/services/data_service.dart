@@ -187,6 +187,57 @@ class DataService {
     }
   }
 
+  // ---------------- Panel de administrador de plataforma ----------------
+
+  Map<String, String> get _bearer {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    return {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'};
+  }
+
+  /// Resumen de todas las empresas (solo admin).
+  Future<Map<String, dynamic>> adminOverview() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/overview'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Incidencias de todas las empresas (opcionalmente filtradas por estado).
+  Future<List<Map<String, dynamic>>> adminIncidents({String? status}) async {
+    final qp = (status == null || status.isEmpty) ? '' : '?status=$status';
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/incidents$qp'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['incidents'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// Resolver / reabrir una incidencia de cualquier empresa (solo admin).
+  Future<void> adminSetIncidentStatus(String id, String status) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/incidents/$id/status'),
+      headers: _bearer,
+      body: jsonEncode({'status': status}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo actualizar la incidencia');
+    }
+  }
+
+  /// Nombrar (o quitar) admin a otro usuario por correo (solo admin).
+  Future<void> adminMakeAdmin(String email, {bool isAdmin = true}) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/make-admin'),
+      headers: _bearer,
+      body: jsonEncode({'email': email, 'isAdmin': isAdmin}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo cambiar el rol de admin');
+    }
+  }
+
   // ---------------- Asignación conductor <-> vehículo ----------------
 
   /// Vehículos asignados a un conductor (vía driver_vehicles).

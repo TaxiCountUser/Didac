@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../widgets/lang_flag.dart';
+import 'admin_screen.dart';
 import 'incidents_screen.dart';
 import 'locate_vehicle_screen.dart';
 import 'subscription_screen.dart';
@@ -427,6 +428,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(l.t('set_report_bug_sub')),
             onTap: _reportBug,
           ),
+          // Panel de administrador de plataforma (solo admins).
+          if (widget.profile.isAdmin)
+            ListTile(
+              leading: const Icon(Icons.shield, color: Colors.deepPurple),
+              title: Text(l.t('admin_title')),
+              subtitle: Text(l.t('admin_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(const AdminScreen()),
+            ),
           if (!isOwner && _hasVehicles)
             ListTile(
               key: const Key('change_vehicle_tile'),

@@ -294,7 +294,7 @@ export async function buildApp(options = {}) {
     if (error || !data?.user) return null;
     const { data: prof } = await supabase
       .from('users')
-      .select('id, role, tenant_id, daily_transcription_count, transcription_count_date')
+      .select('id, role, tenant_id, is_admin, daily_transcription_count, transcription_count_date')
       .eq('id', data.user.id)
       .single();
     return prof || null;
@@ -585,6 +585,107 @@ export async function buildApp(options = {}) {
       return reply.code(400).send({ error: `No se pudo eliminar la cuenta: ${dErr.message}` });
     }
     return reply.send({ ok: true, id: driverId });
+  });
+
+  // ============================================================
+  // Panel de administrador de plataforma (is_admin).
+  // Ve y gestiona TODAS las empresas e incidencias. Va por service_role, pero
+  // SIEMPRE verifica que el llamante es admin antes de devolver nada.
+  // ============================================================
+  async function adminGuard(request) {
+    if (!supabase) return { code: 500, error: 'Supabase no configurado' };
+    const caller = await getCaller(request);
+    if (!caller) return { code: 401, error: 'No autenticado' };
+    if (!caller.is_admin) return { code: 403, error: 'Solo un administrador puede acceder' };
+    return { caller };
+  }
+
+  // Resumen de todas las empresas: datos + nº de usuarios + incidencias abiertas.
+  app.get('/api/v1/admin/overview', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+
+    const { data: tenants, error } = await supabase
+      .from('tenants')
+      .select('id, name, solo, subscription_status, plan_id, trial_ends_at, created_at')
+      .order('created_at', { ascending: false });
+    if (error) return reply.code(500).send({ error: error.message });
+
+    const { data: users } = await supabase.from('users').select('id, tenant_id');
+    const { data: openInc } = await supabase
+      .from('incidents')
+      .select('id, tenant_id')
+      .eq('status', 'abierta');
+
+    const usersByTenant = {};
+    for (const u of users || []) usersByTenant[u.tenant_id] = (usersByTenant[u.tenant_id] || 0) + 1;
+    const incByTenant = {};
+    for (const i of openInc || []) incByTenant[i.tenant_id] = (incByTenant[i.tenant_id] || 0) + 1;
+
+    const rows = (tenants || []).map((t) => ({
+      ...t,
+      users_count: usersByTenant[t.id] || 0,
+      open_incidents: incByTenant[t.id] || 0,
+    }));
+    return reply.send({
+      tenants: rows,
+      totals: {
+        tenants: rows.length,
+        users: (users || []).length,
+        open_incidents: (openInc || []).length,
+      },
+    });
+  });
+
+  // Todas las incidencias de todas las empresas (con nombre de empresa y autor).
+  app.get('/api/v1/admin/incidents', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+
+    const status = request.query?.status; // 'abierta' | 'resuelta' | undefined
+    let q = supabase
+      .from('incidents')
+      .select('id, kind, body, status, created_at, tenant_id, user_id, tenants(name), users(email)')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (status === 'abierta' || status === 'resuelta') q = q.eq('status', status);
+    const { data, error } = await q;
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ incidents: data || [] });
+  });
+
+  // Cambiar el estado de una incidencia (resolver / reabrir) en cualquier empresa.
+  app.post('/api/v1/admin/incidents/:id/status', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const status = (request.body ?? {}).status;
+    if (status !== 'abierta' && status !== 'resuelta') {
+      return reply.code(400).send({ error: 'status debe ser abierta o resuelta' });
+    }
+    const { error } = await supabase
+      .from('incidents')
+      .update({ status })
+      .eq('id', request.params.id);
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // Nombrar (o quitar) admin a otro usuario por su correo.
+  app.post('/api/v1/admin/make-admin', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { email, isAdmin } = request.body ?? {};
+    if (!email) return reply.code(400).send({ error: 'Falta el correo' });
+    const { data, error } = await supabase
+      .from('users')
+      .update({ is_admin: isAdmin === false ? false : true })
+      .eq('email', String(email).trim().toLowerCase())
+      .select('id, email, is_admin');
+    if (error) return reply.code(400).send({ error: error.message });
+    if (!data || data.length === 0) {
+      return reply.code(404).send({ error: 'No hay ningún usuario con ese correo' });
+    }
+    return reply.send({ ok: true, user: data[0] });
   });
 
   // --- Notificación push de una incidencia / mensaje (FCM) ---
