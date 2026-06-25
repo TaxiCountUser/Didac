@@ -81,6 +81,33 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     }
   }
 
+  Future<bool> _confirmDelete() async {
+    final l = context.l10n;
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l.t('inc_delete')),
+            content: Text(l.t('inc_delete_confirm')),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('inc_delete'))),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _delete(String id) async {
+    try {
+      await _service.deleteIncident(id);
+      _reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -118,7 +145,24 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
             child: ListView.separated(
               itemCount: items.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, i) => _tile(items[i], isOwner),
+              itemBuilder: (context, i) {
+                final it = items[i];
+                final tile = _tile(it, isOwner);
+                if (!isOwner) return tile; // solo el jefe puede borrar
+                return Dismissible(
+                  key: ValueKey(it['id']),
+                  direction: DismissDirection.endToStart,
+                  confirmDismiss: (_) => _confirmDelete(),
+                  onDismissed: (_) => _delete(it['id'] as String),
+                  background: Container(
+                    color: Colors.red,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 24),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  child: tile,
+                );
+              },
             ),
           );
         },

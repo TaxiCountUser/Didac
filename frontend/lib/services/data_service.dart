@@ -545,6 +545,18 @@ class DataService {
     });
   }
 
+  /// Elimina una incidencia (solo Owner por RLS).
+  Future<void> deleteIncident(String id) async {
+    await _c.from('incidents').delete().eq('id', id);
+  }
+
+  /// Autolimpieza: borra las incidencias de más de 90 días del tenant. Devuelve
+  /// cuántas borró. Best-effort (se llama al abrir el panel del jefe).
+  Future<int> cleanupOldIncidents() async {
+    final n = await _c.rpc('cleanup_old_incidents');
+    return (n is int) ? n : 0;
+  }
+
   /// Marca una incidencia como resuelta (solo Owner por RLS).
   Future<void> resolveIncident(String id) async {
     final updated =
