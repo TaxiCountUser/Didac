@@ -523,6 +523,33 @@ class DataService {
     return (data as List).cast<Map<String, dynamic>>();
   }
 
+  /// Mensajes de chat de una incidencia (con autor), orden cronológico.
+  Future<List<Map<String, dynamic>>> listIncidentMessages(String incidentId) async {
+    final data = await _c
+        .from('incident_messages')
+        .select('*, users:user_id(name, email)')
+        .eq('incident_id', incidentId)
+        .order('created_at');
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Envía un mensaje en el chat de una incidencia (RLS: owner o autor, y solo
+  /// si la incidencia no está resuelta).
+  Future<void> addIncidentMessage({
+    required String incidentId,
+    required String tenantId,
+    required String body,
+  }) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) throw Exception('No hay sesión activa');
+    await _c.from('incident_messages').insert({
+      'incident_id': incidentId,
+      'tenant_id': tenantId,
+      'user_id': uid,
+      'body': body,
+    });
+  }
+
   /// Nº de incidencias abiertas (para el badge del panel del jefe).
   Future<int> openIncidentsCount() async {
     final data = await _c.from('incidents').select('id').eq('status', 'abierta');

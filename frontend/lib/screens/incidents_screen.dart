@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
+import 'incident_chat_screen.dart';
 
 /// Incidencias / mensajes al jefe.
 ///  - Conductor: ve las suyas y puede escribir una nota al jefe.
@@ -108,6 +109,13 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     }
   }
 
+  Future<void> _openChat(Map<String, dynamic> incident) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => IncidentChatScreen(profile: widget.profile, incident: incident),
+    ));
+    _reload(); // por si se resolvió o se respondió
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -182,6 +190,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     ].join(' · ');
 
     return ListTile(
+      onTap: () => _openChat(it),
       leading: Icon(
         kind == 'app' ? Icons.bug_report : Icons.chat_bubble_outline,
         color: resolved ? Colors.grey : (kind == 'app' ? Colors.deepOrange : Colors.blueGrey),
