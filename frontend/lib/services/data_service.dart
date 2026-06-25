@@ -296,6 +296,47 @@ class DataService {
     }
   }
 
+  /// Añadir un vehículo a una empresa (admin).
+  Future<void> adminAddVehicle(String tenantId, String plate, String? model) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/company/$tenantId/vehicle'),
+      headers: _bearer,
+      body: jsonEncode({'license_plate': plate, 'model': model}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo añadir el vehículo');
+    }
+  }
+
+  /// Editar un vehículo (admin).
+  Future<void> adminUpdateVehicle(String id, {String? plate, String? model}) async {
+    final res = await http.patch(
+      Uri.parse('$backendUrl/api/v1/admin/vehicle/$id'),
+      headers: _bearer,
+      body: jsonEncode({
+        if (plate != null) 'license_plate': plate,
+        if (model != null) 'model': model,
+      }),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo editar el vehículo');
+    }
+  }
+
+  /// Eliminar un vehículo (admin).
+  Future<void> adminDeleteVehicle(String id) async {
+    final res = await http.delete(
+      Uri.parse('$backendUrl/api/v1/admin/vehicle/$id'),
+      headers: _bearer,
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo eliminar el vehículo');
+    }
+  }
+
   // ---------------- Asignación conductor <-> vehículo ----------------
 
   /// Vehículos asignados a un conductor (vía driver_vehicles).
@@ -777,9 +818,14 @@ class DataService {
     } catch (_) {/* best-effort */}
   }
 
-  /// Nº de incidencias abiertas (para el badge del panel del jefe).
+  /// Nº de incidencias abiertas (para el badge del panel del jefe). Solo 'nota'
+  /// (los reportes de fallo 'app' van al panel de administración).
   Future<int> openIncidentsCount() async {
-    final data = await _c.from('incidents').select('id').eq('status', 'abierta');
+    final data = await _c
+        .from('incidents')
+        .select('id')
+        .eq('status', 'abierta')
+        .eq('kind', 'nota');
     return (data as List).length;
   }
 

@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 
-/// Envuelve la pantalla principal y, la PRIMERA vez que alguien usa la app,
-/// muestra un tutorial rápido (con botón "Saltar"). Una vez visto, no vuelve a
-/// aparecer (se guarda en shared_preferences).
+/// Envuelve la pantalla principal y, la PRIMERA vez que CADA usuario usa la app,
+/// muestra un tutorial rápido (con botón "Saltar"). El flag se guarda POR
+/// usuario (clave con su id), así toda cuenta nueva lo ve una vez.
 class TutorialGate extends StatefulWidget {
   final Widget child;
   const TutorialGate({super.key, required this.child});
-
-  static const _prefKey = 'seen_tutorial_v1';
 
   @override
   State<TutorialGate> createState() => _TutorialGateState();
@@ -18,6 +17,12 @@ class TutorialGate extends StatefulWidget {
 
 class _TutorialGateState extends State<TutorialGate> {
   bool? _seen; // null mientras se carga
+
+  // Clave por usuario: cada cuenta nueva ve el tutorial una vez.
+  String get _prefKey {
+    final uid = Supabase.instance.client.auth.currentUser?.id ?? 'anon';
+    return 'seen_tutorial_v1_$uid';
+  }
 
   @override
   void initState() {
@@ -28,12 +33,12 @@ class _TutorialGateState extends State<TutorialGate> {
   Future<void> _check() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    setState(() => _seen = prefs.getBool(TutorialGate._prefKey) ?? false);
+    setState(() => _seen = prefs.getBool(_prefKey) ?? false);
   }
 
   Future<void> _finish() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(TutorialGate._prefKey, true);
+    await prefs.setBool(_prefKey, true);
     if (mounted) setState(() => _seen = true);
   }
 

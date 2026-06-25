@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 
-/// Detalle de una empresa para el administrador de plataforma: ve todos los
-/// datos (suscripción, plan, días de uso, usuarios, recuentos), modifica la
-/// suscripción/usuarios y puede eliminar usuarios o la empresa entera.
+/// Gestión completa de una empresa para el administrador de plataforma, como si
+/// fuera la suya: pestañas Resumen, Vehículos, Conductores e Incidencias, con
+/// posibilidad de ver y modificar (reparar) sus datos.
 class AdminCompanyScreen extends StatefulWidget {
   final String tenantId;
   final String tenantName;
@@ -15,11 +15,19 @@ class AdminCompanyScreen extends StatefulWidget {
   State<AdminCompanyScreen> createState() => _AdminCompanyScreenState();
 }
 
-class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
+class _AdminCompanyScreenState extends State<AdminCompanyScreen>
+    with SingleTickerProviderStateMixin {
   final _service = DataService();
+  late final TabController _tabs = TabController(length: 4, vsync: this);
   late Future<Map<String, dynamic>> _future = _service.adminCompany(widget.tenantId);
 
   void _reload() => setState(() => _future = _service.adminCompany(widget.tenantId));
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
 
   Future<void> _toast(String msg) async {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -38,82 +46,88 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, _) {},
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.tenantName),
-          actions: [
-            IconButton(
-              tooltip: l.t('refresh'),
-              icon: const Icon(Icons.refresh),
-              onPressed: _reload,
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.tenantName),
+        actions: [
+          IconButton(tooltip: l.t('refresh'), icon: const Icon(Icons.refresh), onPressed: _reload),
+        ],
+        bottom: TabBar(
+          controller: _tabs,
+          isScrollable: true,
+          tabs: [
+            Tab(text: l.t('admin_tab_summary')),
+            Tab(text: l.t('admin_tab_vehicles')),
+            Tab(text: l.t('admin_tab_drivers')),
+            Tab(text: l.t('admin_tab_incidents')),
           ],
         ),
-        body: FutureBuilder<Map<String, dynamic>>(
-          future: _future,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snap.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${l.t('error')}: ${snap.error.toString().replaceFirst('Exception: ', '')}'),
-                    const SizedBox(height: 12),
-                    FilledButton(onPressed: _reload, child: Text(l.t('retry'))),
-                  ],
-                ),
-              );
-            }
-            final data = snap.data ?? {};
-            final tenant = (data['tenant'] as Map?)?.cast<String, dynamic>() ?? {};
-            final users = ((data['users'] as List?) ?? []).cast<Map<String, dynamic>>();
-            final counts = (data['counts'] as Map?)?.cast<String, dynamic>() ?? {};
-            final summary = (data['summary'] as Map?)?.cast<String, dynamic>() ?? {};
-            final txs = ((data['recent_transactions'] as List?) ?? []).cast<Map<String, dynamic>>();
-            final vehicles = ((data['vehicles_list'] as List?) ?? []).cast<Map<String, dynamic>>();
-            return ListView(
-              padding: const EdgeInsets.all(12),
-              children: [
-                _subscriptionCard(l, tenant),
-                const SizedBox(height: 8),
-                _financeCard(l, summary),
-                const SizedBox(height: 8),
-                _countsCard(l, counts),
-                const SizedBox(height: 16),
-                Text(l.t('admin_users_title'), style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                for (final u in users) _userTile(l, u),
-                if (vehicles.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text(l.t('nav_vehicles'), style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  for (final v in vehicles) _vehicleTile(v),
+      ),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${l.t('error')}: ${snap.error.toString().replaceFirst('Exception: ', '')}'),
+                  const SizedBox(height: 12),
+                  FilledButton(onPressed: _reload, child: Text(l.t('retry'))),
                 ],
-                const SizedBox(height: 16),
-                ExpansionTile(
-                  title: Text(l.t('admin_recent_tx')),
-                  childrenPadding: EdgeInsets.zero,
-                  children: txs.isEmpty
-                      ? [ListTile(title: Text(l.t('admin_no_tx')))]
-                      : [for (final t in txs) _txTile(t)],
-                ),
-                const SizedBox(height: 24),
-                _dangerZone(l),
-              ],
+              ),
             );
-          },
-        ),
+          }
+          final data = snap.data ?? {};
+          final tenant = (data['tenant'] as Map?)?.cast<String, dynamic>() ?? {};
+          final users = ((data['users'] as List?) ?? []).cast<Map<String, dynamic>>();
+          final counts = (data['counts'] as Map?)?.cast<String, dynamic>() ?? {};
+          final summary = (data['summary'] as Map?)?.cast<String, dynamic>() ?? {};
+          final txs = ((data['recent_transactions'] as List?) ?? []).cast<Map<String, dynamic>>();
+          final vehicles = ((data['vehicles_list'] as List?) ?? []).cast<Map<String, dynamic>>();
+          final incidents = ((data['incidents_list'] as List?) ?? []).cast<Map<String, dynamic>>();
+          return TabBarView(
+            controller: _tabs,
+            children: [
+              _summaryTab(l, tenant, summary, counts, txs),
+              _vehiclesTab(l, vehicles),
+              _driversTab(l, users),
+              _incidentsTab(l, incidents),
+            ],
+          );
+        },
       ),
     );
   }
 
-  // ---------- Tarjeta de suscripción / datos ----------
+  // ===================== TAB 1: RESUMEN =====================
+  Widget _summaryTab(AppLocalizations l, Map<String, dynamic> tenant,
+      Map<String, dynamic> summary, Map<String, dynamic> counts, List<Map<String, dynamic>> txs) {
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        _subscriptionCard(l, tenant),
+        const SizedBox(height: 8),
+        _financeCard(l, summary),
+        const SizedBox(height: 8),
+        _countsCard(l, counts),
+        const SizedBox(height: 12),
+        ExpansionTile(
+          title: Text(l.t('admin_recent_tx')),
+          childrenPadding: EdgeInsets.zero,
+          children: txs.isEmpty
+              ? [ListTile(title: Text(l.t('admin_no_tx')))]
+              : [for (final t in txs) _txTile(t)],
+        ),
+        const SizedBox(height: 16),
+        _dangerZone(l),
+      ],
+    );
+  }
+
   Widget _subscriptionCard(AppLocalizations l, Map<String, dynamic> t) {
     final created = DateTime.tryParse('${t['created_at']}')?.toLocal();
     final trialEnds = DateTime.tryParse('${t['trial_ends_at']}')?.toLocal();
@@ -173,33 +187,6 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
     );
   }
 
-  Widget _countsCard(AppLocalizations l, Map<String, dynamic> c) {
-    return Card(
-      color: Colors.grey.shade100,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _stat('${c['vehicles'] ?? 0}', l.t('nav_vehicles')),
-            _stat('${c['transactions'] ?? 0}', l.t('admin_transactions')),
-            _stat('${c['incidents'] ?? 0}', l.t('admin_incidents')),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _stat(String v, String label) => Column(
-        children: [
-          Text(v, style: Theme.of(context).textTheme.headlineSmall),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      );
-
-  String _money(dynamic v) => '${(double.tryParse('$v') ?? 0).toStringAsFixed(2)} €';
-
-  // Resumen financiero de la empresa (ingresos / gastos / balance).
   Widget _financeCard(AppLocalizations l, Map<String, dynamic> s) {
     final balance = double.tryParse('${s['balance']}') ?? 0;
     return Card(
@@ -231,17 +218,43 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
     );
   }
 
-  Widget _vehicleTile(Map<String, dynamic> v) {
-    final plate = (v['license_plate'] as String?) ?? '';
-    final model = (v['model'] as String?) ?? '';
+  Widget _countsCard(AppLocalizations l, Map<String, dynamic> c) {
     return Card(
-      child: ListTile(
-        dense: true,
-        leading: const Icon(Icons.directions_car),
-        title: Text([plate, model].where((e) => e.isNotEmpty).join(' · ')),
+      color: Colors.grey.shade100,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _stat('${c['vehicles'] ?? 0}', l.t('nav_vehicles')),
+            _stat('${c['transactions'] ?? 0}', l.t('admin_transactions')),
+            _stat('${c['incidents'] ?? 0}', l.t('admin_incidents')),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _stat(String v, String label) => Column(
+        children: [
+          Text(v, style: Theme.of(context).textTheme.headlineSmall),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      );
+
+  String _money(dynamic v) => '${(double.tryParse('$v') ?? 0).toStringAsFixed(2)} €';
+
+  Widget _row(String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 5, child: Text(k, style: const TextStyle(color: Colors.black54))),
+            if (v.isNotEmpty)
+              Expanded(flex: 4, child: Text(v, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
+          ],
+        ),
+      );
 
   Widget _txTile(Map<String, dynamic> t) {
     final type = (t['type'] as String?) ?? 'expense';
@@ -260,19 +273,87 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
     );
   }
 
-  Widget _row(String k, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 5, child: Text(k, style: const TextStyle(color: Colors.black54))),
-            if (v.isNotEmpty)
-              Expanded(flex: 4, child: Text(v, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
+  // ===================== TAB 2: VEHÍCULOS =====================
+  Widget _vehiclesTab(AppLocalizations l, List<Map<String, dynamic>> vehicles) {
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _vehicleDialog(l),
+        icon: const Icon(Icons.add),
+        label: Text(l.t('admin_add_vehicle')),
+      ),
+      body: vehicles.isEmpty
+          ? Center(child: Text(l.t('admin_no_vehicles')))
+          : ListView(
+              padding: const EdgeInsets.all(12),
+              children: [for (final v in vehicles) _vehicleTile(l, v)],
+            ),
+    );
+  }
+
+  Widget _vehicleTile(AppLocalizations l, Map<String, dynamic> v) {
+    final plate = (v['license_plate'] as String?) ?? '';
+    final model = (v['model'] as String?) ?? '';
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.directions_car),
+        title: Text(plate),
+        subtitle: model.isEmpty ? null : Text(model),
+        trailing: PopupMenuButton<String>(
+          onSelected: (a) {
+            if (a == 'edit') {
+              _vehicleDialog(l, vehicle: v);
+            } else if (a == 'delete') {
+              _confirm(l, l.t('admin_delete_vehicle'), '${l.t('admin_delete_vehicle')}: $plate?').then((ok) {
+                if (ok) _guard(() => _service.adminDeleteVehicle(v['id'] as String), l.t('admin_deleted'));
+              });
+            }
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'edit', child: Text(l.t('edit'))),
+            PopupMenuItem(value: 'delete', child: Text(l.t('admin_delete_vehicle'), style: const TextStyle(color: Colors.red))),
           ],
         ),
-      );
+      ),
+    );
+  }
 
-  // ---------- Usuarios ----------
+  Future<void> _vehicleDialog(AppLocalizations l, {Map<String, dynamic>? vehicle}) async {
+    final plateCtrl = TextEditingController(text: (vehicle?['license_plate'] as String?) ?? '');
+    final modelCtrl = TextEditingController(text: (vehicle?['model'] as String?) ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(vehicle == null ? l.t('admin_add_vehicle') : l.t('edit')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: plateCtrl, decoration: InputDecoration(labelText: l.t('admin_vehicle_plate'))),
+            const SizedBox(height: 8),
+            TextField(controller: modelCtrl, decoration: InputDecoration(labelText: l.t('admin_vehicle_model'))),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
+        ],
+      ),
+    );
+    if (ok != true || plateCtrl.text.trim().isEmpty) return;
+    if (vehicle == null) {
+      await _guard(() => _service.adminAddVehicle(widget.tenantId, plateCtrl.text.trim(), modelCtrl.text.trim()), l.t('saved'));
+    } else {
+      await _guard(() => _service.adminUpdateVehicle(vehicle['id'] as String, plate: plateCtrl.text.trim(), model: modelCtrl.text.trim()), l.t('saved'));
+    }
+  }
+
+  // ===================== TAB 3: CONDUCTORES =====================
+  Widget _driversTab(AppLocalizations l, List<Map<String, dynamic>> users) {
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [for (final u in users) _userTile(l, u)],
+    );
+  }
+
   Widget _userTile(AppLocalizations l, Map<String, dynamic> u) {
     final email = (u['email'] as String?) ?? '—';
     final role = (u['role'] as String?) ?? 'driver';
@@ -321,7 +402,41 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
     }
   }
 
-  // ---------- Editar suscripción ----------
+  // ===================== TAB 4: INCIDENCIAS =====================
+  Widget _incidentsTab(AppLocalizations l, List<Map<String, dynamic>> incidents) {
+    if (incidents.isEmpty) return Center(child: Text(l.t('admin_no_incidents')));
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [for (final i in incidents) _incidentTile(l, i)],
+    );
+  }
+
+  Widget _incidentTile(AppLocalizations l, Map<String, dynamic> inc) {
+    final body = (inc['body'] as String?) ?? '';
+    final kind = (inc['kind'] as String?) ?? 'nota';
+    final status = (inc['status'] as String?) ?? 'abierta';
+    final author = ((inc['users'] as Map?)?['email'] as String?) ?? '';
+    final resolved = status == 'resuelta';
+    return Card(
+      child: ListTile(
+        leading: Icon(kind == 'app' ? Icons.bug_report : Icons.note_alt,
+            color: kind == 'app' ? Colors.deepPurple : Colors.blueGrey),
+        title: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis),
+        subtitle: Text(author),
+        trailing: IconButton(
+          tooltip: resolved ? l.t('admin_reopen') : l.t('admin_resolve'),
+          icon: Icon(resolved ? Icons.replay : Icons.check_circle,
+              color: resolved ? Colors.orange : Colors.green),
+          onPressed: () => _guard(
+            () => _service.adminSetIncidentStatus(inc['id'] as String, resolved ? 'abierta' : 'resuelta'),
+            l.t('saved'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===================== Editar suscripción =====================
   Future<void> _editSubscription(AppLocalizations l, Map<String, dynamic> t) async {
     String status = (t['subscription_status'] as String?) ?? 'trialing';
     String plan = (t['plan_id'] as String?) ?? '';
@@ -361,19 +476,13 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
                 TextField(
                   controller: limitCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: l.t('admin_limit'),
-                    hintText: l.t('sub_unlimited'),
-                  ),
+                  decoration: InputDecoration(labelText: l.t('admin_limit'), hintText: l.t('sub_unlimited')),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: extendCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: l.t('admin_extend_trial'),
-                    hintText: l.t('admin_extend_hint'),
-                  ),
+                  decoration: InputDecoration(labelText: l.t('admin_extend_trial'), hintText: l.t('admin_extend_hint')),
                 ),
               ],
             ),
@@ -386,7 +495,6 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
       ),
     );
     if (saved != true) return;
-
     final patch = <String, dynamic>{
       'subscription_status': status,
       'plan_id': plan,
@@ -394,11 +502,10 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
     };
     final extend = int.tryParse(extendCtrl.text.trim());
     if (extend != null && extend > 0) patch['extend_trial_days'] = extend;
-
     await _guard(() => _service.adminUpdateCompany(widget.tenantId, patch), l.t('saved'));
   }
 
-  // ---------- Zona peligrosa ----------
+  // ===================== Zona peligrosa =====================
   Widget _dangerZone(AppLocalizations l) {
     return Card(
       color: Colors.red.shade50,
@@ -421,9 +528,7 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen> {
                 if (!ok) return;
                 try {
                   await _service.adminDeleteCompany(widget.tenantId);
-                  if (mounted) {
-                    Navigator.pop(context, true); // vuelve a la lista y refresca
-                  }
+                  if (mounted) Navigator.pop(context, true);
                 } catch (e) {
                   await _toast('Error: ${e.toString().replaceFirst('Exception: ', '')}');
                 }

@@ -456,11 +456,15 @@ export async function buildApp(options = {}) {
     // Límite de conductores según el plan contratado (Fase 4).
     const { data: tenant } = await supabase
       .from('tenants')
-      .select('drivers_limit')
+      .select('drivers_limit, subscription_status')
       .eq('id', caller.tenant_id)
       .single();
     const limit = tenant?.drivers_limit;
-    if (limit !== null && limit !== undefined) {
+    // Durante la prueba gratuita (sin plan de pago activo) NO se aplica el límite:
+    // así pueden probar la gestión de flota con varios conductores. El límite
+    // solo cuenta con una suscripción de pago al día (active/past_due).
+    const paid = tenant?.subscription_status === 'active' || tenant?.subscription_status === 'past_due';
+    if (paid && limit !== null && limit !== undefined) {
       const { count } = await supabase
         .from('users')
         .select('id', { count: 'exact', head: true })
@@ -754,6 +758,14 @@ export async function buildApp(options = {}) {
       .eq('tenant_id', id)
       .order('created_at', { ascending: true });
 
+    // Incidencias de la empresa (operativas: notas conductor<->jefe).
+    const { data: incidentList } = await supabase
+      .from('incidents')
+      .select('id, kind, body, status, created_at, users(email)')
+      .eq('tenant_id', id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
     return reply.send({
       tenant,
       users: users || [],
@@ -761,7 +773,48 @@ export async function buildApp(options = {}) {
       summary,
       recent_transactions: recentTx || [],
       vehicles_list: vehicleList || [],
+      incidents_list: incidentList || [],
     });
+  });
+
+  // Añadir un vehículo a una empresa (admin).
+  app.post('/api/v1/admin/company/:id/vehicle', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { license_plate, model } = request.body ?? {};
+    if (!license_plate || !String(license_plate).trim()) {
+      return reply.code(400).send({ error: 'La matrícula es obligatoria' });
+    }
+    const { error } = await supabase.from('vehicles').insert({
+      tenant_id: request.params.id,
+      license_plate: String(license_plate).trim(),
+      model: model ? String(model).trim() : null,
+    });
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // Editar un vehículo (admin).
+  app.patch('/api/v1/admin/vehicle/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const b = request.body ?? {};
+    const patch = {};
+    if (b.license_plate !== undefined) patch.license_plate = String(b.license_plate).trim();
+    if (b.model !== undefined) patch.model = b.model ? String(b.model).trim() : null;
+    if (Object.keys(patch).length === 0) return reply.code(400).send({ error: 'Nada que actualizar' });
+    const { error } = await supabase.from('vehicles').update(patch).eq('id', request.params.id);
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // Eliminar un vehículo (admin).
+  app.delete('/api/v1/admin/vehicle/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { error } = await supabase.from('vehicles').delete().eq('id', request.params.id);
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
   });
 
   // Modificar una empresa (suscripción, plan, límite, prueba, nombre, solo).

@@ -30,7 +30,9 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     _reload();
   }
 
-  void _reload() => setState(() => _future = _service.listIncidents());
+  // Solo 'nota' (notas conductor<->jefe). Los reportes de fallo de la app
+  // ('app') van únicamente al panel de administración.
+  void _reload() => setState(() => _future = _service.listIncidents(kind: 'nota'));
 
   Future<void> _addNote() async {
     final l = context.l10n;

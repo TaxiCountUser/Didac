@@ -99,8 +99,9 @@ class _ProfileRouterState extends State<ProfileRouter> {
           return const NoFleetScreen();
         }
         // Entró (p. ej. con Google) pero aún no tiene flota: que elija.
+        // El tutorial se muestra también aquí (toda cuenta nueva lo ve).
         if (!profile.hasFleet) {
-          return ChoosePathScreen(onDone: _reload);
+          return TutorialGate(child: ChoosePathScreen(onDone: _reload));
         }
         // Prueba de 15 días caducada y sin suscripción activa: bloqueo.
         final tenant = account!.tenant;
@@ -115,7 +116,7 @@ class _ProfileRouterState extends State<ProfileRouter> {
           return TutorialGate(child: DriverHomeScreen(profile: profile));
         }
         if (!profile.hasCompletedOnboarding) {
-          return OnboardingScreen(profile: profile, onFinished: _reload);
+          return TutorialGate(child: OnboardingScreen(profile: profile, onFinished: _reload));
         }
         return TutorialGate(child: OwnerHomeScreen(profile: profile));
       },
