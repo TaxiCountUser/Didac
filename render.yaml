@@ -60,6 +60,10 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      # Push (FCM): JSON de la cuenta de servicio de Firebase en una sola línea.
+      # Sin esto, las notificaciones push quedan desactivadas (la app va igual).
+      - key: FCM_SERVICE_ACCOUNT
+        sync: false
       # Stripe (solo si vas a probar suscripciones; opcionales para el MVP).
       - key: STRIPE_SECRET_KEY
         sync: false
