@@ -25,7 +25,12 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 3000);
 const HOST = '0.0.0.0';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'http://kong:8000';
+// Normaliza la URL de Supabase: si viene sin protocolo (p. ej. "xxx.supabase.co"),
+// le ponemos https:// para no romper createClient ("Invalid supabaseUrl").
+const _rawSupabaseUrl = (process.env.SUPABASE_URL || '').trim();
+const SUPABASE_URL = _rawSupabaseUrl
+    ? (/^https?:\/\//i.test(_rawSupabaseUrl) ? _rawSupabaseUrl : `https://${_rawSupabaseUrl}`)
+    : 'http://kong:8000';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 // Proveedor de transcripción compatible con la API de OpenAI. Por defecto OpenAI
@@ -262,12 +267,18 @@ export async function buildApp(options = {}) {
   }
   app.decorate('stripe', stripe);
 
-  const supabase =
-    SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
-      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-          auth: { autoRefreshToken: false, persistSession: false },
-        })
-      : null;
+  let supabase = null;
+  if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+    } catch (e) {
+      // URL o clave inválidas: no tumbamos el servidor, solo deshabilitamos
+      // Supabase (los endpoints que lo necesiten responderán 500 claro).
+      app.log.error(`Supabase deshabilitado (config inválida): ${e.message}`);
+    }
+  }
   app.decorate('supabase', supabase);
 
   // Caché de transcripciones en memoria: clave userId:hash(audio) -> {text,confidence}
