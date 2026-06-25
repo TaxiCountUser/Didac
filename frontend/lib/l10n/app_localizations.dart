@@ -126,6 +126,7 @@ const Map<String, Map<String, String>> _values = {
     'inc_none_owner': 'No hay incidencias.',
     'inc_none_driver': 'No has enviado ninguna incidencia.\nPulsa "Mensaje al jefe".',
     'inc_app_bug': 'Fallo de la app', 'inc_resolve': 'Resolver',
+    'inc_delete': 'Eliminar', 'inc_delete_confirm': '¿Eliminar esta incidencia? No se puede deshacer.',
     'inc_resolved': 'Resuelta', 'inc_open': 'Abierta',
     // Owner nav
     'nav_dashboard': 'Panel de control', 'nav_vehicles': 'Vehículos',
@@ -272,6 +273,7 @@ const Map<String, Map<String, String>> _values = {
     'inc_none_owner': 'No incidents.',
     'inc_none_driver': 'You have not sent any incident.\nTap "Message to the boss".',
     'inc_app_bug': 'App bug', 'inc_resolve': 'Resolve',
+    'inc_delete': 'Delete', 'inc_delete_confirm': 'Delete this incident? This cannot be undone.',
     'inc_resolved': 'Resolved', 'inc_open': 'Open',
     'nav_dashboard': 'Control panel', 'nav_vehicles': 'Vehicles',
     'nav_drivers': 'Drivers', 'nav_incidents': 'Incidents', 'nav_subscription': 'Subscription',
@@ -404,6 +406,7 @@ const Map<String, Map<String, String>> _values = {
     'inc_none_owner': 'No hi ha incidències.',
     'inc_none_driver': 'No has enviat cap incidència.\nPrem "Missatge al cap".',
     'inc_app_bug': "Error de l'app", 'inc_resolve': 'Resol',
+    'inc_delete': 'Elimina', 'inc_delete_confirm': 'Vols eliminar aquesta incidència? No es pot desfer.',
     'inc_resolved': 'Resolta', 'inc_open': 'Oberta',
     'nav_dashboard': 'Tauler de control', 'nav_vehicles': 'Vehicles',
     'nav_drivers': 'Conductors', 'nav_incidents': 'Incidències', 'nav_subscription': 'Subscripció',

@@ -31,6 +31,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   Future<void> _loadIncidentCount() async {
     try {
+      // Autolimpieza de incidencias antiguas (>90 días), best-effort.
+      try { await DataService().cleanupOldIncidents(); } catch (_) {}
       final n = await DataService().openIncidentsCount();
       if (mounted) setState(() => _openIncidents = n);
     } catch (_) {/* badge best-effort */}
