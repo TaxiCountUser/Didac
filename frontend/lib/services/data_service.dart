@@ -902,6 +902,37 @@ class DataService {
     return (data as List).cast<Map<String, dynamic>>();
   }
 
+  /// Mis tickets de soporte (reportes de fallo 'app' que yo he creado), abiertos
+  /// y cerrados, para chatear con la administración.
+  Future<List<Map<String, dynamic>>> listMyTickets() async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return [];
+    final data = await _c
+        .from('incidents')
+        .select('*, users:user_id(name, email)')
+        .eq('kind', 'app')
+        .eq('user_id', uid)
+        .order('created_at', ascending: false);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Crea un ticket de soporte ('app') y devuelve la fila (para abrir el chat).
+  Future<Map<String, dynamic>?> createTicket(String tenantId, String body) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) throw Exception('No hay sesión activa');
+    final rows = await _c.from('incidents').insert({
+      'tenant_id': tenantId,
+      'user_id': uid,
+      'kind': 'app',
+      'body': body,
+    }).select('id, kind, body, status, created_at');
+    final row = (rows as List).isNotEmpty ? (rows.first as Map).cast<String, dynamic>() : null;
+    if (row != null) {
+      await _notifyIncident(incidentId: row['id'] as String, kind: 'new_incident', body: body);
+    }
+    return row;
+  }
+
   /// Mensajes de chat de una incidencia (con autor), orden cronológico.
   Future<List<Map<String, dynamic>>> listIncidentMessages(String incidentId) async {
     final data = await _c

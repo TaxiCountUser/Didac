@@ -11,6 +11,7 @@ import '../widgets/lang_flag.dart';
 import 'admin_screen.dart';
 import 'incidents_screen.dart';
 import 'referral_screen.dart';
+import 'tickets_screen.dart';
 import 'locate_vehicle_screen.dart';
 import 'subscription_screen.dart';
 
@@ -354,36 +355,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _reportBug() async {
-    final l = context.l10n;
-    final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.t('bug_title')),
-        content: TextField(
-          key: const Key('bug_body'),
-          controller: ctrl,
-          autofocus: true,
-          maxLines: 4,
-          decoration: InputDecoration(hintText: l.t('bug_hint'), border: const OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('send'))),
-        ],
-      ),
-    );
-    if (ok == true && ctrl.text.trim().isNotEmpty) {
-      try {
-        await _service.addIncident(tenantId: widget.profile.tenantId, kind: 'app', body: ctrl.text.trim());
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('bug_thanks'))));
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
-      }
-    }
-  }
-
   void _open(Widget screen) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
@@ -437,7 +408,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.support_agent),
             title: Text(l.t('set_report_bug')),
             subtitle: Text(l.t('set_report_bug_sub')),
-            onTap: _reportBug,
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _open(TicketsScreen(profile: widget.profile)),
           ),
           // Panel de administrador de plataforma (solo admins).
           if (widget.profile.isAdmin)

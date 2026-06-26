@@ -30,9 +30,9 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     _reload();
   }
 
-  // Notas (conductor<->jefe) + los reportes de fallo ('app') creados por el
-  // propio usuario, para que pueda seguir el chat con la administración.
-  void _reload() => setState(() => _future = _service.listVisibleIncidents());
+  // Todo en un sitio: el jefe ve todas las incidencias de su flota (notas y
+  // tickets de soporte chófer<->admin); el conductor ve las suyas. (RLS acota.)
+  void _reload() => setState(() => _future = _service.listIncidents());
 
   Future<void> _addNote() async {
     final l = context.l10n;
@@ -183,19 +183,21 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   Widget _tile(Map<String, dynamic> it, bool isOwner) {
     final l = context.l10n;
     final kind = it['kind'] as String? ?? 'nota';
+    final isApp = kind == 'app'; // ticket de soporte (chófer <-> admin)
     final resolved = it['status'] == 'resuelta';
     final created = parseCreatedAt(it['created_at']);
     final sub = <String>[
       if (isOwner) driverName(it),
       fmtDateTime(created),
-      if (kind == 'app') l.t('inc_app_bug'),
+      if (isApp) l.t('inc_admin_chat'),
     ].join(' · ');
 
     return ListTile(
       onTap: () => _openChat(it),
+      // Símbolo distinto: soporte (chófer<->admin) vs nota (chófer<->jefe).
       leading: Icon(
-        kind == 'app' ? Icons.bug_report : Icons.chat_bubble_outline,
-        color: resolved ? Colors.grey : (kind == 'app' ? Colors.deepOrange : Colors.blueGrey),
+        isApp ? Icons.support_agent : Icons.chat_bubble_outline,
+        color: resolved ? Colors.grey : (isApp ? Colors.deepPurple : Colors.blueGrey),
       ),
       title: Text(
         it['body'] as String? ?? '',
@@ -205,9 +207,10 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
         ),
       ),
       subtitle: Text(sub),
+      // Las de soporte (app) las cierra el admin, no el jefe.
       trailing: resolved
           ? Chip(label: Text(l.t('inc_resolved')), visualDensity: VisualDensity.compact)
-          : (isOwner
+          : (isOwner && !isApp
               ? TextButton(onPressed: () => _resolve(it['id'] as String), child: Text(l.t('inc_resolve')))
               : Chip(label: Text(l.t('inc_open')), visualDensity: VisualDensity.compact)),
     );

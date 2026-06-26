@@ -75,6 +75,7 @@ class _IncidentChatScreenState extends State<IncidentChatScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isOwner = widget.profile.isOwner;
+    final isApp = widget.incident['kind'] == 'app'; // ticket de soporte: lo cierra el admin
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {},
@@ -82,7 +83,7 @@ class _IncidentChatScreenState extends State<IncidentChatScreen> {
         appBar: AppBar(
           title: Text(l.t('inc_chat_title')),
           actions: [
-            if (isOwner && !_resolved)
+            if (isOwner && !_resolved && !isApp)
               TextButton(
                 onPressed: _resolve,
                 child: Text(l.t('inc_resolve'), style: const TextStyle(color: Colors.white)),
