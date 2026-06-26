@@ -104,11 +104,9 @@ function amountOfRow(row) {
   return a == null ? null : Math.abs(a);
 }
 
-// Devuelve filas normalizadas a partir de la matriz de celdas.
-function rowsFromMatrix(matrix, defaultType) {
-  // Busca la fila de cabecera: la primera con >=2 columnas reconocidas.
-  let headerIdx = -1;
-  let colMap = {};
+// Detecta la fila de cabecera y el mapeo columna->campo por nombre (determinista).
+// Devuelve {headerIdx, colMap} o null si no reconoce nada útil.
+function detectDeterministic(matrix) {
   for (let i = 0; i < Math.min(matrix.length, 10); i++) {
     const map = {};
     matrix[i].forEach((cell, c) => {
@@ -116,15 +114,15 @@ function rowsFromMatrix(matrix, defaultType) {
       if (f && map[f] === undefined) map[f] = c;
     });
     if (Object.keys(map).length >= 2 && (map.amount !== undefined || map.income !== undefined || map.expense !== undefined)) {
-      headerIdx = i;
-      colMap = map;
-      break;
+      return { headerIdx: i, colMap: map };
     }
   }
-  if (headerIdx === -1) {
-    return { rows: [], headers: [], skipped: 0, error: 'no_headers' };
-  }
-  const get = (arr, field) => (colMap[field] === undefined ? null : arr[colMap[field]]);
+  return null;
+}
+
+// Construye las filas normalizadas dado un mapeo de columnas explícito.
+function buildRows(matrix, headerIdx, colMap, defaultType) {
+  const get = (arr, field) => (colMap[field] === undefined || colMap[field] == null ? null : arr[colMap[field]]);
 
   const rows = [];
   let skipped = 0;
@@ -160,32 +158,69 @@ function rowsFromMatrix(matrix, defaultType) {
   return { rows, headers, skipped };
 }
 
-export async function parseImportFile(buffer, filename, { defaultType } = {}) {
+// Lee el fichero a una matriz de celdas (filas x columnas).
+async function readMatrix(buffer, filename) {
   const isCsv = /\.csv$/i.test(filename || '');
-  let matrix = [];
+  const matrix = [];
   if (isCsv) {
     const text = buffer.toString('utf8');
     const sep = text.includes(';') && !text.split('\n')[0].includes(',') ? ';' : (text.includes(';') ? ';' : ',');
-    matrix = text.split(/\r?\n/).map((line) => line.split(sep).map((c) => c.replace(/^"|"$/g, '').trim()));
-  } else {
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buffer);
-    const ws = wb.worksheets[0];
-    if (!ws) return { rows: [], headers: [], skipped: 0, error: 'empty' };
-    ws.eachRow((row) => {
-      const arr = [];
-      row.eachCell({ includeEmpty: true }, (cell) => {
-        let v = cell.value;
-        if (v && typeof v === 'object') {
-          if (v instanceof Date) { /* keep */ }
-          else if (v.text !== undefined) v = v.text;        // rich text / hyperlink
-          else if (v.result !== undefined) v = v.result;    // fórmula
-          else v = v.toString();
-        }
-        arr.push(v);
-      });
-      matrix.push(arr);
-    });
+    return text.split(/\r?\n/).map((line) => line.split(sep).map((c) => c.replace(/^"|"$/g, '').trim()));
   }
-  return rowsFromMatrix(matrix, defaultType);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+  const ws = wb.worksheets[0];
+  if (!ws) return matrix;
+  ws.eachRow((row) => {
+    const arr = [];
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      let v = cell.value;
+      if (v && typeof v === 'object') {
+        if (v instanceof Date) { /* keep */ }
+        else if (v.text !== undefined) v = v.text;        // rich text / hyperlink
+        else if (v.result !== undefined) v = v.result;    // fórmula
+        else v = v.toString();
+      }
+      arr.push(v);
+    });
+    matrix.push(arr);
+  });
+  return matrix;
+}
+
+/**
+ * Parsea el fichero. Primero intenta reconocer columnas por nombre
+ * (determinista, gratis). Si no lo consigue y se pasa [aiMapper], usa la IA para
+ * mapear columnas (solo el mapeo; los valores los calcula el código).
+ * @param {object} opts
+ * @param {string} [opts.defaultType] 'income'|'expense' por defecto si no hay tipo.
+ * @param {(sampleRows:any[][])=>Promise<{headerRow:number,columns:object}>} [opts.aiMapper]
+ */
+export async function parseImportFile(buffer, filename, { defaultType, aiMapper } = {}) {
+  const matrix = await readMatrix(buffer, filename);
+  if (!matrix.length) return { rows: [], headers: [], skipped: 0, error: 'empty' };
+
+  const det = detectDeterministic(matrix);
+  if (det) {
+    return { ...buildRows(matrix, det.headerIdx, det.colMap, defaultType), usedAi: false };
+  }
+
+  if (aiMapper) {
+    try {
+      const sample = matrix.slice(0, 6);
+      const ai = await aiMapper(sample);
+      const cols = ai?.columns || {};
+      const colMap = {};
+      for (const [k, v] of Object.entries(cols)) {
+        if (typeof v === 'number' && v >= 0) colMap[k] = v;
+      }
+      const usefulKey = colMap.amount != null || colMap.income != null || colMap.expense != null;
+      if (usefulKey) {
+        const headerIdx = typeof ai.headerRow === 'number' ? ai.headerRow : -1;
+        return { ...buildRows(matrix, headerIdx, colMap, defaultType), usedAi: true };
+      }
+    } catch (_) {/* fallback abajo */}
+  }
+
+  return { rows: [], headers: [], skipped: 0, error: 'no_headers' };
 }

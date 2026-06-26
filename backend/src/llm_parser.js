@@ -111,4 +111,51 @@ export function mergeParsed(llm, det) {
   return m;
 }
 
+/**
+ * Identifica qué columna de una hoja de cálculo es cada campo, a partir de las
+ * primeras filas (cada fila es un array de celdas por índice). Devuelve
+ * { headerRow, columns:{ date,amount,type,income,expense,category,description,
+ * payment,driver,plate } } con índices de columna o null. La IA SOLO mapea
+ * columnas; el cálculo de los valores lo hace el código (no inventa cifras).
+ */
+export async function llmMapColumns(sampleRows, { apiKey, baseURL, model } = {}) {
+  if (!apiKey || !model) throw new Error('LLM no configurado');
+  const { default: OpenAI } = await import('openai');
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+
+  const sys = `Eres un asistente que identifica las columnas de una hoja de cálculo de un taxista (ingresos y gastos). Te paso las primeras filas; cada fila es un array de celdas indexadas desde 0.
+Devuelve SOLO un JSON con esta forma exacta:
+{"headerRow": <índice de la fila de títulos, o -1 si no hay títulos>,
+ "columns": {"date": <idx|null>, "amount": <idx|null>, "type": <idx|null>, "income": <idx|null>, "expense": <idx|null>, "category": <idx|null>, "description": <idx|null>, "payment": <idx|null>, "driver": <idx|null>, "plate": <idx|null>}}
+Significado: date=fecha; amount=importe único; type=columna con ingreso/gasto; income=columna SOLO de ingresos; expense=columna SOLO de gastos; category=categoría/concepto; description=descripción/notas; payment=forma de pago; driver=conductor; plate=matrícula.
+Usa el índice numérico de columna. Si un campo no existe, null. No inventes columnas.`;
+
+  const table = sampleRows
+    .map((r, i) => `Fila ${i}: ${JSON.stringify(r)}`)
+    .join('\n');
+
+  const res = await client.chat.completions.create({
+    model,
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: sys },
+      { role: 'user', content: table },
+    ],
+  });
+  const raw = res.choices?.[0]?.message?.content || '{}';
+  const o = JSON.parse(raw);
+  const cols = (o && typeof o.columns === 'object') ? o.columns : {};
+  const idx = (v) => (typeof v === 'number' && v >= 0 ? v : null);
+  return {
+    headerRow: typeof o.headerRow === 'number' ? o.headerRow : -1,
+    columns: {
+      date: idx(cols.date), amount: idx(cols.amount), type: idx(cols.type),
+      income: idx(cols.income), expense: idx(cols.expense),
+      category: idx(cols.category), description: idx(cols.description),
+      payment: idx(cols.payment), driver: idx(cols.driver), plate: idx(cols.plate),
+    },
+  };
+}
+
 export default llmParse;

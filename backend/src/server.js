@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { parseTransactionText } from './parser.js';
 import { parseImportFile } from './importer.js';
+import { llmMapColumns } from './llm_parser.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
@@ -1169,23 +1170,55 @@ export async function buildApp(options = {}) {
       return reply.code(403).send({ error: 'Solo un Owner puede importar datos' });
     }
     const defaultType = request.query?.type;
+    const preview = request.query?.preview === 'true' || request.query?.preview === '1';
     const file = await request.file();
     if (!file) return reply.code(400).send({ error: 'Falta el fichero' });
     const buffer = await file.toBuffer();
 
+    // Opción B: si las reglas no reconocen las columnas, la IA (Groq) las mapea
+    // a partir de las primeras filas. Solo mapea columnas; los valores los
+    // calcula el código (no inventa cifras). Best-effort: si la IA falla, error claro.
+    const aiMapper = (OPENAI_API_KEY && LLM_PARSE_MODEL)
+      ? (sample) => llmMapColumns(sample, {
+          apiKey: OPENAI_API_KEY, baseURL: OPENAI_BASE_URL, model: LLM_PARSE_MODEL,
+        })
+      : null;
+
     let parsed;
     try {
-      parsed = await parseImportFile(buffer, file.filename, { defaultType });
+      parsed = await parseImportFile(buffer, file.filename, { defaultType, aiMapper });
     } catch (e) {
       return reply.code(400).send({ error: `No se pudo leer el fichero: ${e.message}` });
     }
     if (parsed.error === 'no_headers') {
       return reply.code(400).send({
-        error: 'No reconozco las columnas. Asegúrate de que la primera fila tiene títulos como Fecha, Importe, Tipo, Categoría…',
+        error: 'No reconozco las columnas. Asegúrate de que la primera fila tiene títulos (Fecha, Importe, Tipo, Categoría…).',
       });
     }
     if (!parsed.rows.length) {
-      return reply.send({ imported: 0, skipped: parsed.skipped || 0, headers: parsed.headers || [] });
+      return reply.send({ imported: 0, skipped: parsed.skipped || 0, headers: parsed.headers || [], usedAi: parsed.usedAi || false });
+    }
+
+    // Vista previa: NO inserta; devuelve un resumen para que el usuario confirme.
+    if (preview) {
+      const sample = parsed.rows.slice(0, 15).map((r) => ({
+        date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : null,
+        amount: r.amount,
+        type: r.type,
+        category: r.category,
+        payment: r.payment,
+        description: r.description,
+        driver: r.driver,
+        plate: r.plate,
+      }));
+      return reply.send({
+        imported: 0,
+        preview: sample,
+        total: parsed.rows.length,
+        skipped: parsed.skipped || 0,
+        usedAi: parsed.usedAi || false,
+        headers: parsed.headers || [],
+      });
     }
 
     const norm = (s) => (s ?? '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();

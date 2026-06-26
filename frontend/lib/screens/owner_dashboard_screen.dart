@@ -301,15 +301,81 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     setState(() => _exporting = true);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('imp_importing'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('imp_reading'))));
     }
     try {
+      // 1) Vista previa (no guarda): la IA/reglas detectan las columnas.
+      final pv = await _service.importTransactions(
+          bytes: bytes, filename: f.name, type: type, preview: true);
+      if (!mounted) return;
+      final total = pv['total'] ?? 0;
+      final skipped = pv['skipped'] ?? 0;
+      final usedAi = pv['usedAi'] == true;
+      final rows = ((pv['preview'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (total == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('imp_nothing'))));
+        return;
+      }
+
+      // 2) El usuario confirma tras ver la muestra.
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.t('imp_preview_title')),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.t('imp_preview_count', {'n': '$total', 's': '$skipped'})),
+                if (usedAi)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('🤖 ${l.t('imp_used_ai')}',
+                        style: Theme.of(ctx).textTheme.bodySmall),
+                  ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (final r in rows)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              r['type'] == 'income' ? Icons.south_west : Icons.north_east,
+                              color: r['type'] == 'income' ? Colors.green : Colors.red,
+                              size: 18,
+                            ),
+                            title: Text('${r['amount']} € · ${(r['category'] ?? r['description'] ?? '') as String}'),
+                            subtitle: Text('${r['date'] ?? '—'}'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('imp_confirm', {'n': '$total'}))),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+
+      // 3) Importación real.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('imp_importing'))));
+      }
       final res = await _service.importTransactions(bytes: bytes, filename: f.name, type: type);
       final imported = res['imported'] ?? 0;
-      final skipped = res['skipped'] ?? 0;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.t('imp_done', {'n': '$imported', 's': '$skipped'}))),
+        SnackBar(content: Text(l.t('imp_done', {'n': '$imported', 's': '${res['skipped'] ?? 0}'}))),
       );
       await _reload();
     } catch (e) {

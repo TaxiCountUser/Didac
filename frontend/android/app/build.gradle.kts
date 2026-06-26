@@ -21,7 +21,9 @@ if (hasReleaseSigning) {
 
 android {
     namespace = "app.taxicount.taxicount"
-    compileSdk = flutter.compileSdkVersion
+    // file_picker (y sus dependencias) exigen compileSdk 36+. Forzamos 36 sin
+    // bajar del que pida Flutter.
+    compileSdk = maxOf(36, flutter.compileSdkVersion)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

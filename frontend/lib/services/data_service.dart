@@ -792,10 +792,11 @@ class DataService {
     required List<int> bytes,
     required String filename,
     String type = 'auto',
+    bool preview = false,
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
-    final uri = Uri.parse('$backendUrl/api/v1/import/transactions?type=$type');
+    final uri = Uri.parse('$backendUrl/api/v1/import/transactions?type=$type${preview ? '&preview=true' : ''}');
     final req = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
       ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
