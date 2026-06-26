@@ -98,10 +98,17 @@ class _ProfileRouterState extends State<ProfileRouter> {
         if (profile.isInactiveDriver) {
           return const NoFleetScreen();
         }
+        // Tutorial de bienvenida: SOLO la primera vez (flag en BD). Al terminar
+        // o saltar, se marca como visto y se recarga.
+        if (!profile.tutorialSeen) {
+          return TutorialScreen(onFinish: () async {
+            await _service.markTutorialSeen();
+            _reload();
+          });
+        }
         // Entró (p. ej. con Google) pero aún no tiene flota: que elija.
-        // El tutorial se muestra también aquí (toda cuenta nueva lo ve).
         if (!profile.hasFleet) {
-          return TutorialGate(child: ChoosePathScreen(onDone: _reload));
+          return ChoosePathScreen(onDone: _reload);
         }
         // Prueba de 15 días caducada y sin suscripción activa: bloqueo.
         final tenant = account!.tenant;
@@ -110,15 +117,15 @@ class _ProfileRouterState extends State<ProfileRouter> {
         }
         // Modo autónomo: empresa y chófer en uno (conmutador arriba).
         if (tenant != null && tenant.solo) {
-          return TutorialGate(child: SoloHomeScreen(profile: profile));
+          return SoloHomeScreen(profile: profile);
         }
         if (!profile.isOwner) {
-          return TutorialGate(child: DriverHomeScreen(profile: profile));
+          return DriverHomeScreen(profile: profile);
         }
         if (!profile.hasCompletedOnboarding) {
-          return TutorialGate(child: OnboardingScreen(profile: profile, onFinished: _reload));
+          return OnboardingScreen(profile: profile, onFinished: _reload);
         }
-        return TutorialGate(child: OwnerHomeScreen(profile: profile));
+        return OwnerHomeScreen(profile: profile);
       },
     );
   }

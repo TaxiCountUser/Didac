@@ -423,13 +423,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _editUsername,
           ),
-          ListTile(
-            leading: const Icon(Icons.card_giftcard, color: Colors.amber),
-            title: Text(l.t('set_referral')),
-            subtitle: Text(l.t('set_referral_sub')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _open(ReferralScreen(profile: widget.profile)),
-          ),
+          // Referidos: solo en el panel de empresa (el chófer no paga, lo paga
+          // la empresa).
+          if (isOwner)
+            ListTile(
+              leading: const Icon(Icons.card_giftcard, color: Colors.amber),
+              title: Text(l.t('set_referral')),
+              subtitle: Text(l.t('set_referral_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(ReferralScreen(profile: widget.profile)),
+            ),
           ListTile(
             leading: const Icon(Icons.support_agent),
             title: Text(l.t('set_report_bug')),

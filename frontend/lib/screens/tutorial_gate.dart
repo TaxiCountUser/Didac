@@ -1,57 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 
-/// Envuelve la pantalla principal y, la PRIMERA vez que CADA usuario usa la app,
-/// muestra un tutorial rápido (con botón "Saltar"). El flag se guarda POR
-/// usuario (clave con su id), así toda cuenta nueva lo ve una vez.
-class TutorialGate extends StatefulWidget {
-  final Widget child;
-  const TutorialGate({super.key, required this.child});
-
-  @override
-  State<TutorialGate> createState() => _TutorialGateState();
-}
-
-class _TutorialGateState extends State<TutorialGate> {
-  bool? _seen; // null mientras se carga
-
-  // Clave por usuario: cada cuenta nueva ve el tutorial una vez.
-  String get _prefKey {
-    final uid = Supabase.instance.client.auth.currentUser?.id ?? 'anon';
-    return 'seen_tutorial_v1_$uid';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  Future<void> _check() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() => _seen = prefs.getBool(_prefKey) ?? false);
-  }
-
-  Future<void> _finish() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefKey, true);
-    if (mounted) setState(() => _seen = true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_seen == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (_seen == true) return widget.child;
-    return _TutorialScreen(onFinish: _finish);
-  }
-}
-
+/// Tutorial de bienvenida (una sola vez por usuario). El "ya visto" se guarda en
+/// la BD (users.tutorial_seen); el AuthGate decide cuándo mostrarlo y llama a
+/// [onFinish] al terminar o saltar.
 class _Slide {
   final IconData icon;
   final String titleKey;
@@ -59,15 +12,15 @@ class _Slide {
   const _Slide(this.icon, this.titleKey, this.bodyKey);
 }
 
-class _TutorialScreen extends StatefulWidget {
+class TutorialScreen extends StatefulWidget {
   final VoidCallback onFinish;
-  const _TutorialScreen({required this.onFinish});
+  const TutorialScreen({super.key, required this.onFinish});
 
   @override
-  State<_TutorialScreen> createState() => _TutorialScreenState();
+  State<TutorialScreen> createState() => _TutorialScreenState();
 }
 
-class _TutorialScreenState extends State<_TutorialScreen> {
+class _TutorialScreenState extends State<TutorialScreen> {
   final _controller = PageController();
   int _page = 0;
 

@@ -36,6 +36,13 @@ class DataService {
     return row == null ? null : Profile.fromMap(row);
   }
 
+  /// Marca el tutorial de bienvenida como visto (para que no vuelva a salir).
+  Future<void> markTutorialSeen() async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    await _c.from('users').update({'tutorial_seen': true}).eq('id', uid);
+  }
+
   // ---------------- Alta diferida (elegir flota) ----------------
 
   /// Crea la empresa del usuario pendiente y lo convierte en propietario.

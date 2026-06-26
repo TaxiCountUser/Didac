@@ -12,6 +12,7 @@ class Profile {
   final bool active; // false = el jefe lo sacó de la flota (despedido)
   final bool isAdmin; // admin de plataforma: ve/resuelve incidencias de todas
   final bool hasCompletedOnboarding;
+  final bool tutorialSeen; // ya vio el tutorial de bienvenida (una sola vez)
   final String? referralCode; // mi código para invitar
   final String? referredBy; // id de quien me invitó (null = nadie)
 
@@ -28,6 +29,7 @@ class Profile {
     this.active = true,
     this.isAdmin = false,
     this.hasCompletedOnboarding = false,
+    this.tutorialSeen = false,
     this.referralCode,
     this.referredBy,
   });
@@ -61,6 +63,7 @@ class Profile {
         active: (m['active'] as bool?) ?? true,
         isAdmin: (m['is_admin'] as bool?) ?? false,
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
+        tutorialSeen: (m['tutorial_seen'] as bool?) ?? false,
         referralCode: m['referral_code'] as String?,
         referredBy: m['referred_by'] as String?,
       );

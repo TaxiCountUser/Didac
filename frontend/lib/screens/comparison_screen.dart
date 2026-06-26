@@ -31,6 +31,8 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
   _Gran _gran = _Gran.month;
   String? _driverId; // null = todos
   String? _vehicleId; // null = todos
+  DateTime? _customFrom; // rango personalizado (null = usar día/mes/año)
+  DateTime? _customTo;
   bool _loading = true;
   String? _error;
 
@@ -53,8 +55,21 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
     await _load();
   }
 
-  // Rango a consultar según la granularidad (qué tan atrás miramos).
+  bool get _isCustom => _customFrom != null && _customTo != null;
+
+  // Granularidad efectiva de agrupación. En personalizado se elige según el
+  // tamaño del rango (días si es corto, meses si es medio, años si es largo).
+  _Gran get _effectiveGran {
+    if (!_isCustom) return _gran;
+    final days = _customTo!.difference(_customFrom!).inDays;
+    if (days <= 62) return _Gran.day;
+    if (days <= 1100) return _Gran.month;
+    return _Gran.year;
+  }
+
+  // Rango a consultar.
   DateTime get _from {
+    if (_isCustom) return _customFrom!;
     final now = DateTime.now();
     switch (_gran) {
       case _Gran.day:
@@ -66,8 +81,13 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
     }
   }
 
+  // Fin del rango (exclusivo) en personalizado; null = hasta ahora.
+  DateTime? get _to => _isCustom
+      ? DateTime(_customTo!.year, _customTo!.month, _customTo!.day).add(const Duration(days: 1))
+      : null;
+
   String _keyFor(DateTime d) {
-    switch (_gran) {
+    switch (_effectiveGran) {
       case _Gran.day:
         return '${d.year}-${_pad2(d.month)}-${_pad2(d.day)}';
       case _Gran.month:
@@ -78,7 +98,7 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
   }
 
   String _labelFor(String key) {
-    switch (_gran) {
+    switch (_effectiveGran) {
       case _Gran.day:
         final p = key.split('-');
         return '${p[2]}/${p[1]}';
@@ -93,6 +113,26 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
 
   String _pad2(int n) => n.toString().padLeft(2, '0');
 
+  String _fmtDate(DateTime d) => '${_pad2(d.day)}/${_pad2(d.month)}/${d.year}';
+
+  Future<void> _pickCustomRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: _isCustom
+          ? DateTimeRange(start: _customFrom!, end: _customTo!)
+          : DateTimeRange(start: DateTime(now.year, now.month, 1), end: now),
+    );
+    if (picked == null) return;
+    setState(() {
+      _customFrom = picked.start;
+      _customTo = picked.end;
+    });
+    _load();
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -103,6 +143,7 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
         driverId: _driverId,
         vehicleId: _vehicleId,
         from: _from,
+        to: _to,
       );
       // Agrupa en buckets ordenados por clave.
       final map = <String, _Bucket>{};
@@ -164,18 +205,55 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          SegmentedButton<_Gran>(
-            segments: [
-              ButtonSegment(value: _Gran.day, label: Text(l.t('cmp_day'))),
-              ButtonSegment(value: _Gran.month, label: Text(l.t('cmp_month'))),
-              ButtonSegment(value: _Gran.year, label: Text(l.t('cmp_year'))),
+          Row(
+            children: [
+              Expanded(
+                child: SegmentedButton<_Gran>(
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(value: _Gran.day, label: Text(l.t('cmp_day'))),
+                    ButtonSegment(value: _Gran.month, label: Text(l.t('cmp_month'))),
+                    ButtonSegment(value: _Gran.year, label: Text(l.t('cmp_year'))),
+                  ],
+                  selected: _isCustom ? <_Gran>{} : {_gran},
+                  // En personalizado no marcamos ninguno fijo; al elegir uno se
+                  // sale del personalizado.
+                  emptySelectionAllowed: true,
+                  onSelectionChanged: (s) {
+                    if (s.isEmpty) return;
+                    setState(() {
+                      _gran = s.first;
+                      _customFrom = null;
+                      _customTo = null;
+                    });
+                    _load();
+                  },
+                ),
+              ),
+              IconButton(
+                tooltip: l.t('cmp_custom'),
+                icon: Icon(Icons.date_range, color: _isCustom ? Colors.amber.shade800 : null),
+                onPressed: _pickCustomRange,
+              ),
             ],
-            selected: {_gran},
-            onSelectionChanged: (s) {
-              setState(() => _gran = s.first);
-              _load();
-            },
           ),
+          if (_isCustom)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: InputChip(
+                  label: Text('${_fmtDate(_customFrom!)} – ${_fmtDate(_customTo!)}'),
+                  onDeleted: () {
+                    setState(() {
+                      _customFrom = null;
+                      _customTo = null;
+                    });
+                    _load();
+                  },
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
           Row(
             children: [
