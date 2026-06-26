@@ -72,6 +72,11 @@ class DataService {
     return {'total': list.length, 'rewarded': rewarded};
   }
 
+  /// Activa/desactiva el modo autónomo (solo) de mi empresa (solo propietario).
+  Future<void> setSoloMode(bool solo) async {
+    await _c.rpc('set_solo_mode', params: {'p_solo': solo});
+  }
+
   /// Estado de mi empresa (modo autónomo, suscripción y prueba de 15 días).
   Future<TenantState?> fetchMyTenantState(String tenantId) async {
     if (tenantId.isEmpty) return null;
@@ -247,6 +252,14 @@ class DataService {
       final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
       throw Exception(body['error'] ?? 'No se pudo actualizar la incidencia');
     }
+  }
+
+  /// Lista de administradores actuales (solo admin).
+  Future<List<Map<String, dynamic>>> adminListAdmins() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/admins'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['admins'] as List?) ?? []).cast<Map<String, dynamic>>();
   }
 
   /// Nombrar (o quitar) admin a otro usuario por correo (solo admin).

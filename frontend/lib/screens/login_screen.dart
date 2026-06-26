@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../widgets/lang_flag.dart';
 
 /// Login / registro de Owners.
 /// El signUp crea un Owner (el trigger de BD crea su tenant automáticamente).
@@ -111,7 +112,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     return Scaffold(
-      body: Center(
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
         child: SingleChildScrollView(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 360),
@@ -219,6 +223,35 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+        ),
+            ),
+            // Selector de idioma: bandera arriba a la derecha (no molesta).
+            Positioned(
+              top: 4,
+              right: 4,
+              child: PopupMenuButton<String>(
+                tooltip: l.t('set_language'),
+                icon: LangFlag(localeController.value.languageCode, size: 26),
+                onSelected: (code) async {
+                  await localeController.setLocale(code);
+                  if (mounted) setState(() {});
+                },
+                itemBuilder: (_) => [
+                  for (final entry in kLanguageNames.entries)
+                    PopupMenuItem(
+                      value: entry.key,
+                      child: Row(
+                        children: [
+                          LangFlag(entry.key, size: 22),
+                          const SizedBox(width: 10),
+                          Text(entry.value),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -690,6 +690,19 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
+  // Lista de administradores actuales (para gestionarlos).
+  app.get('/api/v1/admin/admins', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, name')
+      .eq('is_admin', true)
+      .order('email', { ascending: true });
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ admins: data || [] });
+  });
+
   // Nombrar (o quitar) admin a otro usuario por su correo.
   app.post('/api/v1/admin/make-admin', async (request, reply) => {
     const g = await adminGuard(request);
