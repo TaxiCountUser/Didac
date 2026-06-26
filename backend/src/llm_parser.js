@@ -29,7 +29,7 @@ Retorna NOMÉS un objecte JSON (sense text addicional) amb aquestes claus exacte
 - "origin": lloc d'origen de la carrera (string) o null.
 - "destination": lloc de destí (string) o null.
 - "odometer_km": km actuals del cotxe (enter) o null. Només si es mencionen km/quilòmetres.
-- "client_name": nom de l'empresa si es menciona (p. ex. Gitaxi, Movitaxi, OneCab, Asepeyo, Mutua Asepeyo, Radio Taxi, Cooperativa), amb la primera lletra en majúscula; null si és un client particular.
+- "client_name": nom de l'empresa si es menciona (p. ex. Gitaxi, Movitaxi, OneCab, Asepeyo, Mutua Asepeyo, Radio Taxi, Cooperativa), amb la primera lletra en majúscula; null si és un client particular. Si s'assembla molt a una empresa coneguda encara que la veu l'hagi transcrit malament (p. ex. "gitasi"/"gitaxis" -> "Gitaxi", "onecap" -> "OneCab"), normalitza'l al nom correcte de la llista.
 - "category": NOMÉS per a despeses, un de "gasolina", "gasoil", "taller", "peaje", "parking", "lavado", "multa", "seguro", "comida", "compra"; o null.
 
 IMPORTANT amb els LLOCS: poden contenir preposicions, articles i diverses paraules i s'han de mantenir SENCERS, p. ex. "Rambla de Figueres", "Estació de França", "Estació de Renfe", "Museu Dalí", "Estació Figueres AVE", "Plaça de Catalunya". El "de/des de X a/fins a Y" que separa ORIGEN i DESTÍ és només el connector; aquest "de"/"a" de connexió NO forma part del nom. Exemple: "de la rambla de Figueres a l'estació de Renfe" => origin "Rambla de Figueres", destination "Estació de Renfe".

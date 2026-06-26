@@ -20,7 +20,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const cache = new Map();
 
 export function cacheKey(format, f = {}) {
-  return [format, f.tenantId, f.startDate || '', f.endDate || '', f.driverId || '', f.vehicleId || '', f.client || ''].join('|');
+  return [format, f.tenantId, f.startDate || '', f.endDate || '', f.driverId || '', f.vehicleId || '', f.client || '', f.excludeClient || ''].join('|');
 }
 export function getCached(key) {
   const e = cache.get(key);
@@ -40,7 +40,7 @@ export function clearReportCache() {
 
 // ---------------- Datos ----------------
 export async function fetchReportData(supabase, filters = {}) {
-  const { tenantId, startDate, endDate, driverId, vehicleId, client } = filters;
+  const { tenantId, startDate, endDate, driverId, vehicleId, client, excludeClient } = filters;
   let q = supabase
     .from('transactions')
     .select('*, users:user_id(name, email), vehicles:vehicle_id(license_plate, model)')
@@ -50,6 +50,8 @@ export async function fetchReportData(supabase, filters = {}) {
   if (startDate) q = q.gte('created_at', startDate);
   if (endDate) q = q.lt('created_at', endDate);
   if (client) q = q.ilike('client_name', `%${client}%`);
+  // Excluir una empresa: no aparecen sus servicios (ni filas con ese cliente).
+  if (excludeClient) q = q.not('client_name', 'ilike', `%${excludeClient}%`);
   q = q.order('created_at', { ascending: true });
 
   const { data, error } = await q;

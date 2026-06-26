@@ -1120,8 +1120,8 @@ export async function buildApp(options = {}) {
       return reply.code(403).send({ error: 'Solo un Owner puede exportar informes' });
     }
 
-    const { startDate, endDate, driverId, vehicleId, client } = request.body ?? {};
-    const filters = { tenantId: caller.tenant_id, startDate, endDate, driverId, vehicleId, client };
+    const { startDate, endDate, driverId, vehicleId, client, excludeClient } = request.body ?? {};
+    const filters = { tenantId: caller.tenant_id, startDate, endDate, driverId, vehicleId, client, excludeClient };
     const ext = format === 'excel' ? 'xlsx' : 'pdf';
     const mime = format === 'excel' ? XLSX_MIME : 'application/pdf';
     const filename = `TaxiCount_export_${new Date().toISOString().slice(0, 10)}.${ext}`;

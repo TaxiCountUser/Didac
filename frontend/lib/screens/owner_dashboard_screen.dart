@@ -441,7 +441,67 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   // --------------- Exportación (Fase 5) ---------------
+  // Pregunta el alcance: todo / solo una empresa / excluir una empresa.
+  // Devuelve {client, exclude} o null si se cancela.
+  Future<Map<String, String?>?> _askExportScope() async {
+    final l = context.l10n;
+    List<String> companies = [];
+    try { companies = await _service.distinctClients(); } catch (_) {}
+    if (!mounted) return null;
+    var mode = 'all'; // all | only | exclude
+    String? company = companies.isNotEmpty ? companies.first : null;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(l.t('exp_scope_title')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(value: 'all', label: Text(l.t('exp_all'))),
+                  ButtonSegment(value: 'only', label: Text(l.t('exp_only'))),
+                  ButtonSegment(value: 'exclude', label: Text(l.t('exp_exclude'))),
+                ],
+                selected: {mode},
+                onSelectionChanged: (s) => setLocal(() => mode = s.first),
+              ),
+              if (mode != 'all') ...[
+                const SizedBox(height: 12),
+                companies.isEmpty
+                    ? Text(l.t('exp_no_companies'))
+                    : DropdownButtonFormField<String>(
+                        initialValue: company,
+                        isExpanded: true,
+                        decoration: InputDecoration(labelText: l.t('exp_company')),
+                        items: [
+                          for (final c in companies)
+                            DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis)),
+                        ],
+                        onChanged: (v) => setLocal(() => company = v),
+                      ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('od_export'))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return null;
+    if (mode == 'all') return {'client': null, 'exclude': null};
+    if (company == null) return null;
+    if (mode == 'only') return {'client': company, 'exclude': null};
+    return {'client': null, 'exclude': company};
+  }
+
   Future<void> _export(String format) async {
+    final scope = await _askExportScope();
+    if (scope == null || !mounted) return; // cancelado
     setState(() => _exporting = true);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.l10n.t('od_generating', {'fmt': format == 'excel' ? 'Excel' : 'PDF'}))),
@@ -453,7 +513,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         to: _to,
         driverId: _driverId,
         vehicleId: _vehicleId,
-        client: _client,
+        client: scope['client'],
+        excludeClient: scope['exclude'],
       );
       final ext = format == 'excel' ? 'xlsx' : 'pdf';
       final filename = 'taxicount_export_${DateTime.now().millisecondsSinceEpoch}.$ext';

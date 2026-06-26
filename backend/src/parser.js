@@ -271,6 +271,41 @@ function findClient(norm) {
   return null;
 }
 
+// Distancia de edición (Levenshtein) para tolerar errores de transcripción.
+function levenshtein(a, b) {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+// Empresas conocidas de una sola palabra (para el match difuso por palabra).
+const FUZZY_COMPANIES = KNOWN_COMPANIES.filter(([needle]) => !needle.includes(' ') && needle.length >= 5);
+
+// Reconoce una empresa aunque la voz la transcriba parecido: "gitasi" -> Gitaxi.
+// Conservador: solo palabras de longitud similar (±1) y distancia <= 1, para no
+// confundir palabras comunes (p. ej. "taxi" no se convierte en "Gitaxi").
+function fuzzyClient(tokens) {
+  for (const w of tokens) {
+    if (w.length < 5) continue;
+    for (const [needle, label] of FUZZY_COMPANIES) {
+      if (Math.abs(w.length - needle.length) > 1) continue;
+      if (levenshtein(w, needle) <= 1) return label;
+    }
+  }
+  return null;
+}
+
 // --- Diccionarios de palabras clave ---
 const CATEGORY_KEYWORDS = {
   gasolina: ['gasolina', 'benzina'],
@@ -368,8 +403,9 @@ export function parseTransactionText(text) {
 
   const amount = extractAmount(tokens);
   const odometer_km = extractKm(tokens);
-  // "empresa X" dicho explícitamente tiene prioridad; si no, empresas conocidas.
-  const client_name = extractCompany(text) || findClient(norm);
+  // "empresa X" dicho explícitamente tiene prioridad; luego empresas conocidas
+  // (exacto y, si no, difuso para tolerar la voz: "gitasi" -> Gitaxi).
+  const client_name = extractCompany(text) || findClient(norm) || fuzzyClient(tokens);
 
   // Categoría de GASTO por palabra clave (gasolina, taller, peaje…).
   let category = findCategory(tokens);

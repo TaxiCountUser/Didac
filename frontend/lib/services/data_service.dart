@@ -749,6 +749,7 @@ class DataService {
     String? driverId,
     String? vehicleId,
     String? client,
+    String? excludeClient,
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
@@ -761,6 +762,7 @@ class DataService {
         'driverId': driverId,
         'vehicleId': vehicleId,
         'client': client,
+        'excludeClient': excludeClient,
       }),
     );
     if (res.statusCode == 504) {
@@ -791,6 +793,23 @@ class DataService {
     if (to != null) q = q.lt('created_at', to.toIso8601String());
     final data = await q.order('created_at').limit(10000);
     return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Empresas/clientes distintos que aparecen en las transacciones (para filtrar
+  /// la exportación). Ordenados alfabéticamente.
+  Future<List<String>> distinctClients() async {
+    final data = await _c
+        .from('transactions')
+        .select('client_name')
+        .not('client_name', 'is', null)
+        .limit(5000);
+    final set = <String>{};
+    for (final r in (data as List)) {
+      final c = (r['client_name'] as String?)?.trim();
+      if (c != null && c.isNotEmpty) set.add(c);
+    }
+    final list = set.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
   }
 
   /// Importa un Excel/CSV antiguo. [type]: 'auto' | 'income' | 'expense' (tipo
