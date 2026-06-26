@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../services/file_download.dart';
+import 'comparison_screen.dart';
 import '../util/format.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
@@ -378,6 +379,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else ...[
+            IconButton(
+              key: const Key('compare_button'),
+              icon: const Icon(Icons.bar_chart),
+              tooltip: context.l10n.t('cmp_title'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => ComparisonScreen(profile: widget.profile)),
+              ),
+            ),
             IconButton(
               key: const Key('import_button'),
               icon: const Icon(Icons.upload_file),

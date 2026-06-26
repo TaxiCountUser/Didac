@@ -769,6 +769,23 @@ class DataService {
     return res.bodyBytes;
   }
 
+  /// Transacciones ligeras para estadísticas/comparativas (amount, type, fecha).
+  /// RLS: el owner ve las de su tenant. Filtros opcionales por conductor/coche/rango.
+  Future<List<Map<String, dynamic>>> statsTransactions({
+    String? driverId,
+    String? vehicleId,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    var q = _c.from('transactions').select('amount, type, created_at');
+    if (driverId != null) q = q.eq('user_id', driverId);
+    if (vehicleId != null) q = q.eq('vehicle_id', vehicleId);
+    if (from != null) q = q.gte('created_at', from.toIso8601String());
+    if (to != null) q = q.lt('created_at', to.toIso8601String());
+    final data = await q.order('created_at').limit(10000);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
   /// Importa un Excel/CSV antiguo. [type]: 'auto' | 'income' | 'expense' (tipo
   /// por defecto si el fichero no trae columna de tipo). Devuelve {imported, skipped}.
   Future<Map<String, dynamic>> importTransactions({
