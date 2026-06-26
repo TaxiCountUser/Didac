@@ -73,6 +73,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // URL de retorno en web: origen + carpeta de la app (sin query/fragment).
+  // Ej.: https://taxicountuser.github.io/Didac/  o  http://localhost:8080/
+  String _webRedirect() {
+    final b = Uri.base;
+    var path = b.path;
+    if (!path.endsWith('/')) {
+      path = path.substring(0, path.lastIndexOf('/') + 1);
+    }
+    return '${b.origin}$path';
+  }
+
   // Inicio de sesión con Google (OAuth de Supabase). En móvil vuelve por deep
   // link; en web redirige en el navegador. Requiere configurar el proveedor
   // Google en Supabase (y un cliente OAuth en Google Cloud).
@@ -81,10 +92,10 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
-        // En web volvemos SIEMPRE al origen donde corre la app (localhost:8080
-        // en pruebas, o el dominio al publicar): así no dependemos de la
-        // "Site URL" de Supabase. En móvil volvemos por el deep link.
-        redirectTo: kIsWeb ? Uri.base.origin : 'app.taxicount://login-callback',
+        // En web volvemos a la CARPETA donde corre la app, no solo al dominio:
+        // en GitHub Pages la app vive en /Didac/, así que el origen pelado daría
+        // una página inexistente. En móvil volvemos por el deep link.
+        redirectTo: kIsWeb ? _webRedirect() : 'app.taxicount://login-callback',
       );
       // En móvil abre el navegador; el AuthGate reaccionará al volver.
     } on AuthException catch (e) {
