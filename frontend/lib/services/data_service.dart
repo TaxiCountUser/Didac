@@ -748,8 +748,8 @@ class DataService {
     DateTime? to,
     String? driverId,
     String? vehicleId,
-    String? client,
-    String? excludeClient,
+    List<String>? clients,
+    List<String>? excludeClients,
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
@@ -761,8 +761,8 @@ class DataService {
         'endDate': to?.toIso8601String(),
         'driverId': driverId,
         'vehicleId': vehicleId,
-        'client': client,
-        'excludeClient': excludeClient,
+        if (clients != null && clients.isNotEmpty) 'clients': clients,
+        if (excludeClients != null && excludeClients.isNotEmpty) 'excludeClients': excludeClients,
       }),
     );
     if (res.statusCode == 504) {

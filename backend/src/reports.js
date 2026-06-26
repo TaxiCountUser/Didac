@@ -20,7 +20,11 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const cache = new Map();
 
 export function cacheKey(format, f = {}) {
-  return [format, f.tenantId, f.startDate || '', f.endDate || '', f.driverId || '', f.vehicleId || '', f.client || '', f.excludeClient || ''].join('|');
+  return [
+    format, f.tenantId, f.startDate || '', f.endDate || '', f.driverId || '', f.vehicleId || '',
+    f.client || '', f.excludeClient || '',
+    (f.clients || []).join('+'), (f.excludeClients || []).join('+'),
+  ].join('|');
 }
 export function getCached(key) {
   const e = cache.get(key);
@@ -40,7 +44,14 @@ export function clearReportCache() {
 
 // ---------------- Datos ----------------
 export async function fetchReportData(supabase, filters = {}) {
-  const { tenantId, startDate, endDate, driverId, vehicleId, client, excludeClient } = filters;
+  const { tenantId, startDate, endDate, driverId, vehicleId, client, excludeClient, clients, excludeClients } = filters;
+  // Admite una empresa (client/excludeClient) o varias (clients/excludeClients).
+  const incl = (Array.isArray(clients) && clients.length) ? clients : (client ? [client] : []);
+  const excl = (Array.isArray(excludeClients) && excludeClients.length) ? excludeClients : (excludeClient ? [excludeClient] : []);
+  // En el filtro or() de PostgREST los comodines son '*' (no '%') y la coma/los
+  // paréntesis separan condiciones: los limpiamos del valor.
+  const orSafe = (s) => String(s).replace(/[,()*]/g, ' ').trim();
+
   let q = supabase
     .from('transactions')
     .select('*, users:user_id(name, email), vehicles:vehicle_id(license_plate, model)')
@@ -49,9 +60,14 @@ export async function fetchReportData(supabase, filters = {}) {
   if (vehicleId) q = q.eq('vehicle_id', vehicleId);
   if (startDate) q = q.gte('created_at', startDate);
   if (endDate) q = q.lt('created_at', endDate);
-  if (client) q = q.ilike('client_name', `%${client}%`);
-  // Excluir una empresa: no aparecen sus servicios (ni filas con ese cliente).
-  if (excludeClient) q = q.not('client_name', 'ilike', `%${excludeClient}%`);
+  // Solo estas empresas (cualquiera de ellas).
+  if (incl.length) {
+    q = q.or(incl.map((c) => `client_name.ilike.*${orSafe(c)}*`).join(','));
+  }
+  // Excluir estas empresas: ninguna de ellas aparece.
+  for (const c of excl) {
+    q = q.not('client_name', 'ilike', `%${c}%`);
+  }
   q = q.order('created_at', { ascending: true });
 
   const { data, error } = await q;
