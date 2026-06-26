@@ -24,7 +24,7 @@ services:
     plan: free
     region: frankfurt          # EU (cámbialo si tu Supabase está en otra región)
     healthCheckPath: /health
-    autoDeploy: false          # despliega solo cuando tú lo pidas
+    autoDeploy: true           # cada push a main despliega solo (sin Manual Deploy)
     envVars:
       - key: NODE_ENV
         value: production
