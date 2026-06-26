@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import { parseTransactionText } from './parser.js';
 import { parseImportFile } from './importer.js';
 import { llmMapColumns } from './llm_parser.js';
+import { correctTranscript } from './corrections.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
@@ -178,9 +179,15 @@ async function defaultTranscribe({ buffer, filename, language }) {
   });
   const file = await toFile(buffer, filename || 'audio.m4a');
   // Pista de idioma (es/ca/en): mejora mucho catalán y frases cortas.
+  // Pista de vocabulario (prompt): sesga a términos locales para que no parta
+  // nombres propios (p. ej. "Museu Dalí" en vez de "museu de lí"). Ampliable
+  // con TRANSCRIBE_PROMPT.
+  const prompt = process.env.TRANSCRIBE_PROMPT
+    || 'Carrera de taxi a Figueres. Llocs: Museu Dalí, Rambla de Figueres, Estació de Renfe, Estació Figueres-Vilafant AVE, Castell de Sant Ferran. Empreses: Gitaxi, Movitaxi, OneCab.';
   const res = await client.audio.transcriptions.create({
     file,
     model: WHISPER_MODEL,
+    prompt,
     ...(language ? { language } : {}),
   });
   return { text: res.text, confidence: 0.95 };
@@ -421,6 +428,9 @@ export async function buildApp(options = {}) {
       return reply.code(502).send({ error, detail: e.message });
     }
 
+    // Corrige términos locales mal transcritos (p. ej. "museu de lí" -> "Museu
+    // Dalí") antes de interpretar y de mostrar la descripción.
+    result.text = correctTranscript(result.text);
     transcriptionCache.set(cacheKey, result);
     const parsed = await parseSmart(result.text, { language, log: request.log });
     return reply.send({ ...result, parsed, cached: false });
@@ -436,8 +446,9 @@ export async function buildApp(options = {}) {
       if (!text.trim()) return reply.code(400).send({ error: 'Falta "text"' });
       const langRaw = (body.language || request.query?.language || '').toLowerCase();
       const language = TRANSCRIBE_LANGS.has(langRaw) ? langRaw : null;
-      const parsed = await parseSmart(text, { language, log: request.log });
-      return reply.send({ text, language, parsed });
+      const corrected = correctTranscript(text);
+      const parsed = await parseSmart(corrected, { language, log: request.log });
+      return reply.send({ text: corrected, language, parsed });
     });
 
     // Pequeña página web para probar desde el navegador.

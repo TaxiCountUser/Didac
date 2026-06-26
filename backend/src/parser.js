@@ -231,9 +231,11 @@ function cleanPlace(s) {
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
-// Origen/destino con patrón "de X a Y" o "desde X hasta/a Y".
-// Trabaja sobre el texto original para conservar los nombres de lugar.
-const ROUTE_RE = /\b(?:des\s+de|desde|de)\s+(.+?)\s+(?:fins\s+a|fins|hasta|a)\s+(.+)$/i;
+// Origen/destino con patrón "de X a Y" o "desde X hasta/a Y". También admite
+// contracciones y artículos: del/de la/de l' como inicio y al/a la/a l' como
+// conector ("de Sants al Museu Dalí"). Trabaja sobre el texto original para
+// conservar los nombres de lugar.
+const ROUTE_RE = /\b(?:des\s+de|desde|de\s+la|de\s+l['’]|del|de)\s+(.+?)\s+(?:fins\s+a|fins|hasta|a\s+la|a\s+l['’]|al|a)\s+(.+)$/i;
 function extractRoute(text) {
   const m = (text || '').match(ROUTE_RE);
   if (!m) return { origin: null, destination: null };
