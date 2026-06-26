@@ -104,7 +104,7 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
             children: [
               _summaryTab(l, tenant, summary, counts, txs),
               _vehiclesTab(l, vehicles),
-              _driversTab(l, users),
+              _driversTab(l, users, vehicles),
               _incidentsTab(l, incidents),
             ],
           );
@@ -357,14 +357,14 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
   }
 
   // ===================== TAB 3: CONDUCTORES =====================
-  Widget _driversTab(AppLocalizations l, List<Map<String, dynamic>> users) {
+  Widget _driversTab(AppLocalizations l, List<Map<String, dynamic>> users, List<Map<String, dynamic>> vehicles) {
     return ListView(
       padding: const EdgeInsets.all(12),
-      children: [for (final u in users) _userTile(l, u)],
+      children: [for (final u in users) _userTile(l, u, vehicles)],
     );
   }
 
-  Widget _userTile(AppLocalizations l, Map<String, dynamic> u) {
+  Widget _userTile(AppLocalizations l, Map<String, dynamic> u, List<Map<String, dynamic>> vehicles) {
     final email = (u['email'] as String?) ?? '—';
     final role = (u['role'] as String?) ?? 'driver';
     final active = u['active'] != false;
@@ -379,9 +379,18 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
           if (!active) l.t('admin_inactive'),
           if (isAdmin) 'ADMIN',
         ].join(' · ')),
+        // Tocar el conductor: asignar qué vehículos usa.
+        onTap: () => _assignVehiclesDialog(l, u, vehicles),
         trailing: PopupMenuButton<String>(
-          onSelected: (v) => _onUserAction(l, u, v),
+          onSelected: (v) {
+            if (v == 'vehicles') {
+              _assignVehiclesDialog(l, u, vehicles);
+            } else {
+              _onUserAction(l, u, v);
+            }
+          },
           itemBuilder: (_) => [
+            PopupMenuItem(value: 'vehicles', child: Text(l.t('dr_assign_vehicles'))),
             PopupMenuItem(value: 'toggle_active', child: Text(active ? l.t('admin_deactivate') : l.t('admin_activate'))),
             PopupMenuItem(value: 'toggle_admin', child: Text(isAdmin ? l.t('admin_remove_admin') : l.t('admin_make_admin_short'))),
             PopupMenuItem(value: 'role', child: Text(role == 'owner' ? l.t('admin_set_driver') : l.t('admin_set_owner'))),
@@ -390,6 +399,58 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
         ),
       ),
     );
+  }
+
+  // Asignar qué vehículos usa un conductor (admin), como si fuera la empresa.
+  Future<void> _assignVehiclesDialog(AppLocalizations l, Map<String, dynamic> u, List<Map<String, dynamic>> vehicles) async {
+    final userId = u['id'] as String;
+    if (vehicles.isEmpty) {
+      await _toast(l.t('admin_no_vehicles'));
+      return;
+    }
+    Set<String> selected;
+    try {
+      selected = (await _service.adminUserVehicles(userId)).toSet();
+    } catch (e) {
+      await _toast('Error: ${e.toString().replaceFirst('Exception: ', '')}');
+      return;
+    }
+    if (!mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(l.t('dr_vehicles_of', {'name': (u['email'] as String?) ?? ''})),
+          content: SizedBox(
+            width: 420,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final v in vehicles)
+                  CheckboxListTile(
+                    value: selected.contains(v['id']),
+                    title: Text((v['license_plate'] as String?) ?? '—'),
+                    subtitle: Text((v['model'] as String?) ?? ''),
+                    onChanged: (val) => setLocal(() {
+                      if (val == true) {
+                        selected.add(v['id'] as String);
+                      } else {
+                        selected.remove(v['id']);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    await _guard(() => _service.adminSetUserVehicles(userId, selected.toList()), l.t('saved'));
   }
 
   Future<void> _onUserAction(AppLocalizations l, Map<String, dynamic> u, String action) async {

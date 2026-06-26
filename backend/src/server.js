@@ -968,6 +968,34 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
+  // Vehículos asignados a un conductor (admin): lista de vehicle_id.
+  app.get('/api/v1/admin/user/:id/vehicles', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data, error } = await supabase
+      .from('driver_vehicles').select('vehicle_id').eq('user_id', request.params.id);
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ vehicleIds: (data || []).map((r) => r.vehicle_id) });
+  });
+
+  // Asignar qué vehículos usa un conductor (admin). Reemplaza el conjunto.
+  app.post('/api/v1/admin/user/:id/vehicles', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const userId = request.params.id;
+    const vehicleIds = Array.isArray((request.body ?? {}).vehicleIds) ? request.body.vehicleIds : [];
+    // tenant del conductor (para las filas de driver_vehicles).
+    const { data: u } = await supabase.from('users').select('tenant_id').eq('id', userId).single();
+    if (!u?.tenant_id) return reply.code(404).send({ error: 'Conductor no encontrado' });
+    await supabase.from('driver_vehicles').delete().eq('user_id', userId);
+    if (vehicleIds.length > 0) {
+      const rows = vehicleIds.map((vid) => ({ tenant_id: u.tenant_id, user_id: userId, vehicle_id: vid }));
+      const { error } = await supabase.from('driver_vehicles').insert(rows);
+      if (error) return reply.code(400).send({ error: error.message });
+    }
+    return reply.send({ ok: true });
+  });
+
   // --- Notificación push de una incidencia / mensaje (FCM) ---
   // La app lo llama tras crear una incidencia o un mensaje de chat. Si push no
   // está configurado (sin FCM_SERVICE_ACCOUNT), responde ok sin hacer nada.

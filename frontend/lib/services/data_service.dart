@@ -343,6 +343,28 @@ class DataService {
     }
   }
 
+  /// Vehículos asignados a un conductor (admin): lista de ids.
+  Future<List<String>> adminUserVehicles(String userId) async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/user/$userId/vehicles'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['vehicleIds'] as List?) ?? []).cast<String>();
+  }
+
+  /// Asigna qué vehículos usa un conductor (admin). Reemplaza el conjunto.
+  Future<void> adminSetUserVehicles(String userId, List<String> vehicleIds) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/user/$userId/vehicles'),
+      headers: _bearer,
+      body: jsonEncode({'vehicleIds': vehicleIds}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudieron asignar los vehículos');
+    }
+  }
+
   /// Eliminar un usuario (perfil + cuenta de auth).
   Future<void> adminDeleteUser(String id) async {
     final res = await http.delete(
