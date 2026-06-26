@@ -48,6 +48,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   String? _error;
   String? _subStatus; // estado de suscripción del tenant (Fase 4)
   bool _exporting = false; // exportación en curso (Fase 5)
+  bool _private = true; // privacidad: oculta importes al iniciar (***)
+
+  // Importe respetando la privacidad (oculto por defecto).
+  String _m(num v) => _private ? '••••••' : money(v);
 
   RealtimeChannel? _channel;
 
@@ -581,6 +585,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
       child: Row(
         children: [
+          // Ojo de privacidad: oculta/muestra todos los importes (a la izquierda).
+          IconButton(
+            tooltip: context.l10n.t(_private ? 'priv_show' : 'priv_hide'),
+            icon: Icon(_private ? Icons.visibility_off : Icons.visibility),
+            onPressed: () => setState(() => _private = !_private),
+          ),
           Text(context.l10n.t('od_summary'), style: Theme.of(context).textTheme.titleMedium),
           const Spacer(),
           if (_exporting)
@@ -671,6 +681,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           return TransactionTile(
             tx: tx,
             showDriver: true,
+            private: _private,
             onTap: () => _openDetail(tx),
           );
         },
@@ -727,7 +738,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               Icon(icon, color: color, size: 20),
               const SizedBox(height: 6),
               FittedBox(
-                child: Text(money(value),
+                child: Text(_m(value),
                     style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16)),
               ),
               const SizedBox(height: 2),
@@ -791,7 +802,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   children: [
                     Container(width: 12, height: 12, color: _palette[i % _palette.length]),
                     const SizedBox(width: 4),
-                    Text('${context.l10n.catLabel(entries[i].key)} (${money(entries[i].value)})',
+                    Text('${context.l10n.catLabel(entries[i].key)} (${_m(entries[i].value)})',
                         style: const TextStyle(fontSize: 12)),
                   ],
                 ),

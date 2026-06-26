@@ -938,6 +938,26 @@ class DataService {
     return (data as List).cast<Map<String, dynamic>>();
   }
 
+  /// Fecha del último mensaje de OTRA persona (admin) en mis tickets, o null si
+  /// no hay respuestas. Sirve para avisar "el admin te ha contestado".
+  Future<DateTime?> latestTicketReplyAt() async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return null;
+    final tickets = await _c.from('incidents').select('id').eq('kind', 'app').eq('user_id', uid);
+    final ids = (tickets as List).map((r) => r['id'] as String).toList();
+    if (ids.isEmpty) return null;
+    final msgs = await _c
+        .from('incident_messages')
+        .select('created_at')
+        .inFilter('incident_id', ids)
+        .neq('user_id', uid)
+        .order('created_at', ascending: false)
+        .limit(1);
+    final list = msgs as List;
+    if (list.isEmpty) return null;
+    return DateTime.tryParse(list.first['created_at'] as String);
+  }
+
   /// Crea un ticket de soporte ('app') y devuelve la fila (para abrir el chat).
   Future<Map<String, dynamic>?> createTicket(String tenantId, String body) async {
     final uid = _c.auth.currentUser?.id;

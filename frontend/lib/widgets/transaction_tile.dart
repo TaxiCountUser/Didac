@@ -8,12 +8,14 @@ class TransactionTile extends StatelessWidget {
   final Map<String, dynamic> tx;
   final VoidCallback? onTap;
   final bool showDriver; // el owner ve quién la registró
+  final bool private; // oculta el importe (modo privacidad)
 
   const TransactionTile({
     super.key,
     required this.tx,
     this.onTap,
     this.showDriver = false,
+    this.private = false,
   });
 
   @override
@@ -49,7 +51,7 @@ class TransactionTile extends StatelessWidget {
       title: Text(title),
       subtitle: Text(subtitleParts.join(' · ')),
       trailing: Text(
-        '$sign${money(amount)}',
+        private ? '••••' : '$sign${money(amount)}',
         style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
       ),
       onTap: onTap,

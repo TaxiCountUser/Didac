@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
@@ -34,11 +35,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _activeVehicleLabel;
   String? _companyName;
   bool _hasVehicles = false; // el conductor solo ve/elige coches asignados
+  bool _newReply = false; // el admin ha contestado a un ticket (aviso)
 
   @override
   void initState() {
     super.initState();
     _loadHeader();
+    _loadTicketBadge();
+  }
+
+  // ¿El admin ha respondido a algún ticket desde la última vez que los vi?
+  Future<void> _loadTicketBadge() async {
+    try {
+      final latest = await _service.latestTicketReplyAt();
+      if (latest == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      final seenStr = prefs.getString('tickets_seen_at');
+      final seen = seenStr == null ? null : DateTime.tryParse(seenStr);
+      if (mounted && (seen == null || latest.isAfter(seen))) {
+        setState(() => _newReply = true);
+      }
+    } catch (_) {/* aviso best-effort */}
+  }
+
+  Future<void> _openTickets() async {
+    // Marcar como visto: al abrir, se considera leído.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('tickets_seen_at', DateTime.now().toIso8601String());
+    if (mounted) setState(() => _newReply = false);
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TicketsScreen(profile: widget.profile)),
+    );
   }
 
   String _vehLabel(Map<String, dynamic> v) {
@@ -405,11 +433,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _open(ReferralScreen(profile: widget.profile)),
             ),
           ListTile(
-            leading: const Icon(Icons.support_agent),
+            leading: Badge(
+              isLabelVisible: _newReply,
+              child: const Icon(Icons.support_agent),
+            ),
             title: Text(l.t('set_report_bug')),
-            subtitle: Text(l.t('set_report_bug_sub')),
+            subtitle: Text(_newReply ? l.t('tk_new_reply') : l.t('set_report_bug_sub')),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => _open(TicketsScreen(profile: widget.profile)),
+            onTap: _openTickets,
           ),
           // Panel de administrador de plataforma (solo admins).
           if (widget.profile.isAdmin)
