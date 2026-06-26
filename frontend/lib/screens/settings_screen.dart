@@ -33,7 +33,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _activeVehicleLabel;
   String? _companyName;
   bool _hasVehicles = false; // el conductor solo ve/elige coches asignados
-  bool _solo = false; // modo autónomo (owner = también chófer)
 
   @override
   void initState() {
@@ -52,12 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       if (widget.profile.isOwner) {
         final b = await _service.fetchTenantBilling(widget.profile.tenantId);
-        if (mounted) {
-          setState(() {
-            _companyName = b?['name'] as String?;
-            _solo = b?['solo'] == true;
-          });
-        }
+        if (mounted) setState(() => _companyName = b?['name'] as String?);
       } else {
         final vid = await _service.todaysVehicleId(widget.profile.id);
         final vehicles = await _service.myVehicles();
@@ -360,25 +354,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _toggleSolo(bool value) async {
-    final l = context.l10n;
-    setState(() => _solo = value);
-    try {
-      await _service.setSoloMode(value);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.t('set_solo_done'))),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _solo = !value); // revertir si falla
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
-      }
-    }
-  }
-
   Future<void> _reportBug() async {
     final l = context.l10n;
     final ctrl = TextEditingController();
@@ -448,15 +423,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _editUsername,
           ),
-          // Modo autónomo: el propietario es también chófer (vista Empresa/Chófer).
-          if (isOwner)
-            SwitchListTile(
-              secondary: const Icon(Icons.person_pin_circle, color: Colors.teal),
-              title: Text(l.t('set_solo')),
-              subtitle: Text(l.t('set_solo_sub')),
-              value: _solo,
-              onChanged: (v) => _toggleSolo(v),
-            ),
           // Referidos: solo en el panel de empresa (el chófer no paga, lo paga
           // la empresa).
           if (isOwner)

@@ -434,9 +434,16 @@ class DataService {
   }
 
   /// Vehículos del conductor autenticado (para registrar / elegir al empezar).
+  /// Si el usuario es PROPIETARIO (incluido el autónomo, que es su propio
+  /// chófer), puede conducir CUALQUIER vehículo de su empresa, así que devolvemos
+  /// todos. Un conductor normal ve solo los que tiene asignados.
   Future<List<Map<String, dynamic>>> myVehicles() async {
     final uid = _c.auth.currentUser?.id;
     if (uid == null) return [];
+    final me = await _c.from('users').select('role').eq('id', uid).maybeSingle();
+    if (me?['role'] == 'owner') {
+      return listVehicles(); // todos los de la empresa (RLS lo permite)
+    }
     return vehiclesForDriver(uid);
   }
 
