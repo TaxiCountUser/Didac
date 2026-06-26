@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
@@ -264,6 +265,61 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (changed == true) _reload();
   }
 
+  // --------------- Importación de Excel/CSV antiguo ---------------
+  Future<void> _import() async {
+    final l = context.l10n;
+    // 1) Tipo por defecto si el Excel no trae columna de tipo.
+    final type = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('imp_title')),
+        content: Text(l.t('imp_help')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('cancel'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'expense'), child: Text(l.t('imp_as_expense'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'income'), child: Text(l.t('imp_as_income'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'auto'), child: Text(l.t('imp_auto'))),
+        ],
+      ),
+    );
+    if (type == null) return;
+
+    // 2) Elegir el fichero (.xlsx o .csv).
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['xlsx', 'csv'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final f = picked.files.single;
+    final bytes = f.bytes;
+    if (bytes == null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('imp_no_file'))));
+      return;
+    }
+
+    setState(() => _exporting = true);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('imp_importing'))));
+    }
+    try {
+      final res = await _service.importTransactions(bytes: bytes, filename: f.name, type: type);
+      final imported = res['imported'] ?? 0;
+      final skipped = res['skipped'] ?? 0;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.t('imp_done', {'n': '$imported', 's': '$skipped'}))),
+      );
+      await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $msg')));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   // --------------- Exportación (Fase 5) ---------------
   Future<void> _export(String format) async {
     setState(() => _exporting = true);
@@ -321,7 +377,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               padding: EdgeInsets.symmetric(horizontal: 12),
               child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             )
-          else
+          else ...[
+            IconButton(
+              key: const Key('import_button'),
+              icon: const Icon(Icons.upload_file),
+              tooltip: context.l10n.t('od_import'),
+              onPressed: _import,
+            ),
             PopupMenuButton<String>(
               key: const Key('export_menu'),
               icon: const Icon(Icons.download),
@@ -340,6 +402,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 ),
               ],
             ),
+          ],
         ],
       ),
     );

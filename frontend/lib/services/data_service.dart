@@ -769,6 +769,27 @@ class DataService {
     return res.bodyBytes;
   }
 
+  /// Importa un Excel/CSV antiguo. [type]: 'auto' | 'income' | 'expense' (tipo
+  /// por defecto si el fichero no trae columna de tipo). Devuelve {imported, skipped}.
+  Future<Map<String, dynamic>> importTransactions({
+    required List<int> bytes,
+    required String filename,
+    String type = 'auto',
+  }) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final uri = Uri.parse('$backendUrl/api/v1/import/transactions?type=$type');
+    final req = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
+    final res = await http.Response.fromStream(await req.send());
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'No se pudo importar (${res.statusCode})');
+    }
+    return body;
+  }
+
   // ---------------- Incidencias / notas al jefe ----------------
 
   /// Lista incidencias (RLS: owner las de su tenant; conductor las suyas).

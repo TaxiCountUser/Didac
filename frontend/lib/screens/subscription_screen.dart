@@ -5,6 +5,7 @@ import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import 'referral_screen.dart';
 
 /// Clave i18n del estado de suscripción.
 String subscriptionStatusKey(String? status) => switch (status) {
@@ -197,6 +198,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             const SizedBox(height: 8),
           ],
           ...plans.map((p) => _planCard(l, p, planId)),
+          const SizedBox(height: 12),
+          Card(
+            color: Colors.amber.shade50,
+            child: ListTile(
+              leading: const Icon(Icons.card_giftcard, color: Colors.amber),
+              title: Text(l.t('set_referral')),
+              subtitle: Text(l.t('set_referral_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => ReferralScreen(profile: widget.profile)),
+              ),
+            ),
+          ),
           if (_busy) const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),

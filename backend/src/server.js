@@ -7,6 +7,7 @@ import multipart from '@fastify/multipart';
 import { createClient } from '@supabase/supabase-js';
 
 import { parseTransactionText } from './parser.js';
+import { parseImportFile } from './importer.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
@@ -1155,6 +1156,74 @@ export async function buildApp(options = {}) {
 
   app.post('/api/v1/reports/excel', (req, reply) => handleReport(req, reply, 'excel'));
   app.post('/api/v1/reports/pdf', (req, reply) => handleReport(req, reply, 'pdf'));
+
+  // --- Importar Excel/CSV antiguo (Owner) ---
+  // Lee el fichero, reconoce las columnas y crea las transacciones conservando
+  // la fecha original. ?type=income|expense|auto fija el tipo si el Excel no lo
+  // trae (auto = por el signo del importe).
+  app.post('/api/v1/import/transactions', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner') {
+      return reply.code(403).send({ error: 'Solo un Owner puede importar datos' });
+    }
+    const defaultType = request.query?.type;
+    const file = await request.file();
+    if (!file) return reply.code(400).send({ error: 'Falta el fichero' });
+    const buffer = await file.toBuffer();
+
+    let parsed;
+    try {
+      parsed = await parseImportFile(buffer, file.filename, { defaultType });
+    } catch (e) {
+      return reply.code(400).send({ error: `No se pudo leer el fichero: ${e.message}` });
+    }
+    if (parsed.error === 'no_headers') {
+      return reply.code(400).send({
+        error: 'No reconozco las columnas. Asegúrate de que la primera fila tiene títulos como Fecha, Importe, Tipo, Categoría…',
+      });
+    }
+    if (!parsed.rows.length) {
+      return reply.send({ imported: 0, skipped: parsed.skipped || 0, headers: parsed.headers || [] });
+    }
+
+    const norm = (s) => (s ?? '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const { data: users } = await supabase
+      .from('users').select('id, email, name').eq('tenant_id', caller.tenant_id);
+    const { data: vehicles } = await supabase
+      .from('vehicles').select('id, license_plate').eq('tenant_id', caller.tenant_id);
+    const userByKey = {};
+    for (const u of users || []) {
+      if (u.email) userByKey[norm(u.email)] = u.id;
+      if (u.name) userByKey[norm(u.name)] = u.id;
+    }
+    const vehByPlate = {};
+    for (const v of vehicles || []) {
+      if (v.license_plate) vehByPlate[norm(v.license_plate)] = v.id;
+    }
+
+    const toInsert = parsed.rows.map((r) => ({
+      tenant_id: caller.tenant_id,
+      user_id: (r.driver && userByKey[norm(r.driver)]) || caller.id,
+      amount: r.amount,
+      type: r.type,
+      category: r.category,
+      payment_method: r.payment,
+      description: r.description,
+      vehicle_id: (r.plate && vehByPlate[norm(r.plate)]) || null,
+      created_at: (r.date instanceof Date ? r.date : new Date()).toISOString(),
+    }));
+
+    let imported = 0;
+    for (let i = 0; i < toInsert.length; i += 500) {
+      const chunk = toInsert.slice(i, i + 500);
+      const { error } = await supabase.from('transactions').insert(chunk);
+      if (error) return reply.code(400).send({ error: error.message, imported });
+      imported += chunk.length;
+    }
+    return reply.send({ imported, skipped: parsed.skipped || 0, headers: parsed.headers || [] });
+  });
 
   return app;
 }
