@@ -1,0 +1,88 @@
+name: Deploy Web (GitHub Pages)
+
+# Construye la web (Flutter) y la publica en GitHub Pages en cada push a main.
+# URL resultante: https://taxicountuser.github.io/Didac/
+#
+# Reutiliza los MISMOS secrets que el APK (Settings -> Secrets -> Actions):
+#   PROD_SUPABASE_URL, PROD_SUPABASE_ANON_KEY, PROD_BACKEND_URL
+#   PROD_STRIPE_PRICE_STARTER / _PRO / _BUSINESS (+ _YEARLY)
+#
+# Requisito (una sola vez): Settings -> Pages -> Build and deployment ->
+#   Source: "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un despliegue a la vez.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+
+      - name: Preparar --dart-define
+        id: defines
+        env:
+          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+          BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+          STRIPE_PRICE_STARTER: ${{ secrets.PROD_STRIPE_PRICE_STARTER }}
+          STRIPE_PRICE_PRO: ${{ secrets.PROD_STRIPE_PRICE_PRO }}
+          STRIPE_PRICE_BUSINESS: ${{ secrets.PROD_STRIPE_PRICE_BUSINESS }}
+          STRIPE_PRICE_STARTER_YEARLY: ${{ secrets.PROD_STRIPE_PRICE_STARTER_YEARLY }}
+          STRIPE_PRICE_PRO_YEARLY: ${{ secrets.PROD_STRIPE_PRICE_PRO_YEARLY }}
+          STRIPE_PRICE_BUSINESS_YEARLY: ${{ secrets.PROD_STRIPE_PRICE_BUSINESS_YEARLY }}
+        run: |
+          D=""
+          add(){ [ -n "$2" ] && D="$D --dart-define=$1=$2"; return 0; }
+          add SUPABASE_URL "$SUPABASE_URL"
+          add SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+          add BACKEND_URL "$BACKEND_URL"
+          add STRIPE_PRICE_STARTER "$STRIPE_PRICE_STARTER"
+          add STRIPE_PRICE_PRO "$STRIPE_PRICE_PRO"
+          add STRIPE_PRICE_BUSINESS "$STRIPE_PRICE_BUSINESS"
+          add STRIPE_PRICE_STARTER_YEARLY "$STRIPE_PRICE_STARTER_YEARLY"
+          add STRIPE_PRICE_PRO_YEARLY "$STRIPE_PRICE_PRO_YEARLY"
+          add STRIPE_PRICE_BUSINESS_YEARLY "$STRIPE_PRICE_BUSINESS_YEARLY"
+          echo "args=$D" >> "$GITHUB_OUTPUT"
+          if [ -z "$D" ]; then
+            echo "::warning::Sin secrets PROD_*: la web apuntará a localhost (no servirá para testers)."
+          fi
+
+      # base-href con el nombre del repo (project pages): /Didac/
+      - name: Build web
+        run: flutter build web --release --base-href /Didac/ ${{ steps.defines.outputs.args }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

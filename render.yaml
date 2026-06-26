@@ -21,7 +21,7 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: free
+    plan: starter              # de pago: NO se duerme (siempre despierto para testers)
     region: frankfurt          # EU (cámbialo si tu Supabase está en otra región)
     healthCheckPath: /health
     autoDeploy: true           # cada push a main despliega solo (sin Manual Deploy)
