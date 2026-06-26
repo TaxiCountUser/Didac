@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import 'admin_company_screen.dart';
+import 'admin_incident_chat_screen.dart';
 
 /// Panel de administrador de plataforma: ve TODAS las empresas y todas las
 /// incidencias, las resuelve, y puede nombrar a otros administradores.
@@ -342,12 +343,25 @@ class _IncidentsTabState extends State<_IncidentsTab> {
         ),
         title: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis),
         subtitle: Text('$company · $author'),
-        trailing: IconButton(
-          tooltip: resolved ? l.t('admin_reopen') : l.t('admin_resolve'),
-          icon: Icon(resolved ? Icons.replay : Icons.check_circle,
-              color: resolved ? Colors.orange : Colors.green),
-          onPressed: () => _setStatus(inc['id'] as String, resolved ? 'abierta' : 'resuelta'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: resolved ? l.t('admin_reopen') : l.t('admin_resolve'),
+              icon: Icon(resolved ? Icons.replay : Icons.check_circle,
+                  color: resolved ? Colors.orange : Colors.green),
+              onPressed: () => _setStatus(inc['id'] as String, resolved ? 'abierta' : 'resuelta'),
+            ),
+            const Icon(Icons.chat_bubble_outline, size: 18),
+          ],
         ),
+        // Abrir el chat para hablar con el cliente hasta cerrar la avería.
+        onTap: () async {
+          await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => AdminIncidentChatScreen(incident: inc),
+          ));
+          _reload();
+        },
       ),
     );
   }

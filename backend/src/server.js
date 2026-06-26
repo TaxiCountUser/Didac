@@ -674,6 +674,39 @@ export async function buildApp(options = {}) {
     return reply.send({ incidents: data || [] });
   });
 
+  // Chat de una incidencia (admin <-> cliente). Vía service_role para poder
+  // acceder a cualquier empresa.
+  app.get('/api/v1/admin/incidents/:id/messages', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data, error } = await supabase
+      .from('incident_messages')
+      .select('id, body, user_id, created_at, users(email, name)')
+      .eq('incident_id', request.params.id)
+      .order('created_at', { ascending: true });
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ messages: data || [] });
+  });
+
+  app.post('/api/v1/admin/incidents/:id/messages', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const body = (request.body ?? {}).body;
+    if (!body || !String(body).trim()) return reply.code(400).send({ error: 'Mensaje vacío' });
+    // Recuperamos el tenant de la incidencia para guardar el mensaje.
+    const { data: inc } = await supabase
+      .from('incidents').select('tenant_id, status').eq('id', request.params.id).single();
+    if (!inc) return reply.code(404).send({ error: 'Incidencia no encontrada' });
+    const { error } = await supabase.from('incident_messages').insert({
+      incident_id: request.params.id,
+      tenant_id: inc.tenant_id,
+      user_id: g.caller.id,
+      body: String(body).trim(),
+    });
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
   // Cambiar el estado de una incidencia (resolver / reabrir) en cualquier empresa.
   app.post('/api/v1/admin/incidents/:id/status', async (request, reply) => {
     const g = await adminGuard(request);

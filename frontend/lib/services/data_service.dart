@@ -241,6 +241,28 @@ class DataService {
     return ((body['incidents'] as List?) ?? []).cast<Map<String, dynamic>>();
   }
 
+  /// Mensajes del chat de una incidencia (solo admin, cualquier empresa).
+  Future<List<Map<String, dynamic>>> adminIncidentMessages(String id) async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/incidents/$id/messages'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['messages'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// Envía un mensaje en el chat de una incidencia (solo admin).
+  Future<void> adminSendIncidentMessage(String id, String text) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/incidents/$id/messages'),
+      headers: _bearer,
+      body: jsonEncode({'body': text}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo enviar el mensaje');
+    }
+  }
+
   /// Resolver / reabrir una incidencia de cualquier empresa (solo admin).
   Future<void> adminSetIncidentStatus(String id, String status) async {
     final res = await http.post(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_incident_chat_screen.dart';
 
 /// Gestión completa de una empresa para el administrador de plataforma, como si
 /// fuera la suya: pestañas Resumen, Vehículos, Conductores e Incidencias, con
@@ -423,15 +424,27 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
             color: kind == 'app' ? Colors.deepPurple : Colors.blueGrey),
         title: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis),
         subtitle: Text(author),
-        trailing: IconButton(
-          tooltip: resolved ? l.t('admin_reopen') : l.t('admin_resolve'),
-          icon: Icon(resolved ? Icons.replay : Icons.check_circle,
-              color: resolved ? Colors.orange : Colors.green),
-          onPressed: () => _guard(
-            () => _service.adminSetIncidentStatus(inc['id'] as String, resolved ? 'abierta' : 'resuelta'),
-            l.t('saved'),
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: resolved ? l.t('admin_reopen') : l.t('admin_resolve'),
+              icon: Icon(resolved ? Icons.replay : Icons.check_circle,
+                  color: resolved ? Colors.orange : Colors.green),
+              onPressed: () => _guard(
+                () => _service.adminSetIncidentStatus(inc['id'] as String, resolved ? 'abierta' : 'resuelta'),
+                l.t('saved'),
+              ),
+            ),
+            const Icon(Icons.chat_bubble_outline, size: 18),
+          ],
         ),
+        onTap: () async {
+          await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => AdminIncidentChatScreen(incident: inc),
+          ));
+          _reload();
+        },
       ),
     );
   }

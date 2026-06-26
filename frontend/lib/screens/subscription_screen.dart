@@ -161,23 +161,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (trialDaysLeft > 0 && !subscriptionIsActive(status)) ...[
-            Card(
-              color: Colors.amber.shade100,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.hourglass_bottom, color: Colors.orange),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(l.t('trial_days_left', {'n': '$trialDaysLeft'}))),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          _currentPlanCard(l, status, planId, limit, hasCustomer),
+          _currentPlanCard(l, status, planId, limit, hasCustomer, trialDaysLeft),
           const SizedBox(height: 24),
           Text(
             subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_choose_plan'),
@@ -220,7 +204,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _currentPlanCard(AppLocalizations l, String? status, String? planId, dynamic limit, bool hasCustomer) {
+  Widget _currentPlanCard(AppLocalizations l, String? status, String? planId, dynamic limit, bool hasCustomer, int trialDaysLeft) {
     final limitText = limit == null ? l.t('sub_unlimited') : '$limit';
     final planName = kPlans.where((e) => e.id == planId).isNotEmpty
         ? kPlans.firstWhere((e) => e.id == planId).name
@@ -246,6 +230,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
               ],
             ),
+            // Días de prueba restantes, justo debajo de "Periodo de prueba".
+            if (status == 'trialing' && trialDaysLeft > 0) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.hourglass_bottom, size: 18, color: Colors.orange),
+                  const SizedBox(width: 6),
+                  Text(l.t('trial_days_left', {'n': '$trialDaysLeft'}),
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             Text(l.t('sub_drivers_included', {'n': limitText})),
             if (!subscriptionIsActive(status)) ...[
