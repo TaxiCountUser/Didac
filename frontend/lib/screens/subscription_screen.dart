@@ -145,9 +145,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final planId = b['plan_id'] as String?;
     final limit = b['drivers_limit'];
     final hasCustomer = (b['stripe_customer_id'] as String?)?.isNotEmpty == true;
-    final solo = b['solo'] == true;
-    // En modo autónomo solo se ofrece el plan Starter (1 €/mes).
-    final plans = solo ? kPlans.where((p) => p.id == 'starter').toList() : kPlans;
+    // Todos los planes están disponibles también para el autónomo, para que
+    // pueda crecer (Pro/Business) y contratar empleados sin cambiar de cuenta.
+    const plans = kPlans;
     // Días de prueba restantes (si sigue dentro del periodo de prueba).
     final trialEnds = b['trial_ends_at'] == null
         ? null
@@ -184,7 +184,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          if (kHasYearlyPlans && !solo) ...[
+          if (kHasYearlyPlans) ...[
             Center(
               child: SegmentedButton<bool>(
                 segments: [
