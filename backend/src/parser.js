@@ -215,7 +215,7 @@ function normToken(w) {
 
 // Palabras que cierran el destino: importes, conectores, formas de pago, etc.
 const ROUTE_STOP = new Set([
-  'por', 'con', 'euros', 'euro', 'de', 'del', 'para', 'que', 'me', 'son',
+  'por', 'con', 'en', 'euros', 'euro', 'de', 'del', 'para', 'que', 'me', 'son',
   'pague', 'pagado', 'pago', 'cobre', 'cobrado', 'cobrada', 'cobro', 'ingreso',
   'tarjeta', 'efectivo', 'bizum', 'transferencia', 'metalico', 'contado',
   'marcando', 'marca', 'kilometros', 'km',

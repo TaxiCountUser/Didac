@@ -121,6 +121,10 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
       context: context,
       firstDate: DateTime(now.year - 10),
       lastDate: DateTime(now.year + 1, 12, 31),
+      // Abre en modo ESCRIBIR (campos grandes arriba para teclear las fechas/
+      // año a mano); con el icono de calendario se cambia a elegir días.
+      initialEntryMode: DatePickerEntryMode.input,
+      helpText: context.l10n.t('cmp_custom'),
       initialDateRange: _isCustom
           ? DateTimeRange(start: _customFrom!, end: _customTo!)
           : DateTimeRange(start: DateTime(now.year, now.month, 1), end: now),
