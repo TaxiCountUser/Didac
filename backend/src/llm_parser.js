@@ -32,6 +32,8 @@ Retorna NOMÉS un objecte JSON (sense text addicional) amb aquestes claus exacte
 - "client_name": nom de l'empresa si es menciona (p. ex. Gitaxi, Movitaxi, OneCab, Asepeyo, Mutua Asepeyo, Radio Taxi, Cooperativa), amb la primera lletra en majúscula; null si és un client particular.
 - "category": NOMÉS per a despeses, un de "gasolina", "gasoil", "taller", "peaje", "parking", "lavado", "multa", "seguro", "comida", "compra"; o null.
 
+IMPORTANT amb els LLOCS: poden contenir preposicions, articles i diverses paraules i s'han de mantenir SENCERS, p. ex. "Rambla de Figueres", "Estació de França", "Estació de Renfe", "Museu Dalí", "Estació Figueres AVE", "Plaça de Catalunya". El "de/des de X a/fins a Y" que separa ORIGEN i DESTÍ és només el connector; aquest "de"/"a" de connexió NO forma part del nom. Exemple: "de la rambla de Figueres a l'estació de Renfe" => origin "Rambla de Figueres", destination "Estació de Renfe".
+
 Regles: escriu els llocs i l'empresa amb majúscula inicial. Si un camp NO apareix clarament a la frase, posa null; no inventis ni dedueixis cap valor que no s'hagi dit (especialment l'import). Respon només amb el JSON.`;
 
 /**

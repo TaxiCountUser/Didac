@@ -321,6 +321,9 @@ export async function buildApp(options = {}) {
     service: 'taxicount-backend',
     push: pushEnabled(),
     stripe: !!stripe,
+    // IA (Groq/OpenAI) para voz e importación: necesaria para nombres de lugar
+    // con preposiciones ("Rambla de Figueres") y para mapear Excels raros.
+    llm: !!(OPENAI_API_KEY && LLM_PARSE_MODEL),
     timestamp: new Date().toISOString(),
   }));
 
