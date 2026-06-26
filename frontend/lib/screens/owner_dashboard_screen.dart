@@ -266,8 +266,61 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     if (changed == true) _reload();
   }
 
+  // --------------- Importación: elegir origen ---------------
+  Future<void> _chooseImportSource() async {
+    final l = context.l10n;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(l.t('imp_source_title'), style: Theme.of(ctx).textTheme.titleMedium),
+            ),
+            ListTile(
+              leading: const Icon(Icons.table_chart, color: Colors.green),
+              title: Text(l.t('imp_source_excel')),
+              subtitle: Text(l.t('imp_source_excel_sub')),
+              onTap: () {
+                Navigator.pop(ctx);
+                _importExcel();
+              },
+            ),
+            const Divider(height: 1),
+            // Próximamente: foto y PDF (con IA de visión/OCR).
+            ListTile(
+              enabled: false,
+              leading: const Icon(Icons.photo_camera),
+              title: Text(l.t('imp_source_photo')),
+              trailing: _soonChip(ctx),
+            ),
+            ListTile(
+              enabled: false,
+              leading: const Icon(Icons.picture_as_pdf),
+              title: Text(l.t('imp_source_pdf')),
+              trailing: _soonChip(ctx),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              child: Text(l.t('imp_soon_note'),
+                  style: Theme.of(ctx).textTheme.bodySmall, textAlign: TextAlign.center),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _soonChip(BuildContext ctx) => Chip(
+        label: Text(ctx.l10n.t('imp_soon'), style: const TextStyle(fontSize: 11)),
+        backgroundColor: Colors.amber.shade100,
+        visualDensity: VisualDensity.compact,
+      );
+
   // --------------- Importación de Excel/CSV antiguo ---------------
-  Future<void> _import() async {
+  Future<void> _importExcel() async {
     final l = context.l10n;
     // 1) Tipo por defecto si el Excel no trae columna de tipo.
     final type = await showDialog<String>(
@@ -457,7 +510,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               key: const Key('import_button'),
               icon: const Icon(Icons.upload_file),
               tooltip: context.l10n.t('od_import'),
-              onPressed: _import,
+              onPressed: _chooseImportSource,
             ),
             PopupMenuButton<String>(
               key: const Key('export_menu'),
