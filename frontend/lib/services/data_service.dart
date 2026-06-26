@@ -464,7 +464,11 @@ class DataService {
     if (uid == null) return [];
     final me = await _c.from('users').select('role').eq('id', uid).maybeSingle();
     if (me?['role'] == 'owner') {
-      return listVehicles(); // todos los de la empresa (RLS lo permite)
+      // Si se ha asignado vehículos a sí mismo, usa esos (puede elegir cuáles);
+      // si no, todos los de la empresa (para que funcione sin configurar nada).
+      final assigned = await vehiclesForDriver(uid);
+      if (assigned.isNotEmpty) return assigned;
+      return listVehicles();
     }
     return vehiclesForDriver(uid);
   }
@@ -883,6 +887,17 @@ class DataService {
   Future<List<Map<String, dynamic>>> listIncidents({String? kind}) async {
     var q = _c.from('incidents').select('*, users:user_id(name, email)');
     if (kind != null) q = q.eq('kind', kind);
+    final data = await q.order('created_at', ascending: false);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Incidencias visibles para el usuario en su panel: las notas (conductor<->
+  /// jefe) y, además, los reportes de fallo ('app') que ÉL mismo creó, para que
+  /// pueda seguir el chat con la administración. (RLS sigue acotando por tenant.)
+  Future<List<Map<String, dynamic>>> listVisibleIncidents() async {
+    final uid = _c.auth.currentUser?.id;
+    var q = _c.from('incidents').select('*, users:user_id(name, email)');
+    if (uid != null) q = q.or('kind.eq.nota,user_id.eq.$uid');
     final data = await q.order('created_at', ascending: false);
     return (data as List).cast<Map<String, dynamic>>();
   }

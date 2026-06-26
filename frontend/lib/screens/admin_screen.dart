@@ -237,7 +237,7 @@ class _CompaniesTabState extends State<_CompaniesTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Chip(
-              label: Text(status, style: const TextStyle(fontSize: 11)),
+              label: Text(adminStatusLabel(l, status), style: const TextStyle(fontSize: 11)),
               backgroundColor: (status == 'active')
                   ? Colors.green.shade100
                   : (status == 'trialing' ? Colors.blue.shade100 : Colors.red.shade100),

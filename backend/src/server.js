@@ -893,6 +893,10 @@ export async function buildApp(options = {}) {
         ? null : Number(b.drivers_limit);
     }
     if (b.solo !== undefined) patch.solo = b.solo === true || b.solo === 'true';
+    if (b.join_code !== undefined) {
+      const code = String(b.join_code).trim().toUpperCase();
+      patch.join_code = code === '' ? null : code;
+    }
     if (b.trial_ends_at !== undefined) patch.trial_ends_at = b.trial_ends_at; // ISO o null
     // Atajo: extender la prueba N días desde ahora.
     if (b.extend_trial_days !== undefined && b.extend_trial_days !== null) {
@@ -905,7 +909,11 @@ export async function buildApp(options = {}) {
       return reply.code(400).send({ error: 'Nada que actualizar' });
     }
     const { error } = await supabase.from('tenants').update(patch).eq('id', request.params.id);
-    if (error) return reply.code(400).send({ error: error.message });
+    if (error) {
+      const dup = /duplicate|unique|23505/i.test(error.message || '');
+      return reply.code(dup ? 409 : 400)
+        .send({ error: dup ? 'Ese código de flota ya está en uso' : error.message });
+    }
     return reply.send({ ok: true });
   });
 

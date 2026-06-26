@@ -18,15 +18,44 @@ class _DriversScreenState extends State<DriversScreen> {
   final _service = DataService();
   late Future<List<Map<String, dynamic>>> _future;
   String? _fleetCode;
+  bool _solo = false; // autónomo: el propietario también figura como chófer
 
   @override
   void initState() {
     super.initState();
+    _loadSolo();
     _reload();
     _loadCode();
   }
 
-  void _reload() => setState(() => _future = _service.listDrivers());
+  Future<void> _loadSolo() async {
+    try {
+      final t = await _service.fetchMyTenantState(widget.profile.tenantId);
+      if (mounted && t?.solo == true) {
+        setState(() => _solo = true);
+        _reload(); // recarga para incluir al propietario como chófer
+      }
+    } catch (_) {/* no crítico */}
+  }
+
+  // Lista de conductores; en modo autónomo añade arriba al propietario (él mismo
+  // conduce y así puede asignarse vehículos cuando crezca la flota).
+  Future<List<Map<String, dynamic>>> _loadDrivers() async {
+    final drivers = await _service.listDrivers();
+    if (!_solo) return drivers;
+    final p = widget.profile;
+    final self = <String, dynamic>{
+      'id': p.id,
+      'email': p.email,
+      'name': p.name ?? p.displayName ?? 'Yo mismo',
+      'username': p.username,
+      'active': true,
+      '_self': true, // marca: es el propietario-conductor
+    };
+    return [self, ...drivers];
+  }
+
+  void _reload() => setState(() => _future = _loadDrivers());
 
   Future<void> _loadCode() async {
     try {
@@ -359,9 +388,23 @@ class _DriversScreenState extends State<DriversScreen> {
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, i) {
                 final d = drivers[i];
+                final l = context.l10n;
+                // Entrada del propietario-conductor (autónomo): solo asignar coches.
+                if (d['_self'] == true) {
+                  return ListTile(
+                    leading: const Icon(Icons.person_pin_circle, color: Colors.teal),
+                    title: Text('${d['name']} (${l.t('dr_you')})'),
+                    subtitle: Text(l.t('dr_owner_driver')),
+                    trailing: IconButton(
+                      tooltip: l.t('dr_assign_vehicles'),
+                      icon: const Icon(Icons.directions_car_outlined),
+                      onPressed: () => _assignVehicles(d),
+                    ),
+                    onTap: () => _assignVehicles(d),
+                  );
+                }
                 final isActive = (d['active'] as bool?) ?? true;
                 final username = d['username'] as String?;
-                final l = context.l10n;
                 final subtitle = [
                   d['email'] as String,
                   if (username != null && username.isNotEmpty) '@$username',

@@ -4,6 +4,15 @@ import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import 'admin_incident_chat_screen.dart';
 
+/// Etiqueta legible del estado de suscripción (trialing -> "Periodo de prueba"...).
+String adminStatusLabel(AppLocalizations l, String? s) => l.t(switch (s) {
+      'active' => 'st_active',
+      'trialing' => 'st_trial',
+      'past_due' => 'st_past_due',
+      'canceled' => 'st_canceled',
+      _ => 'st_inactive',
+    });
+
 /// Gestión completa de una empresa para el administrador de plataforma, como si
 /// fuera la suya: pestañas Resumen, Vehículos, Conductores e Incidencias, con
 /// posibilidad de ver y modificar (reparar) sus datos.
@@ -157,7 +166,7 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
                       style: Theme.of(context).textTheme.titleMedium),
                 ),
                 Chip(
-                  label: Text(status, style: const TextStyle(fontSize: 11)),
+                  label: Text(adminStatusLabel(l, status), style: const TextStyle(fontSize: 11)),
                   backgroundColor: status == 'active'
                       ? Colors.green.shade100
                       : (status == 'trialing' ? Colors.blue.shade100 : Colors.red.shade100),
@@ -456,6 +465,7 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
     final limitCtrl = TextEditingController(
         text: t['drivers_limit'] == null ? '' : '${t['drivers_limit']}');
     final extendCtrl = TextEditingController();
+    final codeCtrl = TextEditingController(text: (t['join_code'] as String?) ?? '');
 
     const statuses = ['active', 'trialing', 'past_due', 'canceled', 'inactive'];
     const plans = ['', 'starter', 'pro', 'business'];
@@ -471,8 +481,12 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: status,
+                  isExpanded: true,
                   decoration: InputDecoration(labelText: l.t('admin_status')),
-                  items: [for (final s in statuses) DropdownMenuItem(value: s, child: Text(s))],
+                  items: [
+                    for (final s in statuses)
+                      DropdownMenuItem(value: s, child: Text('${adminStatusLabel(l, s)} ($s)')),
+                  ],
                   onChanged: (v) => setLocal(() => status = v ?? status),
                 ),
                 const SizedBox(height: 8),
@@ -497,6 +511,12 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(labelText: l.t('admin_extend_trial'), hintText: l.t('admin_extend_hint')),
                 ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: codeCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(labelText: l.t('admin_join_code')),
+                ),
               ],
             ),
           ),
@@ -512,6 +532,7 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
       'subscription_status': status,
       'plan_id': plan,
       'drivers_limit': limitCtrl.text.trim().isEmpty ? null : limitCtrl.text.trim(),
+      'join_code': codeCtrl.text.trim(),
     };
     final extend = int.tryParse(extendCtrl.text.trim());
     if (extend != null && extend > 0) patch['extend_trial_days'] = extend;

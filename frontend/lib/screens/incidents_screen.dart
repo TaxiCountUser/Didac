@@ -30,9 +30,9 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     _reload();
   }
 
-  // Solo 'nota' (notas conductor<->jefe). Los reportes de fallo de la app
-  // ('app') van únicamente al panel de administración.
-  void _reload() => setState(() => _future = _service.listIncidents(kind: 'nota'));
+  // Notas (conductor<->jefe) + los reportes de fallo ('app') creados por el
+  // propio usuario, para que pueda seguir el chat con la administración.
+  void _reload() => setState(() => _future = _service.listVisibleIncidents());
 
   Future<void> _addNote() async {
     final l = context.l10n;
