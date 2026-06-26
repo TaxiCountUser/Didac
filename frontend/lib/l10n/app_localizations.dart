@@ -140,6 +140,7 @@ const Map<String, Map<String, String>> _values = {
     'inc_delete': 'Eliminar', 'inc_delete_confirm': '¿Eliminar esta incidencia? No se puede deshacer.',
     'inc_chat_title': 'Conversación', 'inc_chat_empty': 'Aún no hay mensajes. Escribe el primero.',
     'admin_me': 'Yo (admin)',
+    'role_admin': 'Admin', 'role_owner': 'Jefe', 'role_driver': 'Conductor',
     'inc_write_msg': 'Escribe un mensaje…', 'inc_closed': 'Incidencia resuelta · ya no se puede escribir.',
     'inc_resolved': 'Resuelta', 'inc_open': 'Abierta',
     // Owner nav
@@ -423,6 +424,7 @@ const Map<String, Map<String, String>> _values = {
     'inc_delete': 'Delete', 'inc_delete_confirm': 'Delete this incident? This cannot be undone.',
     'inc_chat_title': 'Conversation', 'inc_chat_empty': 'No messages yet. Write the first one.',
     'admin_me': 'Me (admin)',
+    'role_admin': 'Admin', 'role_owner': 'Boss', 'role_driver': 'Driver',
     'inc_write_msg': 'Write a message…', 'inc_closed': 'Incident resolved · you can no longer write.',
     'inc_resolved': 'Resolved', 'inc_open': 'Open',
     'nav_dashboard': 'Control panel', 'nav_vehicles': 'Vehicles',
@@ -686,6 +688,7 @@ const Map<String, Map<String, String>> _values = {
     'inc_delete': 'Elimina', 'inc_delete_confirm': 'Vols eliminar aquesta incidència? No es pot desfer.',
     'inc_chat_title': 'Conversa', 'inc_chat_empty': 'Encara no hi ha missatges. Escriu el primer.',
     'admin_me': 'Jo (admin)',
+    'role_admin': 'Admin', 'role_owner': 'Cap', 'role_driver': 'Conductor',
     'inc_write_msg': 'Escriu un missatge…', 'inc_closed': 'Incidència resolta · ja no es pot escriure.',
     'inc_resolved': 'Resolta', 'inc_open': 'Oberta',
     'nav_dashboard': 'Tauler de control', 'nav_vehicles': 'Vehicles',

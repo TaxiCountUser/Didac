@@ -90,6 +90,17 @@ String driverName(Map<String, dynamic> tx) {
   return 'Conductor';
 }
 
+/// Clave i18n del ROL de quien envió un mensaje (según la relación `users`):
+/// admin > propietario (jefe) > conductor.
+String senderRoleKey(Map<String, dynamic> m) {
+  final u = m['users'];
+  if (u is Map) {
+    if (u['is_admin'] == true) return 'role_admin';
+    if (u['role'] == 'owner') return 'role_owner';
+  }
+  return 'role_driver';
+}
+
 /// Descripción legible del vehículo a partir de la relación embebida `vehicles`.
 String? vehicleLabel(Map<String, dynamic> tx) {
   final v = tx['vehicles'];

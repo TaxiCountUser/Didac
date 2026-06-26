@@ -183,7 +183,7 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
           itemBuilder: (context, i) {
             final m = msgs[i];
             final mine = m['user_id'] == _myId;
-            final author = ((m['users'] as Map?)?['email'] as String?) ?? '';
+            final roleLabel = mine ? l.t('role_admin') : l.t(senderRoleKey(m));
             return Align(
               alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
               child: Container(
@@ -197,7 +197,7 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(mine ? l.t('admin_me') : author,
+                    Text(roleLabel,
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     Text(m['body'] as String? ?? ''),
                     Text(fmtDateTime(parseCreatedAt(m['created_at'])),

@@ -959,7 +959,7 @@ class DataService {
   Future<List<Map<String, dynamic>>> listIncidentMessages(String incidentId) async {
     final data = await _c
         .from('incident_messages')
-        .select('*, users:user_id(name, email)')
+        .select('*, users:user_id(name, email, role, is_admin)')
         .eq('incident_id', incidentId)
         .order('created_at');
     return (data as List).cast<Map<String, dynamic>>();

@@ -681,7 +681,7 @@ export async function buildApp(options = {}) {
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const { data, error } = await supabase
       .from('incident_messages')
-      .select('id, body, user_id, created_at, users(email, name)')
+      .select('id, body, user_id, created_at, users(email, name, role, is_admin)')
       .eq('incident_id', request.params.id)
       .order('created_at', { ascending: true });
     if (error) return reply.code(500).send({ error: error.message });

@@ -174,7 +174,7 @@ class _IncidentChatScreenState extends State<IncidentChatScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (!mine)
-                      Text(driverName(m),
+                      Text(l.t(senderRoleKey(m)),
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     Text(m['body'] as String? ?? ''),
                     Text(fmtDateTime(parseCreatedAt(m['created_at'])),
