@@ -17,7 +17,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStateMixin {
   final _service = DataService();
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this);
 
   @override
   void dispose() {
@@ -33,9 +33,11 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
         title: Text(l.t('admin_title')),
         bottom: TabBar(
           controller: _tabs,
+          isScrollable: true,
           tabs: [
             Tab(text: l.t('admin_companies')),
             Tab(text: l.t('admin_incidents')),
+            Tab(text: l.t('admin_challenges')),
           ],
         ),
         actions: [
@@ -48,7 +50,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [_CompaniesTab(), _IncidentsTab()],
+        children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab()],
       ),
     );
   }
@@ -362,6 +364,104 @@ class _IncidentsTabState extends State<_IncidentsTab> {
           ));
           _reload();
         },
+      ),
+    );
+  }
+}
+
+class _ChallengesTab extends StatefulWidget {
+  const _ChallengesTab();
+  @override
+  State<_ChallengesTab> createState() => _ChallengesTabState();
+}
+
+class _ChallengesTabState extends State<_ChallengesTab> {
+  final _service = DataService();
+  late Future<List<Map<String, dynamic>>> _future = _service.adminChallenges();
+
+  void _reload() => setState(() => _future = _service.adminChallenges());
+
+  Future<void> _review(String id, String action) async {
+    try {
+      await _service.adminReviewChallenge(id, action);
+      _reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return _ErrorRetry(error: '${snap.error}', onRetry: _reload);
+        }
+        final list = snap.data ?? [];
+        if (list.isEmpty) {
+          return Center(child: Text(l.t('admin_no_challenges')));
+        }
+        return RefreshIndicator(
+          onRefresh: () async => _reload(),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: list.length,
+            itemBuilder: (context, i) => _claimTile(l, list[i]),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _claimTile(AppLocalizations l, Map<String, dynamic> c) {
+    final challenge = (c['challenge'] as String?) ?? '';
+    final isKm = challenge == 'km_100k';
+    final value = (c['metric_value'] as num?)?.toDouble() ?? 0;
+    final days = (c['active_days'] as num?)?.toInt() ?? 0;
+    final status = (c['status'] as String?) ?? 'pending';
+    final suspicious = c['suspicious'] == true;
+    final driver = ((c['users'] as Map?)?['name'] as String?)
+        ?? ((c['users'] as Map?)?['email'] as String?) ?? '—';
+    final company = ((c['tenants'] as Map?)?['name'] as String?) ?? '—';
+    final pending = status == 'pending';
+    final unit = isKm ? 'km' : '€';
+    final title = isKm ? l.t('ch_km_title') : l.t('ch_money_title');
+    return Card(
+      child: ListTile(
+        leading: Icon(isKm ? Icons.speed : Icons.euro, color: Colors.amber.shade800),
+        title: Text('$title · $driver'),
+        subtitle: Text('$company\n'
+            '${value.toStringAsFixed(0)} $unit · ${l.t('ch_days_progress', {'n': '$days', 'min': '300'})}'
+            '${suspicious ? '\n⚠️ ${l.t('admin_ch_suspicious')}' : ''}'),
+        isThreeLine: true,
+        trailing: pending
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: l.t('admin_ch_reward'),
+                    icon: const Icon(Icons.card_giftcard, color: Colors.green),
+                    onPressed: () => _review(c['id'] as String, 'reward'),
+                  ),
+                  IconButton(
+                    tooltip: l.t('admin_ch_reject'),
+                    icon: const Icon(Icons.cancel, color: Colors.red),
+                    onPressed: () => _review(c['id'] as String, 'reject'),
+                  ),
+                ],
+              )
+            : Chip(
+                label: Text(status == 'rewarded' ? l.t('admin_ch_rewarded') : l.t('admin_ch_rejected'),
+                    style: const TextStyle(fontSize: 11)),
+                backgroundColor: status == 'rewarded' ? Colors.green.shade100 : Colors.grey.shade300,
+              ),
       ),
     );
   }

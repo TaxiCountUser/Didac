@@ -224,6 +224,35 @@ class DataService {
     return {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'};
   }
 
+  /// Progreso de los retos del propio conductor (km, dinero, días activos).
+  Future<Map<String, dynamic>> myChallenges() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/challenges/me'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Retos logrados pendientes de revisar (solo admin, todas las empresas).
+  Future<List<Map<String, dynamic>>> adminChallenges() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/challenges'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['claims'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// Aprueba (mes gratis) o rechaza un reto logrado (solo admin).
+  Future<void> adminReviewChallenge(String id, String action) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/challenges/$id'),
+      headers: _bearer,
+      body: jsonEncode({'action': action}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo procesar el reto');
+    }
+  }
+
   /// Resumen de todas las empresas (solo admin).
   Future<Map<String, dynamic>> adminOverview() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/overview'), headers: _bearer);

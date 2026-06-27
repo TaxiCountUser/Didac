@@ -1371,4 +1371,78 @@ end;
 $$;
 grant execute on function public.create_solo_company(text) to authenticated;
 
+-- ============================================================
+-- 030 - Retos / metas por conductor (km_100k, money_100k).
+-- ============================================================
+create table if not exists public.challenge_claims (
+  id           uuid primary key default gen_random_uuid(),
+  tenant_id    uuid not null references public.tenants(id) on delete cascade,
+  user_id      uuid not null references public.users(id)   on delete cascade,
+  challenge    text not null check (challenge in ('km_100k', 'money_100k')),
+  metric_value numeric not null default 0,
+  active_days  int     not null default 0,
+  status       text    not null default 'pending'
+               check (status in ('pending', 'rewarded', 'rejected')),
+  created_at   timestamptz not null default now(),
+  reviewed_at  timestamptz
+);
+create unique index if not exists challenge_claims_user_chal_uidx
+  on public.challenge_claims(user_id, challenge);
+create index if not exists challenge_claims_tenant_idx on public.challenge_claims(tenant_id);
+
+grant select, insert, update, delete on public.challenge_claims to authenticated, service_role;
+alter table public.challenge_claims enable row level security;
+
+drop policy if exists challenge_claims_select on public.challenge_claims;
+create policy challenge_claims_select on public.challenge_claims
+  for select to authenticated
+  using (
+    user_id = auth.uid()
+    or (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner')
+  );
+
+create or replace function public.challenge_stats(p_user uuid)
+returns table(km numeric, money numeric, active_days int)
+language sql stable security definer
+set search_path = public
+as $$
+  with odo as (
+    select vehicle_id, reading_km::numeric as km, taken_at::date as d
+      from public.odometer_readings where user_id = p_user
+    union all
+    select vehicle_id, odometer_km::numeric as km, created_at::date as d
+      from public.transactions
+     where user_id = p_user and odometer_km is not null and vehicle_id is not null
+  ),
+  per_vehicle as (
+    select coalesce(sum(max_km - min_km), 0) as km_total
+      from (select vehicle_id, max(km) as max_km, min(km) as min_km
+              from odo group by vehicle_id) t
+  ),
+  bal as (
+    select coalesce(sum(case when type = 'income' then amount else -amount end), 0) as money
+      from public.transactions where user_id = p_user
+  ),
+  days as (
+    select count(distinct d) as n from (
+      select created_at::date as d from public.transactions where user_id = p_user
+      union
+      select taken_at::date as d from public.odometer_readings where user_id = p_user
+    ) x
+  )
+  select (select km_total from per_vehicle),
+         (select money from bal),
+         (select n from days)::int;
+$$;
+grant execute on function public.challenge_stats(uuid) to service_role;
+
+create or replace function public.my_challenge_stats()
+returns table(km numeric, money numeric, active_days int)
+language sql stable security definer
+set search_path = public
+as $$
+  select * from public.challenge_stats(auth.uid());
+$$;
+grant execute on function public.my_challenge_stats() to authenticated;
+
 notify pgrst, 'reload schema';

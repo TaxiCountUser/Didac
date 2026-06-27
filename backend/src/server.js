@@ -1123,6 +1123,110 @@ export async function buildApp(options = {}) {
     }
   });
 
+  // ============================================================
+  // Retos / metas por conductor (km_100k, money_100k).
+  // Progreso calculado en BD (challenge_stats); al cruzar el umbral se crea un
+  // "claim" pendiente que el admin revisa. Premio NO automático.
+  // ============================================================
+  const CHALLENGE_KM_GOAL = 100000;     // 100.000 km
+  const CHALLENGE_MONEY_GOAL = 100000;  // 100.000 €
+  const CHALLENGE_MIN_DAYS = 300;       // mínimo de días activos para validar
+
+  // Lee las stats de un conductor (km, dinero, días activos) vía RPC.
+  async function challengeStats(userId) {
+    const { data, error } = await supabase.rpc('challenge_stats', { p_user: userId });
+    if (error) throw new Error(error.message);
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      km: Number(row?.km ?? 0),
+      money: Number(row?.money ?? 0),
+      activeDays: Number(row?.active_days ?? 0),
+    };
+  }
+
+  // Si se alcanza el umbral y no hay claim, crea uno pendiente (idempotente).
+  async function maybeCreateClaim(tenantId, userId, challenge, value, activeDays) {
+    const { error } = await supabase.from('challenge_claims').insert({
+      tenant_id: tenantId, user_id: userId, challenge,
+      metric_value: value, active_days: activeDays,
+    });
+    // 23505 = ya existe (un claim por reto y conductor): no es error real.
+    if (error && !/duplicate|unique|23505/i.test(error.message || '')) {
+      app.log.warn(`[challenge] no se pudo crear claim: ${error.message}`);
+    }
+  }
+
+  // Progreso de los retos del propio conductor (para mostrarlo en Ajustes).
+  app.get('/api/v1/challenges/me', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    try {
+      const s = await challengeStats(caller.id);
+      // Registrar avisos al admin si se cruzan umbrales.
+      if (s.km >= CHALLENGE_KM_GOAL) {
+        await maybeCreateClaim(caller.tenant_id, caller.id, 'km_100k', s.km, s.activeDays);
+      }
+      if (s.money >= CHALLENGE_MONEY_GOAL) {
+        await maybeCreateClaim(caller.tenant_id, caller.id, 'money_100k', s.money, s.activeDays);
+      }
+      return reply.send({
+        km: s.km, money: s.money, active_days: s.activeDays,
+        km_goal: CHALLENGE_KM_GOAL, money_goal: CHALLENGE_MONEY_GOAL,
+        min_days: CHALLENGE_MIN_DAYS,
+      });
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(500).send({ error: 'No se pudieron calcular los retos', detail: e.message });
+    }
+  });
+
+  // Admin: lista de retos logrados pendientes de revisar (de todas las empresas).
+  app.get('/api/v1/admin/challenges', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data, error } = await supabase
+      .from('challenge_claims')
+      .select('id, challenge, metric_value, active_days, status, created_at, '
+        + 'users:user_id(email, name), tenants:tenant_id(name)')
+      .order('created_at', { ascending: false });
+    if (error) return reply.code(500).send({ error: error.message });
+    // Marca como sospechoso si se logró con menos del mínimo de días.
+    const rows = (data ?? []).map((r) => ({
+      ...r, suspicious: (r.active_days ?? 0) < CHALLENGE_MIN_DAYS,
+    }));
+    return reply.send({ claims: rows });
+  });
+
+  // Admin: aprobar (mes gratis al dueño de la suscripción) o rechazar un reto.
+  app.post('/api/v1/admin/challenges/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const action = (request.body ?? {}).action;
+    if (action !== 'reward' && action !== 'reject') {
+      return reply.code(400).send({ error: 'Acción no válida' });
+    }
+    const { data: claim, error: cErr } = await supabase
+      .from('challenge_claims').select('id, tenant_id, status').eq('id', request.params.id).maybeSingle();
+    if (cErr || !claim) return reply.code(404).send({ error: 'Reto no encontrado' });
+
+    if (action === 'reward') {
+      // Un mes gratis: extiende trial_ends_at +30 días sobre el final actual.
+      const { data: t } = await supabase
+        .from('tenants').select('trial_ends_at').eq('id', claim.tenant_id).maybeSingle();
+      const now = Date.now();
+      const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : 0;
+      const base = cur > now ? cur : now;
+      await supabase.from('tenants')
+        .update({ trial_ends_at: new Date(base + 30 * 86400000).toISOString() })
+        .eq('id', claim.tenant_id);
+    }
+    await supabase.from('challenge_claims')
+      .update({ status: action === 'reward' ? 'rewarded' : 'rejected', reviewed_at: new Date().toISOString() })
+      .eq('id', claim.id);
+    return reply.send({ ok: true });
+  });
+
   // --- Webhook de Stripe (Fase 4) ---
   // Recompensa de referido: cuando la empresa `tenantId` paga, el que la invitó
   // gana un mes gratis (extiende su trial_ends_at +30 días y, si paga por
