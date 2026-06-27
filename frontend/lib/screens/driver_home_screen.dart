@@ -334,7 +334,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            // Espacio inferior extra para que el botón flotante de audio (FAB)
+            // nunca tape la fila de Iniciar/Finalizar día, ni con letras grandes.
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
