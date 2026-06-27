@@ -59,6 +59,8 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   List<Map<String, dynamic>> _vehicles = const [];
   String? _vehicleId;
   bool _vehiclesLoaded = false;
+  // Último km registrado del vehículo seleccionado (para validar que no baje).
+  int? _lastKm;
 
   @override
   void initState() {
@@ -101,9 +103,39 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           _vehicleId = vs.first['id'] as String?;
         }
       });
+      _loadLastKm();
     } catch (_) {
       if (mounted) setState(() => _vehiclesLoaded = true);
     }
+  }
+
+  /// Carga el último km registrado del vehículo seleccionado, para impedir que
+  /// se guarde una lectura inferior (no se puede "desandar" el cuentakilómetros).
+  Future<void> _loadLastKm() async {
+    final vid = _vehicleId;
+    if (vid == null) {
+      if (mounted) setState(() => _lastKm = null);
+      return;
+    }
+    try {
+      final k = await DataService().lastOdometer(vid);
+      if (mounted) setState(() => _lastKm = k);
+    } catch (_) {
+      // Sin conexión: no bloqueamos por no poder comprobar.
+    }
+  }
+
+  /// Devuelve el mensaje de error de los km (o null si son válidos).
+  String? _kmError(AppLocalizations l) {
+    if (!_isTrip) return null;
+    final txt = _km.text.trim();
+    if (txt.isEmpty) return null;
+    final km = int.tryParse(txt);
+    if (km == null) return l.t('ti_invalid_km');
+    if (_lastKm != null && km < _lastKm!) {
+      return l.t('ti_km_too_low', {'last': _lastKm.toString()});
+    }
+    return null;
   }
 
   String _vehicleLabel(Map<String, dynamic> v) {
@@ -158,9 +190,11 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       return;
     }
     final km = _km.text.trim().isEmpty ? null : int.tryParse(_km.text.trim());
-    if (_isTrip && _km.text.trim().isNotEmpty && km == null) {
+    final kmErr = _kmError(l);
+    if (kmErr != null) {
+      setState(() {}); // pinta el campo en rojo
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.t('ti_invalid_km'))));
+          .showSnackBar(SnackBar(content: Text(kmErr)));
       return;
     }
     setState(() => _saving = true);
@@ -378,7 +412,10 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           for (final v in _vehicles)
             DropdownMenuItem(value: v['id'] as String, child: Text(_vehicleLabel(v))),
         ],
-        onChanged: (val) => setState(() => _vehicleId = val),
+        onChanged: (val) {
+          setState(() => _vehicleId = val);
+          _loadLastKm();
+        },
       ),
     ];
   }
@@ -411,10 +448,13 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           key: const Key('km_field'),
           controller: _km,
           keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}), // refresca el error en vivo
           decoration: InputDecoration(
             labelText: l.t('ti_km'),
             prefixIcon: const Icon(Icons.speed),
             border: const OutlineInputBorder(),
+            errorText: _kmError(l),
+            helperText: _lastKm != null ? l.t('ti_km_last', {'last': _lastKm.toString()}) : null,
           ),
         ),
         const SizedBox(height: 12),

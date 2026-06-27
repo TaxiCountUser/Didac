@@ -191,6 +191,7 @@ const Map<String, Map<String, String>> _values = {
     'ti_client_help': 'Vacío = cliente particular', 'ti_category': 'Categoría', 'ti_vehicle': 'Vehículo',
     'ti_dictate': 'Dictar por voz', 'ti_invalid_amount': 'Introduce un importe válido',
     'ti_invalid_km': 'Los km deben ser un número entero', 'ti_trip_saved': 'Carrera guardada',
+    'ti_km_too_low': 'Los km no son correctos: el coche ya tenía {last} km', 'ti_km_last': 'Último registro: {last} km',
     'ti_expense_saved': 'Gasto guardado', 'ti_updated': 'Transacción actualizada',
     'ti_blocked': 'Operación bloqueada. Contacta con el administrador de la flota',
     // Detalle
@@ -470,6 +471,7 @@ const Map<String, Map<String, String>> _values = {
     'ti_client_help': 'Empty = private client', 'ti_category': 'Category', 'ti_vehicle': 'Vehicle',
     'ti_dictate': 'Dictate by voice', 'ti_invalid_amount': 'Enter a valid amount',
     'ti_invalid_km': 'Mileage must be a whole number', 'ti_trip_saved': 'Trip saved',
+    'ti_km_too_low': 'Mileage is not valid: the car already had {last} km', 'ti_km_last': 'Last reading: {last} km',
     'ti_expense_saved': 'Expense saved', 'ti_updated': 'Transaction updated',
     'ti_blocked': 'Operation blocked. Contact the fleet administrator',
     'td_title': 'Detail', 'td_income': 'Income', 'td_expense': 'Expense', 'td_category': 'Category',
@@ -736,6 +738,7 @@ const Map<String, Map<String, String>> _values = {
     'ti_client_help': 'Buit = client particular', 'ti_category': 'Categoria', 'ti_vehicle': 'Vehicle',
     'ti_dictate': 'Dicta per veu', 'ti_invalid_amount': 'Introdueix un import vàlid',
     'ti_invalid_km': 'Els km han de ser un nombre enter', 'ti_trip_saved': 'Cursa desada',
+    'ti_km_too_low': 'Els km no són correctes: el cotxe ja tenia {last} km', 'ti_km_last': 'Últim registre: {last} km',
     'ti_expense_saved': 'Despesa desada', 'ti_updated': 'Transacció actualitzada',
     'ti_blocked': "Operació bloquejada. Contacta amb l'administrador de la flota",
     'td_title': 'Detall', 'td_income': 'Ingrés', 'td_expense': 'Despesa', 'td_category': 'Categoria',
