@@ -177,7 +177,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       barrierDismissible: barrier,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text(title),
+          title: Row(
+            children: [
+              Expanded(child: Text(title)),
+              // El saludo es opcional: una X para cerrarlo sin rellenar.
+              if (greeting != null)
+                IconButton(
+                  tooltip: l.t('close'),
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx, false),
+                ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

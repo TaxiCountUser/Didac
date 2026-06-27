@@ -4,9 +4,10 @@ import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 
-/// Retos / metas del conductor: 100.000 km y 100.000 € de balance, con un
-/// mínimo de 300 días de uso. Al cumplirlos, el admin revisa y, si procede,
-/// regala un mes de suscripción al dueño de la cuenta.
+/// Retos / metas — vista del EMPRESARIO. Muestra, por cada conductor de la
+/// empresa, su progreso hacia: 100.000 km, 100.000 € de balance y 300 días de
+/// uso. Al cumplirse (con el mínimo de días), el admin revisa y, si procede,
+/// regala un mes de suscripción al dueño de la cuenta. Los chóferes no ven esto.
 class ChallengesScreen extends StatefulWidget {
   const ChallengesScreen({super.key});
 
@@ -20,7 +21,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
   @override
   void initState() {
     super.initState();
-    _future = DataService().myChallenges();
+    _future = DataService().companyChallenges();
   }
 
   @override
@@ -42,40 +43,21 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
             ));
           }
           final d = snap.data ?? {};
-          final km = (d['km'] as num?)?.toDouble() ?? 0;
-          final money = (d['money'] as num?)?.toDouble() ?? 0;
-          final activeDays = (d['active_days'] as num?)?.toInt() ?? 0;
+          final drivers = ((d['drivers'] as List?) ?? []).cast<Map<String, dynamic>>();
           final kmGoal = (d['km_goal'] as num?)?.toDouble() ?? 100000;
           final moneyGoal = (d['money_goal'] as num?)?.toDouble() ?? 100000;
+          final daysGoal = (d['days_goal'] as num?)?.toInt() ?? 300;
           final minDays = (d['min_days'] as num?)?.toInt() ?? 300;
+          if (drivers.isEmpty) {
+            return Center(child: Text(l.t('ch_no_drivers')));
+          }
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               Text(l.t('ch_intro'), style: const TextStyle(color: Colors.grey)),
-              const SizedBox(height: 8),
-              _daysCard(l, activeDays, minDays),
-              const SizedBox(height: 16),
-              _challengeCard(
-                l,
-                icon: Icons.speed,
-                title: l.t('ch_km_title'),
-                value: km,
-                goal: kmGoal,
-                unit: 'km',
-                activeDays: activeDays,
-                minDays: minDays,
-              ),
-              const SizedBox(height: 16),
-              _challengeCard(
-                l,
-                icon: Icons.euro,
-                title: l.t('ch_money_title'),
-                value: money,
-                goal: moneyGoal,
-                unit: '€',
-                activeDays: activeDays,
-                minDays: minDays,
-              ),
+              const SizedBox(height: 12),
+              for (final dr in drivers)
+                _driverCard(l, dr, kmGoal, moneyGoal, daysGoal, minDays),
             ],
           );
         },
@@ -83,33 +65,18 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
     );
   }
 
-  Widget _daysCard(AppLocalizations l, int activeDays, int minDays) {
-    final met = activeDays >= minDays;
+  Widget _driverCard(AppLocalizations l, Map<String, dynamic> dr,
+      double kmGoal, double moneyGoal, int daysGoal, int minDays) {
+    final name = (dr['name'] as String?)?.trim();
+    final email = (dr['email'] as String?) ?? '';
+    final title = (name != null && name.isNotEmpty) ? name : email;
+    final km = (dr['km'] as num?)?.toDouble() ?? 0;
+    final money = (dr['money'] as num?)?.toDouble() ?? 0;
+    final days = (dr['active_days'] as num?)?.toInt() ?? 0;
+    final maxJump = (dr['max_jump'] as num?)?.toDouble() ?? 0;
+    final suspicious = dr['suspicious'] == true;
     return Card(
-      child: ListTile(
-        leading: Icon(Icons.calendar_today, color: met ? Colors.green : Colors.orange),
-        title: Text(l.t('ch_active_days')),
-        subtitle: Text(l.t('ch_days_progress', {'n': '$activeDays', 'min': '$minDays'})),
-        trailing: met ? const Icon(Icons.check_circle, color: Colors.green) : null,
-      ),
-    );
-  }
-
-  Widget _challengeCard(
-    AppLocalizations l, {
-    required IconData icon,
-    required String title,
-    required double value,
-    required double goal,
-    required String unit,
-    required int activeDays,
-    required int minDays,
-  }) {
-    final nf = NumberFormat.decimalPattern('es');
-    final pct = goal <= 0 ? 0.0 : (value / goal).clamp(0.0, 1.0);
-    final reached = value >= goal;
-    final daysOk = activeDays >= minDays;
-    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -117,34 +84,74 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.amber.shade800),
+                const Icon(Icons.person, color: Colors.blueGrey),
                 const SizedBox(width: 8),
                 Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                if (reached) const Icon(Icons.emoji_events, color: Colors.amber),
               ],
             ),
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: pct,
-                minHeight: 12,
-                backgroundColor: Colors.grey.shade200,
-                color: reached ? Colors.green : Colors.amber,
+            _bar(l, Icons.speed, l.t('ch_km_title'), km, kmGoal, 'km', days, minDays),
+            const SizedBox(height: 12),
+            _bar(l, Icons.euro, l.t('ch_money_title'), money, moneyGoal, '€', days, minDays),
+            const SizedBox(height: 12),
+            _bar(l, Icons.calendar_today, l.t('ch_days_title'), days.toDouble(), daysGoal.toDouble(), l.t('ch_days_unit'), days, minDays),
+            if (suspicious) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(
+                      l.t('ch_fraud_warn', {'jump': NumberFormat.decimalPattern('es').format(maxJump)}),
+                      style: const TextStyle(fontSize: 12, color: Colors.deepOrange),
+                    )),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text('${nf.format(value)} $unit / ${nf.format(goal)} $unit  ·  ${(pct * 100).toStringAsFixed(1)}%'),
-            const SizedBox(height: 8),
-            if (reached && daysOk)
-              Text(l.t('ch_reached'), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
-            if (reached && !daysOk)
-              Text(l.t('ch_reached_early'), style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.w600)),
-            if (!reached)
-              Text(l.t('ch_reward_hint'), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _bar(AppLocalizations l, IconData icon, String label, double value,
+      double goal, String unit, int days, int minDays) {
+    final nf = NumberFormat.decimalPattern('es');
+    final pct = goal <= 0 ? 0.0 : (value / goal).clamp(0.0, 1.0);
+    final reached = value >= goal;
+    final daysOk = days >= minDays;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: Colors.amber.shade800),
+            const SizedBox(width: 6),
+            Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+            if (reached && daysOk) const Icon(Icons.emoji_events, color: Colors.amber, size: 18),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 10,
+            backgroundColor: Colors.grey.shade200,
+            color: reached ? Colors.green : Colors.amber,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text('${nf.format(value)} $unit / ${nf.format(goal)} $unit  ·  ${(pct * 100).toStringAsFixed(0)}%',
+            style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
     );
   }
 }

@@ -1124,25 +1124,17 @@ export async function buildApp(options = {}) {
   });
 
   // ============================================================
-  // Retos / metas por conductor (km_100k, money_100k).
-  // Progreso calculado en BD (challenge_stats); al cruzar el umbral se crea un
-  // "claim" pendiente que el admin revisa. Premio NO automático.
+  // Retos / metas por conductor (km_100k, money_100k, days_300).
+  // Solo los empresarios (owner) ven el progreso de SUS conductores. Al cruzar
+  // un umbral se crea un "claim" pendiente que el admin revisa (premio NO
+  // automático). Anti-fraude: días activos < 300 = imposible -> sospechoso; y
+  // max_jump (mayor salto de km de golpe) delata km inflados a mano.
   // ============================================================
   const CHALLENGE_KM_GOAL = 100000;     // 100.000 km
   const CHALLENGE_MONEY_GOAL = 100000;  // 100.000 €
-  const CHALLENGE_MIN_DAYS = 300;       // mínimo de días activos para validar
-
-  // Lee las stats de un conductor (km, dinero, días activos) vía RPC.
-  async function challengeStats(userId) {
-    const { data, error } = await supabase.rpc('challenge_stats', { p_user: userId });
-    if (error) throw new Error(error.message);
-    const row = Array.isArray(data) ? data[0] : data;
-    return {
-      km: Number(row?.km ?? 0),
-      money: Number(row?.money ?? 0),
-      activeDays: Number(row?.active_days ?? 0),
-    };
-  }
+  const CHALLENGE_DAYS_GOAL = 300;      // 300 días usando la app
+  const CHALLENGE_MIN_DAYS = 300;       // mínimo de días activos para validar km/€
+  const CHALLENGE_MAX_JUMP = 2000;      // salto de km/día por encima -> sospechoso
 
   // Si se alcanza el umbral y no hay claim, crea uno pendiente (idempotente).
   async function maybeCreateClaim(tenantId, userId, challenge, value, activeDays) {
@@ -1156,24 +1148,45 @@ export async function buildApp(options = {}) {
     }
   }
 
-  // Progreso de los retos del propio conductor (para mostrarlo en Ajustes).
-  app.get('/api/v1/challenges/me', async (request, reply) => {
+  // Progreso de los retos de TODOS los conductores de la empresa (solo owner).
+  app.get('/api/v1/challenges/company', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
     const caller = await getCaller(request);
     if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner') {
+      return reply.code(403).send({ error: 'Solo el propietario ve los retos' });
+    }
     try {
-      const s = await challengeStats(caller.id);
-      // Registrar avisos al admin si se cruzan umbrales.
-      if (s.km >= CHALLENGE_KM_GOAL) {
-        await maybeCreateClaim(caller.tenant_id, caller.id, 'km_100k', s.km, s.activeDays);
-      }
-      if (s.money >= CHALLENGE_MONEY_GOAL) {
-        await maybeCreateClaim(caller.tenant_id, caller.id, 'money_100k', s.money, s.activeDays);
+      const { data, error } = await supabase.rpc('challenge_stats_tenant', { p_tenant: caller.tenant_id });
+      if (error) throw new Error(error.message);
+      const drivers = (data ?? []).map((r) => ({
+        user_id: r.user_id,
+        name: r.name,
+        email: r.email,
+        km: Number(r.km ?? 0),
+        money: Number(r.money ?? 0),
+        active_days: Number(r.active_days ?? 0),
+        max_jump: Number(r.max_jump ?? 0),
+        suspicious: Number(r.active_days ?? 0) < CHALLENGE_MIN_DAYS
+          || Number(r.max_jump ?? 0) > CHALLENGE_MAX_JUMP,
+      }));
+      // Crea avisos al admin cuando alguien cruza un umbral.
+      for (const d of drivers) {
+        if (d.km >= CHALLENGE_KM_GOAL) {
+          await maybeCreateClaim(caller.tenant_id, d.user_id, 'km_100k', d.km, d.active_days);
+        }
+        if (d.money >= CHALLENGE_MONEY_GOAL) {
+          await maybeCreateClaim(caller.tenant_id, d.user_id, 'money_100k', d.money, d.active_days);
+        }
+        if (d.active_days >= CHALLENGE_DAYS_GOAL) {
+          await maybeCreateClaim(caller.tenant_id, d.user_id, 'days_300', d.active_days, d.active_days);
+        }
       }
       return reply.send({
-        km: s.km, money: s.money, active_days: s.activeDays,
+        drivers,
         km_goal: CHALLENGE_KM_GOAL, money_goal: CHALLENGE_MONEY_GOAL,
-        min_days: CHALLENGE_MIN_DAYS,
+        days_goal: CHALLENGE_DAYS_GOAL, min_days: CHALLENGE_MIN_DAYS,
+        max_jump_warn: CHALLENGE_MAX_JUMP,
       });
     } catch (e) {
       request.log.error(e);
@@ -1191,9 +1204,10 @@ export async function buildApp(options = {}) {
         + 'users:user_id(email, name), tenants:tenant_id(name)')
       .order('created_at', { ascending: false });
     if (error) return reply.code(500).send({ error: error.message });
-    // Marca como sospechoso si se logró con menos del mínimo de días.
+    // Sospechoso si el reto de km/€ se logró con menos del mínimo de días.
     const rows = (data ?? []).map((r) => ({
-      ...r, suspicious: (r.active_days ?? 0) < CHALLENGE_MIN_DAYS,
+      ...r,
+      suspicious: r.challenge !== 'days_300' && (r.active_days ?? 0) < CHALLENGE_MIN_DAYS,
     }));
     return reply.send({ claims: rows });
   });

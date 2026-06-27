@@ -423,6 +423,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   Widget _claimTile(AppLocalizations l, Map<String, dynamic> c) {
     final challenge = (c['challenge'] as String?) ?? '';
     final isKm = challenge == 'km_100k';
+    final isDays = challenge == 'days_300';
     final value = (c['metric_value'] as num?)?.toDouble() ?? 0;
     final days = (c['active_days'] as num?)?.toInt() ?? 0;
     final status = (c['status'] as String?) ?? 'pending';
@@ -431,11 +432,12 @@ class _ChallengesTabState extends State<_ChallengesTab> {
         ?? ((c['users'] as Map?)?['email'] as String?) ?? '—';
     final company = ((c['tenants'] as Map?)?['name'] as String?) ?? '—';
     final pending = status == 'pending';
-    final unit = isKm ? 'km' : '€';
-    final title = isKm ? l.t('ch_km_title') : l.t('ch_money_title');
+    final unit = isKm ? 'km' : (isDays ? l.t('ch_days_unit') : '€');
+    final title = isKm ? l.t('ch_km_title') : (isDays ? l.t('ch_days_title') : l.t('ch_money_title'));
+    final icon = isKm ? Icons.speed : (isDays ? Icons.calendar_today : Icons.euro);
     return Card(
       child: ListTile(
-        leading: Icon(isKm ? Icons.speed : Icons.euro, color: Colors.amber.shade800),
+        leading: Icon(icon, color: Colors.amber.shade800),
         title: Text('$title · $driver'),
         subtitle: Text('$company\n'
             '${value.toStringAsFixed(0)} $unit · ${l.t('ch_days_progress', {'n': '$days', 'min': '300'})}'

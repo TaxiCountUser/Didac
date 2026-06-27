@@ -224,9 +224,9 @@ class DataService {
     return {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'};
   }
 
-  /// Progreso de los retos del propio conductor (km, dinero, días activos).
-  Future<Map<String, dynamic>> myChallenges() async {
-    final res = await http.get(Uri.parse('$backendUrl/api/v1/challenges/me'), headers: _bearer);
+  /// Progreso de los retos de todos los conductores de la empresa (solo owner).
+  Future<Map<String, dynamic>> companyChallenges() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/challenges/company'), headers: _bearer);
     final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
     return body;
