@@ -41,6 +41,40 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     }
   }
 
+  /// Elimina el vehículo de la flota, con confirmación. Las carreras antiguas se
+  /// conservan (el vínculo al coche queda a null), así no se pierden datos.
+  Future<void> _confirmDelete() async {
+    final l = context.l10n;
+    final plate = _v['license_plate'] as String? ?? '—';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('vh_delete')),
+        content: Text(l.t('vh_delete_confirm', {'plate': plate})),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.t('vh_delete')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _service.deleteVehicle(_id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('vh_deleted'))));
+        Navigator.of(context).pop(); // vuelve a la lista (que recarga)
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+      }
+    }
+  }
+
   // ---- helpers de fecha ----
   static DateTime? _date(dynamic v) {
     if (v == null) return null;
@@ -76,7 +110,16 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     final notes = _v['maintenance_notes'] as String?;
 
     return Scaffold(
-      appBar: AppBar(title: Text('${l.t('vh_detail')} · $plate')),
+      appBar: AppBar(
+        title: Text('${l.t('vh_detail')} · $plate'),
+        actions: [
+          IconButton(
+            tooltip: l.t('vh_delete'),
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _confirmDelete,
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

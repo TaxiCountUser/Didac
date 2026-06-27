@@ -248,6 +248,8 @@ const Map<String, Map<String, String>> _values = {
     'vh_assign_saved': 'Asignación guardada',
     // Ficha de vehículo + mantenimiento
     'vh_detail': 'Ficha del vehículo', 'vh_km_current': 'Km actuales', 'vh_km_unknown': 'Sin lecturas de km',
+    'vh_delete': 'Eliminar vehículo', 'vh_deleted': 'Vehículo eliminado',
+    'vh_delete_confirm': '¿Eliminar el vehículo {plate} de la flota? Las carreras antiguas se conservan, pero dejarán de estar asociadas a este coche. Esta acción no se puede deshacer.',
     'vh_assign_drivers': 'Asignar conductores', 'vh_maintenance': 'Mantenimiento',
     'vh_itv': 'ITV', 'vh_insurance': 'Seguro', 'vh_transport_card': 'Tarjeta de transporte',
     'vh_revisions': 'Revisiones', 'vh_edit_maintenance': 'Editar mantenimiento',
@@ -525,6 +527,8 @@ const Map<String, Map<String, String>> _values = {
     'vh_assign_saved': 'Assignment saved',
     // Vehicle card + maintenance
     'vh_detail': 'Vehicle details', 'vh_km_current': 'Current km', 'vh_km_unknown': 'No km readings',
+    'vh_delete': 'Delete vehicle', 'vh_deleted': 'Vehicle deleted',
+    'vh_delete_confirm': 'Delete vehicle {plate} from the fleet? Past trips are kept, but will no longer be linked to this car. This cannot be undone.',
     'vh_assign_drivers': 'Assign drivers', 'vh_maintenance': 'Maintenance',
     'vh_itv': 'Roadworthiness (ITV)', 'vh_insurance': 'Insurance', 'vh_transport_card': 'Transport card',
     'vh_revisions': 'Services', 'vh_edit_maintenance': 'Edit maintenance',
@@ -793,6 +797,8 @@ const Map<String, Map<String, String>> _values = {
     'vh_assign_saved': 'Assignació desada',
     // Fitxa del vehicle + manteniment
     'vh_detail': 'Fitxa del vehicle', 'vh_km_current': 'Km actuals', 'vh_km_unknown': 'Sense lectures de km',
+    'vh_delete': 'Eliminar vehicle', 'vh_deleted': 'Vehicle eliminat',
+    'vh_delete_confirm': 'Vols eliminar el vehicle {plate} de la flota? Les curses antigues es conserven, però deixaran d’estar associades a aquest cotxe. Aquesta acció no es pot desfer.',
     'vh_assign_drivers': 'Assigna conductors', 'vh_maintenance': 'Manteniment',
     'vh_itv': 'ITV', 'vh_insurance': 'Assegurança', 'vh_transport_card': 'Targeta de transport',
     'vh_revisions': 'Revisions', 'vh_edit_maintenance': 'Edita el manteniment',
