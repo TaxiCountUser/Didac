@@ -13,6 +13,7 @@ import 'screens/no_fleet_screen.dart';
 import 'screens/choose_path_screen.dart';
 import 'screens/subscription_gate_screen.dart';
 import 'screens/tutorial_gate.dart';
+import 'widgets/update_prompt.dart';
 
 /// Decide qué pantalla mostrar según la sesión y el rol del usuario.
 class AuthGate extends StatelessWidget {
@@ -54,6 +55,10 @@ class _ProfileRouterState extends State<ProfileRouter> {
   void initState() {
     super.initState();
     _future = _load();
+    // Aviso de nueva versión (sideload), una vez por arranque.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybeShowUpdate(context);
+    });
   }
 
   Future<_Account?> _load() async {

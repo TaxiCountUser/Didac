@@ -30,6 +30,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Necesario para publicar la APK como GitHub Release (enlace público estable).
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: frontend
@@ -100,8 +103,18 @@ jobs:
             echo "::warning::Sin secrets PROD_*: el APK apuntará a localhost (solo sirve para validar la compilación)."
           fi
 
+      # Versión: el versionCode sube en cada build (nº de ejecución) para que la
+      # app detecte que hay una más nueva. versionName legible 0.1.<run>.
+      - name: Versionado
+        id: version
+        run: |
+          CODE="${{ github.run_number }}"
+          NAME="0.1.${{ github.run_number }}"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
       - name: Build APK (release)
-        run: flutter build apk --release ${{ steps.defines.outputs.args }}
+        run: flutter build apk --release --build-number=${{ steps.version.outputs.code }} --build-name=${{ steps.version.outputs.name }} ${{ steps.defines.outputs.args }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -109,6 +122,36 @@ jobs:
           name: taxicount-apk
           path: frontend/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+      # Manifiesto para el aviso de actualización dentro de la app. La versión
+      # mínima soportada se lee de frontend/min_supported_build.txt: súbela solo
+      # cuando un cambio rompa la compatibilidad (entonces el aviso será firme).
+      - name: Generar version.json
+        run: |
+          MIN=$(cat min_supported_build.txt 2>/dev/null | tr -dc '0-9'); MIN=${MIN:-0}
+          NOTES=$(git log -1 --pretty=%s | sed 's/"/\\"/g')
+          cat > version.json <<EOF
+          {
+            "latest_code": ${{ steps.version.outputs.code }},
+            "latest_name": "${{ steps.version.outputs.name }}",
+            "apk_url": "https://github.com/${{ github.repository }}/releases/latest/download/app-release.apk",
+            "min_supported_code": $MIN,
+            "notes": "$NOTES"
+          }
+          EOF
+          cp build/app/outputs/flutter-apk/app-release.apk app-release.apk
+
+      - name: Publicar Release (APK + version.json)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: TaxiCount ${{ steps.version.outputs.name }}
+          files: |
+            frontend/app-release.apk
+            frontend/version.json
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build AAB (Play Store)
         if: ${{ inputs.build_aab && steps.signing.outputs.signed == 'true' }}

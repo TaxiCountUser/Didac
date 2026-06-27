@@ -16,6 +16,13 @@ const backendUrl = String.fromEnvironment(
   defaultValue: 'http://localhost:3000',
 );
 
+// Manifiesto de versión para el aviso de actualización (sideload). Apunta al
+// version.json publicado en la última GitHub Release.
+const updateManifestUrl = String.fromEnvironment(
+  'UPDATE_URL',
+  defaultValue: 'https://github.com/TaxiCountUser/Didac/releases/latest/download/version.json',
+);
+
 // Stripe (Fase 4): Price IDs de los planes. Deben coincidir con los del
 // backend (STRIPE_PRICE_*). Por defecto, los placeholders de desarrollo.
 const stripePriceStarter = String.fromEnvironment(

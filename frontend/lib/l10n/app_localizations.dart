@@ -89,6 +89,12 @@ const Map<String, Map<String, String>> _values = {
     // Común
     'save': 'Guardar', 'cancel': 'Cancelar', 'delete': 'Eliminar', 'edit': 'Editar',
     'retry': 'Reintentar', 'ok': 'OK', 'send': 'Enviar', 'close': 'Cerrar',
+    'upd_title': 'Nueva versión disponible', 'upd_update': 'Actualizar', 'upd_later': 'Ahora no',
+    'upd_body': 'Hay una versión nueva de TaxiCount ({version}). Actualiza para tener las últimas mejoras. Se instala encima, sin perder tus datos.',
+    'upd_recommended': 'Tu versión es antigua: te recomendamos actualizar para que todo funcione bien.',
+    'upd_warn_title': '¿Seguir con la versión antigua?',
+    'upd_warn_body': 'Tu versión es bastante antigua. Si no actualizas, puede que lo que anotes a partir de ahora no se guarde correctamente. ¿Quieres seguir igualmente?',
+    'upd_keep_old': 'Seguir con la antigua',
     'logout': 'Cerrar sesión', 'settings': 'Ajustes', 'error': 'Error',
     'income': 'Ingreso', 'expense': 'Gasto', 'all': 'Todos',
     // Login
@@ -410,6 +416,12 @@ const Map<String, Map<String, String>> _values = {
   'en': {
     'save': 'Save', 'cancel': 'Cancel', 'delete': 'Delete', 'edit': 'Edit',
     'retry': 'Retry', 'ok': 'OK', 'send': 'Send', 'close': 'Close',
+    'upd_title': 'New version available', 'upd_update': 'Update', 'upd_later': 'Not now',
+    'upd_body': 'There is a new version of TaxiCount ({version}). Update to get the latest improvements. It installs on top, without losing your data.',
+    'upd_recommended': 'Your version is old: we recommend updating so everything works correctly.',
+    'upd_warn_title': 'Keep the old version?',
+    'upd_warn_body': 'Your version is quite old. If you do not update, what you note from now on may not be saved correctly. Do you want to continue anyway?',
+    'upd_keep_old': 'Keep the old one',
     'logout': 'Log out', 'settings': 'Settings', 'error': 'Error',
     'income': 'Income', 'expense': 'Expense', 'all': 'All',
     'login_email': 'Email', 'login_password': 'Password', 'login_enter': 'Sign in',
@@ -707,6 +719,12 @@ const Map<String, Map<String, String>> _values = {
   'ca': {
     'save': 'Desa', 'cancel': 'Cancel·la', 'delete': 'Elimina', 'edit': 'Edita',
     'retry': 'Torna-ho a provar', 'ok': "D'acord", 'send': 'Envia', 'close': 'Tanca',
+    'upd_title': 'Nova versió disponible', 'upd_update': 'Actualitza', 'upd_later': 'Ara no',
+    'upd_body': 'Hi ha una versió nova de TaxiCount ({version}). Actualitza per tenir les últimes millores. S’instal·la a sobre, sense perdre les teves dades.',
+    'upd_recommended': 'La teva versió és antiga: et recomanem actualitzar perquè tot funcioni bé.',
+    'upd_warn_title': 'Continuar amb la versió antiga?',
+    'upd_warn_body': 'La teva versió és força antiga. Si no actualitzes, és possible que el que anotis a partir d’ara no es desi correctament. Vols continuar igualment?',
+    'upd_keep_old': 'Continuar amb l’antiga',
     'logout': 'Tanca la sessió', 'settings': 'Configuració', 'error': 'Error',
     'income': 'Ingrés', 'expense': 'Despesa', 'all': 'Tots',
     'login_email': 'Correu', 'login_password': 'Contrasenya', 'login_enter': 'Entra',
