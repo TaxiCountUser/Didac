@@ -665,7 +665,7 @@ export async function buildApp(options = {}) {
     const status = request.query?.status; // 'abierta' | 'resuelta' | undefined
     let q = supabase
       .from('incidents')
-      .select('id, kind, body, status, created_at, tenant_id, user_id, tenants(name), users(email)')
+      .select('id, kind, body, status, created_at, tenant_id, user_id, hidden_for_tenant, tenants(name), users(email)')
       .order('created_at', { ascending: false })
       .limit(500);
     if (status === 'abierta' || status === 'resuelta') q = q.eq('status', status);

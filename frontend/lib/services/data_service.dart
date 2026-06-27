@@ -1095,6 +1095,17 @@ class DataService {
     await _c.from('incidents').delete().eq('id', id);
   }
 
+  /// Oculta una incidencia del panel de la empresa (soft-delete). NO la borra:
+  /// el admin de plataforma la sigue viendo por si hay un problema a futuro.
+  Future<void> hideIncident(String id) async {
+    final updated = await _c
+        .from('incidents')
+        .update({'hidden_for_tenant': true}).eq('id', id).select();
+    if ((updated as List).isEmpty) {
+      throw Exception('No se pudo ocultar la incidencia');
+    }
+  }
+
   /// Autolimpieza: borra las incidencias de más de 90 días del tenant. Devuelve
   /// cuántas borró. Best-effort (se llama al abrir el panel del jefe).
   Future<int> cleanupOldIncidents() async {

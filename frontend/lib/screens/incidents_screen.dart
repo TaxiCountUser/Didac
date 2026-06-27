@@ -102,7 +102,9 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
 
   Future<void> _delete(String id) async {
     try {
-      await _service.deleteIncident(id);
+      // Soft-delete: se quita del panel de la empresa, pero se conserva para el
+      // administrador de la plataforma (por si hay una denuncia/problema futuro).
+      await _service.hideIncident(id);
       _reload();
     } catch (e) {
       if (mounted) {

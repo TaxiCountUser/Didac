@@ -337,6 +337,7 @@ class _IncidentsTabState extends State<_IncidentsTab> {
     final company = ((inc['tenants'] as Map?)?['name'] as String?) ?? '—';
     final author = ((inc['users'] as Map?)?['email'] as String?) ?? '—';
     final resolved = status == 'resuelta';
+    final hidden = inc['hidden_for_tenant'] == true;
     return Card(
       child: ListTile(
         leading: Icon(
@@ -344,7 +345,7 @@ class _IncidentsTabState extends State<_IncidentsTab> {
           color: kind == 'app' ? Colors.deepPurple : Colors.blueGrey,
         ),
         title: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis),
-        subtitle: Text('$company · $author'),
+        subtitle: Text('$company · $author${hidden ? ' · 🗑️ ${l.t('admin_inc_hidden')}' : ''}'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

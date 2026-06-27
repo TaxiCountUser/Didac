@@ -1489,4 +1489,19 @@ as $$
 $$;
 grant execute on function public.challenge_stats_tenant(uuid) to service_role;
 
+-- ============================================================
+-- 031 - Ocultar incidencias en el panel de empresa (soft-delete).
+-- ============================================================
+alter table public.incidents
+  add column if not exists hidden_for_tenant boolean not null default false;
+
+drop policy if exists incidents_select on public.incidents;
+create policy incidents_select on public.incidents
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or user_id = auth.uid())
+    and hidden_for_tenant = false
+  );
+
 notify pgrst, 'reload schema';
