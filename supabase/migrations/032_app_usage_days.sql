@@ -31,12 +31,14 @@ create policy app_usage_select on public.app_usage_days
     or (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner')
   );
 
--- Recalcula challenge_stats_tenant incluyendo los días de uso de la app en el
--- conteo de días activos (además de transacciones y lecturas de km).
+-- Recalcula challenge_stats_tenant: incluye los días de uso de la app en el
+-- conteo de días activos, y añade max_income (mayor ingreso de una sola carrera)
+-- para detectar dinero inflado a mano. Drop previo: cambia el tipo de retorno.
+drop function if exists public.challenge_stats_tenant(uuid);
 create or replace function public.challenge_stats_tenant(p_tenant uuid)
 returns table(
   user_id uuid, name text, email text,
-  km numeric, money numeric, active_days int, max_jump numeric
+  km numeric, money numeric, active_days int, max_jump numeric, max_income numeric
 )
 language sql stable security definer
 set search_path = public
@@ -66,6 +68,10 @@ as $$
     select user_id, coalesce(sum(case when type = 'income' then amount else -amount end), 0) as money
       from public.transactions where tenant_id = p_tenant group by user_id
   ),
+  income_per_user as (
+    select user_id, coalesce(max(amount), 0) as max_income
+      from public.transactions where tenant_id = p_tenant and type = 'income' group by user_id
+  ),
   days_per_user as (
     select user_id, count(distinct d) as active_days from (
       select user_id, created_at::date as d from public.transactions where tenant_id = p_tenant
@@ -77,12 +83,13 @@ as $$
   )
   select u.id, u.name, u.email,
          coalesce(k.km, 0), coalesce(m.money, 0),
-         coalesce(d.active_days, 0)::int, coalesce(j.max_jump, 0)
+         coalesce(d.active_days, 0)::int, coalesce(j.max_jump, 0), coalesce(i.max_income, 0)
     from public.users u
-    left join km_per_user k    on k.user_id = u.id
-    left join money_per_user m on m.user_id = u.id
-    left join days_per_user d  on d.user_id = u.id
-    left join jumps j          on j.user_id = u.id
+    left join km_per_user k     on k.user_id = u.id
+    left join money_per_user m  on m.user_id = u.id
+    left join income_per_user i on i.user_id = u.id
+    left join days_per_user d   on d.user_id = u.id
+    left join jumps j           on j.user_id = u.id
    where u.tenant_id = p_tenant and u.active is not false
    order by coalesce(k.km, 0) desc;
 $$;

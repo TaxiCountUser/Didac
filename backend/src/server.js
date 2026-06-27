@@ -1134,8 +1134,9 @@ export async function buildApp(options = {}) {
   // Anti-fraude: días activos < 300 -> sospechoso; max_jump grande -> km inflado.
   // ============================================================
   const CHALLENGE_BASE = { km_100k: 100000, money_100k: 100000, days_300: 300 };
-  const CHALLENGE_MIN_DAYS = 300;   // mínimo de días para validar km/€
-  const CHALLENGE_MAX_JUMP = 2000;  // salto de km de golpe por encima -> sospechoso
+  const CHALLENGE_MIN_DAYS = 300;     // mínimo de días para validar km/€
+  const CHALLENGE_MAX_JUMP = 2000;    // salto de km de golpe por encima -> sospechoso
+  const CHALLENGE_MAX_INCOME = 1500;  // una carrera por encima de 1500 € -> sospechoso
 
   // Objetivo (incremento) de un reto en un nivel dado. Ciclo de 4 niveles: el
   // 1º de cada ciclo (niveles 1, 5, 9, 13...) vuelve a la base; los otros tres,
@@ -1191,6 +1192,7 @@ export async function buildApp(options = {}) {
         };
         const activeDays = Number(r.active_days ?? 0);
         const maxJump = Number(r.max_jump ?? 0);
+        const maxIncome = Number(r.max_income ?? 0);
         const challenges = [];
         for (const type of Object.keys(CHALLENGE_BASE)) {
           const claims = (byUserChal[r.user_id]?.[type]) ?? [];
@@ -1221,10 +1223,11 @@ export async function buildApp(options = {}) {
         }
         drivers.push({
           user_id: r.user_id, name: r.name, email: r.email,
-          max_jump: maxJump,
-          // El empresario solo ve aviso si hay un posible km manipulado (salto
-          // grande). Lo de "< 300 días" es señal interna para el admin.
+          max_jump: maxJump, max_income: maxIncome,
+          // El empresario ve aviso si hay un posible km o dinero manipulado
+          // (salto grande). Lo de "< 300 días" es señal interna para el admin.
           km_suspicious: maxJump > CHALLENGE_MAX_JUMP,
+          money_suspicious: maxIncome > CHALLENGE_MAX_INCOME,
           challenges,
         });
       }

@@ -84,9 +84,11 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
     final email = (dr['email'] as String?) ?? '';
     final title = (name != null && name.isNotEmpty) ? name : email;
     final challenges = ((dr['challenges'] as List?) ?? []).cast<Map<String, dynamic>>();
-    // El empresario solo ve aviso si hay un posible error/manipulación de km.
+    // El empresario ve aviso si hay un posible error/manipulación de km o dinero.
     final kmSuspicious = dr['km_suspicious'] == true;
+    final moneySuspicious = dr['money_suspicious'] == true;
     final maxJump = (dr['max_jump'] as num?)?.toDouble() ?? 0;
+    final maxIncome = (dr['max_income'] as num?)?.toDouble() ?? 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -107,28 +109,31 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
               const SizedBox(height: 14),
             ],
             if (kmSuspicious)
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text(
-                      l.t('ch_km_warn', {'jump': NumberFormat.decimalPattern('es').format(maxJump)}),
-                      style: const TextStyle(fontSize: 12, color: Colors.deepOrange),
-                    )),
-                  ],
-                ),
-              ),
+              _warnBox(l.t('ch_km_warn', {'jump': NumberFormat.decimalPattern('es').format(maxJump)})),
+            if (moneySuspicious) ...[
+              if (kmSuspicious) const SizedBox(height: 6),
+              _warnBox(l.t('ch_money_warn', {'amount': NumberFormat.decimalPattern('es').format(maxIncome)})),
+            ],
           ],
         ),
       ),
     );
   }
+
+  Widget _warnBox(String text) => Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+            const SizedBox(width: 6),
+            Expanded(child: Text(text, style: const TextStyle(fontSize: 12, color: Colors.deepOrange))),
+          ],
+        ),
+      );
 
   Widget _challengeBar(AppLocalizations l, Map<String, dynamic> c) {
     final nf = NumberFormat.decimalPattern('es');
