@@ -84,7 +84,8 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
     final email = (dr['email'] as String?) ?? '';
     final title = (name != null && name.isNotEmpty) ? name : email;
     final challenges = ((dr['challenges'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final suspicious = dr['suspicious'] == true;
+    // El empresario solo ve aviso si hay un posible error/manipulación de km.
+    final kmSuspicious = dr['km_suspicious'] == true;
     final maxJump = (dr['max_jump'] as num?)?.toDouble() ?? 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -105,7 +106,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
               _challengeBar(l, c),
               const SizedBox(height: 14),
             ],
-            if (suspicious)
+            if (kmSuspicious)
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -117,7 +118,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
                     const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
                     const SizedBox(width: 6),
                     Expanded(child: Text(
-                      l.t('ch_fraud_warn', {'jump': NumberFormat.decimalPattern('es').format(maxJump)}),
+                      l.t('ch_km_warn', {'jump': NumberFormat.decimalPattern('es').format(maxJump)}),
                       style: const TextStyle(fontSize: 12, color: Colors.deepOrange),
                     )),
                   ],
@@ -179,6 +180,14 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
         else
           Text(l.t('ch_remaining', {'x': nf.format(remaining), 'unit': unit}),
               style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        // Premio del reto, siempre visible.
+        Row(
+          children: [
+            const Icon(Icons.card_giftcard, size: 14, color: Colors.amber),
+            const SizedBox(width: 4),
+            Text(l.t('ch_reward'), style: const TextStyle(fontSize: 12, color: Colors.amber)),
+          ],
+        ),
       ],
     );
   }

@@ -1137,9 +1137,11 @@ export async function buildApp(options = {}) {
   const CHALLENGE_MIN_DAYS = 300;   // mínimo de días para validar km/€
   const CHALLENGE_MAX_JUMP = 2000;  // salto de km de golpe por encima -> sospechoso
 
-  // Objetivo (incremento) de un reto en un nivel dado: base en el 1, doble desde el 2.
+  // Objetivo (incremento) de un reto en un nivel dado. Ciclo de 4 niveles: el
+  // 1º de cada ciclo (niveles 1, 5, 9, 13...) vuelve a la base; los otros tres,
+  // el doble. Así de vez en cuando "baja" como sorpresa.
   const incrementFor = (challenge, level) =>
-    CHALLENGE_BASE[challenge] * (level <= 1 ? 1 : 2);
+    CHALLENGE_BASE[challenge] * (((level - 1) % 4) === 0 ? 1 : 2);
 
   // A partir de los claims de un conductor+reto, calcula el nivel actual, el
   // baseline (métrica al empezar el tramo) y si hay un claim pendiente/rechazado.
@@ -1220,7 +1222,9 @@ export async function buildApp(options = {}) {
         drivers.push({
           user_id: r.user_id, name: r.name, email: r.email,
           max_jump: maxJump,
-          suspicious: activeDays < CHALLENGE_MIN_DAYS || maxJump > CHALLENGE_MAX_JUMP,
+          // El empresario solo ve aviso si hay un posible km manipulado (salto
+          // grande). Lo de "< 300 días" es señal interna para el admin.
+          km_suspicious: maxJump > CHALLENGE_MAX_JUMP,
           challenges,
         });
       }
