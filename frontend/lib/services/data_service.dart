@@ -579,6 +579,21 @@ class DataService {
     return (rows as List).isNotEmpty ? rows.first['vehicle_id'] as String? : null;
   }
 
+  /// Marca el día de hoy como "día de uso de la app" (para el reto de días).
+  /// Idempotente: una fila por (usuario, día) gracias a la PK; si ya existe, se
+  /// ignora. Best-effort: si falla (sin red o sin migración), no pasa nada.
+  Future<void> pingUsageDay(String tenantId) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    final now = DateTime.now();
+    final day = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    try {
+      await _c.from('app_usage_days').upsert(
+        {'tenant_id': tenantId, 'user_id': uid, 'day': day},
+        onConflict: 'user_id,day', ignoreDuplicates: true);
+    } catch (_) {/* sin red o tabla aún sin crear: no bloquea */}
+  }
+
   /// Registra una lectura de km.
   Future<void> addOdometerReading({
     required String tenantId,

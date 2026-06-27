@@ -38,6 +38,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     // En modo autónomo no se comparte ubicación (no hay jefe que la consulte).
     if (!widget.embedded) _startTracking();
     PushService.instance.register(widget.profile.tenantId);
+    // Registra el día real de uso (para el reto de días) — idempotente por día.
+    _service.pingUsageDay(widget.profile.tenantId);
     // Al entrar (una vez al día): saludo + km de inicio de jornada.
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartDayGreeting());
   }

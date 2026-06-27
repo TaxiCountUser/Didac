@@ -80,6 +80,13 @@ class TaxiCountApp extends StatelessWidget {
         locale: locale,
         supportedLocales: kSupportedLocales,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
+        // Respeta el tamaño de letra del sistema, pero acotado (0.85–1.3) para
+        // que con letras muy grandes la interfaz no se solape ni se rompa.
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          final clamped = mq.textScaler.clamp(minScaleFactor: 0.85, maxScaleFactor: 1.3);
+          return MediaQuery(data: mq.copyWith(textScaler: clamped), child: child!);
+        },
         home: const AuthGate(),
       ),
     );
