@@ -296,7 +296,11 @@ class _DriversScreenState extends State<DriversScreen> {
           .showSnackBar(SnackBar(content: Text(context.l10n.t('dr_credentials_saved'))));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      final s = e.toString().toLowerCase();
+      final taken = s.contains('23505') || s.contains('duplicate') ||
+          s.contains('en uso') || s.contains('already');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(taken ? context.l10n.t('set_username_taken') : 'Error: $e')));
     }
   }
 
