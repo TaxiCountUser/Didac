@@ -892,6 +892,40 @@ class DataService {
     return (data as List).cast<Map<String, dynamic>>();
   }
 
+  /// Lecturas de cuentakilómetros para estadísticas de km (de odometer_readings
+  /// y de las carreras con odómetro). Sin límite inferior de fecha: así hay una
+  /// lectura previa al rango para calcular bien el primer periodo. Devuelve
+  /// {vehicle_id, km, at} sin ordenar (la pantalla agrupa y rellena huecos).
+  Future<List<Map<String, dynamic>>> statsOdometer({
+    String? driverId,
+    String? vehicleId,
+    DateTime? to,
+  }) async {
+    var q1 = _c.from('odometer_readings').select('vehicle_id, reading_km, taken_at');
+    if (driverId != null) q1 = q1.eq('user_id', driverId);
+    if (vehicleId != null) q1 = q1.eq('vehicle_id', vehicleId);
+    if (to != null) q1 = q1.lt('taken_at', to.toIso8601String());
+    final r1 = await q1.limit(20000);
+
+    var q2 = _c.from('transactions').select('vehicle_id, odometer_km, created_at')
+        .not('odometer_km', 'is', null);
+    if (driverId != null) q2 = q2.eq('user_id', driverId);
+    if (vehicleId != null) q2 = q2.eq('vehicle_id', vehicleId);
+    if (to != null) q2 = q2.lt('created_at', to.toIso8601String());
+    final r2 = await q2.limit(20000);
+
+    final out = <Map<String, dynamic>>[];
+    for (final r in (r1 as List)) {
+      if (r['vehicle_id'] == null || r['reading_km'] == null) continue;
+      out.add({'vehicle_id': r['vehicle_id'], 'km': (r['reading_km'] as num).toDouble(), 'at': r['taken_at']});
+    }
+    for (final r in (r2 as List)) {
+      if (r['vehicle_id'] == null || r['odometer_km'] == null) continue;
+      out.add({'vehicle_id': r['vehicle_id'], 'km': (r['odometer_km'] as num).toDouble(), 'at': r['created_at']});
+    }
+    return out;
+  }
+
   /// Empresas/clientes distintos que aparecen en las transacciones (para filtrar
   /// la exportación). Ordenados alfabéticamente.
   Future<List<String>> distinctClients() async {
