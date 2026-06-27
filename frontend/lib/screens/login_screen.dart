@@ -142,6 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: const Key('email_field'),
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: _isSignUp ? l.t('login_email') : l.t('login_email_or_user'),
                       border: const OutlineInputBorder(),
@@ -153,6 +154,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: const Key('password_field'),
                     controller: _password,
                     obscureText: true,
+                    // En login, Enter entra directamente; en registro pasa al campo siguiente.
+                    textInputAction: _isSignUp ? TextInputAction.next : TextInputAction.done,
+                    onSubmitted: (_) {
+                      if (!_isSignUp && !_loading) _submit();
+                    },
                     decoration: InputDecoration(
                       labelText: l.t('login_password'),
                       border: const OutlineInputBorder(),
@@ -164,6 +170,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextField(
                       key: const Key('company_field'),
                       controller: _company,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        if (!_loading) _submit();
+                      },
                       decoration: InputDecoration(
                         labelText: l.t('login_company_fleet'),
                         border: const OutlineInputBorder(),
