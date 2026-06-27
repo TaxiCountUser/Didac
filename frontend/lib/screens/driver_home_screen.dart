@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
@@ -37,6 +38,43 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     // En modo autónomo no se comparte ubicación (no hay jefe que la consulte).
     if (!widget.embedded) _startTracking();
     PushService.instance.register(widget.profile.tenantId);
+    // Al entrar (una vez al día): saludo + km de inicio de jornada.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartDayGreeting());
+  }
+
+  // Saludo de bienvenida al abrir la app: si hoy aún no se ha apuntado el km de
+  // inicio (ni se ha mostrado el saludo), pregunta con cuántos km empezamos.
+  Future<void> _maybeStartDayGreeting() async {
+    try {
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString('day_greet_seen') == today) return; // ya saludado hoy
+      final already = await _service.todaysVehicleId(widget.profile.id);
+      if (already != null) {
+        await prefs.setString('day_greet_seen', today); // ya empezó la jornada
+        return;
+      }
+      final vehicles = await _service.myVehicles();
+      if (!mounted || vehicles.isEmpty) return; // sin coches, no molestamos
+      await prefs.setString('day_greet_seen', today); // no repetir hoy
+      if (!mounted) return;
+      final l = context.l10n;
+      final name = _nameOverride ?? widget.profile.appName;
+      await _showKmDialog(
+        vehicles,
+        title: '${_greetingText(l)}, $name 👋',
+        greeting: l.t('dh_start_question'),
+        barrier: true,
+      );
+    } catch (_) {/* best-effort: el saludo nunca debe romper la entrada */}
+  }
+
+  // Saludo según la hora del día.
+  String _greetingText(AppLocalizations l) {
+    final h = DateTime.now().hour;
+    if (h < 12) return l.t('dh_greet_morning');
+    if (h < 20) return l.t('dh_greet_afternoon');
+    return l.t('dh_greet_evening');
   }
 
   @override
@@ -117,6 +155,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     List<Map<String, dynamic>> vehicles, {
     required String title,
     String? preVehicleId,
+    String? greeting,
     bool barrier = true,
   }) async {
     final l = context.l10n;
@@ -141,7 +180,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (greeting != null) ...[
+                Text(greeting),
+                const SizedBox(height: 12),
+              ],
               if (vehicles.length > 1) ...[
                 DropdownButtonFormField<String>(
                   key: const Key('daily_km_vehicle'),
