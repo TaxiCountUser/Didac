@@ -180,12 +180,17 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
         else
           Text(l.t('ch_remaining', {'x': nf.format(remaining), 'unit': unit}),
               style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        // Premio del reto, siempre visible.
+        // Mensaje motivador del premio según el estado.
         Row(
           children: [
-            const Icon(Icons.card_giftcard, size: 14, color: Colors.amber),
+            Icon(done ? Icons.celebration : Icons.card_giftcard,
+                size: 14, color: done ? Colors.green : Colors.amber),
             const SizedBox(width: 4),
-            Text(l.t('ch_reward'), style: const TextStyle(fontSize: 12, color: Colors.amber)),
+            Expanded(child: Text(l.t(done ? 'ch_reward_done' : 'ch_reward_close'),
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: done ? Colors.green : Colors.amber.shade800))),
           ],
         ),
       ],
