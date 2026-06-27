@@ -34,7 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late String? _username = widget.profile.username; // para login con usuario
   String? _activeVehicleLabel;
   String? _companyName;
-  bool _hasVehicles = false; // el conductor solo ve/elige coches asignados
+  int _vehicleCount = 0; // nº de coches del conductor; el cambio solo si hay >1
   bool _newReply = false; // el admin ha contestado a un ticket (aviso)
 
   @override
@@ -90,7 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
         if (mounted) {
           setState(() {
-            _hasVehicles = vehicles.isNotEmpty;
+            _vehicleCount = vehicles.length;
             _activeVehicleLabel = v == null ? null : _vehLabel(v);
           });
         }
@@ -451,7 +451,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const AdminScreen()),
             ),
-          if (!isOwner && _hasVehicles)
+          if (!isOwner && _vehicleCount > 1)
             ListTile(
               key: const Key('change_vehicle_tile'),
               leading: const Icon(Icons.directions_car),
@@ -593,7 +593,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: const Icon(Icons.edit),
                   onPressed: _editName,
                 ),
-                if (_hasVehicles)
+                if (_vehicleCount > 1)
                   IconButton(
                     key: const Key('change_vehicle_button'),
                     tooltip: l.t('set_change_vehicle'),
