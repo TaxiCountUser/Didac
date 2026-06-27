@@ -1,3 +1,7 @@
+# Backups de la BD (DATOS de clientes — NUNCA subir a GitHub)
+backups/
+*.dump
+
 # Node
 node_modules/
 npm-debug.log*

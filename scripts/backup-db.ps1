@@ -58,10 +58,13 @@ else {
     Write-Error "No hay pg_dump ni Docker. Instala Docker Desktop o el cliente de PostgreSQL."
     exit 1
   }
-  Write-Host "pg_dump no encontrado; usando Docker (postgres:16)..." -ForegroundColor Yellow
+  # Imagen 17: pg_dump solo puede copiar servidores de su version o anteriores,
+  # y Supabase ya corre Postgres 15/17. Con la 17 cubrimos ambos casos.
+  $pgImage = "postgres:17"
+  Write-Host "pg_dump no encontrado; usando Docker ($pgImage)..." -ForegroundColor Yellow
   $abs = (Resolve-Path $OutDir).Path
   # Montamos la carpeta de salida y volcamos dentro del contenedor.
-  & docker run --rm -e PGCONN="$ConnString" -v "${abs}:/out" postgres:16 `
+  & docker run --rm -e PGCONN="$ConnString" -v "${abs}:/out" $pgImage `
       sh -c "pg_dump `"`$PGCONN`" -Fc --no-owner --no-privileges --schema=public --file /out/taxicount_$stamp.dump"
   if ($LASTEXITCODE -ne 0) { Write-Error "El backup via Docker fallo (codigo $LASTEXITCODE)."; exit 1 }
 }
