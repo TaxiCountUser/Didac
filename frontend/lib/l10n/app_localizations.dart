@@ -206,6 +206,7 @@ const Map<String, Map<String, String>> _values = {
     'vc_example': 'Ej.: "carrera de Sants a la Sagrera por 18 euros con tarjeta de Movitaxi"',
     'vc_recording': 'Grabando… pulsa para terminar', 'vc_transcribing': 'Transcribiendo…',
     'vc_no_perm': 'Sin permiso de micrófono', 'vc_start_fail': 'No se pudo iniciar la grabación',
+    'dictate_start': 'Dictar mensaje', 'dictate_stop': 'Parar y transcribir',
     'vc_no_audio': 'No se grabó audio', 'vc_transcribe_err': 'Error al transcribir',
     'vc_mock': 'Transcripción de ejemplo (configura OpenAI para la voz real)',
     // Dashboard / panel
@@ -484,6 +485,7 @@ const Map<String, Map<String, String>> _values = {
     'vc_example': 'E.g.: "trip from Sants to la Sagrera for 18 euros by card for Movitaxi"',
     'vc_recording': 'Recording… tap to finish', 'vc_transcribing': 'Transcribing…',
     'vc_no_perm': 'No microphone permission', 'vc_start_fail': 'Could not start recording',
+    'dictate_start': 'Dictate message', 'dictate_stop': 'Stop and transcribe',
     'vc_no_audio': 'No audio recorded', 'vc_transcribe_err': 'Transcription error',
     'vc_mock': 'Sample transcription (set up OpenAI for real voice)',
     'od_summary': 'Fleet summary', 'od_export': 'Export', 'od_import': 'Import',
@@ -751,6 +753,7 @@ const Map<String, Map<String, String>> _values = {
     'vc_example': 'Ex.: "cursa de Sants a la Sagrera per 18 euros amb targeta de Movitaxi"',
     'vc_recording': 'Gravant… prem per acabar', 'vc_transcribing': 'Transcrivint…',
     'vc_no_perm': 'Sense permís de micròfon', 'vc_start_fail': 'No s’ha pogut iniciar la gravació',
+    'dictate_start': 'Dictar missatge', 'dictate_stop': 'Atura i transcriu',
     'vc_no_audio': 'No s’ha gravat àudio', 'vc_transcribe_err': 'Error en transcriure',
     'vc_mock': "Transcripció d'exemple (configura OpenAI per a la veu real)",
     'od_summary': 'Resum de la flota', 'od_export': 'Exporta', 'od_import': 'Importa',

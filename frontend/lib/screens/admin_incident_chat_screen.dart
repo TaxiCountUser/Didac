@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
+import '../widgets/dictate_button.dart';
 
 /// Chat de una incidencia desde el panel de administración: el admin habla con
 /// el cliente (autor de la incidencia) hasta que la cierra. Va por endpoints de
@@ -59,6 +60,13 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  // Añade el texto dictado a lo que ya hubiera escrito en el campo.
+  void _appendDictated(String text) {
+    final cur = _ctrl.text.trim();
+    _ctrl.text = cur.isEmpty ? text : '$cur $text';
+    _ctrl.selection = TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
   }
 
   Future<void> _toggleResolved() async {
@@ -241,7 +249,8 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            DictateButton(onText: _appendDictated),
+            const SizedBox(width: 4),
             _sending
                 ? const Padding(
                     padding: EdgeInsets.all(8),

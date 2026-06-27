@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
+import '../widgets/dictate_button.dart';
 
 /// Chat de una incidencia (jefe <-> conductor). Ambas partes escriben hasta que
 /// el jefe la marca como resuelta; entonces queda en solo lectura.
@@ -58,6 +59,13 @@ class _IncidentChatScreenState extends State<IncidentChatScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  // Añade el texto dictado a lo que ya hubiera escrito en el campo.
+  void _appendDictated(String text) {
+    final cur = _ctrl.text.trim();
+    _ctrl.text = cur.isEmpty ? text : '$cur $text';
+    _ctrl.selection = TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
   }
 
   Future<void> _resolve() async {
@@ -218,7 +226,8 @@ class _IncidentChatScreenState extends State<IncidentChatScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            DictateButton(onText: _appendDictated),
+            const SizedBox(width: 4),
             _sending
                 ? const Padding(
                     padding: EdgeInsets.all(8),
