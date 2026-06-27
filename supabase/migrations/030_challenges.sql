@@ -21,15 +21,24 @@ create table if not exists public.challenge_claims (
   tenant_id    uuid not null references public.tenants(id) on delete cascade,
   user_id      uuid not null references public.users(id)   on delete cascade,
   challenge    text not null check (challenge in ('km_100k', 'money_100k', 'days_300')),
-  metric_value numeric not null default 0,   -- valor alcanzado al registrarlo
-  active_days  int     not null default 0,   -- días activos al registrarlo
+  level        int     not null default 1,    -- nivel del reto (1, 2, 3, ...)
+  baseline     numeric not null default 0,    -- valor de la métrica al empezar el tramo
+  target       numeric not null default 0,    -- cuánto hay que sumar en este tramo
+  metric_value numeric not null default 0,    -- valor alcanzado al registrarlo
+  active_days  int     not null default 0,    -- días activos al registrarlo
   status       text    not null default 'pending'
                check (status in ('pending', 'rewarded', 'rejected')),
   created_at   timestamptz not null default now(),
   reviewed_at  timestamptz
 );
-create unique index if not exists challenge_claims_user_chal_uidx
-  on public.challenge_claims(user_id, challenge);
+-- Por compatibilidad si la tabla ya existía de una versión anterior.
+alter table public.challenge_claims add column if not exists level int not null default 1;
+alter table public.challenge_claims add column if not exists baseline numeric not null default 0;
+alter table public.challenge_claims add column if not exists target numeric not null default 0;
+-- Un claim por (conductor, reto, NIVEL): permite ir subiendo de nivel.
+drop index if exists public.challenge_claims_user_chal_uidx;
+create unique index if not exists challenge_claims_user_chal_lvl_uidx
+  on public.challenge_claims(user_id, challenge, level);
 create index if not exists challenge_claims_tenant_idx on public.challenge_claims(tenant_id);
 
 grant select, insert, update, delete on public.challenge_claims to authenticated, service_role;

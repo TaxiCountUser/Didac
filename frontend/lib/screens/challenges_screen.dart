@@ -4,10 +4,11 @@ import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 
-/// Retos / metas — vista del EMPRESARIO. Muestra, por cada conductor de la
-/// empresa, su progreso hacia: 100.000 km, 100.000 € de balance y 300 días de
-/// uso. Al cumplirse (con el mínimo de días), el admin revisa y, si procede,
-/// regala un mes de suscripción al dueño de la cuenta. Los chóferes no ven esto.
+/// Retos / metas — vista del EMPRESARIO. Por cada conductor muestra su progreso
+/// en 3 retos escalonados: km recorridos, balance y días de uso. El nivel 1 pide
+/// la base (100.000 km / 100.000 € / 300 días); a partir del 2, el doble, y se
+/// repite. El siguiente nivel solo aparece cuando la administración aprueba el
+/// actual. Cada barra termina en un icono (coche / billete / calendario).
 class ChallengesScreen extends StatefulWidget {
   const ChallengesScreen({super.key});
 
@@ -23,6 +24,25 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
     super.initState();
     _future = DataService().companyChallenges();
   }
+
+  // Icono y unidad de cada reto.
+  IconData _icon(String type) => switch (type) {
+        'km_100k' => Icons.directions_car,
+        'money_100k' => Icons.payments,
+        _ => Icons.calendar_month,
+      };
+
+  String _unit(AppLocalizations l, String type) => switch (type) {
+        'km_100k' => 'km',
+        'money_100k' => '€',
+        _ => l.t('ch_days_unit'),
+      };
+
+  String _label(AppLocalizations l, String type) => switch (type) {
+        'km_100k' => l.t('ch_km_label'),
+        'money_100k' => l.t('ch_money_label'),
+        _ => l.t('ch_days_label'),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +62,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
                   textAlign: TextAlign.center),
             ));
           }
-          final d = snap.data ?? {};
-          final drivers = ((d['drivers'] as List?) ?? []).cast<Map<String, dynamic>>();
-          final kmGoal = (d['km_goal'] as num?)?.toDouble() ?? 100000;
-          final moneyGoal = (d['money_goal'] as num?)?.toDouble() ?? 100000;
-          final daysGoal = (d['days_goal'] as num?)?.toInt() ?? 300;
-          final minDays = (d['min_days'] as num?)?.toInt() ?? 300;
+          final drivers = (((snap.data ?? {})['drivers'] as List?) ?? []).cast<Map<String, dynamic>>();
           if (drivers.isEmpty) {
             return Center(child: Text(l.t('ch_no_drivers')));
           }
@@ -56,8 +71,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
             children: [
               Text(l.t('ch_intro'), style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 12),
-              for (final dr in drivers)
-                _driverCard(l, dr, kmGoal, moneyGoal, daysGoal, minDays),
+              for (final dr in drivers) _driverCard(l, dr),
             ],
           );
         },
@@ -65,16 +79,13 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
     );
   }
 
-  Widget _driverCard(AppLocalizations l, Map<String, dynamic> dr,
-      double kmGoal, double moneyGoal, int daysGoal, int minDays) {
+  Widget _driverCard(AppLocalizations l, Map<String, dynamic> dr) {
     final name = (dr['name'] as String?)?.trim();
     final email = (dr['email'] as String?) ?? '';
     final title = (name != null && name.isNotEmpty) ? name : email;
-    final km = (dr['km'] as num?)?.toDouble() ?? 0;
-    final money = (dr['money'] as num?)?.toDouble() ?? 0;
-    final days = (dr['active_days'] as num?)?.toInt() ?? 0;
-    final maxJump = (dr['max_jump'] as num?)?.toDouble() ?? 0;
+    final challenges = ((dr['challenges'] as List?) ?? []).cast<Map<String, dynamic>>();
     final suspicious = dr['suspicious'] == true;
+    final maxJump = (dr['max_jump'] as num?)?.toDouble() ?? 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -90,13 +101,11 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            _bar(l, Icons.speed, l.t('ch_km_title'), km, kmGoal, 'km', days, minDays),
-            const SizedBox(height: 12),
-            _bar(l, Icons.euro, l.t('ch_money_title'), money, moneyGoal, '€', days, minDays),
-            const SizedBox(height: 12),
-            _bar(l, Icons.calendar_today, l.t('ch_days_title'), days.toDouble(), daysGoal.toDouble(), l.t('ch_days_unit'), days, minDays),
-            if (suspicious) ...[
-              const SizedBox(height: 10),
+            for (final c in challenges) ...[
+              _challengeBar(l, c),
+              const SizedBox(height: 14),
+            ],
+            if (suspicious)
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -114,43 +123,62 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
                   ],
                 ),
               ),
-            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _bar(AppLocalizations l, IconData icon, String label, double value,
-      double goal, String unit, int days, int minDays) {
+  Widget _challengeBar(AppLocalizations l, Map<String, dynamic> c) {
     final nf = NumberFormat.decimalPattern('es');
-    final pct = goal <= 0 ? 0.0 : (value / goal).clamp(0.0, 1.0);
-    final reached = value >= goal;
-    final daysOk = days >= minDays;
+    final type = (c['type'] as String?) ?? '';
+    final level = (c['level'] as num?)?.toInt() ?? 1;
+    final target = (c['target'] as num?)?.toDouble() ?? 0;
+    final progress = (c['progress'] as num?)?.toDouble() ?? 0;
+    final remaining = (c['remaining'] as num?)?.toDouble() ?? 0;
+    final pct = (c['pct'] as num?)?.toDouble() ?? 0;
+    final pending = c['pending'] == true;
+    final rejected = c['rejected'] == true;
+    final unit = _unit(l, type);
+    final done = pct >= 1;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 18, color: Colors.amber.shade800),
+            Expanded(child: Text('${_label(l, type)} · ${l.t('ch_level', {'n': '$level'})}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+            Text('${nf.format(progress)} / ${nf.format(target)} $unit',
+                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // Barra con icono al final (la meta).
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 12,
+                  backgroundColor: Colors.grey.shade200,
+                  color: done ? Colors.green : Colors.amber,
+                ),
+              ),
+            ),
             const SizedBox(width: 6),
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
-            if (reached && daysOk) const Icon(Icons.emoji_events, color: Colors.amber, size: 18),
+            Icon(_icon(type), size: 22, color: done ? Colors.green : Colors.grey.shade500),
           ],
         ),
         const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: LinearProgressIndicator(
-            value: pct,
-            minHeight: 10,
-            backgroundColor: Colors.grey.shade200,
-            color: reached ? Colors.green : Colors.amber,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text('${nf.format(value)} $unit / ${nf.format(goal)} $unit  ·  ${(pct * 100).toStringAsFixed(0)}%',
-            style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        if (pending)
+          Text(l.t('ch_pending'), style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600))
+        else if (rejected)
+          Text(l.t('ch_rejected'), style: const TextStyle(fontSize: 12, color: Colors.red))
+        else
+          Text(l.t('ch_remaining', {'x': nf.format(remaining), 'unit': unit}),
+              style: const TextStyle(fontSize: 12, color: Colors.grey)),
       ],
     );
   }

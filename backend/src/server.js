@@ -1124,28 +1124,38 @@ export async function buildApp(options = {}) {
   });
 
   // ============================================================
-  // Retos / metas por conductor (km_100k, money_100k, days_300).
-  // Solo los empresarios (owner) ven el progreso de SUS conductores. Al cruzar
-  // un umbral se crea un "claim" pendiente que el admin revisa (premio NO
-  // automático). Anti-fraude: días activos < 300 = imposible -> sospechoso; y
-  // max_jump (mayor salto de km de golpe) delata km inflados a mano.
+  // Retos / metas por conductor (km_100k, money_100k, days_300), ESCALONADOS.
+  // Solo los empresarios (owner) ven el progreso de SUS conductores. Cada reto
+  // tiene niveles: el nivel 1 pide la base (100.000 km / 100.000 € / 300 días);
+  // a partir del nivel 2, el DOBLE (200.000 / 200.000 / 600), y se repite. Es
+  // INCREMENTAL: el progreso se mide desde el valor que tenía la métrica al
+  // empezar el tramo (baseline). El siguiente nivel NO se ve hasta que la
+  // administración aprueba el actual. Premio NO automático (lo aprueba el admin).
+  // Anti-fraude: días activos < 300 -> sospechoso; max_jump grande -> km inflado.
   // ============================================================
-  const CHALLENGE_KM_GOAL = 100000;     // 100.000 km
-  const CHALLENGE_MONEY_GOAL = 100000;  // 100.000 €
-  const CHALLENGE_DAYS_GOAL = 300;      // 300 días usando la app
-  const CHALLENGE_MIN_DAYS = 300;       // mínimo de días activos para validar km/€
-  const CHALLENGE_MAX_JUMP = 2000;      // salto de km/día por encima -> sospechoso
+  const CHALLENGE_BASE = { km_100k: 100000, money_100k: 100000, days_300: 300 };
+  const CHALLENGE_MIN_DAYS = 300;   // mínimo de días para validar km/€
+  const CHALLENGE_MAX_JUMP = 2000;  // salto de km de golpe por encima -> sospechoso
 
-  // Si se alcanza el umbral y no hay claim, crea uno pendiente (idempotente).
-  async function maybeCreateClaim(tenantId, userId, challenge, value, activeDays) {
-    const { error } = await supabase.from('challenge_claims').insert({
-      tenant_id: tenantId, user_id: userId, challenge,
-      metric_value: value, active_days: activeDays,
-    });
-    // 23505 = ya existe (un claim por reto y conductor): no es error real.
-    if (error && !/duplicate|unique|23505/i.test(error.message || '')) {
-      app.log.warn(`[challenge] no se pudo crear claim: ${error.message}`);
+  // Objetivo (incremento) de un reto en un nivel dado: base en el 1, doble desde el 2.
+  const incrementFor = (challenge, level) =>
+    CHALLENGE_BASE[challenge] * (level <= 1 ? 1 : 2);
+
+  // A partir de los claims de un conductor+reto, calcula el nivel actual, el
+  // baseline (métrica al empezar el tramo) y si hay un claim pendiente/rechazado.
+  function levelState(claims) {
+    let maxRewarded = 0;
+    let baselineForNext = 0;
+    for (const c of claims) {
+      if (c.status === 'rewarded' && c.level > maxRewarded) {
+        maxRewarded = c.level;
+        baselineForNext = Number(c.metric_value ?? 0);
+      }
     }
+    const level = maxRewarded + 1;
+    const baseline = maxRewarded > 0 ? baselineForNext : 0;
+    const atCurrent = claims.find((c) => c.level === level);
+    return { level, baseline, pending: atCurrent?.status === 'pending', rejected: atCurrent?.status === 'rejected' };
   }
 
   // Progreso de los retos de TODOS los conductores de la empresa (solo owner).
@@ -1157,37 +1167,64 @@ export async function buildApp(options = {}) {
       return reply.code(403).send({ error: 'Solo el propietario ve los retos' });
     }
     try {
-      const { data, error } = await supabase.rpc('challenge_stats_tenant', { p_tenant: caller.tenant_id });
+      const { data: stats, error } = await supabase.rpc('challenge_stats_tenant', { p_tenant: caller.tenant_id });
       if (error) throw new Error(error.message);
-      const drivers = (data ?? []).map((r) => ({
-        user_id: r.user_id,
-        name: r.name,
-        email: r.email,
-        km: Number(r.km ?? 0),
-        money: Number(r.money ?? 0),
-        active_days: Number(r.active_days ?? 0),
-        max_jump: Number(r.max_jump ?? 0),
-        suspicious: Number(r.active_days ?? 0) < CHALLENGE_MIN_DAYS
-          || Number(r.max_jump ?? 0) > CHALLENGE_MAX_JUMP,
-      }));
-      // Crea avisos al admin cuando alguien cruza un umbral.
-      for (const d of drivers) {
-        if (d.km >= CHALLENGE_KM_GOAL) {
-          await maybeCreateClaim(caller.tenant_id, d.user_id, 'km_100k', d.km, d.active_days);
-        }
-        if (d.money >= CHALLENGE_MONEY_GOAL) {
-          await maybeCreateClaim(caller.tenant_id, d.user_id, 'money_100k', d.money, d.active_days);
-        }
-        if (d.active_days >= CHALLENGE_DAYS_GOAL) {
-          await maybeCreateClaim(caller.tenant_id, d.user_id, 'days_300', d.active_days, d.active_days);
-        }
+
+      // Todos los claims de la empresa, agrupados por conductor+reto.
+      const { data: allClaims } = await supabase
+        .from('challenge_claims')
+        .select('user_id, challenge, level, metric_value, status')
+        .eq('tenant_id', caller.tenant_id);
+      const byUserChal = {};
+      for (const c of allClaims ?? []) {
+        ((byUserChal[c.user_id] ??= {})[c.challenge] ??= []).push(c);
       }
-      return reply.send({
-        drivers,
-        km_goal: CHALLENGE_KM_GOAL, money_goal: CHALLENGE_MONEY_GOAL,
-        days_goal: CHALLENGE_DAYS_GOAL, min_days: CHALLENGE_MIN_DAYS,
-        max_jump_warn: CHALLENGE_MAX_JUMP,
-      });
+
+      const drivers = [];
+      for (const r of stats ?? []) {
+        const metrics = {
+          km_100k: Number(r.km ?? 0),
+          money_100k: Number(r.money ?? 0),
+          days_300: Number(r.active_days ?? 0),
+        };
+        const activeDays = Number(r.active_days ?? 0);
+        const maxJump = Number(r.max_jump ?? 0);
+        const challenges = [];
+        for (const type of Object.keys(CHALLENGE_BASE)) {
+          const claims = (byUserChal[r.user_id]?.[type]) ?? [];
+          const st = levelState(claims);
+          const target = incrementFor(type, st.level);
+          const metric = metrics[type];
+          const progress = Math.max(0, metric - st.baseline);
+          const reached = progress >= target;
+          // Crea el aviso al admin al alcanzar el tramo (si no hay claim ya).
+          if (reached && !st.pending && !st.rejected) {
+            const { error: insErr } = await supabase.from('challenge_claims').insert({
+              tenant_id: caller.tenant_id, user_id: r.user_id, challenge: type,
+              level: st.level, baseline: st.baseline, target,
+              metric_value: metric, active_days: activeDays,
+            });
+            if (insErr && !/duplicate|unique|23505/i.test(insErr.message || '')) {
+              app.log.warn(`[challenge] no se pudo crear claim: ${insErr.message}`);
+            } else if (!insErr) {
+              st.pending = true;
+            }
+          }
+          challenges.push({
+            type, level: st.level, target, progress,
+            remaining: Math.max(0, target - progress),
+            pct: target > 0 ? Math.min(1, progress / target) : 0,
+            reached, pending: st.pending, rejected: st.rejected,
+          });
+        }
+        drivers.push({
+          user_id: r.user_id, name: r.name, email: r.email,
+          max_jump: maxJump,
+          suspicious: activeDays < CHALLENGE_MIN_DAYS || maxJump > CHALLENGE_MAX_JUMP,
+          challenges,
+        });
+      }
+      return reply.send({ drivers });
     } catch (e) {
       request.log.error(e);
       return reply.code(500).send({ error: 'No se pudieron calcular los retos', detail: e.message });
@@ -1200,7 +1237,7 @@ export async function buildApp(options = {}) {
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const { data, error } = await supabase
       .from('challenge_claims')
-      .select('id, challenge, metric_value, active_days, status, created_at, '
+      .select('id, challenge, level, target, baseline, metric_value, active_days, status, created_at, '
         + 'users:user_id(email, name), tenants:tenant_id(name)')
       .order('created_at', { ascending: false });
     if (error) return reply.code(500).send({ error: error.message });
@@ -1213,6 +1250,8 @@ export async function buildApp(options = {}) {
   });
 
   // Admin: aprobar (mes gratis al dueño de la suscripción) o rechazar un reto.
+  // Al aprobar, el conductor sube de nivel automáticamente (se deriva de los
+  // claims 'rewarded'), y solo entonces ve el siguiente reto (más grande).
   app.post('/api/v1/admin/challenges/:id', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });

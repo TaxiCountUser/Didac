@@ -425,7 +425,8 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final challenge = (c['challenge'] as String?) ?? '';
     final isKm = challenge == 'km_100k';
     final isDays = challenge == 'days_300';
-    final value = (c['metric_value'] as num?)?.toDouble() ?? 0;
+    final level = (c['level'] as num?)?.toInt() ?? 1;
+    final target = (c['target'] as num?)?.toDouble() ?? 0;
     final days = (c['active_days'] as num?)?.toInt() ?? 0;
     final status = (c['status'] as String?) ?? 'pending';
     final suspicious = c['suspicious'] == true;
@@ -434,14 +435,14 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final company = ((c['tenants'] as Map?)?['name'] as String?) ?? '—';
     final pending = status == 'pending';
     final unit = isKm ? 'km' : (isDays ? l.t('ch_days_unit') : '€');
-    final title = isKm ? l.t('ch_km_title') : (isDays ? l.t('ch_days_title') : l.t('ch_money_title'));
+    final title = isKm ? l.t('ch_km_label') : (isDays ? l.t('ch_days_label') : l.t('ch_money_label'));
     final icon = isKm ? Icons.speed : (isDays ? Icons.calendar_today : Icons.euro);
     return Card(
       child: ListTile(
         leading: Icon(icon, color: Colors.amber.shade800),
-        title: Text('$title · $driver'),
+        title: Text('$title · ${l.t('ch_level', {'n': '$level'})} · $driver'),
         subtitle: Text('$company\n'
-            '${value.toStringAsFixed(0)} $unit · ${l.t('ch_days_progress', {'n': '$days', 'min': '300'})}'
+            '${l.t('admin_ch_goal')}: ${target.toStringAsFixed(0)} $unit · ${l.t('ch_days_progress', {'n': '$days', 'min': '300'})}'
             '${suspicious ? '\n⚠️ ${l.t('admin_ch_suspicious')}' : ''}'),
         isThreeLine: true,
         trailing: pending
