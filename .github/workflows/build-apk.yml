@@ -113,8 +113,11 @@ jobs:
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Build APK (release)
-        run: flutter build apk --release --build-number=${{ steps.version.outputs.code }} --build-name=${{ steps.version.outputs.name }} ${{ steps.defines.outputs.args }}
+      # Solo arm64 (procesador de casi todos los móviles actuales): el APK pasa
+      # de ~63 MB a ~22 MB, se descarga en segundos y evita que el navegador se
+      # quede "atascado" al instalar. Sigue siendo un único app-release.apk.
+      - name: Build APK (release, arm64)
+        run: flutter build apk --release --target-platform android-arm64 --build-number=${{ steps.version.outputs.code }} --build-name=${{ steps.version.outputs.name }} ${{ steps.defines.outputs.args }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
