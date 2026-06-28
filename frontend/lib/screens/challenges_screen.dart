@@ -185,20 +185,28 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
         else
           Text(l.t('ch_remaining', {'x': nf.format(remaining), 'unit': unit}),
               style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        // Mensaje motivador del premio según el estado.
+        // Mensaje motivador del premio, distinto según el progreso (color suave).
         Row(
           children: [
             Icon(done ? Icons.celebration : Icons.card_giftcard,
-                size: 14, color: done ? Colors.green : Colors.amber),
+                size: 14, color: done ? Colors.green : Colors.blueGrey.shade300),
             const SizedBox(width: 4),
-            Expanded(child: Text(l.t(done ? 'ch_reward_done' : 'ch_reward_close'),
+            Expanded(child: Text(l.t(_motivKey(done, pct)),
                 style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: done ? Colors.green : Colors.amber.shade800))),
+                    color: done ? Colors.green : Colors.blueGrey))),
           ],
         ),
       ],
     );
+  }
+
+  // Mensaje motivador según el porcentaje de avance del reto.
+  String _motivKey(bool done, double pct) {
+    if (done) return 'ch_reward_done';
+    if (pct >= 0.75) return 'ch_motiv_75';
+    if (pct >= 0.50) return 'ch_motiv_50';
+    if (pct >= 0.25) return 'ch_motiv_25';
+    return 'ch_motiv_0';
   }
 }

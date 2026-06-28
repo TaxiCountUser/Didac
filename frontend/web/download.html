@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Descargar TaxiCount</title>
+  <style>
+    :root { --amber: #FF8F00; --amber-d: #E65100; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+      background: #fafafa; color: #222; display: flex; min-height: 100vh;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .card {
+      background: #fff; max-width: 420px; width: 100%; border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.08); padding: 28px; text-align: center;
+    }
+    .logo { font-size: 56px; }
+    h1 { margin: 8px 0 4px; font-size: 24px; }
+    p.sub { margin: 0 0 20px; color: #666; font-size: 14px; }
+    .btn {
+      display: flex; align-items: center; gap: 12px; width: 100%; border: none;
+      border-radius: 12px; padding: 16px; margin: 10px 0; font-size: 16px;
+      font-weight: 600; cursor: pointer; text-decoration: none; color: #fff;
+      justify-content: center;
+    }
+    .android { background: var(--amber); }
+    .ios { background: #9e9e9e; }
+    .ico { font-size: 24px; }
+    .panel {
+      display: none; text-align: left; background: #fff8e1; border-radius: 12px;
+      padding: 16px; margin-top: 14px; font-size: 14px; line-height: 1.5;
+    }
+    .panel.show { display: block; }
+    .panel ol { margin: 8px 0 0; padding-left: 20px; }
+    .dl {
+      display: inline-block; background: var(--amber-d); color: #fff;
+      padding: 12px 18px; border-radius: 10px; text-decoration: none;
+      font-weight: 700; margin: 10px 0;
+    }
+    .muted { color: #888; font-size: 13px; }
+    .hint { font-size: 12px; color: #999; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🚕</div>
+    <h1>TaxiCount</h1>
+    <p class="sub">Elige tu dispositivo para descargar la app</p>
+
+    <button class="btn android" onclick="show('android')">
+      <span class="ico">🤖</span> Android
+    </button>
+    <button class="btn ios" onclick="show('ios')">
+      <span class="ico"></span> iPhone (iOS)
+    </button>
+
+    <div id="android" class="panel">
+      <strong>Instalar en Android</strong>
+      <a class="dl" href="https://github.com/TaxiCountUser/Didac/releases/latest/download/app-release.apk">⬇️ Descargar APK</a>
+      <ol>
+        <li>Pulsa <b>Descargar APK</b> (pesa ~63 MB; espera a que termine).</li>
+        <li>Si la barra del navegador se queda en 100%, abre <b>Archivos → Descargas</b> y toca <b>app-release.apk</b> (ya está descargado).</li>
+        <li>Si te lo pide, permite <b>“instalar apps de esta fuente”</b> (solo la primera vez).</li>
+        <li>Pulsa <b>Instalar</b>. Si ya la tenías, se actualiza conservando tus datos.</li>
+      </ol>
+      <p class="muted">Las próximas versiones te avisarán dentro de la app para actualizar.</p>
+    </div>
+
+    <div id="ios" class="panel">
+      <strong>iPhone (iOS)</strong>
+      <p>De momento <b>TaxiCount está disponible solo para Android</b>. La versión para iPhone llegará más adelante (a través de la App Store).</p>
+      <p class="muted">Mientras tanto, puedes usar TaxiCount desde el navegador del iPhone en la versión web.</p>
+    </div>
+
+    <p class="hint">¿Problemas? Escríbenos y te ayudamos.</p>
+  </div>
+
+  <script>
+    function show(which) {
+      document.getElementById('android').classList.toggle('show', which === 'android');
+      document.getElementById('ios').classList.toggle('show', which === 'ios');
+    }
+    // Sugerencia automática según el dispositivo.
+    var ua = navigator.userAgent || '';
+    if (/android/i.test(ua)) show('android');
+    else if (/iphone|ipad|ipod/i.test(ua)) show('ios');
+  </script>
+</body>
+</html>
