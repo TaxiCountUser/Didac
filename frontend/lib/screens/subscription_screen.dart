@@ -46,11 +46,6 @@ Color subscriptionStatusColor(String? status) {
 
 bool subscriptionIsActive(String? status) => status == 'active' || status == 'trialing';
 
-String planDisplayName(String? planId) {
-  final p = kPlans.where((e) => e.id == planId);
-  return p.isNotEmpty ? p.first.name : 'Sin plan';
-}
-
 /// Pantalla de suscripción del Owner: plan actual, elegir/cambiar plan y portal.
 class SubscriptionScreen extends StatefulWidget {
   final Profile profile;
@@ -63,6 +58,7 @@ class SubscriptionScreen extends StatefulWidget {
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   final _service = DataService();
   Map<String, dynamic>? _billing;
+  int _activeDrivers = 1;
   bool _loading = true;
   bool _busy = false;
   bool _yearly = false; // periodo elegido para suscribirse
@@ -78,9 +74,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     setState(() => _loading = true);
     try {
       final b = await _service.fetchTenantBilling(widget.profile.tenantId);
+      int drivers = 1;
+      try {
+        final list = await _service.listDrivers();
+        final n = list.where((d) => d['active'] != false).length;
+        drivers = n < 1 ? 1 : n; // mínimo 1 asiento (el propio autónomo)
+      } catch (_) {/* best-effort */}
       if (!mounted) return;
       setState(() {
         _billing = b;
+        _activeDrivers = drivers;
         _loading = false;
         _error = null;
       });
@@ -93,6 +96,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
   }
 
+  /// Formatea un importe en euros sin decimales innecesarios (15,6 / 100).
+  String _eur(double v) {
+    final s = (v == v.roundToDouble()) ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+    return '${s.replaceAll('.', ',')} €';
+  }
+
   Future<void> _openExternal(String url) async {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -102,10 +111,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
   }
 
-  Future<void> _choosePlan(PlanInfo plan) async {
+  Future<void> _subscribe() async {
     setState(() => _busy = true);
     try {
-      final url = await _service.createCheckoutSession(plan.priceFor(_yearly));
+      final url = await _service.createCheckoutSession(seatPriceFor(_yearly));
       await _openExternal(url);
     } catch (e) {
       if (mounted) {
@@ -142,12 +151,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     final b = _billing ?? {};
     final status = b['subscription_status'] as String?;
-    final planId = b['plan_id'] as String?;
-    final limit = b['drivers_limit'];
     final hasCustomer = (b['stripe_customer_id'] as String?)?.isNotEmpty == true;
-    // Todos los planes están disponibles también para el autónomo, para que
-    // pueda crecer (Pro/Business) y contratar empleados sin cambiar de cuenta.
-    const plans = kPlans;
     // Días de prueba restantes (si sigue dentro del periodo de prueba).
     final trialEnds = b['trial_ends_at'] == null
         ? null
@@ -161,27 +165,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _currentPlanCard(l, status, planId, limit, hasCustomer, trialDaysLeft),
+          _currentPlanCard(l, status, hasCustomer, trialDaysLeft),
           const SizedBox(height: 24),
           Text(
             subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_choose_plan'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          if (kHasYearlyPlans) ...[
-            Center(
-              child: SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(value: false, label: Text(l.t('sub_monthly'))),
-                  ButtonSegment(value: true, label: Text(l.t('sub_yearly'))),
-                ],
-                selected: {_yearly},
-                onSelectionChanged: (s) => setState(() => _yearly = s.first),
-              ),
+          Center(
+            child: SegmentedButton<bool>(
+              segments: [
+                ButtonSegment(value: false, label: Text(l.t('sub_monthly'))),
+                ButtonSegment(value: true, label: Text(l.t('sub_yearly'))),
+              ],
+              selected: {_yearly},
+              onSelectionChanged: (s) => setState(() => _yearly = s.first),
             ),
-            const SizedBox(height: 8),
-          ],
-          ...plans.map((p) => _planCard(l, p, planId)),
+          ),
+          const SizedBox(height: 8),
+          _seatPlanCard(l, status),
           const SizedBox(height: 12),
           Card(
             color: Colors.amber.shade50,
@@ -204,11 +206,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _currentPlanCard(AppLocalizations l, String? status, String? planId, dynamic limit, bool hasCustomer, int trialDaysLeft) {
-    final limitText = limit == null ? l.t('sub_unlimited') : '$limit';
-    final planName = kPlans.where((e) => e.id == planId).isNotEmpty
-        ? kPlans.firstWhere((e) => e.id == planId).name
-        : l.t('sub_no_plan');
+  Widget _currentPlanCard(AppLocalizations l, String? status, bool hasCustomer, int trialDaysLeft) {
+    final est = estimatedCost(_activeDrivers, _yearly);
     return Card(
       key: const Key('current_plan_card'),
       child: Padding(
@@ -220,8 +219,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               children: [
                 const Icon(Icons.workspace_premium, color: Colors.amber),
                 const SizedBox(width: 8),
-                Text('${l.t('sub_plan_prefix')} $planName',
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(l.t('sub_seat_plan_name'), style: Theme.of(context).textTheme.titleLarge),
                 const Spacer(),
                 Chip(
                   label: Text(l.t(subscriptionStatusKey(status)),
@@ -230,7 +228,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
               ],
             ),
-            // Días de prueba restantes, justo debajo de "Periodo de prueba".
             if (status == 'trialing' && trialDaysLeft > 0) ...[
               const SizedBox(height: 6),
               Row(
@@ -243,13 +240,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ],
             const SizedBox(height: 8),
-            Text(l.t('sub_drivers_included', {'n': limitText})),
+            Text(l.t('sub_seat_current', {
+              'n': '$_activeDrivers',
+              'cost': _eur(est),
+              'period': _yearly ? l.t('sub_per_year') : l.t('sub_per_month'),
+            })),
             if (!subscriptionIsActive(status)) ...[
               const SizedBox(height: 8),
-              Text(
-                l.t('sub_inactive_msg'),
-                style: const TextStyle(color: Color(0xFFC62828)),
-              ),
+              Text(l.t('sub_inactive_msg'), style: const TextStyle(color: Color(0xFFC62828))),
             ],
             if (hasCustomer) ...[
               const SizedBox(height: 12),
@@ -266,21 +264,52 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _planCard(AppLocalizations l, PlanInfo plan, String? currentPlanId) {
-    final isCurrent = plan.id == currentPlanId;
-    final price = plan.priceText(_yearly);
+  // Tarjeta única del modelo por asiento: explica los tramos y muestra la
+  // estimación para el nº actual de conductores.
+  Widget _seatPlanCard(AppLocalizations l, String? status) {
+    final est = estimatedCost(_activeDrivers, _yearly);
+    final perDriver = _yearly ? kSeatYearly : kSeatMonthly;
+    final flat = _yearly ? kFlatYearly : kFlatMonthly;
+    final period = _yearly ? l.t('sub_per_year') : l.t('sub_per_month');
     return Card(
-      child: ListTile(
-        title: Text(price.isEmpty ? plan.name : '${plan.name} · $price'),
-        subtitle: Text(l.t('plan_${plan.id}_desc')),
-        trailing: isCurrent
-            ? Chip(label: Text(l.t('sub_current')))
-            : FilledButton(
-                key: Key('choose_plan_${plan.id}'),
-                onPressed: _busy ? null : () => _choosePlan(plan),
-                child: Text(l.t('sub_choose')),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.t('sub_seat_plan_name'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            _row(Icons.person, l.t('sub_seat_per_driver',
+                {'price': _eur(perDriver), 'period': period, 'n': '$kSeatTierLimit'})),
+            _row(Icons.all_inclusive, l.t('sub_seat_flat',
+                {'price': _eur(flat), 'period': period, 'n': '$kSeatTierLimit'})),
+            const Divider(height: 20),
+            Text(l.t('sub_seat_estimate', {
+              'n': '$_activeDrivers', 'cost': _eur(est), 'period': period,
+            }), style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(l.t('sub_seat_note'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                key: const Key('subscribe_button'),
+                onPressed: _busy ? null : _subscribe,
+                child: Text(subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_subscribe')),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _row(IconData icon, String text) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 18, color: Colors.blueGrey),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
+        ]),
+      );
 }

@@ -4,9 +4,8 @@ import assert from 'node:assert';
 import { createClient } from '@supabase/supabase-js';
 
 process.env.NODE_ENV = 'test';
-process.env.STRIPE_PRICE_STARTER = 'price_starter_test';
-process.env.STRIPE_PRICE_PRO = 'price_pro_test';
-process.env.STRIPE_PRICE_BUSINESS = 'price_business_test';
+process.env.STRIPE_PRICE_SEAT_MONTHLY = 'price_seat_m_test';
+process.env.STRIPE_PRICE_SEAT_YEARLY = 'price_seat_y_test';
 process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost:54321';
 process.env.SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -72,7 +71,7 @@ async function run() {
       method: 'POST',
       url: '/api/v1/create-checkout-session',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      payload: { priceId: 'price_starter_test' },
+      payload: { priceId: 'price_seat_m_test' },
     });
     assert.strictEqual(res.statusCode, 200, `status ${res.statusCode}: ${res.body}`);
     const body = res.json();
@@ -80,8 +79,8 @@ async function run() {
     const [, args] = calls.find((c) => c[0] === 'checkout');
     assert.strictEqual(args.mode, 'subscription');
     assert.strictEqual(args.metadata.tenant_id, tenantId);
-    assert.strictEqual(args.metadata.plan_id, 'starter');
-    assert.strictEqual(args.metadata.drivers_limit, '2');
+    assert.strictEqual(args.metadata.plan_id, 'seat');
+    assert.strictEqual(args.metadata.drivers_limit, 'null');
   });
 
   await check('create-checkout-session rechaza priceId desconocido (400)', async () => {

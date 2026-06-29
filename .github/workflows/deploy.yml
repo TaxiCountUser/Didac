@@ -68,9 +68,8 @@ jobs:
             --dart-define=SUPABASE_URL=${{ secrets.PROD_SUPABASE_URL }} \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.PROD_SUPABASE_ANON_KEY }} \
             --dart-define=BACKEND_URL=${{ secrets.PROD_BACKEND_URL }} \
-            --dart-define=STRIPE_PRICE_STARTER=${{ secrets.PROD_STRIPE_PRICE_STARTER }} \
-            --dart-define=STRIPE_PRICE_PRO=${{ secrets.PROD_STRIPE_PRICE_PRO }} \
-            --dart-define=STRIPE_PRICE_BUSINESS=${{ secrets.PROD_STRIPE_PRICE_BUSINESS }}
+            --dart-define=STRIPE_PRICE_SEAT_MONTHLY=${{ secrets.PROD_STRIPE_PRICE_SEAT_MONTHLY }} \
+            --dart-define=STRIPE_PRICE_SEAT_YEARLY=${{ secrets.PROD_STRIPE_PRICE_SEAT_YEARLY }}
       - name: Deploy to Vercel
         if: ${{ vars.DEPLOY_WEB == 'true' }}
         uses: amondnet/vercel-action@v25
@@ -100,9 +99,8 @@ jobs:
             --dart-define=SUPABASE_URL=${{ secrets.PROD_SUPABASE_URL }} \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.PROD_SUPABASE_ANON_KEY }} \
             --dart-define=BACKEND_URL=${{ secrets.PROD_BACKEND_URL }} \
-            --dart-define=STRIPE_PRICE_STARTER=${{ secrets.PROD_STRIPE_PRICE_STARTER }} \
-            --dart-define=STRIPE_PRICE_PRO=${{ secrets.PROD_STRIPE_PRICE_PRO }} \
-            --dart-define=STRIPE_PRICE_BUSINESS=${{ secrets.PROD_STRIPE_PRICE_BUSINESS }}
+            --dart-define=STRIPE_PRICE_SEAT_MONTHLY=${{ secrets.PROD_STRIPE_PRICE_SEAT_MONTHLY }} \
+            --dart-define=STRIPE_PRICE_SEAT_YEARLY=${{ secrets.PROD_STRIPE_PRICE_SEAT_YEARLY }}
       - uses: actions/upload-artifact@v4
         with:
           name: taxicount-apk-${{ github.ref_name }}

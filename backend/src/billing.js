@@ -4,25 +4,20 @@
 // separado de server.js para poder testearlo de forma aislada.
 // ============================================================
 
-// Definición de planes. El límite de conductores por plan:
-//   Starter -> 2 | Pro -> 10 | Business -> ilimitado (null)
-// Los Price IDs vienen de variables de entorno (modo test).
+// Modelo de precios POR ASIENTO (por conductor), escalonado por volumen en Stripe.
+// Un único "plan" (seat) con dos Price IDs (mensual/anual). La cantidad del
+// item = nº de conductores; Stripe aplica los tramos por volumen:
+//   1–75 conductores -> 2 €/mes (15,6 €/año) por conductor
+//   76+ (ilimitado)  -> tarifa plana 100 €/mes (1000 €/año)
+// drivers_limit = null porque NO hay tope: añadir conductores solo sube la factura.
+export const SEAT_TIER_LIMIT = 75; // último tramo por asiento (informativo)
+
 export function plans() {
   return {
-    starter: {
-      plan_id: 'starter', drivers_limit: 2,
-      priceId: process.env.STRIPE_PRICE_STARTER || '',
-      priceIdYearly: process.env.STRIPE_PRICE_STARTER_YEARLY || '',
-    },
-    pro: {
-      plan_id: 'pro', drivers_limit: 10,
-      priceId: process.env.STRIPE_PRICE_PRO || '',
-      priceIdYearly: process.env.STRIPE_PRICE_PRO_YEARLY || '',
-    },
-    business: {
-      plan_id: 'business', drivers_limit: null,
-      priceId: process.env.STRIPE_PRICE_BUSINESS || '',
-      priceIdYearly: process.env.STRIPE_PRICE_BUSINESS_YEARLY || '',
+    seat: {
+      plan_id: 'seat', drivers_limit: null,
+      priceId: process.env.STRIPE_PRICE_SEAT_MONTHLY || '',
+      priceIdYearly: process.env.STRIPE_PRICE_SEAT_YEARLY || '',
     },
   };
 }
@@ -30,13 +25,14 @@ export function plans() {
 /** Devuelve {plan_id, drivers_limit} a partir de un Price ID (mensual o anual), o null. */
 export function planForPrice(priceId) {
   if (!priceId) return null;
-  const found = Object.values(plans()).find(
-    (p) => priceId === p.priceId || priceId === p.priceIdYearly,
-  );
-  return found ? { plan_id: found.plan_id, drivers_limit: found.drivers_limit } : null;
+  const p = plans().seat;
+  if (priceId === p.priceId || priceId === p.priceIdYearly) {
+    return { plan_id: 'seat', drivers_limit: null };
+  }
+  return null;
 }
 
-/** Devuelve {plan_id, drivers_limit} a partir de un plan_id ('starter'…), o null. */
+/** Devuelve {plan_id, drivers_limit} a partir de un plan_id ('seat'), o null. */
 export function planForPlanId(planId) {
   if (!planId) return null;
   const p = plans()[planId];

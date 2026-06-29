@@ -523,6 +523,7 @@ export async function buildApp(options = {}) {
     }
 
     app.log.info(`[create-driver] ${email} en tenant ${caller.tenant_id}. Pwd temporal: ${tempPassword}`);
+    await syncSeatQuantity(caller.tenant_id); // ajusta la factura por asiento
     return reply.code(201).send({ id: created.user.id, email, tenant_id: caller.tenant_id, tempPassword });
   });
 
@@ -590,6 +591,8 @@ export async function buildApp(options = {}) {
       }
     }
 
+    // Activar/desactivar un conductor cambia los asientos facturables.
+    if (active !== undefined) await syncSeatQuantity(guard.driver.tenant_id);
     return reply.send({ ok: true, id: driverId });
   });
 
@@ -605,6 +608,7 @@ export async function buildApp(options = {}) {
     if (dErr && !/not.*found|404/i.test(dErr.message || '')) {
       return reply.code(400).send({ error: `No se pudo eliminar la cuenta: ${dErr.message}` });
     }
+    await syncSeatQuantity(guard.driver.tenant_id); // baja un asiento de la factura
     return reply.send({ ok: true, id: driverId });
   });
 
@@ -1072,6 +1076,38 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, push: true, sent: result.sent });
   });
 
+  // Nº de asientos (conductores) a facturar de un tenant. Mínimo 1: incluso un
+  // autónomo sin conductores extra ocupa 1 asiento (él mismo).
+  async function seatCount(tenantId) {
+    const { count } = await supabase.from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId).eq('role', 'driver').eq('active', true);
+    return Math.max(1, count ?? 0);
+  }
+
+  // Sincroniza la cantidad del item de la suscripción de Stripe con el nº de
+  // conductores. Solo si hay suscripción de pago. Best-effort (no rompe la
+  // operación principal si falla). Stripe prorratea el cambio automáticamente.
+  async function syncSeatQuantity(tenantId) {
+    if (!stripe || !tenantId) return;
+    try {
+      const { data: t } = await supabase.from('tenants')
+        .select('stripe_subscription_id, subscription_status').eq('id', tenantId).maybeSingle();
+      const subId = t?.stripe_subscription_id;
+      if (!subId) return; // en prueba todavía no hay suscripción
+      if (!['active', 'past_due', 'trialing'].includes(t?.subscription_status)) return;
+      const qty = await seatCount(tenantId);
+      const sub = await stripe.subscriptions.retrieve(subId);
+      const item = sub.items?.data?.[0];
+      if (!item) return;
+      if (item.quantity === qty) return; // sin cambios
+      await stripe.subscriptionItems.update(item.id, { quantity: qty });
+      app.log.info(`[seats] tenant ${tenantId}: cantidad -> ${qty}`);
+    } catch (e) {
+      app.log.warn(`[seats] no se pudo sincronizar asientos de ${tenantId}: ${e.message}`);
+    }
+  }
+
   // --- Stripe Checkout (Fase 4) ---
   app.post('/api/v1/create-checkout-session', async (request, reply) => {
     if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
@@ -1096,10 +1132,13 @@ export async function buildApp(options = {}) {
       drivers_limit: plan.drivers_limit === null ? 'null' : String(plan.drivers_limit),
     };
 
+    // Cantidad = nº de conductores (asientos). Stripe aplica los tramos por volumen.
+    const quantity = await seatCount(caller.tenant_id);
+
     try {
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
-        line_items: [{ price: priceId, quantity: 1 }],
+        line_items: [{ price: priceId, quantity }],
         success_url: STRIPE_SUCCESS_URL,
         cancel_url: STRIPE_CANCEL_URL,
         ...(tenant?.stripe_customer_id ? { customer: tenant.stripe_customer_id } : {}),
