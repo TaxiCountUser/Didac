@@ -55,21 +55,63 @@ class DataService {
     await _c.rpc('create_solo_company', params: {'p_name': name});
   }
 
-  // ---------------- Referidos ----------------
+  // ---------------- Referidos "Invita y Gana" (v2, por hitos) ----------------
+  // Capa de datos del módulo de referidos. Todo va por el backend (service_role
+  // + reglas de negocio: elegibilidad, hitos, anti-fraude). Devuelve Map/List
+  // como el resto del proyecto (sin modelos json_serializable).
 
-  /// Aplica el código de quien me invitó (una sola vez).
-  Future<void> setMyReferrer(String code) async {
-    await _c.rpc('set_my_referrer', params: {'p_code': code});
+  /// Código del referidor + elegibilidad + definición de hitos.
+  /// Respuesta: {enabled, eligible, code, milestones[], annual_max_days, validation_days}.
+  Future<Map<String, dynamic>> referralCode() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/referrals/code'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
   }
 
-  /// Estadísticas de mis referidos: {total, rewarded} (los que ya han pagado).
-  Future<Map<String, int>> myReferralStats() async {
-    final uid = _c.auth.currentUser?.id;
-    if (uid == null) return {'total': 0, 'rewarded': 0};
-    final rows = await _c.from('referrals').select('status').eq('referrer_user_id', uid);
-    final list = (rows as List).cast<Map<String, dynamic>>();
-    final rewarded = list.where((r) => r['status'] == 'rewarded').length;
-    return {'total': list.length, 'rewarded': rewarded};
+  /// Registra una compartición (canal: whatsapp/email/sms/link). Lanza si supera
+  /// el límite diario (429) para que la UI muestre el aviso.
+  Future<Map<String, dynamic>> referralShare(String channel) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/referrals/share'),
+      headers: _bearer,
+      body: jsonEncode({'channel': channel}),
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    }
+    return body;
+  }
+
+  /// El referido aplica un código (tras crear su empresa). [deviceId] para
+  /// anti-fraude. Lanza con el mensaje del backend si el código no es válido.
+  Future<void> referralValidate(String code, {String? deviceId}) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/referrals/validate'),
+      headers: _bearer,
+      body: jsonEncode({'code': code, if (deviceId != null) 'device_id': deviceId}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo aplicar el código');
+    }
+  }
+
+  /// Historial de mis referidos (estado y fechas).
+  Future<List<Map<String, dynamic>>> referralHistory() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/referrals/history'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['referrals'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// Progreso de hitos: {valid_referrals, milestones[], next, annual_days, annual_max}.
+  Future<Map<String, dynamic>> referralProgress() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/referrals/progress'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
   }
 
   /// Activa/desactiva el modo autónomo (solo) de mi empresa (solo propietario).

@@ -408,6 +408,7 @@ const Map<String, Map<String, String>> _values = {
     'admin_delete_vehicle': 'Eliminar vehículo',
     // Referidos
     'set_referral': 'Invita y gana', 'set_referral_sub': 'Un mes gratis por cada compañero que se suscriba',
+    'ref_coming_soon': 'El nuevo programa de referidos por niveles está casi listo. ¡Muy pronto aquí!',
     'ref_title': 'Invita y gana',
     'ref_explain': 'Comparte tu código. Cuando un compañero se suscriba, ganas un mes gratis.',
     'ref_my_code': 'Tu código', 'ref_copy': 'Copiar', 'ref_copied': 'Copiado', 'ref_share': 'Compartir',
@@ -715,6 +716,7 @@ const Map<String, Map<String, String>> _values = {
     'admin_vehicle_plate': 'Plate', 'admin_vehicle_model': 'Model',
     'admin_delete_vehicle': 'Delete vehicle',
     'set_referral': 'Invite & earn', 'set_referral_sub': 'One free month for each colleague who subscribes',
+    'ref_coming_soon': 'The new tiered referral program is almost ready. Coming very soon!',
     'ref_title': 'Invite & earn',
     'ref_explain': 'Share your code. When a colleague subscribes, you earn a free month.',
     'ref_my_code': 'Your code', 'ref_copy': 'Copy', 'ref_copied': 'Copied', 'ref_share': 'Share',
@@ -1022,6 +1024,7 @@ const Map<String, Map<String, String>> _values = {
     'admin_vehicle_plate': 'Matrícula', 'admin_vehicle_model': 'Model',
     'admin_delete_vehicle': 'Eliminar vehicle',
     'set_referral': 'Convida i guanya', 'set_referral_sub': 'Un mes gratis per cada company que es subscrigui',
+    'ref_coming_soon': 'El nou programa de referits per nivells està gairebé llest. Molt aviat aquí!',
     'ref_title': 'Convida i guanya',
     'ref_explain': 'Comparteix el teu codi. Quan un company es subscrigui, guanyes un mes gratis.',
     'ref_my_code': 'El teu codi', 'ref_copy': 'Copia', 'ref_copied': 'Copiat', 'ref_share': 'Comparteix',
