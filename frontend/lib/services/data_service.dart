@@ -437,6 +437,47 @@ class DataService {
     }
   }
 
+  // ── Loop #5: dashboard de super admin (fraude y auditoría) ─────────────────
+
+  /// Lista unificada de alertas de fraude (referidos + genéricas). Solo admin.
+  Future<Map<String, dynamic>> adminFraudAlerts({
+    String? severity, String? status, String? type, String? source, int limit = 50, int offset = 0,
+  }) async {
+    final qp = <String, String>{'limit': '$limit', 'offset': '$offset'};
+    if (severity != null && severity.isNotEmpty) qp['severity'] = severity;
+    if (status != null && status.isNotEmpty) qp['status'] = status;
+    if (type != null && type.isNotEmpty) qp['type'] = type;
+    if (source != null && source.isNotEmpty) qp['source'] = source;
+    final uri = Uri.parse('$backendUrl/api/v1/admin/fraud/alerts').replace(queryParameters: qp);
+    final res = await http.get(uri, headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Resolver una alerta de fraude con notas (solo admin).
+  Future<void> adminFraudResolve(String alertId, String notes, {String? status}) async {
+    final payload = <String, dynamic>{'notes': notes};
+    if (status != null) payload['status'] = status;
+    final res = await http.put(Uri.parse('$backendUrl/api/v1/admin/fraud/alerts/$alertId/resolve'),
+        headers: _bearer, body: jsonEncode(payload));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo resolver');
+    }
+  }
+
+  /// Logs de auditoría de acciones administrativas (solo admin).
+  Future<Map<String, dynamic>> adminAuditLogs({String? actionType, int limit = 50, int offset = 0}) async {
+    final qp = <String, String>{'limit': '$limit', 'offset': '$offset'};
+    if (actionType != null && actionType.isNotEmpty) qp['action_type'] = actionType;
+    final uri = Uri.parse('$backendUrl/api/v1/admin/audit/logs').replace(queryParameters: qp);
+    final res = await http.get(uri, headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
   /// Resumen de todas las empresas (solo admin).
   Future<Map<String, dynamic>> adminOverview() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/overview'), headers: _bearer);

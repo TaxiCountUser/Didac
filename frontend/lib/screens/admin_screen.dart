@@ -6,6 +6,7 @@ import '../services/data_service.dart';
 import 'admin_company_screen.dart';
 import 'admin_incident_chat_screen.dart';
 import 'admin_referrals_tab.dart';
+import 'admin_security_tab.dart';
 
 /// Panel de administrador de plataforma: ve TODAS las empresas y todas las
 /// incidencias, las resuelve, y puede nombrar a otros administradores.
@@ -19,7 +20,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStateMixin {
   final _service = DataService();
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this);
 
   @override
   void dispose() {
@@ -41,6 +42,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
             Tab(text: l.t('admin_incidents')),
             Tab(text: l.t('admin_challenges')),
             Tab(text: l.t('adm_ref_tab')),
+            Tab(text: l.t('adm_sec_tab')),
           ],
         ),
         actions: [
@@ -53,7 +55,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab(), ReferralsTab()],
+        children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab()],
       ),
     );
   }
