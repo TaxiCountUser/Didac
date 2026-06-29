@@ -13,6 +13,7 @@ import { correctTranscript } from './corrections.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
+import { runQuarterlyFleetRewards, scheduleQuarterly, quarterOf, quarterRange, computeTenantQuarterMetrics, rewardDaysForRate } from './gamification.js';
 import {
   fetchReportData,
   buildExcel,
@@ -1287,6 +1288,29 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
+  // Admin: ejecutar manualmente el reparto trimestral de flota (para probar el
+  // cron fuera de horario). body: { year?, quarter?, dryRun? }. Si no se indican
+  // year/quarter, usa el trimestre actual. dryRun=true calcula sin premiar.
+  app.post('/api/v1/admin/cron/quarterly-rewards', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const b = request.body ?? {};
+    try {
+      const summary = await runQuarterlyFleetRewards(supabase, {
+        year: b.year ? Number(b.year) : undefined,
+        quarter: b.quarter ? Number(b.quarter) : undefined,
+        dryRun: b.dryRun === true || b.dryRun === 'true',
+        notifyOwner: notifyUser,
+        log: app.log,
+      });
+      return reply.send(summary);
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(500).send({ error: 'Fallo en el reparto trimestral', detail: e.message });
+    }
+  });
+
   // ============================================================
   // Programa de referidos "Invita y Gana" (v2, por hitos) — Iteración 2.
   // Endpoints de lectura/compartición/validación. La validación de pagos y los
@@ -1973,6 +1997,14 @@ export async function buildApp(options = {}) {
     }
     return reply.send({ imported, skipped: parsed.skipped || 0, headers: parsed.headers || [] });
   });
+
+  // Scheduler del reparto trimestral de flota (Loop #4). Comprueba 1 vez/hora si
+  // hoy es el último día de un trimestre. Idempotente (upsert + unique). No se
+  // activa en tests para no tocar la BD ni dejar timers colgando.
+  if (supabase && process.env.NODE_ENV !== 'test') {
+    scheduleQuarterly(supabase, { notifyOwner: notifyUser, log: app.log });
+    app.log.info('[cron] Scheduler trimestral de flota activado.');
+  }
 
   return app;
 }
