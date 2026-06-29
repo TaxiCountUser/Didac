@@ -282,6 +282,26 @@ class DataService {
     return ((body['claims'] as List?) ?? []).cast<Map<String, dynamic>>();
   }
 
+  /// Progreso del trimestre EN CURSO de la flota (solo owner/admin).
+  /// Devuelve { year, quarter, active_drivers, drivers_with_achievement,
+  /// completion_rate, reward_days_projected }.
+  Future<Map<String, dynamic>> fleetCurrentQuarter() async {
+    final res = await http.get(
+      Uri.parse('$backendUrl/api/v1/tenant/current-quarter-progress'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Histórico de recompensas trimestrales de la flota (solo owner/admin).
+  Future<List<Map<String, dynamic>>> fleetQuarterlyMetrics({int limit = 12}) async {
+    final res = await http.get(
+      Uri.parse('$backendUrl/api/v1/tenant/quarterly-metrics?limit=$limit'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['metrics'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
   /// Aprueba (mes gratis) o rechaza un reto logrado (solo admin).
   Future<void> adminReviewChallenge(String id, String action) async {
     final res = await http.post(
