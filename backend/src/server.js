@@ -1672,6 +1672,18 @@ export async function buildApp(options = {}) {
       .eq('id', u.tenant_id);
   }
 
+  // Envía una notificación push a un usuario (busca sus tokens en device_tokens).
+  async function notifyUser(userId, title, body, data = {}) {
+    if (!userId || !pushEnabled()) return;
+    const { data: toks } = await supabase.from('device_tokens').select('token').eq('user_id', userId);
+    const tokens = (toks || []).map((t) => t.token);
+    if (!tokens.length) return;
+    const result = await sendToTokens(tokens, { title, body, data }, app.log);
+    if (result.invalidTokens.length) {
+      await supabase.from('device_tokens').delete().in('token', result.invalidTokens);
+    }
+  }
+
   // Recalcula los hitos del referidor: concede los nuevos y revoca los que ya no
   // correspondan, respetando el tope anual de días.
   async function recomputeReferrerMilestones(referrerUserId) {
@@ -1703,7 +1715,13 @@ export async function buildApp(options = {}) {
         await supabase.from('referral_milestone_rewards').insert({
           user_id: referrerUserId, milestone_level: m.level, required: m.required, days_awarded: award,
         });
-        if (award > 0) { await extendReferrerTrial(referrerUserId, award); annualDays += award; }
+        if (award > 0) {
+          await extendReferrerTrial(referrerUserId, award);
+          annualDays += award;
+          await notifyUser(referrerUserId, '🎉 ¡Has ganado días gratis!',
+            `Hito ${m.level} conseguido: +${award} días de suscripción gratis. ¡Sigue invitando!`,
+            { type: 'referral_milestone', level: m.level });
+        }
         app.log.info(`[referral] hito ${m.level} concedido a ${referrerUserId} (+${award} días)`);
       }
     }
@@ -1741,6 +1759,9 @@ export async function buildApp(options = {}) {
     }
     await supabase.from('referrals')
       .update({ status: 'valid', validated_at: new Date().toISOString() }).eq('id', ref.id);
+    await notifyUser(ref.referrer_user_id, '🎉 ¡Tu invitado se ha suscrito!',
+      'Una empresa que invitaste ya es cliente. Revisa tus retos: puede que hayas ganado días gratis.',
+      { type: 'referral_valid' });
     await recomputeReferrerMilestones(ref.referrer_user_id);
   }
 
