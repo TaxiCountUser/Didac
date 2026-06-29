@@ -621,6 +621,24 @@ export async function buildApp(options = {}) {
     return { caller };
   }
 
+  // Registra una acción administrativa sensible en admin_actions_log (auditoría).
+  // Best-effort: si falla, no rompe la operación principal.
+  async function logAdminAction(request, adminId, actionType, targetType, targetId, details) {
+    if (!supabase) return;
+    try {
+      await supabase.from('admin_actions_log').insert({
+        admin_id: adminId ?? null,
+        action_type: actionType,
+        target_type: targetType ?? null,
+        target_id: targetId != null ? String(targetId) : null,
+        details: details ?? null,
+        ip_address: request?.ip ?? null,
+      });
+    } catch (e) {
+      app.log.warn(`[audit] no se pudo registrar acción ${actionType}: ${e.message}`);
+    }
+  }
+
   // Resumen de todas las empresas: datos + nº de usuarios + incidencias abiertas.
   app.get('/api/v1/admin/overview', async (request, reply) => {
     const g = await adminGuard(request);
@@ -1675,16 +1693,20 @@ export async function buildApp(options = {}) {
     const { data: rewardRows } = await supabase.from('referral_milestone_rewards')
       .select('days_awarded').limit(5000);
     const daysAwarded = (rewardRows ?? []).reduce((s, r) => s + (r.days_awarded ?? 0), 0);
+    const milestonesAchieved = (rewardRows ?? []).length;
     const { count: openAlerts } = await supabase.from('referral_fraud_alerts')
       .select('id', { count: 'exact', head: true }).eq('status', 'open');
     return reply.send({
       total, pending, valid, reverted, rejected,
+      total_referrals: total,                                          // alias spec
       shares_total: sharesTotal ?? 0,
       conversion_rate: total ? +(valid / total).toFixed(3) : 0,        // válidos / total
       cpa_days: valid ? +(daysAwarded / valid).toFixed(1) : 0,         // días gratis por adquisición
       k_factor: distinctReferrers ? +(valid / distinctReferrers).toFixed(2) : 0, // válidos por referidor
+      milestones_achieved: milestonesAchieved,
       days_awarded: daysAwarded,
       open_alerts: openAlerts ?? 0,
+      fraud_alerts: openAlerts ?? 0,                                   // alias spec
     });
   });
 
@@ -1714,6 +1736,8 @@ export async function buildApp(options = {}) {
       await supabase.from('system_config')
         .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
     }
+    await logAdminAction(request, g.caller.id, 'referral_config_update', 'config', 'system_config',
+      { changes: Object.fromEntries(updates.map(([k, v]) => [k, String(v)])) });
     return reply.send({ ok: true, updated: updates.map(([k]) => k) });
   });
 
@@ -1745,6 +1769,169 @@ export async function buildApp(options = {}) {
       }
     }
     return reply.send({ ok: true, scanned: (recent ?? []).length, alerts_created_or_kept: created });
+  });
+
+  // ============================================================
+  // Loop #5 — Dashboard de Super Admin: referidos (listado con filtros,
+  // detalle, bloqueo/desbloqueo, config con auditoría). Solo admin.
+  // Nota de reconciliación: los estados reales del modelo son
+  // pending|valid|reverted|rejected (el spec citaba clicked/registered/...);
+  // aceptamos también el alias 'validated' -> 'valid'. La config vive en
+  // system_config (no se crea una tabla paralela global_referral_config).
+  // ============================================================
+  const REF_STATUSES = ['pending', 'valid', 'reverted', 'rejected'];
+
+  // Listado de referidos con filtros y paginación. Filtros: tenant_id, status
+  // (CSV), date_from/date_to (created_at), channel (canal de compartición del
+  // referidor), search (email/nombre de referidor o referido).
+  app.get('/api/v1/admin/referrals/list', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const qp = request.query ?? {};
+    const limit = Math.min(Math.max(parseInt(qp.limit ?? '25', 10) || 25, 1), 100);
+    const offset = Math.max(parseInt(qp.offset ?? '0', 10) || 0, 0);
+
+    let q = supabase.from('referrals')
+      .select('id, status, created_at, validated_at, reverted_at, signup_ip, signup_device_id, '
+        + 'referred_tenant_id, referrer:referrer_user_id(id, email, name), '
+        + 'referred:referred_user_id(id, email, name), tenant:referred_tenant_id(name)',
+        { count: 'exact' })
+      .order('created_at', { ascending: false });
+
+    if (qp.tenant_id) q = q.eq('referred_tenant_id', qp.tenant_id);
+    if (qp.status) {
+      const arr = String(qp.status).split(',').map((s) => s.trim())
+        .map((s) => (s === 'validated' ? 'valid' : s))
+        .filter((s) => REF_STATUSES.includes(s));
+      if (arr.length) q = q.in('status', arr);
+    }
+    if (qp.date_from) q = q.gte('created_at', qp.date_from);
+    if (qp.date_to) q = q.lte('created_at', qp.date_to);
+    if (qp.channel) {
+      const { data: sh } = await supabase.from('referral_shares')
+        .select('user_id').eq('channel', qp.channel).limit(5000);
+      const ids = [...new Set((sh ?? []).map((r) => r.user_id))];
+      if (!ids.length) return reply.send({ referrals: [], total: 0, limit, offset });
+      q = q.in('referrer_user_id', ids);
+    }
+    if (qp.search) {
+      const term = `%${String(qp.search).trim()}%`;
+      const { data: us } = await supabase.from('users')
+        .select('id').or(`email.ilike.${term},name.ilike.${term}`).limit(5000);
+      const ids = [...new Set((us ?? []).map((u) => u.id))];
+      if (!ids.length) return reply.send({ referrals: [], total: 0, limit, offset });
+      const list = ids.join(',');
+      q = q.or(`referrer_user_id.in.(${list}),referred_user_id.in.(${list})`);
+    }
+
+    const { data: refs, count, error } = await q.range(offset, offset + limit - 1);
+    if (error) return reply.code(500).send({ error: error.message });
+
+    // Alertas abiertas por referral (para marcar sospechosos en la lista).
+    const ids = (refs ?? []).map((r) => r.id);
+    let byRef = {};
+    if (ids.length) {
+      const { data: alerts } = await supabase.from('referral_fraud_alerts')
+        .select('id, referral_id, type, severity, status').eq('status', 'open').in('referral_id', ids);
+      for (const a of alerts ?? []) (byRef[a.referral_id] ??= []).push(a);
+    }
+    const rows = (refs ?? []).map((r) => ({ ...r, alerts: byRef[r.id] ?? [] }));
+    return reply.send({ referrals: rows, total: count ?? rows.length, limit, offset });
+  });
+
+  // Configuración de hitos y parámetros (lectura). Devuelve claves referral_*
+  // y los hitos ya parseados.
+  app.get('/api/v1/admin/referrals/config', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const cfg = await refConfig();
+    const referral = Object.fromEntries(Object.entries(cfg).filter(([k]) => k.startsWith('referral_')));
+    return reply.send({ config: referral, milestones: milestonesFrom(cfg) });
+  });
+
+  // Detalle de un referido: referidor, invitado, empresa, historial y fraude.
+  app.get('/api/v1/admin/referrals/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data: ref, error } = await supabase.from('referrals')
+      .select('id, status, created_at, validated_at, reverted_at, signup_ip, signup_device_id, '
+        + 'referred_tenant_id, referrer:referrer_user_id(id, email, name, tenant_id), '
+        + 'referred:referred_user_id(id, email, name), '
+        + 'tenant:referred_tenant_id(name, plan_id, subscription_status, created_at)')
+      .eq('id', request.params.id).maybeSingle();
+    if (error) return reply.code(500).send({ error: error.message });
+    if (!ref) return reply.code(404).send({ error: 'Referido no encontrado' });
+
+    // Hitos del referidor (ledger) + alertas de fraude de este referido.
+    const referrerId = ref.referrer?.id;
+    const [{ data: milestones }, { data: alerts }] = await Promise.all([
+      referrerId
+        ? supabase.from('referral_milestone_rewards')
+            .select('milestone_level, required, days_awarded, awarded_at')
+            .eq('user_id', referrerId).order('milestone_level', { ascending: true })
+        : Promise.resolve({ data: [] }),
+      supabase.from('referral_fraud_alerts')
+        .select('id, type, severity, status, detail, created_at, resolved_at')
+        .eq('referral_id', ref.id).order('created_at', { ascending: false }),
+    ]);
+
+    // Historial de eventos derivado de los timestamps.
+    const events = [{ type: 'created', at: ref.created_at }];
+    if (ref.validated_at) events.push({ type: 'validated', at: ref.validated_at });
+    if (ref.reverted_at) events.push({ type: 'reverted', at: ref.reverted_at });
+    for (const m of milestones ?? []) {
+      events.push({ type: 'milestone', at: m.awarded_at, level: m.milestone_level, days: m.days_awarded });
+    }
+    events.sort((a, b) => new Date(a.at) - new Date(b.at));
+
+    return reply.send({
+      referral: ref,
+      referrer_milestones: milestones ?? [],
+      fraud: {
+        signup_ip: ref.signup_ip,
+        signup_device_id: ref.signup_device_id,
+        alerts: alerts ?? [],
+      },
+      events,
+    });
+  });
+
+  // Bloquear un referido por fraude: pasa a 'rejected' y se revierten sus
+  // recompensas automáticamente (recompute revoca los hitos que ya no apliquen).
+  app.put('/api/v1/admin/referrals/:id/block', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const reason = (request.body ?? {}).reason ?? null;
+    const { data: ref } = await supabase.from('referrals')
+      .select('id, referrer_user_id, status').eq('id', request.params.id).maybeSingle();
+    if (!ref) return reply.code(404).send({ error: 'Referido no encontrado' });
+    await supabase.from('referrals')
+      .update({ status: 'rejected', reverted_at: new Date().toISOString() }).eq('id', ref.id);
+    await recomputeReferrerMilestones(ref.referrer_user_id); // clawback automático
+    await createFraudAlert(ref.id, 'manual_block', 'high', { reason, by: g.caller.id });
+    await logAdminAction(request, g.caller.id, 'referral_block', 'referral', ref.id,
+      { reason, previous_status: ref.status });
+    return reply.send({ ok: true });
+  });
+
+  // Desbloquear un referido: restaura su estado (valid si llegó a validarse, o
+  // pending) y recalcula hitos. Descarta sus alertas abiertas.
+  app.put('/api/v1/admin/referrals/:id/unblock', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data: ref } = await supabase.from('referrals')
+      .select('id, referrer_user_id, status, validated_at').eq('id', request.params.id).maybeSingle();
+    if (!ref) return reply.code(404).send({ error: 'Referido no encontrado' });
+    const restored = ref.validated_at ? 'valid' : 'pending';
+    await supabase.from('referrals')
+      .update({ status: restored, reverted_at: null }).eq('id', ref.id);
+    await recomputeReferrerMilestones(ref.referrer_user_id);
+    await supabase.from('referral_fraud_alerts')
+      .update({ status: 'dismissed', resolved_at: new Date().toISOString() })
+      .eq('referral_id', ref.id).eq('status', 'open');
+    await logAdminAction(request, g.caller.id, 'referral_unblock', 'referral', ref.id,
+      { restored_status: restored, previous_status: ref.status });
+    return reply.send({ ok: true, status: restored });
   });
 
   // ============================================================

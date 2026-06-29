@@ -1877,3 +1877,30 @@ drop policy if exists cron_logs_select on public.cron_execution_logs;
 create policy cron_logs_select on public.cron_execution_logs
   for select to authenticated
   using (public.is_platform_admin());
+
+
+-- ============================================================
+-- 036 - Log de auditoría de acciones administrativas (Loop #5).
+-- ============================================================
+create table if not exists public.admin_actions_log (
+  id           uuid primary key default gen_random_uuid(),
+  admin_id     uuid references public.users(id) on delete set null,
+  action_type  text not null,
+  target_type  text,
+  target_id    text,
+  details      jsonb,
+  ip_address   text,
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_admin_actions_created on public.admin_actions_log(created_at desc);
+create index if not exists idx_admin_actions_admin   on public.admin_actions_log(admin_id, created_at desc);
+create index if not exists idx_admin_actions_target  on public.admin_actions_log(target_type, target_id);
+grant select on public.admin_actions_log to authenticated;
+grant select, insert on public.admin_actions_log to service_role;
+alter table public.admin_actions_log enable row level security;
+drop policy if exists admin_actions_select on public.admin_actions_log;
+create policy admin_actions_select on public.admin_actions_log
+  for select to authenticated
+  using (public.is_platform_admin());
+
+notify pgrst, 'reload schema';
