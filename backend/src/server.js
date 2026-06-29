@@ -30,6 +30,10 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 3000);
 const HOST = '0.0.0.0';
 
+// Tope máximo de conductores del modelo por asiento. A partir de aquí, plan a
+// medida (el cliente contacta con nosotros).
+const MAX_DRIVERS = 100;
+
 // Normaliza la URL de Supabase: si viene sin protocolo (p. ej. "xxx.supabase.co"),
 // le ponemos https:// para no romper createClient ("Invalid supabaseUrl").
 const _rawSupabaseUrl = (process.env.SUPABASE_URL || '').trim();
@@ -470,26 +474,31 @@ export async function buildApp(options = {}) {
     const { email, name } = request.body ?? {};
     if (!email) return reply.code(400).send({ error: 'email es obligatorio' });
 
-    // Límite de conductores según el plan contratado (Fase 4).
+    // Tope máximo del modelo por asiento: 100 conductores. A partir de ahí, el
+    // cliente debe contactar con nosotros (plan a medida). Se aplica siempre,
+    // también en prueba.
+    const { count: driverCount } = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', caller.tenant_id)
+      .eq('role', 'driver');
+    if ((driverCount ?? 0) >= MAX_DRIVERS) {
+      return reply.code(403).send({
+        error: `Has alcanzado el máximo de ${MAX_DRIVERS} conductores. Contacta con nosotros para ampliar tu flota.`,
+      });
+    }
+
+    // Límite por plan (legado, p. ej. planes antiguos con drivers_limit). En el
+    // modelo por asiento drivers_limit es null y este bloque no aplica.
     const { data: tenant } = await supabase
       .from('tenants')
       .select('drivers_limit, subscription_status')
       .eq('id', caller.tenant_id)
       .single();
     const limit = tenant?.drivers_limit;
-    // Durante la prueba gratuita (sin plan de pago activo) NO se aplica el límite:
-    // así pueden probar la gestión de flota con varios conductores. El límite
-    // solo cuenta con una suscripción de pago al día (active/past_due).
     const paid = tenant?.subscription_status === 'active' || tenant?.subscription_status === 'past_due';
-    if (paid && limit !== null && limit !== undefined) {
-      const { count } = await supabase
-        .from('users')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', caller.tenant_id)
-        .eq('role', 'driver');
-      if ((count ?? 0) >= limit) {
-        return reply.code(403).send({ error: 'Has alcanzado el límite de conductores de tu plan' });
-      }
+    if (paid && limit !== null && limit !== undefined && (driverCount ?? 0) >= limit) {
+      return reply.code(403).send({ error: 'Has alcanzado el límite de conductores de tu plan' });
     }
 
     // Pre-comprobación: si ya hay una cuenta con ese correo, avisamos claro

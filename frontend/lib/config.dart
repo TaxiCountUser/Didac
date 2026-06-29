@@ -37,7 +37,8 @@ const stripePriceSeatYearly = String.fromEnvironment(
 
 // Parámetros del modelo de precios (SOLO para mostrar/estimar en la UI; la
 // facturación real la calcula Stripe con los tramos por volumen del Price).
-const kSeatTierLimit = 75; // 1–75 por asiento; 76+ tarifa plana ilimitada
+const kSeatTierLimit = 75; // 1–75 por asiento; 76–100 tarifa plana
+const kMaxDrivers = 100; // tope del modelo; a partir de aquí, plan a medida
 const kSeatMonthly = 2.0; // €/mes por conductor
 const kSeatYearly = 15.6; // €/año por conductor (1,3 €/mes)
 const kFlatMonthly = 150.0; // €/mes tarifa plana (76+)

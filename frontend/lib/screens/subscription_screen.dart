@@ -283,6 +283,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 {'price': _eur(perDriver), 'period': period, 'n': '$kSeatTierLimit'})),
             _row(Icons.all_inclusive, l.t('sub_seat_flat',
                 {'price': _eur(flat), 'period': period, 'n': '$kSeatTierLimit'})),
+            _row(Icons.info_outline, l.t('sub_seat_max', {'max': '$kMaxDrivers'})),
             const Divider(height: 20),
             Text(l.t('sub_seat_estimate', {
               'n': '$_activeDrivers', 'cost': _eur(est), 'period': period,
