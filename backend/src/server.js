@@ -1528,6 +1528,129 @@ export async function buildApp(options = {}) {
   });
 
   // ============================================================
+  // Referidos v2 — Iteración 5: panel de administración.
+  // Listado con filtros, KPIs (conversión, CPA, K-factor), gestión de alertas,
+  // edición de la config y escaneo anti-fraude bajo demanda. Solo admin.
+  // ============================================================
+
+  // Listado de referidos (filtros: status). Incluye correos y alertas abiertas.
+  app.get('/api/v1/admin/referrals', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const status = request.query?.status;
+    let q = supabase.from('referrals')
+      .select('id, status, created_at, validated_at, reverted_at, signup_ip, signup_device_id, '
+        + 'referrer:referrer_user_id(email, name), referred:referred_user_id(email, name)')
+      .order('created_at', { ascending: false }).limit(500);
+    if (['pending', 'valid', 'reverted', 'rejected'].includes(status)) q = q.eq('status', status);
+    const { data: refs, error } = await q;
+    if (error) return reply.code(500).send({ error: error.message });
+    // Alertas abiertas, agrupadas por referral.
+    const { data: alerts } = await supabase.from('referral_fraud_alerts')
+      .select('id, referral_id, type, severity, status, created_at, detail')
+      .eq('status', 'open');
+    const byRef = {};
+    for (const a of alerts ?? []) (byRef[a.referral_id] ??= []).push(a);
+    const rows = (refs ?? []).map((r) => ({ ...r, alerts: byRef[r.id] ?? [] }));
+    return reply.send({ referrals: rows, open_alerts: (alerts ?? []).length });
+  });
+
+  // KPIs del programa: conversión, CPA (días/adquisición), K-factor.
+  app.get('/api/v1/admin/referrals/kpis', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const countWhere = async (col, val) => {
+      const { count } = await supabase.from('referrals')
+        .select('id', { count: 'exact', head: true }).eq(col, val);
+      return count ?? 0;
+    };
+    const [pending, valid, reverted, rejected] = await Promise.all([
+      countWhere('status', 'pending'), countWhere('status', 'valid'),
+      countWhere('status', 'reverted'), countWhere('status', 'rejected'),
+    ]);
+    const total = pending + valid + reverted + rejected;
+    const { count: sharesTotal } = await supabase.from('referral_shares')
+      .select('id', { count: 'exact', head: true });
+    // Distintos referidores con al menos un válido + total de días concedidos.
+    const { data: validRows } = await supabase.from('referrals')
+      .select('referrer_user_id').eq('status', 'valid').limit(5000);
+    const distinctReferrers = new Set((validRows ?? []).map((r) => r.referrer_user_id)).size;
+    const { data: rewardRows } = await supabase.from('referral_milestone_rewards')
+      .select('days_awarded').limit(5000);
+    const daysAwarded = (rewardRows ?? []).reduce((s, r) => s + (r.days_awarded ?? 0), 0);
+    const { count: openAlerts } = await supabase.from('referral_fraud_alerts')
+      .select('id', { count: 'exact', head: true }).eq('status', 'open');
+    return reply.send({
+      total, pending, valid, reverted, rejected,
+      shares_total: sharesTotal ?? 0,
+      conversion_rate: total ? +(valid / total).toFixed(3) : 0,        // válidos / total
+      cpa_days: valid ? +(daysAwarded / valid).toFixed(1) : 0,         // días gratis por adquisición
+      k_factor: distinctReferrers ? +(valid / distinctReferrers).toFixed(2) : 0, // válidos por referidor
+      days_awarded: daysAwarded,
+      open_alerts: openAlerts ?? 0,
+    });
+  });
+
+  // Gestionar una alerta de fraude: resolver o descartar.
+  app.post('/api/v1/admin/referrals/resolve/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const action = (request.body ?? {}).action;
+    if (action !== 'resolve' && action !== 'dismiss') {
+      return reply.code(400).send({ error: 'Acción no válida' });
+    }
+    const { error } = await supabase.from('referral_fraud_alerts')
+      .update({ status: action === 'resolve' ? 'resolved' : 'dismissed', resolved_at: new Date().toISOString() })
+      .eq('id', request.params.id);
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // Editar la configuración del programa (solo claves referral_*).
+  app.put('/api/v1/admin/referrals/config', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const body = request.body ?? {};
+    const updates = Object.entries(body).filter(([k]) => k.startsWith('referral_'));
+    if (!updates.length) return reply.code(400).send({ error: 'Nada que actualizar (claves referral_*)' });
+    for (const [key, value] of updates) {
+      await supabase.from('system_config')
+        .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    }
+    return reply.send({ ok: true, updated: updates.map(([k]) => k) });
+  });
+
+  // Escaneo anti-fraude bajo demanda (batch): ráfagas de IP y dispositivos
+  // duplicados en las últimas 24h que aún no tengan alerta.
+  app.post('/api/v1/admin/referrals/scan', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const cfg = await refConfig();
+    const maxIp = parseInt(cfg.referral_max_per_ip_24h ?? '3', 10);
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { data: recent } = await supabase.from('referrals')
+      .select('id, signup_ip, signup_device_id, created_at').gte('created_at', since).limit(5000);
+    const byIp = {};
+    const byDev = {};
+    for (const r of recent ?? []) {
+      if (r.signup_ip) (byIp[r.signup_ip] ??= []).push(r.id);
+      if (r.signup_device_id) (byDev[r.signup_device_id] ??= []).push(r.id);
+    }
+    let created = 0;
+    for (const [ip, ids] of Object.entries(byIp)) {
+      if (ids.length > maxIp) {
+        for (const id of ids) { await createFraudAlert(id, 'ip_burst', 'high', { ip, count: ids.length }); created++; }
+      }
+    }
+    for (const [dev, ids] of Object.entries(byDev)) {
+      if (ids.length > 1) {
+        for (const id of ids) { await createFraudAlert(id, 'device_dup', 'medium', { deviceId: dev }); created++; }
+      }
+    }
+    return reply.send({ ok: true, scanned: (recent ?? []).length, alerts_created_or_kept: created });
+  });
+
+  // ============================================================
   // Referidos v2 — Iteración 3: validación, hitos y reversión.
   // Premio = días gratis al TENANT del referidor (extiende trial_ends_at), con
   // tope anual configurable. Idempotente: recalcula hitos desde el nº de
