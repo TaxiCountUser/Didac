@@ -1287,6 +1287,178 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
+  // ============================================================
+  // Programa de referidos "Invita y Gana" (v2, por hitos) — Iteración 2.
+  // Endpoints de lectura/compartición/validación. La validación de pagos y los
+  // hitos van por el webhook de Stripe (Iteración 3). Premio = días gratis al
+  // TENANT (empresa). Solo invitan owners/autónomos con suscripción activa.
+  // ============================================================
+
+  // Lee toda la config de referidos (system_config) como objeto clave→valor.
+  async function refConfig() {
+    const { data } = await supabase.from('system_config').select('key, value');
+    const m = {};
+    for (const r of data ?? []) m[r.key] = r.value;
+    return m;
+  }
+
+  // Definición de hitos a partir de la config: [{level, required, days}].
+  function milestonesFrom(cfg) {
+    const out = [];
+    for (let lvl = 1; lvl <= 5; lvl++) {
+      const required = parseInt(cfg[`referral_milestone_${lvl}_required`] ?? '0', 10);
+      const days = parseInt(cfg[`referral_milestone_${lvl}_days`] ?? '0', 10);
+      if (required > 0) out.push({ level: lvl, required, days });
+    }
+    return out;
+  }
+
+  // ¿Puede invitar? Owner/autónomo con suscripción ACTIVA de pago (no en prueba).
+  async function isReferralEligible(caller) {
+    if (!caller || caller.role !== 'owner' || !caller.tenant_id) return false;
+    const { data: t } = await supabase
+      .from('tenants').select('subscription_status').eq('id', caller.tenant_id).maybeSingle();
+    return t?.subscription_status === 'active';
+  }
+
+  // Devuelve el código del usuario; si no tiene, genera uno único "TX"+6.
+  async function ensureReferralCode(userId) {
+    const { data: existing } = await supabase
+      .from('referral_codes').select('code').eq('user_id', userId).maybeSingle();
+    if (existing) return existing.code;
+    const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    for (let i = 0; i < 6; i++) {
+      const code = 'TX' + Array.from({ length: 6 },
+        () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
+      const { error } = await supabase.from('referral_codes').insert({ user_id: userId, code });
+      if (!error) return code;
+      if (!/duplicate|unique|23505/i.test(error.message || '')) throw new Error(error.message);
+      // 23505 en (user_id) = otro proceso lo creó: devuélvelo
+      const { data: again } = await supabase
+        .from('referral_codes').select('code').eq('user_id', userId).maybeSingle();
+      if (again) return again.code;
+    }
+    throw new Error('No se pudo generar el código de referido');
+  }
+
+  // GET código del referidor + elegibilidad + definición de hitos.
+  app.get('/api/v1/referrals/code', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    try {
+      const cfg = await refConfig();
+      if (cfg.referral_enabled !== 'true') return reply.send({ enabled: false });
+      const eligible = await isReferralEligible(caller);
+      const code = eligible ? await ensureReferralCode(caller.id) : null;
+      return reply.send({
+        enabled: true, eligible, code,
+        milestones: milestonesFrom(cfg),
+        annual_max_days: parseInt(cfg.referral_annual_max_days ?? '360', 10),
+        validation_days: parseInt(cfg.referral_validation_days ?? '30', 10),
+      });
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(500).send({ error: 'No se pudo obtener el código', detail: e.message });
+    }
+  });
+
+  // POST registrar una compartición (límite diario) y devolver el código.
+  app.post('/api/v1/referrals/share', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (!await isReferralEligible(caller)) {
+      return reply.code(403).send({ error: 'Necesitas una suscripción activa para invitar' });
+    }
+    const channel = String((request.body ?? {}).channel ?? 'link');
+    if (!['whatsapp', 'email', 'sms', 'link', 'other'].includes(channel)) {
+      return reply.code(400).send({ error: 'Canal no válido' });
+    }
+    const cfg = await refConfig();
+    const maxPerDay = parseInt(cfg.referral_max_shares_per_day ?? '20', 10);
+    const since = new Date(); since.setHours(0, 0, 0, 0);
+    const { count } = await supabase.from('referral_shares')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', caller.id).gte('created_at', since.toISOString());
+    if ((count ?? 0) >= maxPerDay) {
+      return reply.code(429).send({ error: `Límite de ${maxPerDay} invitaciones por día` });
+    }
+    const code = await ensureReferralCode(caller.id);
+    await supabase.from('referral_shares').insert({ user_id: caller.id, code, channel });
+    return reply.send({ ok: true, code, shares_today: (count ?? 0) + 1 });
+  });
+
+  // POST aplicar un código (el referido lo introduce tras crear su empresa).
+  app.post('/api/v1/referrals/validate', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (!caller.tenant_id) return reply.code(400).send({ error: 'Crea tu empresa primero' });
+    const code = String((request.body ?? {}).code ?? '').trim();
+    if (!code) return reply.code(400).send({ error: 'Falta el código' });
+
+    const { data: prev } = await supabase.from('referrals')
+      .select('id').eq('referred_user_id', caller.id).maybeSingle();
+    if (prev) return reply.code(409).send({ error: 'Ya has usado un código de invitación' });
+
+    const { data: rc } = await supabase.from('referral_codes')
+      .select('user_id, is_active').ilike('code', code).maybeSingle();
+    if (!rc || rc.is_active === false) return reply.code(404).send({ error: 'Código no válido' });
+    if (rc.user_id === caller.id) return reply.code(400).send({ error: 'No puedes invitarte a ti mismo' });
+
+    const ip = (request.headers['x-forwarded-for'] || request.ip || '').toString().split(',')[0].trim();
+    const device = String((request.body ?? {}).device_id ?? '');
+    const { error } = await supabase.from('referrals').insert({
+      referrer_user_id: rc.user_id, referred_user_id: caller.id,
+      referred_tenant_id: caller.tenant_id, status: 'pending',
+      signup_ip: ip || null, signup_device_id: device || null,
+    });
+    if (error) {
+      const dup = /duplicate|unique|23505/i.test(error.message || '');
+      return reply.code(dup ? 409 : 400).send({ error: dup ? 'Ya has usado un código' : error.message });
+    }
+    return reply.send({ ok: true });
+  });
+
+  // GET historial de referidos del referidor.
+  app.get('/api/v1/referrals/history', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    const { data, error } = await supabase.from('referrals')
+      .select('id, status, created_at, validated_at, reverted_at, users:referred_user_id(email, name)')
+      .eq('referrer_user_id', caller.id).order('created_at', { ascending: false });
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ referrals: data ?? [] });
+  });
+
+  // GET progreso de hitos del referidor.
+  app.get('/api/v1/referrals/progress', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    const cfg = await refConfig();
+    const milestones = milestonesFrom(cfg);
+    const { count } = await supabase.from('referrals')
+      .select('id', { count: 'exact', head: true })
+      .eq('referrer_user_id', caller.id).eq('status', 'valid');
+    const valid = count ?? 0;
+    const { data: claimed } = await supabase.from('referral_milestone_rewards')
+      .select('milestone_level').eq('user_id', caller.id);
+    const claimedLevels = new Set((claimed ?? []).map((c) => c.milestone_level));
+    const { data: u } = await supabase.from('users')
+      .select('referral_rewards_annual_days').eq('id', caller.id).maybeSingle();
+    const next = milestones.find((m) => valid < m.required) ?? null;
+    return reply.send({
+      valid_referrals: valid,
+      milestones: milestones.map((m) => ({ ...m, reached: valid >= m.required, claimed: claimedLevels.has(m.level) })),
+      next: next ? { ...next, remaining: next.required - valid } : null,
+      annual_days: u?.referral_rewards_annual_days ?? 0,
+      annual_max: parseInt(cfg.referral_annual_max_days ?? '360', 10),
+    });
+  });
+
   // --- Webhook de Stripe (Fase 4) ---
   // Recompensa de referido: cuando la empresa `tenantId` paga, el que la invitó
   // gana un mes gratis (extiende su trial_ends_at +30 días y, si paga por
@@ -1352,15 +1524,10 @@ export async function buildApp(options = {}) {
     try {
       const result = await applyStripeEvent(supabase, event);
       app.log.info(`[stripe-webhook] ${result.type} handled=${result.handled} tenant=${result.tenant_id ?? '-'}`);
-      // Si este evento es un pago que activa la suscripción, premia el referido.
-      if (result.handled && result.tenant_id &&
-          (result.type === 'checkout.session.completed' || result.type === 'invoice.paid')) {
-        try {
-          await rewardReferralIfApplicable(result.tenant_id);
-        } catch (e) {
-          request.log.error(`[referral] ${e.message}`);
-        }
-      }
+      // NOTA: la recompensa de referidos (rewardReferralIfApplicable) se desactiva
+      // aquí mientras migramos al programa por hitos (Iteración 3 lo reimplementa
+      // con validación + hitos + reversión). No llamar al flujo antiguo para no
+      // chocar con el nuevo esquema de la tabla `referrals`.
       return reply.send({ received: true, ...result });
     } catch (e) {
       request.log.error(e);
