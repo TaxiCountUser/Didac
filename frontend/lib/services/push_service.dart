@@ -16,12 +16,23 @@ class PushService {
   static final PushService instance = PushService._();
   bool _inited = false;
 
+  /// Callback al TOCAR una notificación (deep-link). Lo fija main.dart para
+  /// navegar según `data['type']` (p. ej. 'referral_milestone' -> Referidos).
+  static void Function(Map<String, dynamic> data)? onTap;
+
   /// Inicializa Firebase + messaging. Seguro de llamar varias veces; no lanza.
   Future<void> init() async {
     if (kIsWeb || _inited) return;
     try {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(_bgHandler);
+      // Toque de notificación con la app en segundo plano.
+      FirebaseMessaging.onMessageOpenedApp.listen((m) => onTap?.call(m.data));
+      // App abierta DESDE una notificación (estado terminado).
+      final initial = await FirebaseMessaging.instance.getInitialMessage();
+      if (initial != null) {
+        Future.delayed(const Duration(milliseconds: 800), () => onTap?.call(initial.data));
+      }
       _inited = true;
     } catch (_) {/* sin Firebase configurado: la app sigue igual */}
   }

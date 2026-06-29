@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _company = TextEditingController();
+  final _refCode = TextEditingController(); // código de invitación (opcional)
 
   bool _isSignUp = false;
   bool _loading = false;
@@ -29,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _email.dispose();
     _password.dispose();
     _company.dispose();
+    _refCode.dispose();
     super.dispose();
   }
 
@@ -48,6 +51,13 @@ class _LoginScreenState extends State<LoginScreen> {
             // Sin tenant_id => el trigger lo trata como Owner nuevo.
           },
         );
+        // Código de invitación (opcional): se guarda y se aplica cuando ya
+        // exista la empresa (AuthGate), porque /validate necesita el tenant.
+        final ref = _refCode.text.trim();
+        if (ref.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('pending_referral_code', ref.toUpperCase());
+        }
       } else {
         // Permite entrar con email O con nombre de usuario (sin '@' => usuario).
         var loginEmail = _email.text.trim();
@@ -178,6 +188,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: l.t('login_company_fleet'),
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.business_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Código de invitación (opcional).
+                    TextField(
+                      key: const Key('refcode_field'),
+                      controller: _refCode,
+                      textCapitalization: TextCapitalization.characters,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        if (!_loading) _submit();
+                      },
+                      decoration: InputDecoration(
+                        labelText: l.t('login_referral_code'),
+                        helperText: l.t('login_referral_hint'),
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.card_giftcard_outlined),
                       ),
                     ),
                   ],

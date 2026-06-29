@@ -36,6 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _activeVehicleLabel;
   String? _companyName;
   int _vehicleCount = 0; // nº de coches del conductor; el cambio solo si hay >1
+  bool _subActive = false; // suscripción activa de pago (para mostrar referidos)
   bool _newReply = false; // el admin ha contestado a un ticket (aviso)
 
   @override
@@ -81,7 +82,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       if (widget.profile.isOwner) {
         final b = await _service.fetchTenantBilling(widget.profile.tenantId);
-        if (mounted) setState(() => _companyName = b?['name'] as String?);
+        if (mounted) {
+          setState(() {
+            _companyName = b?['name'] as String?;
+            // "Invita y Gana" solo para empresarios con suscripción activa de pago.
+            _subActive = b?['subscription_status'] == 'active';
+          });
+        }
       } else {
         final vid = await _service.todaysVehicleId(widget.profile.id);
         final vehicles = await _service.myVehicles();
@@ -433,7 +440,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const ChallengesScreen()),
             ),
-          if (isOwner)
+          // Solo empresarios/autónomos con suscripción activa de pago (R-REF-01).
+          if (isOwner && _subActive)
             ListTile(
               leading: const Icon(Icons.card_giftcard, color: Colors.amber),
               title: Text(l.t('set_referral')),

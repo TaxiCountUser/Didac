@@ -6,7 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'auth_gate.dart';
 import 'l10n/app_localizations.dart';
+import 'services/data_service.dart';
 import 'services/push_service.dart';
+import 'screens/referral_screen.dart';
+
+/// Navegador raíz, para poder navegar desde fuera del árbol (deep-links de push).
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   // Si algo en build() falla, mostramos un aviso legible en vez de la pantalla
@@ -25,6 +30,18 @@ Future<void> main() async {
   await localeController.load();
   // ignore: deprecated_member_use
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  // Deep-link: al tocar una notificación de referidos, abre la pantalla.
+  PushService.onTap = (data) async {
+    final type = (data['type'] ?? '').toString();
+    if (!type.startsWith('referral')) return;
+    try {
+      final p = await DataService().fetchMyProfile();
+      if (p == null) return;
+      rootNavigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => ReferralScreen(profile: p)),
+      );
+    } catch (_) {/* best-effort */}
+  };
   // Push (FCM): solo en móvil; en web es no-op. No bloquea el arranque si falla.
   await PushService.instance.init();
   runApp(const TaxiCountApp());
@@ -75,6 +92,7 @@ class TaxiCountApp extends StatelessWidget {
       valueListenable: localeController,
       builder: (context, locale, _) => MaterialApp(
         title: 'TaxiCount',
+        navigatorKey: rootNavigatorKey,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(colorSchemeSeed: Colors.amber, useMaterial3: true),
         locale: locale,

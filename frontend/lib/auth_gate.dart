@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'l10n/app_localizations.dart';
 import 'models/profile.dart';
 import 'models/tenant_state.dart';
 import 'services/data_service.dart';
+import 'util/device_id.dart';
 import 'screens/login_screen.dart';
 import 'screens/owner_home_screen.dart';
 import 'screens/driver_home_screen.dart';
@@ -71,6 +74,29 @@ class _ProfileRouterState extends State<ProfileRouter> {
 
   void _reload() => setState(() => _future = _load());
 
+  bool _refChecked = false;
+  // Aplica el código de invitación guardado en el registro, una vez que ya
+  // existe la empresa (el backend /validate necesita el tenant). Best-effort.
+  Future<void> _maybeApplyPendingReferral() async {
+    if (_refChecked) return;
+    _refChecked = true;
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString('pending_referral_code');
+    if (code == null || code.isEmpty) return;
+    try {
+      final deviceId = await getDeviceId();
+      await _service.referralValidate(code, deviceId: deviceId);
+      await prefs.remove('pending_referral_code');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.t('ref_code_applied'))));
+      }
+    } catch (_) {
+      // Código inválido/ya usado: lo quitamos para no reintentar en cada arranque.
+      await prefs.remove('pending_referral_code');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<_Account?>(
@@ -115,6 +141,10 @@ class _ProfileRouterState extends State<ProfileRouter> {
         if (!profile.hasFleet) {
           return ChoosePathScreen(onDone: _reload);
         }
+        // Ya tiene empresa: aplica el código de invitación pendiente (si lo hay).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _maybeApplyPendingReferral();
+        });
         // Prueba de 15 días caducada y sin suscripción activa: bloqueo.
         final tenant = account!.tenant;
         if (tenant != null && !tenant.isUsable) {
