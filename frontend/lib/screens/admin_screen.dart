@@ -433,10 +433,13 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final driver = ((c['users'] as Map?)?['name'] as String?)
         ?? ((c['users'] as Map?)?['email'] as String?) ?? '—';
     final company = ((c['tenants'] as Map?)?['name'] as String?) ?? '—';
-    final pending = status == 'pending';
+    final rejected = status == 'rejected';
     final unit = isKm ? 'km' : (isDays ? l.t('ch_days_unit') : '€');
     final title = isKm ? l.t('ch_km_label') : (isDays ? l.t('ch_days_label') : l.t('ch_money_label'));
     final icon = isKm ? Icons.speed : (isDays ? Icons.calendar_today : Icons.euro);
+    // Loop #4: ya no hay aprobación manual (los retos se auto-registran y la
+    // recompensa es trimestral por flota). El admin solo puede RECHAZAR por
+    // fraude un logro, lo que lo excluye de la métrica trimestral.
     return Card(
       child: ListTile(
         leading: Icon(icon, color: Colors.amber.shade800),
@@ -445,26 +448,25 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             '${l.t('admin_ch_goal')}: ${target.toStringAsFixed(0)} $unit · ${l.t('ch_days_progress', {'n': '$days', 'min': '300'})}'
             '${suspicious ? '\n⚠️ ${l.t('admin_ch_suspicious')}' : ''}'),
         isThreeLine: true,
-        trailing: pending
-            ? Row(
+        trailing: rejected
+            ? Chip(
+                label: Text(l.t('admin_ch_rejected'), style: const TextStyle(fontSize: 11)),
+                backgroundColor: Colors.grey.shade300,
+              )
+            : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    tooltip: l.t('admin_ch_reward'),
-                    icon: const Icon(Icons.card_giftcard, color: Colors.green),
-                    onPressed: () => _review(c['id'] as String, 'reward'),
+                  Chip(
+                    label: Text(l.t('admin_ch_achieved'), style: const TextStyle(fontSize: 11)),
+                    backgroundColor: Colors.green.shade100,
+                    visualDensity: VisualDensity.compact,
                   ),
                   IconButton(
-                    tooltip: l.t('admin_ch_reject'),
-                    icon: const Icon(Icons.cancel, color: Colors.red),
+                    tooltip: l.t('admin_ch_fraud'),
+                    icon: const Icon(Icons.block, color: Colors.red),
                     onPressed: () => _review(c['id'] as String, 'reject'),
                   ),
                 ],
-              )
-            : Chip(
-                label: Text(status == 'rewarded' ? l.t('admin_ch_rewarded') : l.t('admin_ch_rejected'),
-                    style: const TextStyle(fontSize: 11)),
-                backgroundColor: status == 'rewarded' ? Colors.green.shade100 : Colors.grey.shade300,
               ),
       ),
     );

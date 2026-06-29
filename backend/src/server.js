@@ -1202,17 +1202,19 @@ export async function buildApp(options = {}) {
           const metric = metrics[type];
           const progress = Math.max(0, metric - st.baseline);
           const reached = progress >= target;
-          // Crea el aviso al admin al alcanzar el tramo (si no hay claim ya).
+          // Loop #4: al alcanzar el tramo se registra el logro YA como 'rewarded'
+          // (auto-avance de nivel + cuenta en la métrica trimestral), pero SIN
+          // recompensa individual al JEFE (los días gratis los reparte el cron
+          // trimestral por % de flota). El admin aún puede rechazarlo por fraude.
           if (reached && !st.pending && !st.rejected) {
             const { error: insErr } = await supabase.from('challenge_claims').insert({
               tenant_id: caller.tenant_id, user_id: r.user_id, challenge: type,
               level: st.level, baseline: st.baseline, target,
               metric_value: metric, active_days: activeDays,
+              status: 'rewarded', reviewed_at: new Date().toISOString(),
             });
             if (insErr && !/duplicate|unique|23505/i.test(insErr.message || '')) {
               app.log.warn(`[challenge] no se pudo crear claim: ${insErr.message}`);
-            } else if (!insErr) {
-              st.pending = true;
             }
           }
           challenges.push({
@@ -1257,9 +1259,12 @@ export async function buildApp(options = {}) {
     return reply.send({ claims: rows });
   });
 
-  // Admin: aprobar (mes gratis al dueño de la suscripción) o rechazar un reto.
-  // Al aprobar, el conductor sube de nivel automáticamente (se deriva de los
-  // claims 'rewarded'), y solo entonces ve el siguiente reto (más grande).
+  // Admin: revisar un reto. Loop #4: la recompensa individual (mes gratis por
+  // claim) está DESACTIVADA — los días gratis se reparten trimestralmente por %
+  // de flota (cron). 'reject' sigue activo como control de FRAUDE: un claim
+  // rechazado no cuenta en la métrica trimestral (drivers_with_achievement). La
+  // acción 'reward' se conserva por compatibilidad pero ya NO extiende ninguna
+  // suscripción (los retos se auto-registran como 'rewarded' al alcanzarse).
   app.post('/api/v1/admin/challenges/:id', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
@@ -1271,21 +1276,11 @@ export async function buildApp(options = {}) {
       .from('challenge_claims').select('id, tenant_id, status').eq('id', request.params.id).maybeSingle();
     if (cErr || !claim) return reply.code(404).send({ error: 'Reto no encontrado' });
 
-    if (action === 'reward') {
-      // Un mes gratis: extiende trial_ends_at +30 días sobre el final actual.
-      const { data: t } = await supabase
-        .from('tenants').select('trial_ends_at').eq('id', claim.tenant_id).maybeSingle();
-      const now = Date.now();
-      const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : 0;
-      const base = cur > now ? cur : now;
-      await supabase.from('tenants')
-        .update({ trial_ends_at: new Date(base + 30 * 86400000).toISOString() })
-        .eq('id', claim.tenant_id);
-    }
+    // Sin extensión de suscripción aquí (deprecado en Loop #4).
     await supabase.from('challenge_claims')
       .update({ status: action === 'reward' ? 'rewarded' : 'rejected', reviewed_at: new Date().toISOString() })
       .eq('id', claim.id);
-    return reply.send({ ok: true });
+    return reply.send({ ok: true, note: 'reward individual deprecado; recompensa trimestral por flota' });
   });
 
   // Admin: ejecutar manualmente el reparto trimestral de flota (para probar el
