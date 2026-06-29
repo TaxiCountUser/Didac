@@ -8,7 +8,7 @@
 // Un único "plan" (seat) con dos Price IDs (mensual/anual). La cantidad del
 // item = nº de conductores; Stripe aplica los tramos por volumen:
 //   1–75 conductores -> 2 €/mes (15,6 €/año) por conductor
-//   76+ (ilimitado)  -> tarifa plana 100 €/mes (1000 €/año)
+//   76+ (ilimitado)  -> tarifa plana 150 €/mes (1170 €/año)
 // drivers_limit = null porque NO hay tope: añadir conductores solo sube la factura.
 export const SEAT_TIER_LIMIT = 75; // último tramo por asiento (informativo)
 

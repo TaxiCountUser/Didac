@@ -40,8 +40,8 @@ const stripePriceSeatYearly = String.fromEnvironment(
 const kSeatTierLimit = 75; // 1–75 por asiento; 76+ tarifa plana ilimitada
 const kSeatMonthly = 2.0; // €/mes por conductor
 const kSeatYearly = 15.6; // €/año por conductor (1,3 €/mes)
-const kFlatMonthly = 100.0; // €/mes tarifa plana (76+)
-const kFlatYearly = 1000.0; // €/año tarifa plana (76+)
+const kFlatMonthly = 150.0; // €/mes tarifa plana (76+)
+const kFlatYearly = 1170.0; // €/año tarifa plana (76+)
 
 /// Price ID del asiento según el periodo elegido.
 String seatPriceFor(bool yearly) => yearly ? stripePriceSeatYearly : stripePriceSeatMonthly;
