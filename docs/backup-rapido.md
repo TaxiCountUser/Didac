@@ -5,6 +5,22 @@
 > Para el plan de recuperación completo (caídas del servidor, etc.) ver
 > [disaster-recovery.md](disaster-recovery.md).
 
+## Backup automático diario (nuevo)
+
+Hay un **backup automático cada día (~03:00 hora de España)** mediante GitHub
+Actions: [.github/workflows/backup-db.yml](../.github/workflows/backup-db.yml).
+Hace `pg_dump` del esquema `public` y lo guarda como **artefacto** del workflow
+con **90 días de retención** (Actions → "Backup diario de la BD" → run → Artifacts).
+
+- **Requisito (una vez):** en GitHub → Settings → Secrets and variables → Actions,
+  añade `SUPABASE_DB_URL` con la cadena de conexión (URI) de Supabase
+  (usa el **Session pooler** si la conexión directa IPv6 falla).
+- Se puede lanzar a mano: Actions → "Backup diario de la BD" → **Run workflow**.
+- Para descargas/restauración manual sigues teniendo `scripts/backup-db.ps1`.
+
+> No sustituye a los backups del plan Pro de Supabase (PITR); es una copia
+> adicional, barata y sin servicios extra.
+
 ## Qué hay que proteger (y qué no)
 
 | Cosa | ¿Hay que hacer backup manual? | Por qué |
