@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
@@ -22,11 +23,46 @@ class ReferralScreen extends StatefulWidget {
 class _ReferralScreenState extends State<ReferralScreen> {
   final _service = DataService();
   late Future<_RefData> _future;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
     super.initState();
     _future = _load();
+    _subscribeRealtime();
+  }
+
+  // Realtime: refresca en vivo cuando se valida un referido o se concede un
+  // hito (el backend actualiza las tablas y Supabase nos avisa). RLS hace que
+  // solo recibamos cambios de nuestras propias filas.
+  void _subscribeRealtime() {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    _channel = Supabase.instance.client
+        .channel('referrals_$uid')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'referrals',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq, column: 'referrer_user_id', value: uid),
+          callback: (_) { if (mounted) _reload(); },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'referral_milestone_rewards',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
+          callback: (_) { if (mounted) _reload(); },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    if (_channel != null) Supabase.instance.client.removeChannel(_channel!);
+    super.dispose();
   }
 
   Future<_RefData> _load() async {

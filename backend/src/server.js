@@ -1778,8 +1778,10 @@ export async function buildApp(options = {}) {
       const ageDays = (Date.now() - new Date(ref.validated_at).getTime()) / 86400000;
       if (ageDays > grace) return; // fuera del periodo de gracia: no se revierte
     }
+    // Cancelación dentro de la gracia -> 'rejected' (según spec); reverted_at deja
+    // constancia de que fue por cancelación. recompute revoca el hito (clawback).
     await supabase.from('referrals')
-      .update({ status: 'reverted', reverted_at: new Date().toISOString() }).eq('id', ref.id);
+      .update({ status: 'rejected', reverted_at: new Date().toISOString() }).eq('id', ref.id);
     await recomputeReferrerMilestones(ref.referrer_user_id);
   }
 
