@@ -1903,4 +1903,33 @@ create policy admin_actions_select on public.admin_actions_log
   for select to authenticated
   using (public.is_platform_admin());
 
+
+-- ============================================================
+-- 037 - Alertas de fraude genéricas (centro de fraude, Loop #5).
+-- ============================================================
+create table if not exists public.fraud_alerts (
+  id               uuid primary key default gen_random_uuid(),
+  tenant_id        uuid references public.tenants(id) on delete cascade,
+  user_id          uuid references public.users(id)   on delete set null,
+  alert_type       text not null,
+  severity         text not null default 'medium' check (severity in ('low','medium','high')),
+  description      text,
+  evidence         jsonb,
+  status           text not null default 'open' check (status in ('open','investigating','resolved')),
+  resolution_notes text,
+  resolved_by      uuid references public.users(id) on delete set null,
+  resolved_at      timestamptz,
+  created_at       timestamptz not null default now()
+);
+create index if not exists idx_fraud_alerts_status  on public.fraud_alerts(status, created_at desc);
+create index if not exists idx_fraud_alerts_tenant  on public.fraud_alerts(tenant_id);
+create index if not exists idx_fraud_alerts_type    on public.fraud_alerts(alert_type);
+grant select on public.fraud_alerts to authenticated;
+grant select, insert, update on public.fraud_alerts to service_role;
+alter table public.fraud_alerts enable row level security;
+drop policy if exists fraud_alerts_select on public.fraud_alerts;
+create policy fraud_alerts_select on public.fraud_alerts
+  for select to authenticated
+  using (public.is_platform_admin());
+
 notify pgrst, 'reload schema';
