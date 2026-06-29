@@ -726,7 +726,9 @@ alter table public.vehicles
   add column if not exists transport_card_years    int  not null default 4,
   add column if not exists revision_interval_km    int  not null default 15000,
   add column if not exists last_revision_km        int,
-  add column if not exists maintenance_notes        text;
+  add column if not exists maintenance_notes        text,
+  add column if not exists taximeter_itv_expiry    date,   -- punto 6: ITV del taxímetro
+  add column if not exists registered_km           int;    -- punto 7: km al dar de alta
 
 -- Recarga el esquema en PostgREST tras aplicar.
 
@@ -1460,10 +1462,16 @@ as $$
      where tenant_id = p_tenant and odometer_km is not null and vehicle_id is not null
   ),
   km_per_user as (
-    select user_id, coalesce(sum(mx - mn), 0) as km from (
-      select user_id, vehicle_id, max(km) as mx, min(km) as mn
-        from odo group by user_id, vehicle_id
-    ) t group by user_id
+    -- Punto 7: km del reto = max(lectura) - base, base = registered_km del coche
+    -- (km al alta) si está fijado, o la primera lectura si no. Clamp a >= 0.
+    select t.user_id,
+           coalesce(sum(greatest(0, t.mx - coalesce(v.registered_km, t.mn))), 0) as km
+      from (
+        select user_id, vehicle_id, max(km) as mx, min(km) as mn
+          from odo group by user_id, vehicle_id
+      ) t
+      left join public.vehicles v on v.id = t.vehicle_id
+     group by t.user_id
   ),
   jumps as (
     select user_id, coalesce(max(km - prev), 0) as max_jump from (
@@ -1556,10 +1564,16 @@ as $$
      where tenant_id = p_tenant and odometer_km is not null and vehicle_id is not null
   ),
   km_per_user as (
-    select user_id, coalesce(sum(mx - mn), 0) as km from (
-      select user_id, vehicle_id, max(km) as mx, min(km) as mn
-        from odo group by user_id, vehicle_id
-    ) t group by user_id
+    -- Punto 7: km del reto = max(lectura) - base, base = registered_km del coche
+    -- (km al alta) si está fijado, o la primera lectura si no. Clamp a >= 0.
+    select t.user_id,
+           coalesce(sum(greatest(0, t.mx - coalesce(v.registered_km, t.mn))), 0) as km
+      from (
+        select user_id, vehicle_id, max(km) as mx, min(km) as mn
+          from odo group by user_id, vehicle_id
+      ) t
+      left join public.vehicles v on v.id = t.vehicle_id
+     group by t.user_id
   ),
   jumps as (
     select user_id, coalesce(max(km - prev), 0) as max_jump from (

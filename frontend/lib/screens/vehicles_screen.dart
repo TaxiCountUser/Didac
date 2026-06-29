@@ -42,6 +42,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
   Future<void> _addDialog() async {
     final plate = TextEditingController();
     final model = TextEditingController();
+    final km = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -59,6 +60,17 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
               controller: model,
               decoration: InputDecoration(labelText: ctx.l10n.t('vh_model')),
             ),
+            TextField(
+              key: const Key('regkm_field'),
+              controller: km,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: ctx.l10n.t('vh_registered_km'),
+                suffixText: 'km',
+                helperText: ctx.l10n.t('vh_registered_km_hint'),
+                helperMaxLines: 2,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -73,6 +85,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
           tenantId: widget.profile.tenantId,
           licensePlate: plate.text.trim(),
           model: model.text.trim().isEmpty ? null : model.text.trim(),
+          registeredKm: int.tryParse(km.text.trim()),
         );
         _reload();
       } catch (e) {

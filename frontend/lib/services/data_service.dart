@@ -155,11 +155,13 @@ class DataService {
     required String tenantId,
     required String licensePlate,
     String? model,
+    int? registeredKm,
   }) async {
     await _c.from('vehicles').insert({
       'tenant_id': tenantId,
       'license_plate': licensePlate,
       'model': model,
+      if (registeredKm != null) 'registered_km': registeredKm,
     });
   }
 
