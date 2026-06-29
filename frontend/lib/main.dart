@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
@@ -30,6 +31,15 @@ Future<void> main() async {
   await localeController.load();
   // ignore: deprecated_member_use
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  // "Recordarme": si el usuario NO marcó recordar sesión, cerramos la sesión
+  // persistida al arrancar en frío (así tendrá que volver a entrar).
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool('remember_me') ?? true;
+    if (!remember && Supabase.instance.client.auth.currentSession != null) {
+      await Supabase.instance.client.auth.signOut();
+    }
+  } catch (_) {/* best-effort */}
   // Deep-link: al tocar una notificación de referidos, abre la pantalla.
   PushService.onTap = (data) async {
     final type = (data['type'] ?? '').toString();

@@ -24,7 +24,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isSignUp = false;
   bool _loading = false;
+  bool _remember = true; // "Recordarme" (sesión persistente)
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Recupera la preferencia y, si procede, el último identificador usado.
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      setState(() {
+        _remember = prefs.getBool('remember_me') ?? true;
+        if (_remember) _email.text = prefs.getString('last_login_id') ?? '';
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -73,6 +87,15 @@ class _LoginScreenState extends State<LoginScreen> {
           email: loginEmail,
           password: _password.text,
         );
+      }
+      // "Recordarme": guarda la preferencia y el último identificador (para
+      // precargarlo) o lo borra si el usuario no quiere que se recuerde.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('remember_me', _remember);
+      if (_remember) {
+        await prefs.setString('last_login_id', _email.text.trim());
+      } else {
+        await prefs.remove('last_login_id');
       }
       // AuthGate reaccionará al cambio de sesión.
     } on AuthException catch (e) {
@@ -206,6 +229,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.card_giftcard_outlined),
                       ),
+                    ),
+                  ],
+                  if (!_isSignUp) ...[
+                    const SizedBox(height: 4),
+                    CheckboxListTile(
+                      key: const Key('remember_me_checkbox'),
+                      value: _remember,
+                      onChanged: _loading ? null : (v) => setState(() => _remember = v ?? true),
+                      title: Text(l.t('login_remember_me')),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      dense: true,
                     ),
                   ],
                   if (_error != null) ...[
