@@ -320,13 +320,14 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         const SizedBox(height: 20),
         Text(l.t('ti_payment')),
         const SizedBox(height: 8),
-        SegmentedButton<String>(
-          segments: [
-            ButtonSegment(value: 'tarjeta', label: Text(l.t('ti_card')), icon: const Icon(Icons.credit_card)),
-            ButtonSegment(value: 'efectivo', label: Text(l.t('ti_cash')), icon: const Icon(Icons.payments)),
+        Wrap(
+          spacing: 8, runSpacing: 8,
+          children: [
+            _payChip('efectivo', l.t('ti_cash'), Icons.payments),
+            _payChip('tarjeta', l.t('ti_card'), Icons.credit_card),
+            _payChip('bizum', l.t('ti_bizum'), Icons.smartphone),
+            _payChip('credito', l.t('ti_credit'), Icons.schedule),
           ],
-          selected: {_payment},
-          onSelectionChanged: (s) => setState(() => _payment = s.first),
         ),
         const SizedBox(height: 20),
         TextField(
@@ -419,6 +420,17 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       ),
     ];
   }
+
+  // Chip de selección de forma de pago.
+  Widget _payChip(String value, String label, IconData icon) => ChoiceChip(
+        selected: _payment == value,
+        onSelected: (_) => setState(() => _payment = value),
+        avatar: Icon(icon, size: 18,
+            color: _payment == value ? Colors.white : Colors.blueGrey),
+        label: Text(label),
+        labelStyle: TextStyle(color: _payment == value ? Colors.white : null),
+        selectedColor: Theme.of(context).colorScheme.primary,
+      );
 
   // Campos específicos de una carrera (ingreso).
   List<Widget> _tripFields(AppLocalizations l) => [

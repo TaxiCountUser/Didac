@@ -339,13 +339,16 @@ const EXPENSE_WORDS = [
 ];
 
 const PAYMENT_KEYWORDS = {
-  tarjeta: ['tarjeta', 'visa', 'credito', 'debito', 'targeta', 'tpv', 'datafono', 'datafon'],
+  tarjeta: ['tarjeta', 'visa', 'debito', 'targeta', 'tpv', 'datafono', 'datafon'],
   efectivo: [
     'efectivo', 'metalico', 'contado', 'cash', 'efectiu', 'metallic',
     'monedas', 'moneda', 'monedes', 'billetes', 'billete', 'bitllets', 'bitllet',
   ],
   bizum: ['bizum'],
   transferencia: ['transferencia', 'transfer'],
+  // Crédito / facturas pendientes = el cliente queda a deber.
+  credito: ['credito', 'fiado', 'fiar', 'pendiente', 'factura', 'facturas',
+    'debe', 'deuda', 'fiat', 'credit', 'pendent', 'factures'],
 };
 
 function findCategory(words) {
@@ -395,6 +398,92 @@ function extractCompany(text) {
   if (!name) return null;
   // Mayúscula inicial en cada palabra: "ramon bilbao" -> "Ramon Bilbao".
   return name.split(' ').map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(' ');
+}
+
+// --- Fecha/hora dichas explícitamente (punto 2) ---
+// Devuelve un ISO string si el audio menciona una fecha y/o una hora; si no,
+// null (para que el frontend mantenga la fecha/hora actual del sistema).
+const MONTHS_WHEN = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7,
+  agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+  gener: 1, febrer: 2, marc: 3, abril_ca: 4, maig: 5, juny: 6, juliol: 7,
+  agost: 8, setembre: 9, octubre_ca: 10, novembre: 11, desembre: 12,
+};
+// Horas escritas con palabras (1-12) en es/ca, por si la voz no devuelve dígitos.
+const WORD_HOURS = {
+  una: 1, un: 1, dos: 2, dues: 2, tres: 3, cuatro: 4, quatre: 4, cinco: 5, cinc: 5,
+  seis: 6, sis: 6, siete: 7, set: 7, ocho: 8, vuit: 8, huit: 8, nueve: 9, nou: 9,
+  diez: 10, deu: 10, once: 11, onze: 11, doce: 12, dotze: 12,
+};
+function stripAccents(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+export function extractWhen(text, now = new Date()) {
+  const t = stripAccents(text);
+  let hasDate = false; let hasTime = false;
+  const d = new Date(now.getTime());
+
+  // 1) Día relativo.
+  if (/\bantes\s+de\s+ayer\b|\banteayer\b|\babans[-\s]?d['e]?\s*ahir\b/.test(t)) {
+    d.setDate(d.getDate() - 2); hasDate = true;
+  } else if (/\bayer\b|\bahir\b/.test(t)) {
+    d.setDate(d.getDate() - 1); hasDate = true;
+  } else if (/\bhoy\b|\bavui\b/.test(t)) {
+    hasDate = true;
+  } else if (/\bmanana\b|\bdema\b/.test(t)) {
+    d.setDate(d.getDate() + 1); hasDate = true;
+  }
+
+  // 2) Fecha explícita "el 5 de junio [de 2026]".
+  let m = t.match(/\b(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/);
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const mon = MONTHS_WHEN[m[2]] || MONTHS_WHEN[`${m[2]}_ca`];
+    if (mon && day >= 1 && day <= 31) {
+      d.setFullYear(m[3] ? parseInt(m[3], 10) : d.getFullYear(), mon - 1, day);
+      hasDate = true;
+    }
+  } else {
+    // 2b) "5/6" o "5/6/2026" o "5-6".
+    m = t.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
+    if (m) {
+      const day = parseInt(m[1], 10); const mon = parseInt(m[2], 10);
+      if (day >= 1 && day <= 31 && mon >= 1 && mon <= 12) {
+        let yr = d.getFullYear();
+        if (m[3]) yr = m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
+        d.setFullYear(yr, mon - 1, day); hasDate = true;
+      }
+    }
+  }
+
+  // 3) Hora. Primero formato HH:MM / HH.MM / HHh.
+  let hh = null; let mm = 0;
+  let tm = t.match(/\b(\d{1,2})[:.h](\d{2})\b/);
+  if (tm) { hh = parseInt(tm[1], 10); mm = parseInt(tm[2], 10); }
+  else {
+    // "a las 3", "a les 9", "a las tres" (+ modificadores).
+    tm = t.match(/\ba\s+l(?:as|es)\s+(\d{1,2}|[a-z]+)/);
+    if (tm) {
+      const tok = tm[1];
+      hh = /^\d+$/.test(tok) ? parseInt(tok, 10) : (WORD_HOURS[tok] ?? null);
+    } else if (/\bmediodia\b/.test(t)) { hh = 12; }
+    else if (/\bmedianoche\b|\bmitjanit\b/.test(t)) { hh = 0; }
+  }
+  if (hh != null && hh >= 0 && hh <= 24) {
+    if (/\by\s+media\b|\bi\s+mitja\b/.test(t)) mm = 30;
+    else if (/\by\s+cuarto\b|\bi\s+quart\b/.test(t)) mm = 15;
+    else if (/\bmenos\s+cuarto\b|\bmenys\s+quart\b/.test(t)) { hh = (hh + 23) % 24; mm = 45; }
+    // Franja: "de la tarde/noche" -> +12 si es 1-11.
+    if (/\bde\s+la\s+tarde\b|\bde\s+la\s+noche\b|\bde\s+la\s+nit\b|\bde\s+la\s+tarda\b/.test(t)
+        && hh >= 1 && hh <= 11) hh += 12;
+    if (hh === 24) hh = 0;
+    if (mm >= 0 && mm < 60 && hh >= 0 && hh <= 23) {
+      d.setHours(hh, mm, 0, 0); hasTime = true;
+    }
+  }
+
+  if (!hasDate && !hasTime) return null;
+  return d.toISOString();
 }
 
 export function parseTransactionText(text) {
@@ -447,6 +536,7 @@ export function parseTransactionText(text) {
     destination: destination || null,
     odometer_km: odometer_km == null ? null : odometer_km,
     client_name: client_name || null,
+    created_at: extractWhen(text),
     missing_fields,
   };
 }

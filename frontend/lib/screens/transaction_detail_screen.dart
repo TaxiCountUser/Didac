@@ -188,9 +188,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           _row(Icons.category, l.t('td_category'), l.catLabel(tx['category'] as String?)),
         _row(Icons.calendar_today, l.t('td_datetime'), fmtDateTime(created)),
         _row(
-          tx['payment_method'] == 'efectivo' ? Icons.payments : Icons.credit_card,
+          _payIcon(tx['payment_method'] as String?),
           l.t('td_payment'),
-          tx['payment_method'] == 'efectivo' ? l.t('ti_cash') : l.t('ti_card'),
+          _payLabel(l, tx['payment_method'] as String?),
         ),
         if ((tx['description'] as String?)?.isNotEmpty == true)
           _row(Icons.notes, l.t('td_desc'), tx['description'] as String),
@@ -220,6 +220,22 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     }
     return rows;
   }
+
+  IconData _payIcon(String? pm) => switch (pm) {
+        'efectivo' => Icons.payments,
+        'bizum' => Icons.smartphone,
+        'credito' => Icons.schedule,
+        'transferencia' => Icons.account_balance,
+        _ => Icons.credit_card,
+      };
+
+  String _payLabel(AppLocalizations l, String? pm) => switch (pm) {
+        'efectivo' => l.t('ti_cash'),
+        'bizum' => l.t('ti_bizum'),
+        'credito' => l.t('ti_credit'),
+        'transferencia' => l.t('ti_transfer'),
+        _ => l.t('ti_card'),
+      };
 
   Widget _row(IconData icon, String label, String value) {
     return Padding(

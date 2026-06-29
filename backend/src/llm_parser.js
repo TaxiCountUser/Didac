@@ -8,7 +8,7 @@
 // el endpoint cae al parser determinista.
 // ============================================================
 
-const PAY = new Set(['tarjeta', 'efectivo', 'bizum', 'transferencia']);
+const PAY = new Set(['tarjeta', 'efectivo', 'bizum', 'transferencia', 'credito']);
 const CATS = new Set([
   'gasolina', 'gasoil', 'taller', 'peaje', 'parking', 'lavado',
   'multa', 'seguro', 'comida', 'compra',
@@ -25,7 +25,7 @@ const SYSTEM_PROMPT = `Ets un assistent que extreu dades d'una frase dita per un
 Retorna NOMÉS un objecte JSON (sense text addicional) amb aquestes claus exactes:
 - "type": "income" si és una carrera/cobrament, "expense" si és una despesa/gasto.
 - "amount": el PREU de la carrera/despesa en EUROS que es paga (decimals amb punt, p. ex. 18.5), o null. NO són els quilòmetres. Si la frase NO esmenta cap preu en euros, ha de ser null (no l'inventis ni el dedueixis dels km). Compte amb els milers: "292.000" = 292000.
-- "payment_method": un de "tarjeta", "efectivo", "bizum", "transferencia" o null. (targeta/visa/tpv/datàfon => tarjeta; efectiu/metàl·lic/monedes/bitllets => efectivo)
+- "payment_method": un de "tarjeta", "efectivo", "bizum", "transferencia", "credito" o null. (targeta/visa/tpv/datàfon => tarjeta; efectiu/metàl·lic/monedes/bitllets => efectivo; fiat/pendent de cobrament/factura/a deure => credito)
 - "origin": lloc d'origen de la carrera (string) o null.
 - "destination": lloc de destí (string) o null.
 - "odometer_km": km actuals del cotxe (enter) o null. Només si es mencionen km/quilòmetres.
@@ -104,6 +104,9 @@ export function mergeParsed(llm, det) {
     destination: pick(llm.destination, det.destination),
     odometer_km: pick(llm.odometer_km, det.odometer_km),
     client_name: pick(llm.client_name, det.client_name),
+    // Fecha/hora dichas: la detecta el parser determinista (det); el LLM no la
+    // extrae. Si no se dijo, queda null y el frontend usa la fecha/hora actual.
+    created_at: pick(llm.created_at, det.created_at),
   };
   const missing_fields = [];
   if (m.amount == null) missing_fields.push('amount');
