@@ -1822,3 +1822,58 @@ begin
     alter publication supabase_realtime add table public.referral_milestone_rewards;
   end if;
 end $$;
+
+
+-- ============================================================
+-- 035 - Métricas trimestrales de flota (gamificación sostenible).
+-- ============================================================
+-- Loop #4: cambia la recompensa de retos de "1 mes por conductor" (insostenible)
+-- a un modelo TRIMESTRAL por % de flota activa. Solo crea estructura nueva
+-- (no toca challenge_claims ni datos existentes). Idempotente.
+-- ============================================================
+create table if not exists public.fleet_quarterly_metrics (
+  id                        uuid primary key default gen_random_uuid(),
+  tenant_id                 uuid not null references public.tenants(id) on delete cascade,
+  year                      int  not null,
+  quarter                   int  not null check (quarter between 1 and 4),
+  active_drivers            int  not null default 0,
+  drivers_with_achievement  int  not null default 0,
+  completion_rate           numeric(5,2) not null default 0,
+  reward_days_awarded       int  not null default 0,
+  processed_at              timestamptz not null default now(),
+  unique (tenant_id, year, quarter)
+);
+create index if not exists idx_fleet_quarterly_tenant
+  on public.fleet_quarterly_metrics(tenant_id, year desc, quarter desc);
+grant select on public.fleet_quarterly_metrics to authenticated;
+grant select, insert, update, delete on public.fleet_quarterly_metrics to service_role;
+alter table public.fleet_quarterly_metrics enable row level security;
+drop policy if exists fleet_quarterly_select on public.fleet_quarterly_metrics;
+create policy fleet_quarterly_select on public.fleet_quarterly_metrics
+  for select to authenticated
+  using (
+    public.is_platform_admin()
+    or (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner')
+  );
+
+create table if not exists public.cron_execution_logs (
+  id                 uuid primary key default gen_random_uuid(),
+  job_name           text not null,
+  period_label       text,
+  started_at         timestamptz not null default now(),
+  finished_at        timestamptz,
+  status             text not null default 'running' check (status in ('running','success','error')),
+  tenants_processed  int  not null default 0,
+  rewards_granted    int  not null default 0,
+  details            jsonb,
+  error              text
+);
+create index if not exists idx_cron_logs_job_started
+  on public.cron_execution_logs(job_name, started_at desc);
+grant select on public.cron_execution_logs to authenticated;
+grant select, insert, update, delete on public.cron_execution_logs to service_role;
+alter table public.cron_execution_logs enable row level security;
+drop policy if exists cron_logs_select on public.cron_execution_logs;
+create policy cron_logs_select on public.cron_execution_logs
+  for select to authenticated
+  using (public.is_platform_admin());
