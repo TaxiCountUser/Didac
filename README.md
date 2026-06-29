@@ -330,6 +330,7 @@ monitorización, backups y E2E. Documentación operativa en [`docs/`](docs/).
 | Backup y restauración probados | ✅ [disaster-recovery.md](docs/disaster-recovery.md) + [restore-backup.sh](scripts/restore-backup.sh) |
 | E2E en staging | ✅ [e2e-staging-report.md](docs/e2e-staging-report.md) |
 | Coste mensual < 150 € | ✅ ~88 €/mes — [cost-estimate.md](docs/cost-estimate.md) |
+| Gamificación sostenible (recompensa trimestral de flota) | ✅ [retos-flota.md](docs/retos-flota.md) |
 
 - **Carga** ([tests/load/test_scenarios.js](tests/load/test_scenarios.js)): k6 con
   4 escenarios (login/insert/dashboard/export) y umbrales p95. Todos superados.
