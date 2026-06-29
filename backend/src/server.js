@@ -1341,6 +1341,65 @@ export async function buildApp(options = {}) {
     throw new Error('No se pudo generar el código de referido');
   }
 
+  // --- Anti-fraude de referidos (Iteración 4) -----------------------------
+  // Dominios de email desechables más habituales (ampliable por config).
+  const DISPOSABLE_EMAIL_DOMAINS = [
+    'mailinator.com', 'tempmail.com', '10minutemail.com', 'guerrillamail.com',
+    'yopmail.com', 'trashmail.com', 'sharklasers.com', 'getnada.com',
+    'temp-mail.org', 'dispostable.com', 'maildrop.cc', 'fakeinbox.com',
+  ];
+
+  // Crea una alerta, evitando duplicar una abierta del mismo tipo/referral.
+  async function createFraudAlert(referralId, type, severity, detail) {
+    const { data: ex } = await supabase.from('referral_fraud_alerts')
+      .select('id').eq('referral_id', referralId).eq('type', type).eq('status', 'open').maybeSingle();
+    if (ex) return;
+    await supabase.from('referral_fraud_alerts')
+      .insert({ referral_id: referralId, type, severity, detail });
+  }
+
+  // Comprobaciones en tiempo real al validar un código. NO bloquea: solo avisa.
+  async function runFraudChecks({ referralId, referrerUserId, referredUserId, ip, deviceId }) {
+    const cfg = await refConfig();
+    const { data: ru } = await supabase.from('users').select('email').eq('id', referredUserId).maybeSingle();
+    const email = (ru?.email || '').toLowerCase();
+    const domain = email.split('@')[1] || '';
+
+    // 1) Auto-referido por email (mismo correo que el referidor).
+    const { data: rr } = await supabase.from('users').select('email').eq('id', referrerUserId).maybeSingle();
+    if (email && rr?.email && email === rr.email.toLowerCase()) {
+      await createFraudAlert(referralId, 'self_referral', 'high', { email });
+    }
+
+    // 2) Email temporal/desechable (lista + dominios bloqueados por config).
+    const blocked = (cfg.referral_email_domains_blocked || '')
+      .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (domain && (blocked.includes(domain) || DISPOSABLE_EMAIL_DOMAINS.includes(domain))) {
+      await createFraudAlert(referralId, 'temp_email', 'medium', { domain });
+    }
+
+    // 3) Misma IP que otro referido (aviso, no bloqueo).
+    if (ip) {
+      const { data: sameIp } = await supabase.from('referrals')
+        .select('id').eq('signup_ip', ip).neq('id', referralId).limit(1);
+      if ((sameIp ?? []).length) await createFraudAlert(referralId, 'same_ip', 'low', { ip });
+
+      // 4) Ráfaga de IP: más de N referidos desde la misma IP en 24h.
+      const maxIp = parseInt(cfg.referral_max_per_ip_24h ?? '3', 10);
+      const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const { count } = await supabase.from('referrals')
+        .select('id', { count: 'exact', head: true }).eq('signup_ip', ip).gte('created_at', since);
+      if ((count ?? 0) > maxIp) await createFraudAlert(referralId, 'ip_burst', 'high', { ip, count });
+    }
+
+    // 5) Dispositivo duplicado.
+    if (deviceId) {
+      const { data: sameDev } = await supabase.from('referrals')
+        .select('id').eq('signup_device_id', deviceId).neq('id', referralId).limit(1);
+      if ((sameDev ?? []).length) await createFraudAlert(referralId, 'device_dup', 'medium', { deviceId });
+    }
+  }
+
   // GET código del referidor + elegibilidad + definición de hitos.
   app.get('/api/v1/referrals/code', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
@@ -1409,14 +1468,23 @@ export async function buildApp(options = {}) {
 
     const ip = (request.headers['x-forwarded-for'] || request.ip || '').toString().split(',')[0].trim();
     const device = String((request.body ?? {}).device_id ?? '');
-    const { error } = await supabase.from('referrals').insert({
+    const { data: inserted, error } = await supabase.from('referrals').insert({
       referrer_user_id: rc.user_id, referred_user_id: caller.id,
       referred_tenant_id: caller.tenant_id, status: 'pending',
       signup_ip: ip || null, signup_device_id: device || null,
-    });
+    }).select('id').single();
     if (error) {
       const dup = /duplicate|unique|23505/i.test(error.message || '');
       return reply.code(dup ? 409 : 400).send({ error: dup ? 'Ya has usado un código' : error.message });
+    }
+    // Anti-fraude (no bloquea: solo crea alertas para que el admin revise).
+    try {
+      await runFraudChecks({
+        referralId: inserted.id, referrerUserId: rc.user_id, referredUserId: caller.id,
+        ip, deviceId: device,
+      });
+    } catch (e) {
+      request.log.error(`[referral-fraud] ${e.message}`);
     }
     return reply.send({ ok: true });
   });
