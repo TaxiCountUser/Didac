@@ -315,6 +315,78 @@ class DataService {
     }
   }
 
+  // ── Loop #5: dashboard de super admin (referidos) ──────────────────────────
+
+  /// KPIs globales de referidos (solo admin).
+  Future<Map<String, dynamic>> adminReferralKpis() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/referrals/kpis'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Listado de referidos con filtros y paginación (solo admin).
+  Future<Map<String, dynamic>> adminReferralList({
+    String? tenantId, String? status, String? dateFrom, String? dateTo,
+    String? channel, String? search, int limit = 25, int offset = 0,
+  }) async {
+    final qp = <String, String>{'limit': '$limit', 'offset': '$offset'};
+    if (tenantId != null && tenantId.isNotEmpty) qp['tenant_id'] = tenantId;
+    if (status != null && status.isNotEmpty) qp['status'] = status;
+    if (dateFrom != null && dateFrom.isNotEmpty) qp['date_from'] = dateFrom;
+    if (dateTo != null && dateTo.isNotEmpty) qp['date_to'] = dateTo;
+    if (channel != null && channel.isNotEmpty) qp['channel'] = channel;
+    if (search != null && search.isNotEmpty) qp['search'] = search;
+    final uri = Uri.parse('$backendUrl/api/v1/admin/referrals/list').replace(queryParameters: qp);
+    final res = await http.get(uri, headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Detalle de un referido (solo admin).
+  Future<Map<String, dynamic>> adminReferralDetail(String id) async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/referrals/$id'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Bloquear (fraude) / desbloquear un referido (solo admin).
+  Future<void> adminReferralBlock(String id, String reason) async {
+    final res = await http.put(Uri.parse('$backendUrl/api/v1/admin/referrals/$id/block'),
+        headers: _bearer, body: jsonEncode({'reason': reason}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo bloquear');
+    }
+  }
+
+  Future<void> adminReferralUnblock(String id) async {
+    final res = await http.put(Uri.parse('$backendUrl/api/v1/admin/referrals/$id/unblock'), headers: _bearer);
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo desbloquear');
+    }
+  }
+
+  /// Configuración de hitos (lectura/escritura, solo admin).
+  Future<Map<String, dynamic>> adminReferralConfig() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/referrals/config'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  Future<void> adminReferralConfigUpdate(Map<String, String> changes) async {
+    final res = await http.put(Uri.parse('$backendUrl/api/v1/admin/referrals/config'),
+        headers: _bearer, body: jsonEncode(changes));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo guardar la configuración');
+    }
+  }
+
   /// Resumen de todas las empresas (solo admin).
   Future<Map<String, dynamic>> adminOverview() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/overview'), headers: _bearer);
