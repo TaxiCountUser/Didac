@@ -1311,6 +1311,79 @@ export async function buildApp(options = {}) {
     }
   });
 
+  // Rate limiter básico en memoria (sin dependencias): N peticiones por ventana
+  // y clave. Devuelve true si la petición debe bloquearse (límite superado).
+  const _rlBuckets = new Map();
+  function rateLimited(key, max = 100, windowMs = 60000) {
+    const now = Date.now();
+    const b = _rlBuckets.get(key);
+    if (!b || now > b.reset) {
+      _rlBuckets.set(key, { count: 1, reset: now + windowMs });
+      return false;
+    }
+    b.count += 1;
+    return b.count > max;
+  }
+
+  // JEFE: histórico de recompensas trimestrales de su empresa (o admin: por
+  // tenant_id en query). Paginación opcional ?limit=&offset=.
+  app.get('/api/v1/tenant/quarterly-metrics', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner' && !caller.is_admin) {
+      return reply.code(403).send({ error: 'Solo el propietario o el admin' });
+    }
+    if (rateLimited(`qm:${caller.id}`)) {
+      return reply.code(429).send({ error: 'Demasiadas peticiones, prueba en un minuto' });
+    }
+    // El admin puede consultar otro tenant con ?tenant_id=; el owner, solo el suyo.
+    const tenantId = (caller.is_admin && request.query?.tenant_id)
+      ? request.query.tenant_id : caller.tenant_id;
+    const limit = Math.min(Math.max(parseInt(request.query?.limit ?? '20', 10) || 20, 1), 100);
+    const offset = Math.max(parseInt(request.query?.offset ?? '0', 10) || 0, 0);
+    const { data, error } = await supabase
+      .from('fleet_quarterly_metrics')
+      .select('year, quarter, active_drivers, drivers_with_achievement, completion_rate, reward_days_awarded, processed_at')
+      .eq('tenant_id', tenantId)
+      .order('year', { ascending: false })
+      .order('quarter', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ metrics: data ?? [], limit, offset });
+  });
+
+  // JEFE: progreso del trimestre EN CURSO, calculado en tiempo real (no espera al
+  // cron). Devuelve active_drivers, drivers_with_achievement, completion_rate y la
+  // recompensa proyectada si el trimestre cerrara ahora.
+  app.get('/api/v1/tenant/current-quarter-progress', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner' && !caller.is_admin) {
+      return reply.code(403).send({ error: 'Solo el propietario o el admin' });
+    }
+    if (rateLimited(`cqp:${caller.id}`)) {
+      return reply.code(429).send({ error: 'Demasiadas peticiones, prueba en un minuto' });
+    }
+    const tenantId = (caller.is_admin && request.query?.tenant_id)
+      ? request.query.tenant_id : caller.tenant_id;
+    try {
+      const { year, quarter } = quarterOf();
+      const range = quarterRange(year, quarter);
+      const since30ISO = new Date(Date.now() - 30 * 86400000).toISOString();
+      const m = await computeTenantQuarterMetrics(supabase, tenantId, range, since30ISO);
+      return reply.send({
+        year, quarter,
+        ...m,
+        reward_days_projected: rewardDaysForRate(m.completion_rate),
+      });
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(500).send({ error: 'No se pudo calcular el progreso', detail: e.message });
+    }
+  });
+
   // ============================================================
   // Programa de referidos "Invita y Gana" (v2, por hitos) — Iteración 2.
   // Endpoints de lectura/compartición/validación. La validación de pagos y los
