@@ -1933,3 +1933,12 @@ create policy fraud_alerts_select on public.fraud_alerts
   using (public.is_platform_admin());
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 038 - ITV del taxímetro (fecha de caducidad), aparte de la ITV general.
+-- ============================================================
+alter table public.vehicles
+  add column if not exists taximeter_itv_expiry date;
+
+notify pgrst, 'reload schema';

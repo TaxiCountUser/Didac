@@ -101,6 +101,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     final model = _v['model'] as String?;
 
     final itv = _date(_v['itv_expiry']);
+    final taxiItv = _date(_v['taximeter_itv_expiry']);
     final ins = _date(_v['insurance_expiry']);
     final tcDate = _date(_v['transport_card_date']);
     final tcYears = (_v['transport_card_years'] as num?)?.toInt() ?? 4;
@@ -156,6 +157,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             ],
           ),
           _dateCard(l, Icons.fact_check, l.t('vh_itv'), itv),
+          _dateCard(l, Icons.speed, l.t('vh_taximeter_itv'), taxiItv),
           _dateCard(l, Icons.shield_outlined, l.t('vh_insurance'), ins),
           _transportCard(l, Icons.badge_outlined, tcDate, tcNext),
           _revisionCard(l, interval, lastRev),
@@ -241,6 +243,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   Future<void> _editMaintenance() async {
     final l = context.l10n;
     DateTime? itv = _date(_v['itv_expiry']);
+    DateTime? taxiItv = _date(_v['taximeter_itv_expiry']);
     DateTime? ins = _date(_v['insurance_expiry']);
     DateTime? tc = _date(_v['transport_card_date']);
     final yearsCtrl = TextEditingController(text: '${(_v['transport_card_years'] as num?)?.toInt() ?? 4}');
@@ -269,6 +272,9 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 _dateRow(ctx, l.t('vh_date_itv'), itv, () async {
                   final d = await pick(itv); if (d != null) setLocal(() => itv = d);
                 }, () => setLocal(() => itv = null)),
+                _dateRow(ctx, l.t('vh_date_taximeter_itv'), taxiItv, () async {
+                  final d = await pick(taxiItv); if (d != null) setLocal(() => taxiItv = d);
+                }, () => setLocal(() => taxiItv = null)),
                 _dateRow(ctx, l.t('vh_date_insurance'), ins, () async {
                   final d = await pick(ins); if (d != null) setLocal(() => ins = d);
                 }, () => setLocal(() => ins = null)),
@@ -316,6 +322,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     String? d(DateTime? x) => x == null ? null : DateFormat('yyyy-MM-dd').format(x);
     final fields = <String, dynamic>{
       'itv_expiry': d(itv),
+      'taximeter_itv_expiry': d(taxiItv),
       'insurance_expiry': d(ins),
       'transport_card_date': d(tc),
       'transport_card_years': int.tryParse(yearsCtrl.text.trim()) ?? 4,
