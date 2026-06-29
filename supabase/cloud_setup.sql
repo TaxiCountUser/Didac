@@ -1445,6 +1445,10 @@ as $$
 $$;
 grant execute on function public.challenge_stats(uuid) to service_role;
 
+-- Drop previo: esta definición antigua (sin max_income) quedó superada por la
+-- de más abajo (con max_income). Sin el drop, re-ejecutar cloud_setup falla con
+-- "cannot change return type of existing function".
+drop function if exists public.challenge_stats_tenant(uuid);
 create or replace function public.challenge_stats_tenant(p_tenant uuid)
 returns table(
   user_id uuid, name text, email text,
