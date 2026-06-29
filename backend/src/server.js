@@ -1459,54 +1459,116 @@ export async function buildApp(options = {}) {
     });
   });
 
-  // --- Webhook de Stripe (Fase 4) ---
-  // Recompensa de referido: cuando la empresa `tenantId` paga, el que la invitó
-  // gana un mes gratis (extiende su trial_ends_at +30 días y, si paga por
-  // Stripe, empuja su próximo cobro). Idempotente: solo premia referidos
-  // 'pending' (una vez por empresa referida).
-  async function rewardReferralIfApplicable(tenantId) {
-    if (!tenantId) return;
-    const { data: ref } = await supabase
-      .from('referrals')
-      .select('id, referrer_user_id')
-      .eq('referred_tenant_id', tenantId)
-      .eq('status', 'pending')
-      .maybeSingle();
-    if (!ref) return;
-    const { data: referrer } = await supabase
-      .from('users').select('tenant_id').eq('id', ref.referrer_user_id).maybeSingle();
-    if (!referrer?.tenant_id) return;
-    const { data: t } = await supabase
-      .from('tenants').select('trial_ends_at, stripe_subscription_id').eq('id', referrer.tenant_id).maybeSingle();
+  // ============================================================
+  // Referidos v2 — Iteración 3: validación, hitos y reversión.
+  // Premio = días gratis al TENANT del referidor (extiende trial_ends_at), con
+  // tope anual configurable. Idempotente: recalcula hitos desde el nº de
+  // referidos VÁLIDOS, concediendo los que falten y revocando los que ya no
+  // correspondan (p. ej. tras una reversión por cancelación temprana).
+  // ============================================================
 
-    // Mes gratis a nivel de acceso (+30 días desde el final actual o desde hoy).
+  // Suma (o resta, si delta<0) días al trial_ends_at del tenant del referidor.
+  async function extendReferrerTrial(referrerUserId, deltaDays) {
+    if (!deltaDays) return;
+    const { data: u } = await supabase.from('users').select('tenant_id').eq('id', referrerUserId).maybeSingle();
+    if (!u?.tenant_id) return;
+    const { data: t } = await supabase.from('tenants').select('trial_ends_at').eq('id', u.tenant_id).maybeSingle();
     const now = Date.now();
-    const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : 0;
-    const base = cur > now ? cur : now;
-    await supabase
-      .from('tenants')
-      .update({ trial_ends_at: new Date(base + 30 * 86400000).toISOString() })
-      .eq('id', referrer.tenant_id);
+    const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : now;
+    const base = cur > now ? cur : now; // si está en el pasado, desde hoy
+    await supabase.from('tenants')
+      .update({ trial_ends_at: new Date(base + deltaDays * 86400000).toISOString() })
+      .eq('id', u.tenant_id);
+  }
 
-    // Si el que invita paga por Stripe, empuja el próximo cobro 30 días.
-    if (stripe && t?.stripe_subscription_id) {
-      try {
-        const sub = await stripe.subscriptions.retrieve(t.stripe_subscription_id);
-        const end = sub.current_period_end || Math.floor(now / 1000);
-        await stripe.subscriptions.update(t.stripe_subscription_id, {
-          trial_end: end + 30 * 24 * 3600,
-          proration_behavior: 'none',
+  // Recalcula los hitos del referidor: concede los nuevos y revoca los que ya no
+  // correspondan, respetando el tope anual de días.
+  async function recomputeReferrerMilestones(referrerUserId) {
+    if (!referrerUserId) return;
+    const cfg = await refConfig();
+    const milestones = milestonesFrom(cfg);
+    const annualMax = parseInt(cfg.referral_annual_max_days ?? '360', 10);
+    const year = new Date().getFullYear();
+
+    const { count } = await supabase.from('referrals')
+      .select('id', { count: 'exact', head: true })
+      .eq('referrer_user_id', referrerUserId).eq('status', 'valid');
+    const valid = count ?? 0;
+
+    const { data: u } = await supabase.from('users')
+      .select('referral_rewards_annual_days, referral_annual_year').eq('id', referrerUserId).maybeSingle();
+    let annualDays = (u?.referral_annual_year === year) ? (u?.referral_rewards_annual_days ?? 0) : 0;
+
+    const { data: claimedRows } = await supabase.from('referral_milestone_rewards')
+      .select('id, milestone_level, days_awarded').eq('user_id', referrerUserId);
+    const claimed = new Map((claimedRows ?? []).map((r) => [r.milestone_level, r]));
+    const target = new Set(milestones.filter((m) => valid >= m.required).map((m) => m.level));
+
+    // Conceder hitos alcanzados que aún no se hayan concedido.
+    for (const m of milestones) {
+      if (target.has(m.level) && !claimed.has(m.level)) {
+        const remaining = Math.max(0, annualMax - annualDays);
+        const award = Math.min(m.days, remaining);
+        await supabase.from('referral_milestone_rewards').insert({
+          user_id: referrerUserId, milestone_level: m.level, required: m.required, days_awarded: award,
         });
-      } catch (e) {
-        app.log.warn(`[referral] no se pudo empujar el cobro de Stripe: ${e.message}`);
+        if (award > 0) { await extendReferrerTrial(referrerUserId, award); annualDays += award; }
+        app.log.info(`[referral] hito ${m.level} concedido a ${referrerUserId} (+${award} días)`);
       }
     }
+    // Revocar hitos que ya no correspondan (tras una reversión).
+    for (const [lvl, row] of claimed) {
+      if (!target.has(lvl)) {
+        if ((row.days_awarded ?? 0) > 0) { await extendReferrerTrial(referrerUserId, -row.days_awarded); annualDays -= row.days_awarded; }
+        await supabase.from('referral_milestone_rewards').delete().eq('id', row.id);
+        app.log.info(`[referral] hito ${lvl} revocado a ${referrerUserId}`);
+      }
+    }
+    if (annualDays < 0) annualDays = 0;
+    const lastLevel = target.size ? Math.max(...target) : 0;
+    await supabase.from('users').update({
+      referral_total_valid: valid,
+      referral_last_milestone_reached: lastLevel,
+      referral_rewards_annual_days: annualDays,
+      referral_annual_year: year,
+    }).eq('id', referrerUserId);
+  }
 
-    await supabase
-      .from('referrals')
-      .update({ status: 'rewarded', rewarded_at: new Date().toISOString() })
-      .eq('id', ref.id);
-    app.log.info(`[referral] mes gratis al referidor del tenant ${referrer.tenant_id} (pago de ${tenantId})`);
+  // El referido PAGA -> su referral pasa a 'valid' (si está dentro de plazo) y se
+  // recalculan los hitos del referidor.
+  async function validateReferralForTenant(tenantId) {
+    if (!tenantId) return;
+    const cfg = await refConfig();
+    const validationDays = parseInt(cfg.referral_validation_days ?? '30', 10);
+    const { data: ref } = await supabase.from('referrals')
+      .select('id, referrer_user_id, created_at, status').eq('referred_tenant_id', tenantId).maybeSingle();
+    if (!ref || ref.status !== 'pending') return;
+    const ageDays = (Date.now() - new Date(ref.created_at).getTime()) / 86400000;
+    if (ageDays > validationDays) {
+      await supabase.from('referrals').update({ status: 'rejected' }).eq('id', ref.id);
+      return;
+    }
+    await supabase.from('referrals')
+      .update({ status: 'valid', validated_at: new Date().toISOString() }).eq('id', ref.id);
+    await recomputeReferrerMilestones(ref.referrer_user_id);
+  }
+
+  // El referido CANCELA dentro del periodo de gracia -> su referral se revierte
+  // y se recalculan (revocan) los hitos del referidor.
+  async function revertReferralForTenant(tenantId) {
+    if (!tenantId) return;
+    const cfg = await refConfig();
+    const grace = parseInt(cfg.referral_cancellation_grace_days ?? '15', 10);
+    const { data: ref } = await supabase.from('referrals')
+      .select('id, referrer_user_id, validated_at, status').eq('referred_tenant_id', tenantId).maybeSingle();
+    if (!ref || ref.status !== 'valid') return;
+    if (ref.validated_at) {
+      const ageDays = (Date.now() - new Date(ref.validated_at).getTime()) / 86400000;
+      if (ageDays > grace) return; // fuera del periodo de gracia: no se revierte
+    }
+    await supabase.from('referrals')
+      .update({ status: 'reverted', reverted_at: new Date().toISOString() }).eq('id', ref.id);
+    await recomputeReferrerMilestones(ref.referrer_user_id);
   }
 
   app.post('/webhooks/stripe', async (request, reply) => {
@@ -1524,10 +1586,18 @@ export async function buildApp(options = {}) {
     try {
       const result = await applyStripeEvent(supabase, event);
       app.log.info(`[stripe-webhook] ${result.type} handled=${result.handled} tenant=${result.tenant_id ?? '-'}`);
-      // NOTA: la recompensa de referidos (rewardReferralIfApplicable) se desactiva
-      // aquí mientras migramos al programa por hitos (Iteración 3 lo reimplementa
-      // con validación + hitos + reversión). No llamar al flujo antiguo para no
-      // chocar con el nuevo esquema de la tabla `referrals`.
+      // Programa de referidos: validar al pagar / revertir al cancelar.
+      if (result.handled && result.tenant_id) {
+        try {
+          if (result.type === 'checkout.session.completed' || result.type === 'invoice.paid') {
+            await validateReferralForTenant(result.tenant_id);
+          } else if (result.type === 'customer.subscription.deleted') {
+            await revertReferralForTenant(result.tenant_id);
+          }
+        } catch (e) {
+          request.log.error(`[referral] ${e.message}`);
+        }
+      }
       return reply.send({ received: true, ...result });
     } catch (e) {
       request.log.error(e);
