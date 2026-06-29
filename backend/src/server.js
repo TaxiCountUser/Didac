@@ -1259,22 +1259,154 @@ export async function buildApp(options = {}) {
     }
   });
 
-  // Admin: lista de retos logrados pendientes de revisar (de todas las empresas).
+  // Estado del claim normalizado a la nomenclatura del dashboard. Loop #4 hace
+  // que los logros se auto-registren como 'rewarded' (=approved); 'pending' es
+  // legado (ya no se genera). 'rejected' = rechazado por fraude.
+  const challengeStatusLabel = (s) =>
+    s === 'rewarded' ? 'approved' : (s === 'rejected' ? 'rejected' : 'pending');
+
+  // Admin: lista de retos (de todas las empresas) con nivel, último reto
+  // completado y estado normalizado. Filtros: ?level= y ?status=.
   app.get('/api/v1/admin/challenges', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const { data, error } = await supabase
       .from('challenge_claims')
-      .select('id, challenge, level, target, baseline, metric_value, active_days, status, created_at, '
-        + 'users:user_id(email, name), tenants:tenant_id(name)')
+      .select('id, user_id, tenant_id, challenge, level, target, baseline, metric_value, active_days, '
+        + 'status, created_at, reviewed_at, users:user_id(email, name), tenants:tenant_id(name)')
       .order('created_at', { ascending: false });
     if (error) return reply.code(500).send({ error: error.message });
-    // Sospechoso si el reto de km/€ se logró con menos del mínimo de días.
-    const rows = (data ?? []).map((r) => ({
+
+    // Último reto completado (rewarded) por conductor, para mostrarlo en cada fila.
+    const lastCompletedByUser = {};
+    for (const r of data ?? []) {
+      if (r.status === 'rewarded' && r.reviewed_at) {
+        const cur = lastCompletedByUser[r.user_id];
+        if (!cur || new Date(r.reviewed_at) > new Date(cur)) lastCompletedByUser[r.user_id] = r.reviewed_at;
+      }
+    }
+
+    let rows = (data ?? []).map((r) => ({
       ...r,
+      status_label: challengeStatusLabel(r.status),
+      last_completed: lastCompletedByUser[r.user_id] ?? null,
+      // Sospechoso si el reto de km/€ se logró con menos del mínimo de días.
       suspicious: r.challenge !== 'days_300' && (r.active_days ?? 0) < CHALLENGE_MIN_DAYS,
     }));
+
+    const fLevel = request.query?.level;
+    if (fLevel != null && fLevel !== '') {
+      const lvl = parseInt(fLevel, 10);
+      rows = rows.filter((r) => (r.level ?? 0) === lvl);
+    }
+    const fStatus = request.query?.status;
+    if (fStatus) rows = rows.filter((r) => r.status_label === fStatus);
+
     return reply.send({ claims: rows });
+  });
+
+  // Admin: KPIs de super retos (resumen global).
+  app.get('/api/v1/admin/challenges/summary', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data: claims } = await supabase.from('challenge_claims')
+      .select('user_id, level, status').limit(20000);
+    const { count: totalDrivers } = await supabase.from('users')
+      .select('id', { count: 'exact', head: true }).eq('role', 'driver');
+
+    let totalCompleted = 0;
+    let pendingApprovals = 0;
+    const driversWithClaim = new Set();
+    const maxLevelByUser = {};        // nivel máximo aprobado por conductor
+    for (const c of claims ?? []) {
+      driversWithClaim.add(c.user_id);
+      if (c.status === 'rewarded') {
+        totalCompleted += 1;
+        const lvl = c.level ?? 1;
+        if (!maxLevelByUser[c.user_id] || lvl > maxLevelByUser[c.user_id]) maxLevelByUser[c.user_id] = lvl;
+      } else if (c.status === 'pending') {
+        pendingApprovals += 1;
+      }
+    }
+    const levels = Object.values(maxLevelByUser);
+    const avgLevel = levels.length ? +(levels.reduce((s, n) => s + n, 0) / levels.length).toFixed(1) : 0;
+    const driversWithChallenge = totalDrivers
+      ? +((driversWithClaim.size / totalDrivers) * 100).toFixed(1) : 0;
+
+    // Días concedidos: en el modelo nuevo, la recompensa de retos es trimestral.
+    const { data: fleetRows } = await supabase.from('fleet_quarterly_metrics')
+      .select('reward_days_awarded').limit(20000);
+    const daysAwarded = (fleetRows ?? []).reduce((s, r) => s + (r.reward_days_awarded ?? 0), 0);
+
+    return reply.send({
+      total_completed: totalCompleted,
+      drivers_with_challenge: driversWithChallenge, // %
+      avg_level: avgLevel,
+      days_awarded: daysAwarded,
+      pending_approvals: pendingApprovals,
+    });
+  });
+
+  // Admin: detalle ampliado de un reto -> historial completo del conductor,
+  // niveles actuales por reto y comparativa con la media de su flota.
+  app.get('/api/v1/admin/challenges/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data: claim } = await supabase.from('challenge_claims')
+      .select('id, user_id, tenant_id, challenge, level, status, created_at, reviewed_at, '
+        + 'users:user_id(email, name), tenants:tenant_id(name)')
+      .eq('id', request.params.id).maybeSingle();
+    if (!claim) return reply.code(404).send({ error: 'Reto no encontrado' });
+
+    // Historial completo del conductor (todos sus claims, ordenados).
+    const { data: history } = await supabase.from('challenge_claims')
+      .select('id, challenge, level, target, baseline, metric_value, status, created_at, reviewed_at')
+      .eq('user_id', claim.user_id)
+      .order('created_at', { ascending: true });
+
+    // Niveles actuales por reto (derivados de los claims rewarded).
+    const byChal = {};
+    for (const c of history ?? []) ((byChal[c.challenge] ??= []).push(c));
+    const currentLevels = {};
+    for (const type of Object.keys(CHALLENGE_BASE)) {
+      currentLevels[type] = levelState(byChal[type] ?? []).level;
+    }
+
+    // Comparativa con la flota: nivel máximo aprobado medio en el mismo tenant.
+    const { data: tenantClaims } = await supabase.from('challenge_claims')
+      .select('user_id, level, status').eq('tenant_id', claim.tenant_id).eq('status', 'rewarded').limit(20000);
+    const maxByUser = {};
+    for (const c of tenantClaims ?? []) {
+      if (!maxByUser[c.user_id] || (c.level ?? 1) > maxByUser[c.user_id]) maxByUser[c.user_id] = c.level ?? 1;
+    }
+    const vals = Object.values(maxByUser);
+    const fleetAvgLevel = vals.length ? +(vals.reduce((s, n) => s + n, 0) / vals.length).toFixed(1) : 0;
+
+    return reply.send({
+      claim,
+      driver_history: (history ?? []).map((h) => ({ ...h, status_label: challengeStatusLabel(h.status) })),
+      current_levels: currentLevels,
+      fleet_avg_level: fleetAvgLevel,
+    });
+  });
+
+  // Admin: forzar la finalización (aprobación) de un reto. Requiere justificación
+  // (reason) y queda registrado en auditoría. No extiende suscripción (Loop #4).
+  app.post('/api/v1/admin/challenges/:id/force-complete', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const reason = (request.body ?? {}).reason;
+    if (!reason || !String(reason).trim()) {
+      return reply.code(400).send({ error: 'Se requiere una justificación (reason)' });
+    }
+    const { data: claim } = await supabase.from('challenge_claims')
+      .select('id, user_id, status').eq('id', request.params.id).maybeSingle();
+    if (!claim) return reply.code(404).send({ error: 'Reto no encontrado' });
+    await supabase.from('challenge_claims')
+      .update({ status: 'rewarded', reviewed_at: new Date().toISOString() }).eq('id', claim.id);
+    await logAdminAction(request, g.caller.id, 'challenge_force_complete', 'challenge', claim.id,
+      { reason: String(reason), previous_status: claim.status });
+    return reply.send({ ok: true });
   });
 
   // Admin: revisar un reto. Loop #4: la recompensa individual (mes gratis por
