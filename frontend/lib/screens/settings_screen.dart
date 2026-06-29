@@ -36,7 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _activeVehicleLabel;
   String? _companyName;
   int _vehicleCount = 0; // nº de coches del conductor; el cambio solo si hay >1
-  bool _subActive = false; // suscripción activa de pago (para mostrar referidos)
+  bool _subActive = false; // suscripción activa de pago o prueba vigente (referidos)
   bool _newReply = false; // el admin ha contestado a un ticket (aviso)
 
   @override
@@ -85,8 +85,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           setState(() {
             _companyName = b?['name'] as String?;
-            // "Invita y Gana" solo para empresarios con suscripción activa de pago.
-            _subActive = b?['subscription_status'] == 'active';
+            // "Invita y Gana" para empresarios con suscripción activa de pago
+            // o en periodo de prueba todavía vigente.
+            final st = b?['subscription_status'] as String?;
+            DateTime? trialEnds;
+            final rawTrial = b?['trial_ends_at'];
+            if (rawTrial is String && rawTrial.isNotEmpty) {
+              trialEnds = DateTime.tryParse(rawTrial);
+            }
+            final trialVigente =
+                trialEnds != null && DateTime.now().isBefore(trialEnds);
+            _subActive = st == 'active' ||
+                st == 'past_due' ||
+                (st == 'trialing' && trialVigente) ||
+                trialVigente;
           });
         }
       } else {

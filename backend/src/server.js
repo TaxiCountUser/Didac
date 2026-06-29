@@ -1313,12 +1313,17 @@ export async function buildApp(options = {}) {
     return out;
   }
 
-  // ¿Puede invitar? Owner/autónomo con suscripción ACTIVA de pago (no en prueba).
+  // ¿Puede invitar? Owner/autónomo con suscripción activa de pago
+  // o en periodo de prueba todavía vigente.
   async function isReferralEligible(caller) {
     if (!caller || caller.role !== 'owner' || !caller.tenant_id) return false;
     const { data: t } = await supabase
-      .from('tenants').select('subscription_status').eq('id', caller.tenant_id).maybeSingle();
-    return t?.subscription_status === 'active';
+      .from('tenants').select('subscription_status, trial_ends_at')
+      .eq('id', caller.tenant_id).maybeSingle();
+    if (!t) return false;
+    if (t.subscription_status === 'active' || t.subscription_status === 'past_due') return true;
+    const trialVigente = t.trial_ends_at && new Date() < new Date(t.trial_ends_at);
+    return trialVigente === true;
   }
 
   // Devuelve el código del usuario; si no tiene, genera uno único "TX"+6.
