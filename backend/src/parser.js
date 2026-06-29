@@ -312,6 +312,11 @@ function fuzzyClient(tokens) {
 const CATEGORY_KEYWORDS = {
   gasolina: ['gasolina', 'benzina'],
   gasoil: ['gasoil', 'gasoleo', 'diesel', 'gasoil'],
+  carga_electrica: ['electrica', 'electric', 'electricitat', 'electricidad',
+    'recarga', 'carga', 'carrega', 'cargador', 'enchufe', 'endoll', 'kwh'],
+  autonomos: ['autonomos', 'autonomo', 'autonom', 'autonoms', 'tgss', 'cuota'],
+  seguridad_social: ['seguridad', 'social', 'ss', 'cotizacion', 'cotitzacio',
+    'nomina', 'nomines', 'salario', 'salaris', 'asalariado', 'assalariat'],
   taller: ['taller', 'mecanico', 'reparacion', 'revision', 'averia', 'reparacio', 'avaria'],
   peaje: ['peaje', 'autopista'],
   parking: ['parking', 'aparcamiento', 'aparcar', 'estacionamiento', 'garaje', 'aparcament'],
