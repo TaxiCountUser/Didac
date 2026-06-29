@@ -315,6 +315,56 @@ class DataService {
     }
   }
 
+  // ── Loop #5: dashboard de super admin (super retos) ────────────────────────
+
+  /// KPIs de super retos (solo admin).
+  Future<Map<String, dynamic>> adminChallengeSummary() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/challenges/summary'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Detalle ampliado de un reto (historial del conductor + comparativa).
+  Future<Map<String, dynamic>> adminChallengeDetail(String id) async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/challenges/$id'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Forzar finalización de un reto con justificación (solo admin).
+  Future<void> adminChallengeForceComplete(String id, String reason) async {
+    final res = await http.post(Uri.parse('$backendUrl/api/v1/admin/challenges/$id/force-complete'),
+        headers: _bearer, body: jsonEncode({'reason': reason}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo forzar');
+    }
+  }
+
+  /// Recompensas trimestrales de todas las empresas (solo admin).
+  Future<Map<String, dynamic>> adminChallengeQuarterly({int? year, int? quarter, int limit = 50, int offset = 0}) async {
+    final qp = <String, String>{'limit': '$limit', 'offset': '$offset'};
+    if (year != null) qp['year'] = '$year';
+    if (quarter != null) qp['quarter'] = '$quarter';
+    final uri = Uri.parse('$backendUrl/api/v1/admin/challenges/quarterly').replace(queryParameters: qp);
+    final res = await http.get(uri, headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Ajustar manualmente una recompensa trimestral (solo admin).
+  Future<void> adminChallengeQuarterlyAdjust(String id, int rewardDays, String reason) async {
+    final res = await http.put(Uri.parse('$backendUrl/api/v1/admin/challenges/quarterly/$id'),
+        headers: _bearer, body: jsonEncode({'reward_days_awarded': rewardDays, 'reason': reason}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo ajustar');
+    }
+  }
+
   // ── Loop #5: dashboard de super admin (referidos) ──────────────────────────
 
   /// KPIs globales de referidos (solo admin).

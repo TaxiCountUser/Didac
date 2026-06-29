@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
@@ -380,9 +381,34 @@ class _ChallengesTab extends StatefulWidget {
 
 class _ChallengesTabState extends State<_ChallengesTab> {
   final _service = DataService();
-  late Future<List<Map<String, dynamic>>> _future = _service.adminChallenges();
+  List<Map<String, dynamic>> _claims = [];
+  Map<String, dynamic> _summary = {};
+  bool _loading = true;
+  String? _error;
+  String _fLevel = '';
+  String _fStatus = '';
 
-  void _reload() => setState(() => _future = _service.adminChallenges());
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  Future<void> _reload() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final results = await Future.wait([_service.adminChallenges(), _service.adminChallengeSummary()]);
+      if (!mounted) return;
+      setState(() {
+        _claims = (results[0] as List).cast<Map<String, dynamic>>();
+        _summary = results[1] as Map<String, dynamic>;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
 
   Future<void> _review(String id, String action) async {
     try {
@@ -395,33 +421,179 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     }
   }
 
+  List<Map<String, dynamic>> get _filtered => _claims.where((c) {
+        if (_fLevel.isNotEmpty && ((c['level'] as num?)?.toInt() ?? 0) != int.parse(_fLevel)) return false;
+        if (_fStatus.isNotEmpty && (c['status_label'] as String?) != _fStatus) return false;
+        return true;
+      }).toList();
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _future,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snap.hasError) {
-          return _ErrorRetry(error: '${snap.error}', onRetry: _reload);
-        }
-        final list = snap.data ?? [];
-        if (list.isEmpty) {
-          return Center(child: Text(l.t('admin_no_challenges')));
-        }
-        return RefreshIndicator(
-          onRefresh: () async => _reload(),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: list.length,
-            itemBuilder: (context, i) => _claimTile(l, list[i]),
-          ),
-        );
-      },
+    if (_error != null) return _ErrorRetry(error: _error!, onRetry: _reload);
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          _summaryCards(l),
+          const SizedBox(height: 16),
+          _charts(l),
+          const SizedBox(height: 16),
+          _filtersBar(l),
+          const SizedBox(height: 8),
+          if (_filtered.isEmpty)
+            Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('admin_no_challenges'))))
+          else
+            for (final c in _filtered) _claimTile(l, c),
+        ],
+      ),
     );
   }
+
+  // ── Resumen (KPIs) ─────────────────────────────────────────────────────
+  Widget _summaryCards(AppLocalizations l) {
+    num n(String k) => (_summary[k] as num?) ?? 0;
+    return Wrap(spacing: 12, runSpacing: 12, children: [
+      _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'), '${n('total_completed')}', Colors.amber.shade800),
+      _kpi(Icons.groups, l.t('adm_ch_kpi_drivers'), '${n('drivers_with_challenge')}%', Colors.blue),
+      _kpi(Icons.trending_up, l.t('adm_ch_kpi_avglevel'), '${n('avg_level')}', Colors.teal),
+      _kpi(Icons.card_giftcard, l.t('adm_ch_kpi_days'), '${n('days_awarded')}', Colors.green),
+      _kpi(Icons.hourglass_bottom, l.t('adm_ch_kpi_pending'), '${n('pending_approvals')}', Colors.deepOrange),
+    ]);
+  }
+
+  Widget _kpi(IconData icon, String label, String value, Color color) => Container(
+        width: 150, padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ]),
+      );
+
+  // ── Gráficos (sin dependencias: barras con Containers) ─────────────────────
+  Widget _charts(AppLocalizations l) {
+    final approved = _claims.where((c) => (c['status_label'] as String?) == 'approved').toList();
+
+    // Distribución por nivel (1..5, 5+).
+    final byLevel = <int, int>{};
+    for (final c in approved) {
+      var lvl = (c['level'] as num?)?.toInt() ?? 1;
+      if (lvl > 5) lvl = 5;
+      byLevel[lvl] = (byLevel[lvl] ?? 0) + 1;
+    }
+    // Evolución mensual (últimos 12 meses).
+    final byMonth = <String, int>{};
+    final now = DateTime.now();
+    for (int i = 11; i >= 0; i--) {
+      final d = DateTime(now.year, now.month - i);
+      byMonth['${d.year}-${d.month.toString().padLeft(2, '0')}'] = 0;
+    }
+    for (final c in approved) {
+      final dt = DateTime.tryParse((c['reviewed_at'] ?? c['created_at']) as String? ?? '');
+      if (dt == null) continue;
+      final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+      if (byMonth.containsKey(key)) byMonth[key] = byMonth[key]! + 1;
+    }
+    // Top 10 conductores por nº de retos aprobados.
+    final byDriver = <String, int>{};
+    for (final c in approved) {
+      final name = ((c['users'] as Map?)?['name'] as String?)
+          ?? ((c['users'] as Map?)?['email'] as String?) ?? '—';
+      byDriver[name] = (byDriver[name] ?? 0) + 1;
+    }
+    final top = byDriver.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    return Column(children: [
+      _chartCard(l.t('adm_ch_chart_levels'), [
+        for (int lvl = 1; lvl <= 5; lvl++)
+          _bar(l.t('ch_level', {'n': lvl == 5 ? '5+' : '$lvl'}), byLevel[lvl] ?? 0,
+              _maxVal(byLevel.values), Colors.indigo),
+      ]),
+      const SizedBox(height: 12),
+      _chartCard(l.t('adm_ch_chart_monthly'), [
+        for (final e in byMonth.entries)
+          _bar(e.key.substring(2), e.value, _maxVal(byMonth.values), Colors.teal),
+      ]),
+      const SizedBox(height: 12),
+      _chartCard(l.t('adm_ch_chart_top'), [
+        if (top.isEmpty) Text(l.t('admin_no_challenges'), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        for (final e in top.take(10))
+          _bar(e.key, e.value, top.first.value, Colors.amber.shade800),
+      ]),
+    ]);
+  }
+
+  int _maxVal(Iterable<int> v) => v.isEmpty ? 1 : v.reduce((a, b) => a > b ? a : b);
+
+  Widget _chartCard(String title, List<Widget> bars) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            ...bars,
+          ]),
+        ),
+      );
+
+  Widget _bar(String label, int value, int max, Color color) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(children: [
+          SizedBox(width: 70, child: Text(label, style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis)),
+          Expanded(
+            child: LayoutBuilder(builder: (ctx, cons) {
+              final frac = max == 0 ? 0.0 : (value / max).clamp(0.0, 1.0);
+              return Stack(children: [
+                Container(height: 16, decoration: BoxDecoration(
+                    color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4))),
+                Container(height: 16, width: cons.maxWidth * frac,
+                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
+              ]);
+            }),
+          ),
+          SizedBox(width: 34, child: Text('$value', textAlign: TextAlign.right, style: const TextStyle(fontSize: 11))),
+        ]),
+      );
+
+  // ── Filtros + acceso a trimestrales ────────────────────────────────────────
+  Widget _filtersBar(AppLocalizations l) => Wrap(
+        spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _ddown(l.t('adm_ch_filter_level'), _fLevel, {
+            '': l.t('adm_ref_all'), '1': '1', '2': '2', '3': '3', '4': '4', '5': '5',
+          }, (v) => setState(() => _fLevel = v)),
+          _ddown(l.t('adm_ref_status'), _fStatus, {
+            '': l.t('adm_ref_all'),
+            'approved': l.t('admin_ch_achieved'),
+            'pending': l.t('ref_status_pending'),
+            'rejected': l.t('admin_ch_rejected'),
+          }, (v) => setState(() => _fStatus = v)),
+          OutlinedButton.icon(onPressed: _openQuarterly, icon: const Icon(Icons.calendar_view_month, size: 18),
+              label: Text(l.t('adm_ch_quarterly'))),
+        ],
+      );
+
+  Widget _ddown(String label, String value, Map<String, String> opts, ValueChanged<String> onChanged) => SizedBox(
+        width: 160,
+        child: InputDecorator(
+          decoration: InputDecoration(isDense: true, labelText: label, border: const OutlineInputBorder()),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value, isExpanded: true,
+              items: opts.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+              onChanged: (v) => onChanged(v ?? ''),
+            ),
+          ),
+        ),
+      );
 
   Widget _claimTile(AppLocalizations l, Map<String, dynamic> c) {
     final challenge = (c['challenge'] as String?) ?? '';
@@ -444,6 +616,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     // fraude un logro, lo que lo excluye de la métrica trimestral.
     return Card(
       child: ListTile(
+        onTap: () => _openDetail(c['id'] as String),
         leading: Icon(icon, color: Colors.amber.shade800),
         title: Text('$title · ${l.t('ch_level', {'n': '$level'})} · $driver'),
         subtitle: Text('$company\n'
@@ -472,6 +645,185 @@ class _ChallengesTabState extends State<_ChallengesTab> {
               ),
       ),
     );
+  }
+
+  // ── Detalle ampliado de un reto ──────────────────────────────────────────
+  Future<void> _openDetail(String id) async {
+    final l = context.l10n;
+    Map<String, dynamic>? data;
+    try {
+      data = await _service.adminChallengeDetail(id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      return;
+    }
+    if (!mounted) return;
+    final claim = (data['claim'] as Map?) ?? {};
+    final driver = ((claim['users'] as Map?)?['name'] as String?)
+        ?? ((claim['users'] as Map?)?['email'] as String?) ?? '—';
+    final levels = (data['current_levels'] as Map?) ?? {};
+    final fleetAvg = (data['fleet_avg_level'] as num?)?.toStringAsFixed(1) ?? '—';
+    final history = ((data['driver_history'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final df = DateFormat('dd/MM/yyyy');
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(driver),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text('${l.t('adm_ch_current_levels')}: '
+                  'km ${levels['km_100k'] ?? 1} · € ${levels['money_100k'] ?? 1} · '
+                  '${l.t('ch_days_unit')} ${levels['days_300'] ?? 1}',
+                  style: const TextStyle(fontSize: 13)),
+              const SizedBox(height: 4),
+              Text('${l.t('adm_ch_fleet_avg')}: $fleetAvg', style: const TextStyle(fontSize: 13, color: Colors.blueGrey)),
+              const Divider(),
+              Text(l.t('adm_ch_history'), style: const TextStyle(fontWeight: FontWeight.bold)),
+              for (final h in history)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text('• ${h['challenge']} · ${l.t('ch_level', {'n': '${h['level']}'})} · ${h['status_label']}'
+                      ' — ${DateTime.tryParse((h['created_at'] as String?) ?? '') != null ? df.format(DateTime.parse(h['created_at'])) : ''}',
+                      style: const TextStyle(fontSize: 12)),
+                ),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
+          FilledButton.tonal(
+            onPressed: () async { Navigator.pop(ctx); await _forceComplete(id); },
+            child: Text(l.t('adm_ch_force')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _forceComplete(String id) async {
+    final l = context.l10n;
+    final ctrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_ch_force')),
+        content: TextField(controller: ctrl, autofocus: true,
+            decoration: InputDecoration(labelText: l.t('adm_ch_force_reason'))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: Text(l.t('adm_ch_force'))),
+        ],
+      ),
+    );
+    if (reason == null || reason.isEmpty) return;
+    try {
+      await _service.adminChallengeForceComplete(id, reason);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_ch_forced'))));
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    }
+  }
+
+  // ── Recompensas trimestrales ───────────────────────────────────────────────
+  Future<void> _openQuarterly() async {
+    final l = context.l10n;
+    Map<String, dynamic>? data;
+    try {
+      data = await _service.adminChallengeQuarterly();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      return;
+    }
+    if (!mounted) return;
+    final rows = ((data['metrics'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final df = DateFormat('dd/MM/yyyy');
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_ch_quarterly')),
+        content: SizedBox(
+          width: 560,
+          child: rows.isEmpty
+              ? Text(l.t('admin_no_challenges'))
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(label: Text(l.t('adm_ch_col_quarter'))),
+                      DataColumn(label: Text(l.t('adm_ch_col_company'))),
+                      DataColumn(label: Text(l.t('adm_ch_col_rate'))),
+                      DataColumn(label: Text(l.t('adm_ch_col_reward'))),
+                      DataColumn(label: Text(l.t('adm_ch_col_status'))),
+                      const DataColumn(label: Text('')),
+                    ],
+                    rows: rows.map((r) {
+                      final rate = (r['completion_rate'] as num?)?.toDouble() ?? 0;
+                      final days = (r['reward_days_awarded'] as num?)?.toInt() ?? 0;
+                      final processed = DateTime.tryParse((r['processed_at'] as String?) ?? '');
+                      return DataRow(cells: [
+                        DataCell(Text('Q${r['quarter']} ${r['year']}')),
+                        DataCell(Text(((r['tenant'] as Map?)?['name'] as String?) ?? '—')),
+                        DataCell(Text('${rate.toStringAsFixed(1)}%')),
+                        DataCell(Text('$days')),
+                        DataCell(Text(processed != null ? df.format(processed) : (r['status'] as String? ?? '—'))),
+                        DataCell(IconButton(
+                          icon: const Icon(Icons.edit, size: 18),
+                          tooltip: l.t('adm_ch_q_adjust'),
+                          onPressed: () { Navigator.pop(ctx); _adjustQuarterly(r['id'] as String, days); },
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close')))],
+      ),
+    );
+  }
+
+  Future<void> _adjustQuarterly(String id, int currentDays) async {
+    final l = context.l10n;
+    final daysCtrl = TextEditingController(text: '$currentDays');
+    final reasonCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_ch_q_adjust')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: daysCtrl, keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: l.t('adm_ch_q_days'))),
+          TextField(controller: reasonCtrl, decoration: InputDecoration(labelText: l.t('adm_ch_q_reason'))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('adm_ref_config_save'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final days = int.tryParse(daysCtrl.text.trim());
+    final reason = reasonCtrl.text.trim();
+    if (days == null || reason.isEmpty) return;
+    try {
+      await _service.adminChallengeQuarterlyAdjust(id, days, reason);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_ch_adjusted'))));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    }
   }
 }
 
