@@ -255,6 +255,10 @@ export async function buildApp(options = {}) {
   }
 
   const corsOrigin = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true;
+  if (corsOrigin === true && process.env.NODE_ENV === 'production') {
+    app.log.warn('[cors] CORS_ORIGIN no definido: se reflejará CUALQUIER origen. '
+      + 'Define CORS_ORIGIN con la URL de tu web en producción.');
+  }
   await app.register(cors, { origin: corsOrigin });
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
 
@@ -531,7 +535,8 @@ export async function buildApp(options = {}) {
         .send({ error: dupErr ? 'Ese correo ya está registrado; usa otro.' : m });
     }
 
-    app.log.info(`[create-driver] ${email} en tenant ${caller.tenant_id}. Pwd temporal: ${tempPassword}`);
+    // No registrar nunca la contraseña temporal (queda en logs de Render/Sentry).
+    app.log.info(`[create-driver] ${email} creado en tenant ${caller.tenant_id}`);
     await syncSeatQuantity(caller.tenant_id); // ajusta la factura por asiento
     return reply.code(201).send({ id: created.user.id, email, tenant_id: caller.tenant_id, tempPassword });
   });
@@ -1815,9 +1820,16 @@ export async function buildApp(options = {}) {
       .from('referral_codes').select('code').eq('user_id', userId).maybeSingle();
     if (existing) return existing.code;
     const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    // Aleatoriedad criptográfica (evita predicción/colisión de Math.random).
+    // Rechazo de bytes >= 256 - (256 % len) para no introducir sesgo de módulo.
+    const pickChar = () => {
+      const max = 256 - (256 % ALPHABET.length);
+      let b;
+      do { b = randomBytes(1)[0]; } while (b >= max);
+      return ALPHABET[b % ALPHABET.length];
+    };
     for (let i = 0; i < 6; i++) {
-      const code = 'TX' + Array.from({ length: 6 },
-        () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
+      const code = 'TX' + Array.from({ length: 6 }, pickChar).join('');
       const { error } = await supabase.from('referral_codes').insert({ user_id: userId, code });
       if (!error) return code;
       if (!/duplicate|unique|23505/i.test(error.message || '')) throw new Error(error.message);

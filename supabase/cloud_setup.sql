@@ -1960,3 +1960,19 @@ alter table public.vehicles
   add column if not exists taximeter_itv_expiry date;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 040 - C-01: bloqueo de columnas sensibles en public.users.
+-- Evita que un usuario se autoconceda is_admin/owner o cambie de tenant
+-- vía PATCH directo a PostgREST. Mismo patrón que public.tenants.
+-- Los GRANT de columna NO afectan a las funciones SECURITY DEFINER ni a
+-- service_role, así que el onboarding (create_solo_company, join_fleet...)
+-- y el backend siguen funcionando.
+-- ============================================================
+revoke update on public.users from authenticated;
+grant update (display_name, username, avatar_url, license_number,
+              has_completed_onboarding, tutorial_seen)
+  on public.users to authenticated;
+
+notify pgrst, 'reload schema';

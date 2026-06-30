@@ -69,7 +69,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: createErr.message }), { status: 400 });
   }
 
-  console.log(`[create-driver] ${email} creado en tenant ${caller.tenant_id}. Pwd temporal: ${password}`);
+  // No registrar nunca la contraseña temporal en los logs.
+  console.log(`[create-driver] ${email} creado en tenant ${caller.tenant_id}`);
 
   return new Response(
     JSON.stringify({ id: created.user.id, email, tenant_id: caller.tenant_id, tempPassword: password }),
