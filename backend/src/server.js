@@ -387,11 +387,13 @@ export async function buildApp(options = {}) {
     const langRaw = (request.query?.language || '').toLowerCase();
     const language = TRANSCRIBE_LANGS.has(langRaw) ? langRaw : null;
 
-    // Obtener el audio: multipart (campo 'audio'), o JSON { storagePath } / mock_text.
+    // Obtener el audio: multipart (campo 'audio') o, en tests, mock_text.
+    // (N-01) Se eliminó el branch `storagePath`: el cliente nunca lo usa y
+    // descargar una ruta arbitraria con service_role omitía la RLS del bucket
+    // (IDOR latente). El audio llega siempre por multipart.
     let buffer = null;
     let filename = 'audio.m4a';
     let mockText = null;
-    let storagePath = null;
 
     if (request.isMultipart()) {
       const file = await request.file();
@@ -402,14 +404,6 @@ export async function buildApp(options = {}) {
     } else {
       const body = request.body || {};
       mockText = body.mock_text || null;
-      storagePath = body.storagePath || null;
-    }
-
-    // Descargar de Supabase Storage si llega una ruta
-    if (!buffer && !mockText && storagePath) {
-      const { data, error } = await supabase.storage.from('voice-notes').download(storagePath);
-      if (error || !data) return reply.code(400).send({ error: 'No se pudo descargar el audio' });
-      buffer = Buffer.from(await data.arrayBuffer());
     }
 
     if (!buffer && !(ALLOW_MOCK && mockText)) {

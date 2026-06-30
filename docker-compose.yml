@@ -21,8 +21,11 @@ services:
     image: supabase/postgres:15.1.0.147
     container_name: taxicount-db
     restart: unless-stopped
+    # (N-03) Solo accesible desde la propia máquina. Este compose es SOLO para
+    # desarrollo local (defaults débiles: postgres/postgres). NUNCA lo expongas
+    # en un host público; en producción el backend va por Render/VPS con env fuerte.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -97,7 +100,7 @@ services:
       - auth
       - rest
     ports:
-      - "54321:8000"
+      - "127.0.0.1:54321:8000"
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
@@ -181,7 +184,7 @@ services:
     depends_on:
       - kong
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       BACKEND_PORT: 3000
       SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}

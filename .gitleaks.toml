@@ -1,0 +1,28 @@
+title = "TaxiCount gitleaks config"
+
+# Reglas por defecto de gitleaks + allowlist de los secretos DEMO/dev conocidos.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Claves DEMO públicas de Supabase (solo dev local), config Firebase (pública por diseño) y fixtures de test. NO son secretos reales: las claves de producción viven en .env (gitignored) y en los secrets de Render/GitHub."
+# Ficheros que legítimamente contienen claves demo/ejemplo, config pública o fixtures.
+paths = [
+  '''\.env\.example$''',
+  '''supabase/kong/kong\.yml$''',
+  '''docker-compose\.yml$''',
+  '''supabase/config\.toml$''',
+  '''supabase/seed\.sql$''',
+  '''backend/tests/.*''',
+  '''smoke-test/.*''',
+  # Firebase Android config: la API key es pública por diseño (se restringe en
+  # Google Cloud por package + huella SHA, no es un secreto). Ver informe N-06.
+  '''frontend/android/app/google-services\.json$''',
+]
+# Las DOS claves DEMO de Supabase (anon/service_role) por su firma exacta: las
+# neutraliza dondequiera que aparezcan (config.dart, main.dart, tests, kong…)
+# SIN silenciar ficheros enteros, así una clave real en ellos SÍ se detectaría.
+regexes = [
+  '''ZxBhVEYye2lqm5NDdkey-JP6uTHcqvZriXUoBtyQniY''',
+  '''8T3kmJ5SaqY3bVmU02ZJ4MIoHe5z7R4qQ4T9VqJA8hk''',
+]

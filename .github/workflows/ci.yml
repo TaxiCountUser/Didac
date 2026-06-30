@@ -39,6 +39,40 @@ jobs:
       # Dart se ejecutan en local con `docker compose up` (ver docs/README.md).
       - run: npm run test:ci
 
+  # --- Seguridad: secretos, SAST y dependencias (OSV) ---
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historial completo para detectar secretos ya commiteados
+      - name: Gitleaks (secretos)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --config=/repo/.gitleaks.toml --redact --no-banner --exit-code 1
+
+  sast:
+    runs-on: ubuntu-latest
+    # Informe (no bloquea el build): revisar findings en los logs del job.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep (OWASP + JS)
+        run: |
+          docker run --rm -v "$PWD:/src" semgrep/semgrep:latest semgrep \
+            --config=p/owasp-top-ten --config=p/javascript --config=p/secrets \
+            --error --metrics=off /src/backend
+
+  deps-scan:
+    runs-on: ubuntu-latest
+    # Informe (no bloquea): incluye transitivas Dart (pubspec.lock) sin fix.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: osv-scanner (vulns de dependencias)
+        run: |
+          docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:latest -r /src
+
   lint-flutter:
     runs-on: ubuntu-latest
     defaults:
