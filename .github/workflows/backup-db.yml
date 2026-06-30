@@ -46,13 +46,22 @@ jobs:
         run: |
           STAMP=$(date +%Y%m%d_%H%M)
           OUT="taxicount_${STAMP}.dump"
+          # Normaliza la cadena: quita prefijo "psql ", comillas y espacios/saltos.
+          URL="$SUPABASE_DB_URL"
+          URL="${URL#psql }"
+          URL="$(printf '%s' "$URL" | tr -d '\r\n')"
+          URL="${URL#\'}"; URL="${URL%\'}"
+          URL="${URL#\"}"; URL="${URL%\"}"
+          URL="$(printf '%s' "$URL" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          case "$URL" in
+            postgresql://*|postgres://*) ;;
+            *) echo "::error::SUPABASE_DB_URL no es una URI válida (debe empezar por postgresql://). Revisa el secret."; exit 1;;
+          esac
           # Mismos flags que scripts/backup-db.ps1: formato custom comprimido,
           # solo esquema public, sin owner/privilegios (restauración limpia).
-          # La cadena de conexión se pasa como ÚLTIMO argumento (dbname) ya
-          # expandida por el host, evitando comillas anidadas dentro del contenedor.
           docker run --rm -v "$PWD:/out" --entrypoint pg_dump postgres:17 \
             -Fc --no-owner --no-privileges --schema=public -f "/out/$OUT" \
-            "$SUPABASE_DB_URL"
+            "$URL"
           ls -lh "$OUT"
           echo "DUMP_FILE=$OUT" >> "$GITHUB_ENV"
 
