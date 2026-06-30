@@ -26,6 +26,10 @@
   "engines": {
     "node": ">=18"
   },
+  "//overrides": "Forzamos uuid>=11.1.1 (GHSA-w5hq-g745-h8pq) en deps transitivas de exceljs/firebase-admin. La API v4/v5 que usan sigue siendo compatible.",
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
   "devDependencies": {
     "pdf-parse": "^2.4.5"
   }
