@@ -26,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSignUp = false;
   bool _loading = false;
   bool _remember = true; // "Recordarme" (sesión persistente + credenciales)
+  bool _showPassword = false; // ojo para ver/ocultar la contraseña
   String? _error;
 
   // Almacenamiento seguro (cifrado) para la contraseña recordada.
@@ -206,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextField(
                     key: const Key('password_field'),
                     controller: _password,
-                    obscureText: true,
+                    obscureText: !_showPassword,
                     // En login, Enter entra directamente; en registro pasa al campo siguiente.
                     textInputAction: _isSignUp ? TextInputAction.next : TextInputAction.done,
                     onSubmitted: (_) {
@@ -216,6 +217,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: l.t('login_password'),
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        tooltip: l.t(_showPassword ? 'login_hide_password' : 'login_show_password'),
+                        icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _showPassword = !_showPassword),
+                      ),
                     ),
                   ),
                   if (_isSignUp) ...[
