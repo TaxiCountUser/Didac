@@ -46,17 +46,14 @@ jobs:
         run: |
           STAMP=$(date +%Y%m%d_%H%M)
           OUT="taxicount_${STAMP}.dump"
-          # Normaliza la cadena: quita prefijo "psql ", comillas y espacios/saltos.
-          URL="$SUPABASE_DB_URL"
-          URL="${URL#psql }"
-          URL="$(printf '%s' "$URL" | tr -d '\r\n')"
-          URL="${URL#\'}"; URL="${URL%\'}"
-          URL="${URL#\"}"; URL="${URL%\"}"
-          URL="$(printf '%s' "$URL" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-          case "$URL" in
-            postgresql://*|postgres://*) ;;
-            *) echo "::error::SUPABASE_DB_URL no es una URI válida (debe empezar por postgresql://). Revisa el secret."; exit 1;;
-          esac
+          # Extrae la URI postgresql:// del secret, esté donde esté (tolera
+          # prefijos tipo DATABASE_URL=, comillas, "psql ", espacios o saltos).
+          URL="$(printf '%s' "$SUPABASE_DB_URL" | tr -d '\r' \
+            | grep -oE 'postgres(ql)?://[^[:space:]"'\'']+' | head -n1)"
+          if [ -z "$URL" ]; then
+            echo "::error::No encuentro una URI postgresql:// dentro de SUPABASE_DB_URL. El secret debe contener la cadena URI completa (Supabase -> Database -> Connection string -> URI)."
+            exit 1
+          fi
           # Mismos flags que scripts/backup-db.ps1: formato custom comprimido,
           # solo esquema public, sin owner/privilegios (restauración limpia).
           docker run --rm -v "$PWD:/out" --entrypoint pg_dump postgres:17 \
