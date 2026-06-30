@@ -42,11 +42,12 @@ jobs:
           OUT="taxicount_${STAMP}.dump"
           # Mismos flags que scripts/backup-db.ps1: formato custom comprimido,
           # solo esquema public, sin owner/privilegios (restauración limpia).
-          docker run --rm --entrypoint bash \
-            -e PGCONN="$SUPABASE_DB_URL" \
-            -v "$PWD:/out" \
-            postgres:17 \
-            -c "pg_dump \"\$PGCONN\" -Fc --no-owner --no-privileges --schema=public -f /out/$OUT && ls -lh /out/$OUT"
+          # La cadena de conexión se pasa como ÚLTIMO argumento (dbname) ya
+          # expandida por el host, evitando comillas anidadas dentro del contenedor.
+          docker run --rm -v "$PWD:/out" --entrypoint pg_dump postgres:17 \
+            -Fc --no-owner --no-privileges --schema=public -f "/out/$OUT" \
+            "$SUPABASE_DB_URL"
+          ls -lh "$OUT"
           echo "DUMP_FILE=$OUT" >> "$GITHUB_ENV"
 
       - name: Subir artefacto (retención 90 días)
