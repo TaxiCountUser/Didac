@@ -76,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = Supabase.instance.client.auth;
     try {
       if (_isSignUp) {
-        await auth.signUp(
+        final res = await auth.signUp(
           email: _email.text.trim(),
           password: _password.text,
           data: {
@@ -84,12 +84,23 @@ class _LoginScreenState extends State<LoginScreen> {
             // Sin tenant_id => el trigger lo trata como Owner nuevo.
           },
         );
+        // Correo ya registrado: Supabase lo devuelve con identities vacío.
+        if (res.user != null && (res.user!.identities?.isEmpty ?? false)) {
+          setState(() => _error = context.l10n.t('login_email_in_use'));
+          return;
+        }
         // Código de invitación (opcional): se guarda y se aplica cuando ya
         // exista la empresa (AuthGate), porque /validate necesita el tenant.
         final ref = _refCode.text.trim();
         if (ref.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('pending_referral_code', ref.toUpperCase());
+        }
+        // Si Supabase exige confirmar el correo, no hay sesión todavía: avisamos
+        // claro en vez de quedarnos en blanco (y evita el duplicado con Google).
+        if (res.session == null) {
+          setState(() => _error = context.l10n.t('login_confirm_email_sent'));
+          return;
         }
       } else {
         // Permite entrar con email O con nombre de usuario (sin '@' => usuario).
