@@ -33,6 +33,12 @@ jobs:
             echo "::error::Falta el secret SUPABASE_DB_URL. Añádelo en Settings -> Secrets -> Actions."
             exit 1
           fi
+          # Diagnóstico SIN filtrar el valor (GitHub lo enmascara igualmente):
+          echo "Longitud de la cadena: ${#SUPABASE_DB_URL}"
+          case "$SUPABASE_DB_URL" in
+            postgresql://*|postgres://*) echo "Formato: OK (empieza por postgresql://)";;
+            *) echo "::warning::La cadena NO empieza por postgresql:// — revisa el secret (debe ser la URI completa).";;
+          esac
 
       - name: Crear backup (pg_dump vía Docker postgres:17)
         env:
