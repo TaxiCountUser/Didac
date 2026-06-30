@@ -79,6 +79,9 @@ class _LoginScreenState extends State<LoginScreen> {
         final res = await auth.signUp(
           email: _email.text.trim(),
           password: _password.text,
+          // URL de retorno del correo de confirmación (debe estar permitida en
+          // Supabase -> Authentication -> URL Configuration -> Redirect URLs).
+          emailRedirectTo: kIsWeb ? _webRedirect() : 'app.taxicount://login-callback',
           data: {
             'company_name': _company.text.trim(),
             // Sin tenant_id => el trigger lo trata como Owner nuevo.
@@ -96,10 +99,16 @@ class _LoginScreenState extends State<LoginScreen> {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('pending_referral_code', ref.toUpperCase());
         }
-        // Si Supabase exige confirmar el correo, no hay sesión todavía: avisamos
-        // claro en vez de quedarnos en blanco (y evita el duplicado con Google).
+        // Si Supabase exige confirmar el correo, no hay sesión todavía: pasamos
+        // a la pantalla de LOGIN con el correo ya puesto y el aviso de confirmar
+        // (así, tras confirmar desde el correo, solo tienen que entrar).
         if (res.session == null) {
-          setState(() => _error = context.l10n.t('login_confirm_email_sent'));
+          setState(() {
+            _isSignUp = false;
+            _company.clear();
+            _refCode.clear();
+            _error = context.l10n.t('login_confirm_email_sent');
+          });
           return;
         }
       } else {
