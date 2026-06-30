@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
+import '../widgets/daily_report_sheet.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
 
@@ -26,6 +27,7 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   final _items = <Map<String, dynamic>>[];
 
   DriverPeriod _period = DriverPeriod.day;
+  DateTime _anchor = DateTime.now(); // día/periodo de referencia (seleccionable)
   bool _loading = false;
   bool _hasMore = true;
   String? _error;
@@ -48,31 +50,44 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   }
 
   DateTime get _from {
-    final now = DateTime.now();
+    final a = _anchor;
     switch (_period) {
       case DriverPeriod.day:
-        return DateTime(now.year, now.month, now.day);
+        return DateTime(a.year, a.month, a.day);
       case DriverPeriod.week:
-        final monday = now.subtract(Duration(days: now.weekday - 1));
+        final monday = a.subtract(Duration(days: a.weekday - 1));
         return DateTime(monday.year, monday.month, monday.day);
       case DriverPeriod.month:
-        return DateTime(now.year, now.month);
+        return DateTime(a.year, a.month);
       case DriverPeriod.year:
-        return DateTime(now.year);
+        return DateTime(a.year);
     }
   }
 
   DateTime get _to {
-    final now = DateTime.now();
+    final a = _anchor;
     switch (_period) {
       case DriverPeriod.day:
         return _from.add(const Duration(days: 1));
       case DriverPeriod.week:
         return _from.add(const Duration(days: 7));
       case DriverPeriod.month:
-        return DateTime(now.year, now.month + 1);
+        return DateTime(a.year, a.month + 1);
       case DriverPeriod.year:
-        return DateTime(now.year + 1);
+        return DateTime(a.year + 1);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _anchor,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 1, 12, 31),
+    );
+    if (d != null) {
+      setState(() => _anchor = d);
+      _reload();
     }
   }
 
@@ -144,7 +159,17 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.t('dt_title'))),
+      appBar: AppBar(
+        title: Text(context.l10n.t('dt_title')),
+        actions: [
+          TextButton.icon(
+            onPressed: _pickDate,
+            icon: const Icon(Icons.calendar_today, size: 18),
+            label: Text('${_anchor.day.toString().padLeft(2, '0')}/'
+                '${_anchor.month.toString().padLeft(2, '0')}'),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           _searchBox(),
@@ -205,38 +230,46 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
     );
   }
 
-  // Banner con los beneficios (ingresos) del periodo seleccionado.
+  // Banner con los beneficios (ingresos) del periodo. Al pulsarlo se abre el
+  // informe/desglose del día seleccionado (km, horas, ingresos por método, €/km).
   Widget _earningsBanner() {
     final l = context.l10n;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Material(
         color: const Color(0xFF1B5E20), // verde "ingreso"
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.payments, color: Colors.white, size: 28),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => showDailyReport(context, userId: widget.profile.id, date: _anchor),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
               children: [
-                Text(l.t('dt_earnings'),
-                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                Text(l.t('dh_earnings_note'),
-                    style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                const Icon(Icons.payments, color: Colors.white, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l.t('dt_earnings'),
+                          style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                      Text(l.t('dr_tap_hint'),
+                          style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                    ],
+                  ),
+                ),
+                Text(
+                  _income == null ? '—' : money(_income!),
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right, color: Colors.white70),
               ],
             ),
           ),
-          Text(
-            _income == null ? '—' : money(_income!),
-            style: const TextStyle(
-                color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-        ],
+        ),
       ),
     );
   }

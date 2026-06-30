@@ -22,6 +22,31 @@ class TxSummary {
       const TxSummary(income: 0, expense: 0, expenseByCategory: {});
 }
 
+/// Informe de cierre de jornada (punto 4): km, horas, ingresos por método y €/km.
+class DailyReport {
+  final DateTime date;
+  final double income;
+  final double expense;
+  final Map<String, double> incomeByMethod; // efectivo/tarjeta/bizum/credito…
+  final double? km;        // km fin - km inicio; null si aún no se sabe (sin cierre)
+  final double? kmStart;
+  final double? kmEnd;
+  final double? hours;     // horas trabajadas (primera a última actividad)
+  const DailyReport({
+    required this.date,
+    required this.income,
+    required this.expense,
+    required this.incomeByMethod,
+    this.km,
+    this.kmStart,
+    this.kmEnd,
+    this.hours,
+  });
+  double get balance => income - expense;
+  /// Precio medio por km del día (ingresos / km), o null si no hay km.
+  double? get pricePerKm => (km != null && km! > 0) ? income / km! : null;
+}
+
 /// Acceso a datos vía Supabase (respetando RLS) y al backend Fastify.
 class DataService {
   SupabaseClient get _c => Supabase.instance.client;
@@ -947,6 +972,112 @@ class DataService {
       }
     }
     return TxSummary(income: income, expense: expense, expenseByCategory: byCat);
+  }
+
+  /// Informe de cierre de jornada para un día concreto (punto 4 + desglose del
+  /// punto 5). Si [userId] es null, agrega toda la empresa (la RLS limita).
+  /// Los km se calculan como (lectura fin - lectura inicio) por conductor+vehículo;
+  /// si un día solo tiene la lectura de inicio, se usa la PRIMERA lectura posterior
+  /// (la del día siguiente) como fin -> relleno retroactivo automático.
+  Future<DailyReport> dailyReport({String? userId, required DateTime date}) async {
+    final start = DateTime(date.year, date.month, date.day);
+    final end = start.add(const Duration(days: 1));
+
+    // --- Transacciones del día: ingresos por método, gasto, horas ---
+    var tq = _c.from('transactions').select('amount, type, payment_method, created_at');
+    if (userId != null) tq = tq.eq('user_id', userId);
+    final txRows = (await tq
+            .gte('created_at', start.toIso8601String())
+            .lt('created_at', end.toIso8601String()) as List)
+        .cast<Map<String, dynamic>>();
+
+    double income = 0, expense = 0;
+    final byMethod = <String, double>{};
+    DateTime? firstTs, lastTs;
+    void mark(DateTime? ts) {
+      if (ts == null) return;
+      if (firstTs == null || ts.isBefore(firstTs!)) firstTs = ts;
+      if (lastTs == null || ts.isAfter(lastTs!)) lastTs = ts;
+    }
+    for (final r in txRows) {
+      final amount = (r['amount'] as num?)?.toDouble() ?? 0;
+      final ts = DateTime.tryParse((r['created_at'] as String?) ?? '');
+      mark(ts);
+      if (r['type'] == 'income') {
+        income += amount;
+        final m = (r['payment_method'] as String?) ?? 'otros';
+        byMethod[m] = (byMethod[m] ?? 0) + amount;
+      } else {
+        expense += amount;
+      }
+    }
+
+    // --- Km del día: lecturas de odómetro (con relleno retroactivo) ---
+    var oq = _c.from('odometer_readings').select('user_id, vehicle_id, reading_km, taken_at');
+    if (userId != null) oq = oq.eq('user_id', userId);
+    final odoRows = (await oq
+            .gte('taken_at', start.toIso8601String())
+            .lt('taken_at', end.add(const Duration(days: 30)).toIso8601String())
+            .order('taken_at', ascending: true) as List)
+        .cast<Map<String, dynamic>>();
+
+    // Agrupa por conductor+vehículo.
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final r in odoRows) {
+      final key = '${r['user_id']}|${r['vehicle_id']}';
+      (groups[key] ??= []).add(r);
+    }
+    double totalKm = 0;
+    bool anyKnown = false, anyPending = false;
+    double? singleStart, singleEnd;
+    for (final readings in groups.values) {
+      final inDay = readings.where((r) {
+        final t = DateTime.tryParse((r['taken_at'] as String?) ?? '');
+        return t != null && !t.isBefore(start) && t.isBefore(end);
+      }).toList();
+      if (inDay.isEmpty) continue;
+      mark(DateTime.tryParse((inDay.first['taken_at'] as String?) ?? ''));
+      mark(DateTime.tryParse((inDay.last['taken_at'] as String?) ?? ''));
+      final kmStart = (inDay.first['reading_km'] as num?)?.toDouble();
+      double? kmEnd;
+      if (inDay.length >= 2) {
+        kmEnd = (inDay.last['reading_km'] as num?)?.toDouble();
+      } else {
+        // Solo lectura de inicio: usa la primera lectura posterior (día siguiente).
+        final next = readings.firstWhere((r) {
+          final t = DateTime.tryParse((r['taken_at'] as String?) ?? '');
+          return t != null && !t.isBefore(end);
+        }, orElse: () => const {});
+        if (next.isNotEmpty) kmEnd = (next['reading_km'] as num?)?.toDouble();
+      }
+      if (kmStart != null && kmEnd != null) {
+        final d = kmEnd - kmStart;
+        totalKm += d > 0 ? d : 0;
+        anyKnown = true;
+        singleStart ??= kmStart;
+        singleEnd ??= kmEnd;
+      } else if (kmStart != null) {
+        anyPending = true;
+        singleStart ??= kmStart;
+      }
+    }
+    final double? km = anyKnown ? totalKm : (anyPending ? null : null);
+
+    double? hours;
+    if (firstTs != null && lastTs != null && lastTs!.isAfter(firstTs!)) {
+      hours = lastTs!.difference(firstTs!).inMinutes / 60.0;
+    }
+
+    return DailyReport(
+      date: start,
+      income: income,
+      expense: expense,
+      incomeByMethod: byMethod,
+      km: km,
+      kmStart: singleStart,
+      kmEnd: singleEnd,
+      hours: hours,
+    );
   }
 
   /// Actualiza una transacción (RLS: owner cualquiera de su tenant; driver las

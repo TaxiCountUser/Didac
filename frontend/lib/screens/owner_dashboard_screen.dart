@@ -9,6 +9,7 @@ import '../services/data_service.dart';
 import '../services/file_download.dart';
 import 'comparison_screen.dart';
 import '../util/format.dart';
+import '../widgets/daily_report_sheet.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
 
@@ -708,13 +709,26 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  // Abre el informe de cierre de un día concreto (punto 4/5). Pide la fecha
+  // (por defecto, el inicio del periodo) y muestra el desglose de ESE día.
+  Future<void> _openDayReport() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _period == Period.today ? DateTime.now() : _from,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 1, 12, 31),
+    );
+    if (d == null || !mounted) return;
+    await showDailyReport(context, userId: _driverId, date: d);
+  }
+
   Widget _kpiRow() {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
           _kpiCard(context.l10n.t('od_kpi_income'), _summary.income, const Color(0xFF2E7D32),
-              Icons.arrow_upward, const Key('kpi_income')),
+              Icons.arrow_upward, const Key('kpi_income'), onTap: _openDayReport),
           const SizedBox(width: 8),
           _kpiCard(context.l10n.t('od_kpi_expense'), _summary.expense, const Color(0xFFC62828),
               Icons.arrow_downward, const Key('kpi_expense')),
@@ -727,23 +741,30 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  Widget _kpiCard(String label, double value, Color color, IconData icon, Key key) {
+  Widget _kpiCard(String label, double value, Color color, IconData icon, Key key, {VoidCallback? onTap}) {
     return Expanded(
       child: Card(
         key: key,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(height: 6),
-              FittedBox(
-                child: Text(_m(value),
-                    style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16)),
-              ),
-              const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+            child: Column(
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(height: 6),
+                FittedBox(
+                  child: Text(_m(value),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16)),
+                ),
+                const SizedBox(height: 2),
+                Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                if (onTap != null)
+                  Text(context.l10n.t('dr_tap_hint'),
+                      style: const TextStyle(fontSize: 9, color: Colors.grey)),
+              ],
+            ),
           ),
         ),
       ),
