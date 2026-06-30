@@ -1579,10 +1579,20 @@ class DataService {
     }).eq('id', uid);
   }
 
-  /// Traduce un nombre de usuario a su correo (para iniciar sesión con usuario).
-  Future<String?> emailForUsername(String username) async {
-    final res = await _c.rpc('email_for_username', params: {'p_username': username});
-    return res as String?;
+  /// Login con nombre de usuario vía backend (P3-01): el email se resuelve en el
+  /// servidor y nunca se expone al cliente. Establece la sesión con el refresh
+  /// token devuelto; AuthGate reacciona al cambio. Lanza Exception si falla.
+  Future<void> loginWithUsername(String username, String password) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/auth/login-username'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({'username': username, 'password': password}),
+    );
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'No se pudo iniciar sesión');
+    }
+    await _c.auth.setSession(body['refresh_token'] as String);
   }
 
   /// Define el nombre de usuario del propio usuario (único; null para quitarlo).

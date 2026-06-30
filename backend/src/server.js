@@ -490,6 +490,40 @@ export async function buildApp(options = {}) {
     });
   }
 
+  // --- Login con NOMBRE DE USUARIO (P3-01) ---
+  // El email se resuelve en el SERVIDOR (service_role) y el password-grant se
+  // hace contra GoTrue aquí; al cliente solo le devolvemos los tokens. Así un
+  // anónimo ya NO puede traducir username -> email (se quitó la RPC anónima).
+  // Rate-limit por IP y por usuario (anti fuerza bruta / enumeración).
+  app.post('/api/v1/auth/login-username', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const { username, password } = request.body ?? {};
+    const u = (username == null ? '' : String(username)).trim();
+    if (!u || !password) return reply.code(400).send({ error: 'Faltan credenciales' });
+    if (rateLimited(`loginu:ip:${request.ip}`, 30, 60000) ||
+        rateLimited(`loginu:u:${u.toLowerCase()}`, 10, 60000)) {
+      return reply.code(429).send({ error: 'Demasiados intentos, prueba en un minuto' });
+    }
+    // Respuesta genérica para no revelar si el usuario existe.
+    const genErr = () => reply.code(401).send({ error: 'Usuario o contraseña incorrectos' });
+    const { data: row } = await supabase
+      .from('users').select('email').ilike('username', u).maybeSingle();
+    if (!row?.email) return genErr();
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: row.email, password: String(password) }),
+      });
+      const tok = await resp.json().catch(() => ({}));
+      if (!resp.ok || !tok.access_token) return genErr();
+      return reply.send({ access_token: tok.access_token, refresh_token: tok.refresh_token });
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(502).send({ error: 'No se pudo iniciar sesión' });
+    }
+  });
+
   // --- Invitar conductor (Fase 1) ---
   app.post('/api/v1/drivers', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });

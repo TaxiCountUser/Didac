@@ -118,19 +118,14 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         // Permite entrar con email O con nombre de usuario (sin '@' => usuario).
-        var loginEmail = _email.text.trim();
-        if (!loginEmail.contains('@')) {
-          final mapped = await DataService().emailForUsername(loginEmail);
-          if (mapped == null) {
-            setState(() => _error = context.l10n.t('login_user_not_found'));
-            return;
-          }
-          loginEmail = mapped;
+        final id = _email.text.trim();
+        if (id.contains('@')) {
+          await auth.signInWithPassword(email: id, password: _password.text);
+        } else {
+          // Usuario: el backend resuelve el email y hace el login (P3-01); el
+          // email nunca se expone a un cliente sin autenticar.
+          await DataService().loginWithUsername(id, _password.text);
         }
-        await auth.signInWithPassword(
-          email: loginEmail,
-          password: _password.text,
-        );
       }
       // "Recordarme": guarda identificador (prefs) + contraseña (cifrada) para
       // precargarlos; si está desactivado, borra ambos.

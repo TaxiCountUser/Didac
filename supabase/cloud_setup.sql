@@ -102,7 +102,8 @@ $$;
 -- ------------------------------------------------------------
 grant usage on schema public to anon, authenticated, service_role;
 grant select, insert, update, delete on all tables in schema public to authenticated, service_role;
-grant select on all tables in schema public to anon;
+-- (P3-02) NO se concede SELECT global a anon: evita exponer una tabla futura sin
+-- RLS. anon solo lee las tablas con grant explícito (system_config, etc.).
 grant usage, select on all sequences in schema public to authenticated, service_role;
 grant execute on all functions in schema public to anon, authenticated, service_role;
 
@@ -895,7 +896,10 @@ as $$
    where lower(username) = lower(btrim(p_username))
    limit 1;
 $$;
-grant execute on function public.email_for_username(text) to anon, authenticated;
+-- (P3-01) El email ya NO se resuelve por RPC: el backend (/auth/login-username)
+-- hace el login con usuario y nunca expone el email. Revocamos el execute (el
+-- grant global de funciones de más arriba incluye anon, por eso es explícito).
+revoke execute on function public.email_for_username(text) from anon, authenticated;
 
 -- ============================================================
 -- TaxiCount - "Sacar de la flota" (despedir/desactivar conductor).
@@ -1997,5 +2001,19 @@ as $$
 $$;
 
 grant execute on function public.mark_password_changed() to authenticated;
+
+notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 042 - Reducir la superficie del rol anon (P3-01 + P3-02).
+-- P3-02: anon ya no tiene SELECT global (riesgo de tabla futura sin RLS);
+--        solo lee system_config (lectura pública intencionada).
+-- P3-01: el login con usuario lo resuelve el backend; se revoca la RPC anónima
+--        username->email para evitar enumeración de correos.
+-- ============================================================
+revoke select on all tables in schema public from anon;
+grant select on public.system_config to anon;
+revoke execute on function public.email_for_username(text) from anon, authenticated;
 
 notify pgrst, 'reload schema';
