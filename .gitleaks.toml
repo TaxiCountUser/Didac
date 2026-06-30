@@ -25,4 +25,6 @@ paths = [
 regexes = [
   '''ZxBhVEYye2lqm5NDdkey-JP6uTHcqvZriXUoBtyQniY''',
   '''8T3kmJ5SaqY3bVmU02ZJ4MIoHe5z7R4qQ4T9VqJA8hk''',
+  # API key de Firebase Android (pública por diseño, ver docs/firebase-api-key-restriction.md).
+  '''AIzaSyA_nhQLXsaD1KuBQ3-L-q_VJXkwGPg0iXM''',
 ]
