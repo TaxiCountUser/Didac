@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -24,19 +25,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isSignUp = false;
   bool _loading = false;
-  bool _remember = true; // "Recordarme" (sesión persistente)
+  bool _remember = true; // "Recordarme" (sesión persistente + credenciales)
   String? _error;
+
+  // Almacenamiento seguro (cifrado) para la contraseña recordada.
+  static const _secure = FlutterSecureStorage();
 
   @override
   void initState() {
     super.initState();
-    // Recupera la preferencia y, si procede, el último identificador usado.
-    SharedPreferences.getInstance().then((prefs) {
-      if (!mounted) return;
-      setState(() {
-        _remember = prefs.getBool('remember_me') ?? true;
-        if (_remember) _email.text = prefs.getString('last_login_id') ?? '';
-      });
+    _loadRemembered();
+  }
+
+  // Recupera la preferencia y, si "Recordarme" está activo, precarga el
+  // identificador (prefs) y la contraseña (almacenamiento seguro cifrado).
+  Future<void> _loadRemembered() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool('remember_me') ?? true;
+    String id = '';
+    String pass = '';
+    if (remember) {
+      id = prefs.getString('last_login_id') ?? '';
+      try {
+        pass = await _secure.read(key: 'saved_password') ?? '';
+      } catch (_) {/* si falla el storage seguro, solo precarga el usuario */}
+    }
+    if (!mounted) return;
+    setState(() {
+      _remember = remember;
+      _email.text = id;
+      _password.text = pass;
     });
   }
 
@@ -88,14 +106,16 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _password.text,
         );
       }
-      // "Recordarme": guarda la preferencia y el último identificador (para
-      // precargarlo) o lo borra si el usuario no quiere que se recuerde.
+      // "Recordarme": guarda identificador (prefs) + contraseña (cifrada) para
+      // precargarlos; si está desactivado, borra ambos.
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('remember_me', _remember);
       if (_remember) {
         await prefs.setString('last_login_id', _email.text.trim());
+        try { await _secure.write(key: 'saved_password', value: _password.text); } catch (_) {}
       } else {
         await prefs.remove('last_login_id');
+        try { await _secure.delete(key: 'saved_password'); } catch (_) {}
       }
       // AuthGate reaccionará al cambio de sesión.
     } on AuthException catch (e) {
