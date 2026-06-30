@@ -262,6 +262,36 @@ export async function buildApp(options = {}) {
   await app.register(cors, { origin: corsOrigin });
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
 
+  // --- Cabeceras de seguridad (B-02, sin dependencias) ---
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Referrer-Policy', 'no-referrer');
+    return payload;
+  });
+
+  // --- Rate limit global por IP (M-04, sin dependencias) ---
+  // Defensa básica anti-abuso/DoS. Excluye /health y /webhooks/* (el webhook de
+  // Stripe ya valida firma y puede tener ráfagas legítimas). Configurable por env.
+  const _ipBuckets = new Map();
+  const RL_MAX = Number(process.env.RATE_LIMIT_MAX || 600);
+  const RL_WINDOW = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
+  app.addHook('onRequest', async (request, reply) => {
+    const url = request.url || '';
+    if (url === '/health' || url.startsWith('/webhooks/')) return;
+    const ip = request.ip || 'unknown';
+    const now = Date.now();
+    const b = _ipBuckets.get(ip);
+    if (!b || now > b.reset) {
+      _ipBuckets.set(ip, { count: 1, reset: now + RL_WINDOW });
+      return;
+    }
+    b.count += 1;
+    if (b.count > RL_MAX) {
+      return reply.code(429).send({ error: 'Demasiadas peticiones, prueba en un minuto' });
+    }
+  });
+
   // Parser de JSON que además conserva el cuerpo en crudo (req.rawBody) para
   // poder verificar la firma del webhook de Stripe sobre los bytes exactos.
   app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
@@ -434,7 +464,7 @@ export async function buildApp(options = {}) {
       const error = isKeyIssue
         ? 'Transcripción de voz no disponible: falta configurar una API key válida de OpenAI (OPENAI_API_KEY). Usa el modo manual mientras tanto.'
         : 'Transcripción de voz no disponible ahora mismo. Usa el modo manual mientras tanto.';
-      return reply.code(502).send({ error, detail: e.message });
+      return reply.code(502).send({ error });
     }
 
     // Corrige términos locales mal transcritos (p. ej. "museu de lí" -> "Museu
@@ -1163,7 +1193,7 @@ export async function buildApp(options = {}) {
       return reply.send({ url: session.url, id: session.id });
     } catch (e) {
       request.log.error(e);
-      return reply.code(502).send({ error: 'No se pudo crear la sesión de Checkout', detail: e.message });
+      return reply.code(502).send({ error: 'No se pudo crear la sesión de Checkout' });
     }
   });
 
@@ -1191,7 +1221,7 @@ export async function buildApp(options = {}) {
       return reply.send({ url: session.url });
     } catch (e) {
       request.log.error(e);
-      return reply.code(502).send({ error: 'No se pudo crear la sesión del portal', detail: e.message });
+      return reply.code(502).send({ error: 'No se pudo crear la sesión del portal' });
     }
   });
 
@@ -1308,7 +1338,7 @@ export async function buildApp(options = {}) {
       return reply.send({ drivers });
     } catch (e) {
       request.log.error(e);
-      return reply.code(500).send({ error: 'No se pudieron calcular los retos', detail: e.message });
+      return reply.code(500).send({ error: 'No se pudieron calcular los retos' });
     }
   });
 
@@ -1698,7 +1728,7 @@ export async function buildApp(options = {}) {
       return reply.send(summary);
     } catch (e) {
       request.log.error(e);
-      return reply.code(500).send({ error: 'Fallo en el reparto trimestral', detail: e.message });
+      return reply.code(500).send({ error: 'Fallo en el reparto trimestral' });
     }
   });
 
@@ -1771,7 +1801,7 @@ export async function buildApp(options = {}) {
       });
     } catch (e) {
       request.log.error(e);
-      return reply.code(500).send({ error: 'No se pudo calcular el progreso', detail: e.message });
+      return reply.code(500).send({ error: 'No se pudo calcular el progreso' });
     }
   });
 
@@ -1918,7 +1948,7 @@ export async function buildApp(options = {}) {
       });
     } catch (e) {
       request.log.error(e);
-      return reply.code(500).send({ error: 'No se pudo obtener el código', detail: e.message });
+      return reply.code(500).send({ error: 'No se pudo obtener el código' });
     }
   });
 
@@ -2484,7 +2514,7 @@ export async function buildApp(options = {}) {
       return reply.send({ received: true, ...result });
     } catch (e) {
       request.log.error(e);
-      return reply.code(500).send({ error: 'Error procesando el evento', detail: e.message });
+      return reply.code(500).send({ error: 'Error procesando el evento' });
     }
   });
 
@@ -2523,7 +2553,7 @@ export async function buildApp(options = {}) {
             .send({ error: 'La exportación ha tardado demasiado. Prueba con un rango de fechas más pequeño.' });
         }
         request.log.error(e);
-        return reply.code(500).send({ error: 'No se pudo generar el informe', detail: e.message });
+        return reply.code(500).send({ error: 'No se pudo generar el informe' });
       }
       setCached(key, { buffer });
     }
