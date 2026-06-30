@@ -13,6 +13,7 @@ class Profile {
   final bool isAdmin; // admin de plataforma: ve/resuelve incidencias de todas
   final bool hasCompletedOnboarding;
   final bool tutorialSeen; // ya vio el tutorial de bienvenida (una sola vez)
+  final bool mustChangePassword; // contraseña temporal: cambiarla en el 1er login
   final String? referralCode; // mi código para invitar
   final String? referredBy; // id de quien me invitó (null = nadie)
 
@@ -30,6 +31,7 @@ class Profile {
     this.isAdmin = false,
     this.hasCompletedOnboarding = false,
     this.tutorialSeen = false,
+    this.mustChangePassword = false,
     this.referralCode,
     this.referredBy,
   });
@@ -64,6 +66,7 @@ class Profile {
         isAdmin: (m['is_admin'] as bool?) ?? false,
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
         tutorialSeen: (m['tutorial_seen'] as bool?) ?? false,
+        mustChangePassword: (m['must_change_password'] as bool?) ?? false,
         referralCode: m['referral_code'] as String?,
         referredBy: m['referred_by'] as String?,
       );

@@ -567,6 +567,8 @@ export async function buildApp(options = {}) {
 
     // No registrar nunca la contraseña temporal (queda en logs de Render/Sentry).
     app.log.info(`[create-driver] ${email} creado en tenant ${caller.tenant_id}`);
+    // M-05: la contraseña es temporal -> obligar a cambiarla en el primer login.
+    await supabase.from('users').update({ must_change_password: true }).eq('id', created.user.id);
     await syncSeatQuantity(caller.tenant_id); // ajusta la factura por asiento
     return reply.code(201).send({ id: created.user.id, email, tenant_id: caller.tenant_id, tempPassword });
   });
@@ -615,6 +617,10 @@ export async function buildApp(options = {}) {
 
     // Campos de public.users (service_role omite RLS).
     const patch = {};
+    // M-05: si el jefe resetea la contraseña, es temporal -> forzar cambio.
+    if (password !== undefined && password !== null && password !== '') {
+      patch.must_change_password = true;
+    }
     if (username !== undefined) {
       const u = (username == null ? '' : String(username)).trim();
       patch.username = u === '' ? null : u;

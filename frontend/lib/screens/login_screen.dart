@@ -47,9 +47,14 @@ class _LoginScreenState extends State<LoginScreen> {
     String pass = '';
     if (remember) {
       id = prefs.getString('last_login_id') ?? '';
-      try {
-        pass = await _secure.read(key: 'saved_password') ?? '';
-      } catch (_) {/* si falla el storage seguro, solo precarga el usuario */}
+      // En web NO recuperamos la contraseña: el almacenamiento del navegador es
+      // débil y la sesión ya se mantiene con el token de Supabase. Solo móvil
+      // (Keystore/Keychain) precarga la contraseña recordada.
+      if (!kIsWeb) {
+        try {
+          pass = await _secure.read(key: 'saved_password') ?? '';
+        } catch (_) {/* si falla el storage seguro, solo precarga el usuario */}
+      }
     }
     if (!mounted) return;
     setState(() {
@@ -133,7 +138,14 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setBool('remember_me', _remember);
       if (_remember) {
         await prefs.setString('last_login_id', _email.text.trim());
-        try { await _secure.write(key: 'saved_password', value: _password.text); } catch (_) {}
+        // Solo en móvil guardamos la contraseña (almacenamiento seguro del SO).
+        // En web la borramos (por si quedó de una versión anterior) y nunca la
+        // escribimos: la sesión persiste con el token de Supabase.
+        if (kIsWeb) {
+          try { await _secure.delete(key: 'saved_password'); } catch (_) {}
+        } else {
+          try { await _secure.write(key: 'saved_password', value: _password.text); } catch (_) {}
+        }
       } else {
         await prefs.remove('last_login_id');
         try { await _secure.delete(key: 'saved_password'); } catch (_) {}

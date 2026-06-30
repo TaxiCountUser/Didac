@@ -68,6 +68,14 @@ class DataService {
     await _c.from('users').update({'tutorial_seen': true}).eq('id', uid);
   }
 
+  /// Cambia la contraseña del propio usuario (GoTrue) y limpia la marca de
+  /// "contraseña temporal" (M-05). La marca se quita por RPC SECURITY DEFINER
+  /// porque la columna no es editable por PATCH directo.
+  Future<void> changeMyPassword(String newPassword) async {
+    await _c.auth.updateUser(UserAttributes(password: newPassword));
+    await _c.rpc('mark_password_changed');
+  }
+
   // ---------------- Alta diferida (elegir flota) ----------------
 
   /// Crea la empresa del usuario pendiente y lo convierte en propietario.

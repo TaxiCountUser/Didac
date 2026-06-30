@@ -69,6 +69,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: createErr.message }), { status: 400 });
   }
 
+  // M-05: la contraseña es temporal -> obligar a cambiarla en el primer login.
+  await admin.from("users").update({ must_change_password: true }).eq("id", created.user.id);
+
   // No registrar nunca la contraseña temporal en los logs.
   console.log(`[create-driver] ${email} creado en tenant ${caller.tenant_id}`);
 

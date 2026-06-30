@@ -1976,3 +1976,26 @@ grant update (display_name, username, avatar_url, license_number,
   on public.users to authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 041 - M-05: forzar cambio de contraseña temporal en el primer login.
+-- El backend (service_role) marca must_change_password al crear/resetear un
+-- conductor; el usuario la limpia vía RPC tras cambiarla. La columna NO está en
+-- el grant de 040, así que no se puede falsear por PATCH directo.
+-- ============================================================
+alter table public.users
+  add column if not exists must_change_password boolean not null default false;
+
+create or replace function public.mark_password_changed()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.users set must_change_password = false where id = auth.uid();
+$$;
+
+grant execute on function public.mark_password_changed() to authenticated;
+
+notify pgrst, 'reload schema';
