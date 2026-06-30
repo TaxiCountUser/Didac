@@ -668,12 +668,30 @@ export async function buildApp(options = {}) {
   // SIEMPRE verifica que el llamante es admin antes de devolver nada.
   // ============================================================
   async function adminGuard(request) {
-    if (!supabase) return { code: 500, error: 'Supabase no configurado' };
-    const caller = await getCaller(request);
-    if (!caller) return { code: 401, error: 'No autenticado' };
-    if (!caller.is_admin) return { code: 403, error: 'Solo un administrador puede acceder' };
-    return { caller };
+    // Memoiza el resultado en la request: el preHandler centralizado y el guard
+    // por endpoint comparten una sola verificación (sin doblar llamadas de red).
+    if (request._adminGuard) return request._adminGuard;
+    let result;
+    if (!supabase) result = { code: 500, error: 'Supabase no configurado' };
+    else {
+      const caller = await getCaller(request);
+      if (!caller) result = { code: 401, error: 'No autenticado' };
+      else if (!caller.is_admin) result = { code: 403, error: 'Solo un administrador puede acceder' };
+      else result = { caller };
+    }
+    request._adminGuard = result;
+    return result;
   }
+
+  // Defensa en profundidad: TODA ruta /api/v1/admin/* exige admin aquí, aunque
+  // el handler también lo verifique. Así un endpoint admin nuevo no puede quedar
+  // sin protección por olvido. La memoización evita la doble verificación.
+  app.addHook('preHandler', async (request, reply) => {
+    const path = (request.url || '').split('?')[0];
+    if (!path.startsWith('/api/v1/admin/')) return;
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+  });
 
   // Registra una acción administrativa sensible en admin_actions_log (auditoría).
   // Best-effort: si falla, no rompe la operación principal.
@@ -824,6 +842,9 @@ export async function buildApp(options = {}) {
     if (!data || data.length === 0) {
       return reply.code(404).send({ error: 'No hay ningún usuario con ese correo' });
     }
+    // Conceder/revocar admin es la acción más sensible: queda en auditoría.
+    await logAdminAction(request, g.caller.id, isAdmin === false ? 'admin_revoke' : 'admin_grant',
+      'user', data[0].id, { email: data[0].email, is_admin: data[0].is_admin });
     return reply.send({ ok: true, user: data[0] });
   });
 
@@ -2584,6 +2605,11 @@ export async function buildApp(options = {}) {
     if (!caller) return reply.code(401).send({ error: 'No autenticado' });
     if (caller.role !== 'owner') {
       return reply.code(403).send({ error: 'Solo un Owner puede importar datos' });
+    }
+    // B-04: cuota por usuario. La importación parsea ficheros (y puede llamar al
+    // LLM): limitamos a 20/min por usuario para evitar abuso de CPU/coste.
+    if (rateLimited(`import:${caller.id}`, 20, 60000)) {
+      return reply.code(429).send({ error: 'Demasiadas importaciones, prueba en un minuto' });
     }
     const defaultType = request.query?.type;
     const preview = request.query?.preview === 'true' || request.query?.preview === '1';
