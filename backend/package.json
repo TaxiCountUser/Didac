@@ -8,7 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node tests/health.test.js && node tests/run_parser_tests.js && node tests/unit/webhook.test.js && node tests/unit/billing_endpoints.test.js && node tests/unit/excel.test.js && node tests/unit/pdf.test.js && node tests/unit/importer.test.js && node tests/unit/gamification.test.js && node tests/unit/fleet_rewards.test.js",
-    "test:ci": "node tests/health.test.js && node tests/run_parser_tests.js && node tests/unit/importer.test.js && node tests/unit/gamification.test.js && node tests/unit/fleet_rewards.test.js"
+    "test:ci": "node tests/health.test.js && node tests/run_parser_tests.js && node tests/unit/importer.test.js && node tests/unit/gamification.test.js && node tests/unit/fleet_rewards.test.js && node tests/unit/billing_logic.test.js"
   },
   "dependencies": {
     "@fastify/cors": "^10.1.0",
