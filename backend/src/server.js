@@ -675,20 +675,19 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, id: driverId });
   });
 
-  // --- Eliminar conductor (definitivo): borra su cuenta y sus datos ---
+  // --- Dar de baja un conductor (Loop #6: baja LÓGICA, no borrado) ---
+  // El jefe no puede eliminar conductores: se conserva la cuenta y su historial
+  // (carreras, lecturas...) y solo se marca active=false. Deja de contar como
+  // asiento facturable y no puede iniciar sesión (lo verifica la app).
   app.delete('/api/v1/drivers/:id', async (request, reply) => {
     const driverId = request.params.id;
     const guard = await ownerDriverGuard(request, driverId);
     if (guard.error) return reply.code(guard.code).send({ error: guard.error });
 
-    // Borrar la fila de perfil (cascada a sus datos por FK) y la cuenta de auth.
-    await supabase.from('users').delete().eq('id', driverId);
-    const { error: dErr } = await supabase.auth.admin.deleteUser(driverId);
-    if (dErr && !/not.*found|404/i.test(dErr.message || '')) {
-      return reply.code(400).send({ error: `No se pudo eliminar la cuenta: ${dErr.message}` });
-    }
+    const { error: uErr } = await supabase.from('users').update({ active: false }).eq('id', driverId);
+    if (uErr) return reply.code(400).send({ error: `No se pudo dar de baja: ${uErr.message}` });
     await syncSeatQuantity(guard.driver.tenant_id); // baja un asiento de la factura
-    return reply.send({ ok: true, id: driverId });
+    return reply.send({ ok: true, id: driverId, deactivated: true });
   });
 
   // ============================================================
@@ -739,6 +738,101 @@ export async function buildApp(options = {}) {
       app.log.warn(`[audit] no se pudo registrar acción ${actionType}: ${e.message}`);
     }
   }
+
+  // ============================================================
+  // Loop #6 - Informes de error enviados desde la app.
+  // Van al ADMIN (panel completo) con COPIA por push al JEFE de la flota, que
+  // solo puede verlos (RLS de error_reports): ni modifica, ni borra, ni
+  // responde. Es una tabla aparte de incidents -> no sale en "Mensajes al jefe".
+  // ============================================================
+
+  // Cualquier usuario autenticado (conductor/jefe) envía un informe de error.
+  app.post('/api/v1/error-reports', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    const b = request.body ?? {};
+    const description = String(b.description ?? '').trim();
+    if (description.length < 3) return reply.code(400).send({ error: 'Describe el error (mínimo 3 caracteres)' });
+    if (description.length > 4000) return reply.code(400).send({ error: 'La descripción es demasiado larga' });
+    const screenshotUrl = b.screenshot_url ? String(b.screenshot_url).slice(0, 1000) : null;
+    const deviceInfo = b.device_info ? String(b.device_info).slice(0, 1000) : null;
+
+    const { data: row, error } = await supabase.from('error_reports').insert({
+      tenant_id: caller.tenant_id ?? null,
+      user_id: caller.id,
+      description, screenshot_url: screenshotUrl, device_info: deviceInfo,
+    }).select('id').maybeSingle();
+    if (error) return reply.code(400).send({ error: error.message });
+
+    // Push a todos los admins + copia al/los jefe(s) de la flota.
+    try {
+      const { data: me } = await supabase.from('users').select('name, email').eq('id', caller.id).maybeSingle();
+      const reporter = me?.name || me?.email || 'Un usuario';
+      const preview = description.length > 120 ? `${description.slice(0, 117)}…` : description;
+      const { data: admins } = await supabase.from('users').select('id').eq('is_admin', true);
+      for (const a of admins ?? []) {
+        await notifyUser(a.id, '🐞 Nuevo informe de error', `${reporter}: ${preview}`,
+          { type: 'error_report', report_id: String(row?.id ?? '') });
+      }
+      if (caller.tenant_id) {
+        const { data: owners } = await supabase.from('users')
+          .select('id').eq('tenant_id', caller.tenant_id).eq('role', 'owner');
+        for (const o of owners ?? []) {
+          if (o.id === caller.id) continue;
+          await notifyUser(o.id, 'Informe de error enviado',
+            `${reporter} ha reportado un problema. El equipo de TaxiCount lo revisará.`,
+            { type: 'error_report_copy', report_id: String(row?.id ?? '') });
+        }
+      }
+    } catch (e) {
+      app.log.warn(`[error-report] push falló: ${e.message}`);
+    }
+    return reply.code(201).send({ ok: true, id: row?.id });
+  });
+
+  // Admin: listar informes de error. Filtros: ?status= &tenant_id=.
+  app.get('/api/v1/admin/error-reports', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    let q = supabase.from('error_reports')
+      .select('id, tenant_id, user_id, description, screenshot_url, device_info, status, '
+        + 'created_at, reviewed_at, users:user_id(email, name), tenants:tenant_id(name)')
+      .order('created_at', { ascending: false }).limit(1000);
+    const qp = request.query ?? {};
+    if (qp.status) q = q.eq('status', String(qp.status));
+    if (qp.tenant_id) q = q.eq('tenant_id', String(qp.tenant_id));
+    const { data, error } = await q;
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ reports: data ?? [] });
+  });
+
+  // Admin: cambiar el estado de un informe. Al marcarlo 'resolved' se avisa por
+  // push al usuario que lo reportó.
+  app.patch('/api/v1/admin/error-reports/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const status = String((request.body ?? {}).status ?? '');
+    const allowed = ['new', 'viewed', 'in_progress', 'resolved'];
+    if (!allowed.includes(status)) return reply.code(400).send({ error: 'Estado no válido' });
+
+    const patch = { status };
+    if (status === 'resolved') patch.reviewed_at = new Date().toISOString();
+    const { data: row, error } = await supabase.from('error_reports')
+      .update(patch).eq('id', request.params.id).select('id, user_id').maybeSingle();
+    if (error) return reply.code(400).send({ error: error.message });
+    if (!row) return reply.code(404).send({ error: 'Informe no encontrado' });
+
+    await logAdminAction(request, g.caller.id, 'error_report_status', 'error_reports', row.id, { status });
+    if (status === 'resolved' && row.user_id) {
+      try {
+        await notifyUser(row.user_id, '✅ Informe resuelto',
+          'El problema que reportaste ha sido resuelto. ¡Gracias por avisar!',
+          { type: 'error_report_resolved', report_id: String(row.id) });
+      } catch { /* no-op */ }
+    }
+    return reply.send({ ok: true, id: row.id, status });
+  });
 
   // Resumen de todas las empresas: datos + nº de usuarios + incidencias abiertas.
   app.get('/api/v1/admin/overview', async (request, reply) => {

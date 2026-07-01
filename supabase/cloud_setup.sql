@@ -2343,3 +2343,15 @@ $$;
 grant execute on function public.challenge_stats(uuid) to service_role;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 050 - Loop #6 It.3: baja lógica de vehículos (vehicles.active) + se
+-- retira DELETE de authenticated (el jefe da de baja, no borra).
+-- ============================================================
+alter table public.vehicles
+  add column if not exists active boolean not null default true;
+create index if not exists idx_vehicles_active on public.vehicles(tenant_id, active);
+revoke delete on public.vehicles from authenticated;
+
+notify pgrst, 'reload schema';

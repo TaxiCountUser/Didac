@@ -179,8 +179,12 @@ class DataService {
   }
 
   // ---------------- Vehículos ----------------
-  Future<List<Map<String, dynamic>>> listVehicles() async {
-    final data = await _c.from('vehicles').select().order('created_at');
+  /// Vehículos activos del tenant. [includeInactive]=true trae también los dados
+  /// de baja (para el filtro "mostrar inactivos" del panel del jefe).
+  Future<List<Map<String, dynamic>>> listVehicles({bool includeInactive = false}) async {
+    var q = _c.from('vehicles').select();
+    if (!includeInactive) q = q.eq('active', true);
+    final data = await q.order('created_at');
     return (data as List).cast<Map<String, dynamic>>();
   }
 
@@ -198,8 +202,14 @@ class DataService {
     });
   }
 
+  /// Da de baja un vehículo (baja LÓGICA: no se borra, se conserva el historial).
   Future<void> deleteVehicle(String id) async {
-    await _c.from('vehicles').delete().eq('id', id);
+    await _c.from('vehicles').update({'active': false}).eq('id', id);
+  }
+
+  /// Reincorpora un vehículo dado de baja.
+  Future<void> reactivateVehicle(String id) async {
+    await _c.from('vehicles').update({'active': true}).eq('id', id);
   }
 
   /// Actualiza la ficha de mantenimiento de un vehículo (solo Owner por RLS).
