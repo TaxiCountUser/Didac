@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
@@ -50,6 +51,11 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
             tooltip: l.t('admin_add_admin'),
             icon: const Icon(Icons.admin_panel_settings),
             onPressed: _makeAdminDialog,
+          ),
+          IconButton(
+            tooltip: l.t('logout'),
+            icon: const Icon(Icons.logout),
+            onPressed: () => Supabase.instance.client.auth.signOut(),
           ),
         ],
       ),

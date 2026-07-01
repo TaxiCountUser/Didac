@@ -9,6 +9,7 @@ import 'services/data_service.dart';
 import 'util/device_id.dart';
 import 'screens/login_screen.dart';
 import 'screens/change_password_screen.dart';
+import 'screens/admin_screen.dart';
 import 'screens/owner_home_screen.dart';
 import 'screens/driver_home_screen.dart';
 import 'screens/solo_home_screen.dart';
@@ -127,6 +128,12 @@ class _ProfileRouterState extends State<ProfileRouter> {
           );
         }
 
+        // Admin de plataforma: acceso EXCLUSIVO al panel de administración, sin
+        // la app operativa (protección de datos). No ve dinero ni carreras de
+        // las empresas (enmascarado en el backend).
+        if (profile.isAdmin) {
+          return const AdminScreen();
+        }
         if (profile.isInactiveDriver) {
           return const NoFleetScreen();
         }

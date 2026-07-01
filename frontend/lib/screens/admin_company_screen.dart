@@ -95,14 +95,12 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
           final tenant = (data['tenant'] as Map?)?.cast<String, dynamic>() ?? {};
           final users = ((data['users'] as List?) ?? []).cast<Map<String, dynamic>>();
           final counts = (data['counts'] as Map?)?.cast<String, dynamic>() ?? {};
-          final summary = (data['summary'] as Map?)?.cast<String, dynamic>() ?? {};
-          final txs = ((data['recent_transactions'] as List?) ?? []).cast<Map<String, dynamic>>();
           final vehicles = ((data['vehicles_list'] as List?) ?? []).cast<Map<String, dynamic>>();
           final incidents = ((data['incidents_list'] as List?) ?? []).cast<Map<String, dynamic>>();
           return TabBarView(
             controller: _tabs,
             children: [
-              _summaryTab(l, tenant, summary, counts, txs),
+              _summaryTab(l, tenant, counts),
               _vehiclesTab(l, vehicles),
               _driversTab(l, users, vehicles),
               _incidentsTab(l, incidents),
@@ -115,26 +113,47 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
 
   // ===================== TAB 1: RESUMEN =====================
   Widget _summaryTab(AppLocalizations l, Map<String, dynamic> tenant,
-      Map<String, dynamic> summary, Map<String, dynamic> counts, List<Map<String, dynamic>> txs) {
+      Map<String, dynamic> counts) {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
         _subscriptionCard(l, tenant),
         const SizedBox(height: 8),
-        _financeCard(l, summary),
+        _maskedFinanceCard(l),
         const SizedBox(height: 8),
         _countsCard(l, counts),
-        const SizedBox(height: 12),
-        ExpansionTile(
-          title: Text(l.t('admin_recent_tx')),
-          childrenPadding: EdgeInsets.zero,
-          children: txs.isEmpty
-              ? [ListTile(title: Text(l.t('admin_no_tx')))]
-              : [for (final t in txs) _txTile(t)],
-        ),
         const SizedBox(height: 16),
         _dangerZone(l),
       ],
+    );
+  }
+
+  // Protección de datos: el admin de plataforma NO ve el dinero de la empresa
+  // ni el contenido de las carreras. Se muestra un aviso en vez de las cifras.
+  Widget _maskedFinanceCard(AppLocalizations l) {
+    return Card(
+      color: Colors.blueGrey.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.lock_outline, color: Colors.blueGrey),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('*****',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  const SizedBox(height: 4),
+                  Text(l.t('admin_financials_masked'),
+                      style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -197,37 +216,6 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
     );
   }
 
-  Widget _financeCard(AppLocalizations l, Map<String, dynamic> s) {
-    final balance = double.tryParse('${s['balance']}') ?? 0;
-    return Card(
-      color: Colors.green.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l.t('od_summary'), style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _stat(_money(s['income'] ?? 0), l.t('od_kpi_income')),
-                _stat(_money(s['expense'] ?? 0), l.t('od_kpi_expense')),
-                _stat(_money(s['balance'] ?? 0), l.t('od_kpi_balance')),
-              ],
-            ),
-            if (balance < 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('⚠️ ${l.t('od_kpi_balance')} < 0',
-                    style: const TextStyle(color: Colors.red)),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _countsCard(AppLocalizations l, Map<String, dynamic> c) {
     return Card(
       color: Colors.grey.shade100,
@@ -252,8 +240,6 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
         ],
       );
 
-  String _money(dynamic v) => '${(double.tryParse('$v') ?? 0).toStringAsFixed(2)} €';
-
   Widget _row(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(
@@ -265,23 +251,6 @@ class _AdminCompanyScreenState extends State<AdminCompanyScreen>
           ],
         ),
       );
-
-  Widget _txTile(Map<String, dynamic> t) {
-    final type = (t['type'] as String?) ?? 'expense';
-    final income = type == 'income';
-    final author = ((t['users'] as Map?)?['email'] as String?) ?? '';
-    final desc = (t['description'] as String?) ?? (t['category'] as String?) ?? '';
-    final date = DateTime.tryParse('${t['created_at']}')?.toLocal();
-    final dateStr = date == null ? '' : '${date.day}/${date.month}/${date.year}';
-    return ListTile(
-      dense: true,
-      leading: Icon(income ? Icons.south_west : Icons.north_east,
-          color: income ? Colors.green : Colors.red, size: 20),
-      title: Text(_money(t['amount']), style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text([desc, author, dateStr].where((e) => e.isNotEmpty).join(' · '),
-          maxLines: 1, overflow: TextOverflow.ellipsis),
-    );
-  }
 
   // ===================== TAB 2: VEHÍCULOS =====================
   Widget _vehiclesTab(AppLocalizations l, List<Map<String, dynamic>> vehicles) {

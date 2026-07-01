@@ -909,31 +909,11 @@ export async function buildApp(options = {}) {
       countOf('incidents'),
     ]);
 
-    // Resumen financiero: sumamos importes por tipo (ingreso/gasto).
-    const { data: txAll } = await supabase
-      .from('transactions')
-      .select('amount, type')
-      .eq('tenant_id', id);
-    let income = 0;
-    let expense = 0;
-    for (const t of txAll || []) {
-      const amt = Number(t.amount) || 0;
-      if (t.type === 'income') income += amt;
-      else expense += amt;
-    }
-    const summary = {
-      income: Math.round(income * 100) / 100,
-      expense: Math.round(expense * 100) / 100,
-      balance: Math.round((income - expense) * 100) / 100,
-    };
-
-    // Transacciones recientes (con el autor) para inspección.
-    const { data: recentTx } = await supabase
-      .from('transactions')
-      .select('id, amount, type, category, payment_method, description, created_at, users(email)')
-      .eq('tenant_id', id)
-      .order('created_at', { ascending: false })
-      .limit(40);
+    // PROTECCIÓN DE DATOS: el admin de plataforma NO ve el dinero de las empresas
+    // ni el contenido de las carreras (importes, ingresos/gastos, cliente,
+    // origen/destino, descripción). Solo damos recuentos, nunca las cifras ni el
+    // detalle. Así TaxiCount no accede al contenido económico/de cliente.
+    const summary = null; // enmascarado (*****)
 
     // Vehículos de la empresa.
     const { data: vehicleList } = await supabase
@@ -954,8 +934,9 @@ export async function buildApp(options = {}) {
       tenant,
       users: users || [],
       counts: { vehicles, transactions, incidents },
-      summary,
-      recent_transactions: recentTx || [],
+      summary,                       // null: oculto por protección de datos
+      recent_transactions: [],       // oculto por protección de datos
+      financials_masked: true,       // el front muestra ***** en vez de cifras
       vehicles_list: vehicleList || [],
       incidents_list: incidentList || [],
     });
@@ -1520,9 +1501,15 @@ export async function buildApp(options = {}) {
     const vals = Object.values(maxByUser);
     const fleetAvgLevel = vals.length ? +(vals.reduce((s, n) => s + n, 0) / vals.length).toFixed(1) : 0;
 
+    // PROTECCIÓN DE DATOS: en el reto de dinero (money_100k) las métricas son
+    // euros de la empresa -> se enmascaran para el admin (no ve importes).
+    const maskMoney = (h) => (h.challenge === 'money_100k'
+      ? { ...h, metric_value: null, target: null, baseline: null, money_masked: true }
+      : h);
     return reply.send({
       claim,
-      driver_history: (history ?? []).map((h) => ({ ...h, status_label: challengeStatusLabel(h.status) })),
+      driver_history: (history ?? []).map((h) =>
+        ({ ...maskMoney(h), status_label: challengeStatusLabel(h.status) })),
       current_levels: currentLevels,
       fleet_avg_level: fleetAvgLevel,
     });
