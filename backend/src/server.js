@@ -13,7 +13,7 @@ import { correctTranscript } from './corrections.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
-import { runQuarterlyFleetRewards, scheduleQuarterly, quarterOf, quarterRange, computeTenantQuarterMetrics, rewardDaysForRate } from './gamification.js';
+import { runQuarterlyFleetRewards, quarterOf, quarterRange, computeTenantQuarterMetrics, rewardDaysForRate } from './gamification.js';
 import {
   fetchReportData,
   buildExcel,
@@ -1298,16 +1298,38 @@ export async function buildApp(options = {}) {
   // administración aprueba el actual. Premio NO automático (lo aprueba el admin).
   // Anti-fraude: días activos < 300 -> sospechoso; max_jump grande -> km inflado.
   // ============================================================
-  const CHALLENGE_BASE = { km_100k: 100000, money_100k: 100000, days_300: 300 };
-  const CHALLENGE_MIN_DAYS = 300;     // mínimo de días para validar km/€
   const CHALLENGE_MAX_JUMP = 2000;    // salto de km de golpe por encima -> sospechoso
   const CHALLENGE_MAX_INCOME = 1500;  // una carrera por encima de 1500 € -> sospechoso
+
+  // Loop #6: las bases de los retos se leen de system_config:
+  //   - money_100k solo se incluye si challenge_100k_euros_enabled = 'true'
+  //     (por defecto retirado);
+  //   - el reto de días usa challenge_days_required (por defecto 365; ya no hay
+  //     "mínimo de 300 días": se logra al llegar al objetivo).
+  // La clave interna 'days_300' se mantiene por compatibilidad de datos/UI.
+  async function challengeConfig() {
+    let euros = false;
+    let days = 365;
+    try {
+      const { data } = await supabase.from('system_config')
+        .select('key, value')
+        .in('key', ['challenge_100k_euros_enabled', 'challenge_days_required']);
+      for (const r of data ?? []) {
+        if (r.key === 'challenge_100k_euros_enabled') euros = r.value === 'true';
+        if (r.key === 'challenge_days_required') days = parseInt(r.value, 10) || 365;
+      }
+    } catch { /* sin config -> valores por defecto */ }
+    const base = { km_100k: 100000 };
+    if (euros) base.money_100k = 100000;
+    base.days_300 = days;
+    return { base, eurosEnabled: euros, daysRequired: days };
+  }
 
   // Objetivo (incremento) de un reto en un nivel dado. Ciclo de 4 niveles: el
   // 1º de cada ciclo (niveles 1, 5, 9, 13...) vuelve a la base; los otros tres,
   // el doble. Así de vez en cuando "baja" como sorpresa.
-  const incrementFor = (challenge, level) =>
-    CHALLENGE_BASE[challenge] * (((level - 1) % 4) === 0 ? 1 : 2);
+  const incrementFor = (base, challenge, level) =>
+    (base[challenge] ?? 0) * (((level - 1) % 4) === 0 ? 1 : 2);
 
   // A partir de los claims de un conductor+reto, calcula el nivel actual, el
   // baseline (métrica al empezar el tramo) y si hay un claim pendiente/rechazado.
@@ -1335,6 +1357,7 @@ export async function buildApp(options = {}) {
       return reply.code(403).send({ error: 'Solo el propietario ve los retos' });
     }
     try {
+      const { base } = await challengeConfig();
       const { data: stats, error } = await supabase.rpc('challenge_stats_tenant', { p_tenant: caller.tenant_id });
       if (error) throw new Error(error.message);
 
@@ -1359,10 +1382,10 @@ export async function buildApp(options = {}) {
         const maxJump = Number(r.max_jump ?? 0);
         const maxIncome = Number(r.max_income ?? 0);
         const challenges = [];
-        for (const type of Object.keys(CHALLENGE_BASE)) {
+        for (const type of Object.keys(base)) {
           const claims = (byUserChal[r.user_id]?.[type]) ?? [];
           const st = levelState(claims);
-          const target = incrementFor(type, st.level);
+          const target = incrementFor(base, type, st.level);
           const metric = metrics[type];
           const progress = Math.max(0, metric - st.baseline);
           const reached = progress >= target;
@@ -1436,8 +1459,9 @@ export async function buildApp(options = {}) {
       ...r,
       status_label: challengeStatusLabel(r.status),
       last_completed: lastCompletedByUser[r.user_id] ?? null,
-      // Sospechoso si el reto de km/€ se logró con menos del mínimo de días.
-      suspicious: r.challenge !== 'days_300' && (r.active_days ?? 0) < CHALLENGE_MIN_DAYS,
+      // Loop #6: se retira el "mínimo de 300 días". El anti-fraude de km real lo
+      // da max_jump en la vista de empresa; aquí ya no se marca por días.
+      suspicious: false,
     }));
 
     const fLevel = request.query?.level;
@@ -1514,7 +1538,8 @@ export async function buildApp(options = {}) {
     const byChal = {};
     for (const c of history ?? []) ((byChal[c.challenge] ??= []).push(c));
     const currentLevels = {};
-    for (const type of Object.keys(CHALLENGE_BASE)) {
+    const { base } = await challengeConfig();
+    for (const type of Object.keys(base)) {
       currentLevels[type] = levelState(byChal[type] ?? []).level;
     }
 
@@ -2742,13 +2767,17 @@ export async function buildApp(options = {}) {
     return reply.send({ imported, skipped: parsed.skipped || 0, headers: parsed.headers || [] });
   });
 
-  // Scheduler del reparto trimestral de flota (Loop #4). Comprueba 1 vez/hora si
-  // hoy es el último día de un trimestre. Idempotente (upsert + unique). No se
-  // activa en tests para no tocar la BD ni dejar timers colgando.
-  if (supabase && process.env.NODE_ENV !== 'test') {
-    scheduleQuarterly(supabase, { notifyOwner: notifyUser, log: app.log });
-    app.log.info('[cron] Scheduler trimestral de flota activado.');
-  }
+  // Loop #6: se RETIRA el reparto trimestral por % de flota (Loop #4). La nueva
+  // recompensa es POR CONDUCTOR: cada reto completado (challenge_claims.status =
+  // 'rewarded') otorga 1 mes-asiento gratis al jefe, que se aplica en la
+  // facturación por asiento (Stripe, Iteración 7). El scheduler queda desactivado
+  // para no seguir concediendo días por flota. Los endpoints e histórico
+  // trimestral se conservan solo como consulta (datos ya generados).
+  //
+  // if (supabase && process.env.NODE_ENV !== 'test') {
+  //   scheduleQuarterly(supabase, { notifyOwner: notifyUser, log: app.log });
+  //   app.log.info('[cron] Scheduler trimestral de flota activado.');
+  // }
 
   return app;
 }
