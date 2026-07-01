@@ -2076,3 +2076,142 @@ revoke all on function public.purge_expired_retention() from public, anon, authe
 grant execute on function public.purge_expired_retention() to service_role;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 045 - Loop #6 Iteración 1: vehicles.initial_odometer (km al alta) +
+-- visibilidad de license_number restringida al owner (RPCs SECURITY DEFINER).
+-- ============================================================
+alter table public.vehicles
+  add column if not exists initial_odometer int not null default 0;
+
+alter table public.vehicles
+  add column if not exists license_number text;
+
+update public.vehicles v
+   set initial_odometer = sub.km
+  from (
+    select vehicle_id, max(reading_km) as km
+      from public.odometer_readings
+     group by vehicle_id
+  ) sub
+ where sub.vehicle_id = v.id
+   and v.initial_odometer = 0;
+
+update public.vehicles
+   set initial_odometer = registered_km
+ where initial_odometer = 0
+   and registered_km is not null
+   and registered_km > 0;
+
+revoke select, insert, update on public.vehicles from authenticated;
+
+grant select (
+  id, tenant_id, license_plate, model, created_at,
+  itv_expiry, insurance_expiry, transport_card_date, transport_card_years,
+  revision_interval_km, last_revision_km, maintenance_notes,
+  taximeter_itv_expiry, registered_km, initial_odometer
+) on public.vehicles to authenticated;
+
+grant insert (
+  tenant_id, license_plate, model,
+  itv_expiry, insurance_expiry, transport_card_date, transport_card_years,
+  revision_interval_km, last_revision_km, maintenance_notes,
+  taximeter_itv_expiry, registered_km, initial_odometer
+) on public.vehicles to authenticated;
+
+grant update (
+  license_plate, model,
+  itv_expiry, insurance_expiry, transport_card_date, transport_card_years,
+  revision_interval_km, last_revision_km, maintenance_notes,
+  taximeter_itv_expiry, registered_km, initial_odometer
+) on public.vehicles to authenticated;
+
+create or replace function public.vehicle_license(p_vehicle uuid)
+returns text
+language sql stable security definer
+set search_path = public
+as $$
+  select v.license_number
+    from public.vehicles v
+   where v.id = p_vehicle
+     and v.tenant_id = public.current_tenant_id()
+     and public.current_role_name() = 'owner';
+$$;
+revoke all on function public.vehicle_license(uuid) from public, anon;
+grant execute on function public.vehicle_license(uuid) to authenticated, service_role;
+
+create or replace function public.set_vehicle_license(p_vehicle uuid, p_license text)
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+begin
+  if public.current_role_name() is distinct from 'owner' then
+    raise exception 'solo el propietario puede editar el nº de licencia';
+  end if;
+  update public.vehicles
+     set license_number = nullif(btrim(p_license), '')
+   where id = p_vehicle
+     and tenant_id = public.current_tenant_id();
+  if not found then
+    raise exception 'vehículo no encontrado en tu empresa';
+  end if;
+end;
+$$;
+revoke all on function public.set_vehicle_license(uuid, text) from public, anon;
+grant execute on function public.set_vehicle_license(uuid, text) to authenticated, service_role;
+
+notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 046 - Loop #6 Iteración 1: config de retos (retirar 100.000 €, días 300->365).
+-- ============================================================
+insert into public.system_config(key, value) values
+  ('challenge_100k_euros_enabled', 'false'),
+  ('challenge_days_required',      '365')
+on conflict (key) do nothing;
+
+notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 047 - Loop #6 Iteración 1: informes de error (admin gestiona; jefe solo lee).
+-- ============================================================
+create table if not exists public.error_reports (
+  id             uuid primary key default gen_random_uuid(),
+  tenant_id      uuid references public.tenants(id) on delete set null on update cascade,
+  user_id        uuid references public.users(id)   on delete set null on update cascade,
+  description    text not null,
+  screenshot_url text,
+  device_info    text,
+  status         text not null default 'new'
+                 check (status in ('new', 'viewed', 'in_progress', 'resolved')),
+  created_at     timestamptz not null default now(),
+  reviewed_at    timestamptz
+);
+
+create index if not exists idx_error_reports_tenant  on public.error_reports(tenant_id);
+create index if not exists idx_error_reports_status  on public.error_reports(status);
+create index if not exists idx_error_reports_created on public.error_reports(created_at desc);
+
+grant select, insert on public.error_reports to authenticated;
+grant select, insert, update, delete on public.error_reports to service_role;
+
+alter table public.error_reports enable row level security;
+
+drop policy if exists error_reports_select on public.error_reports;
+create policy error_reports_select on public.error_reports
+  for select to authenticated
+  using (
+    user_id = auth.uid()
+    or (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner')
+  );
+
+drop policy if exists error_reports_insert on public.error_reports;
+create policy error_reports_insert on public.error_reports
+  for insert to authenticated
+  with check (user_id = auth.uid());
+
+notify pgrst, 'reload schema';
