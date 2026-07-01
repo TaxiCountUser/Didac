@@ -28,13 +28,17 @@ class DriverHomeScreen extends StatefulWidget {
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
 }
 
-class _DriverHomeScreenState extends State<DriverHomeScreen> {
+class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBindingObserver {
   final _service = DataService();
   StreamSubscription<Position>? _posSub;
 
   @override
   void initState() {
     super.initState();
+    // Loop #6 (privacidad/batería): el GPS solo se comparte con la app en primer
+    // plano. Observamos el ciclo de vida para PARAR el seguimiento en segundo
+    // plano y REANUDARLO al volver.
+    WidgetsBinding.instance.addObserver(this);
     // En modo autónomo no se comparte ubicación (no hay jefe que la consulte).
     if (!widget.embedded) _startTracking();
     // Side-effects best-effort: un fallo de FCM/red/usage-ping NUNCA debe tumbar
@@ -83,20 +87,42 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _posSub?.cancel();
     super.dispose();
   }
 
+  // Ciclo de vida: solo se rastrea en primer plano (resumed). En segundo plano
+  // (paused/inactive/hidden/detached) se detiene, para no gastar batería ni
+  // guardar ubicación cuando la app no está en uso.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (widget.embedded) return; // modo autónomo: nunca rastrea
+    if (state == AppLifecycleState.resumed) {
+      _startTracking();
+    } else {
+      _stopTracking();
+    }
+  }
+
   // Comparte la ubicación con el jefe: una vez al instante + seguimiento
-  // continuo mientras la app esté abierta (best-effort, con permiso del SO).
+  // continuo MIENTRAS la app esté en primer plano (best-effort, con permiso).
   Future<void> _startTracking() async {
+    if (_posSub != null) return; // ya en marcha
     try {
       final pos = await LocationService.currentPosition();
       if (pos != null) await _push(pos);
       final stream = await LocationService.positionStream();
       if (stream == null || !mounted) return;
+      // Si mientras esperábamos permisos pasamos a segundo plano, no arrancar.
       _posSub = stream.listen(_push, onError: (_) {});
     } catch (_) {/* sin ubicación: no pasa nada */}
+  }
+
+  // Detiene el seguimiento (segundo plano): no se envía más ubicación.
+  void _stopTracking() {
+    _posSub?.cancel();
+    _posSub = null;
   }
 
   Future<void> _push(Position pos) async {
