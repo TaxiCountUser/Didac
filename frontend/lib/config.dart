@@ -1,3 +1,8 @@
+// Versión vigente de los términos legales / política de privacidad. Súbela
+// cuando cambien: todos los usuarios tendrán que volver a aceptarlos al abrir
+// la app (control en users.legal_accepted_version).
+const kLegalVersion = 1;
+
 // Configuración de TaxiCount. Sobreescribible con --dart-define.
 const supabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',

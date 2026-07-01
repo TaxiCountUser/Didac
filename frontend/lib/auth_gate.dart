@@ -7,8 +7,10 @@ import 'models/profile.dart';
 import 'models/tenant_state.dart';
 import 'services/data_service.dart';
 import 'util/device_id.dart';
+import 'config.dart';
 import 'screens/login_screen.dart';
 import 'screens/change_password_screen.dart';
+import 'screens/legal_accept_screen.dart';
 import 'screens/admin_screen.dart';
 import 'screens/owner_home_screen.dart';
 import 'screens/driver_home_screen.dart';
@@ -140,6 +142,12 @@ class _ProfileRouterState extends State<ProfileRouter> {
         // M-05: contraseña temporal -> obligar a cambiarla antes de nada más.
         if (profile.mustChangePassword) {
           return ChangePasswordScreen(onDone: _reload);
+        }
+        // RGPD: aceptación obligatoria de los términos/política. Al registrarse
+        // (primer acceso) y, para cuentas antiguas, al abrir la app. Sin aceptar
+        // no se continúa. Al subir kLegalVersion, todos vuelven a aceptar.
+        if (profile.legalAcceptedVersion < kLegalVersion) {
+          return LegalAcceptScreen(onDone: _reload);
         }
         // Tutorial de bienvenida: SOLO la primera vez (flag en BD). Al terminar
         // o saltar, se marca como visto y se recarga.

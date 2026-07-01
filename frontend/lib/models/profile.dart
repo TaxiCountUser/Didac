@@ -14,6 +14,7 @@ class Profile {
   final bool hasCompletedOnboarding;
   final bool tutorialSeen; // ya vio el tutorial de bienvenida (una sola vez)
   final bool mustChangePassword; // contraseña temporal: cambiarla en el 1er login
+  final int legalAcceptedVersion; // última versión de términos legales aceptada
   final String? referralCode; // mi código para invitar
   final String? referredBy; // id de quien me invitó (null = nadie)
 
@@ -32,6 +33,7 @@ class Profile {
     this.hasCompletedOnboarding = false,
     this.tutorialSeen = false,
     this.mustChangePassword = false,
+    this.legalAcceptedVersion = 0,
     this.referralCode,
     this.referredBy,
   });
@@ -67,6 +69,7 @@ class Profile {
         hasCompletedOnboarding: (m['has_completed_onboarding'] as bool?) ?? false,
         tutorialSeen: (m['tutorial_seen'] as bool?) ?? false,
         mustChangePassword: (m['must_change_password'] as bool?) ?? false,
+        legalAcceptedVersion: (m['legal_accepted_version'] as int?) ?? 0,
         referralCode: m['referral_code'] as String?,
         referredBy: m['referred_by'] as String?,
       );

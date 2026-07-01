@@ -2017,3 +2017,28 @@ grant select on public.system_config to anon;
 revoke execute on function public.email_for_username(text) from anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 043 - Aceptación obligatoria de los términos legales (RGPD).
+-- ============================================================
+alter table public.users
+  add column if not exists legal_accepted_version int not null default 0;
+alter table public.users
+  add column if not exists legal_accepted_at timestamptz;
+
+create or replace function public.accept_legal(p_version int)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.users
+     set legal_accepted_version = greatest(coalesce(legal_accepted_version, 0), p_version),
+         legal_accepted_at = now()
+   where id = auth.uid();
+$$;
+
+grant execute on function public.accept_legal(int) to authenticated;
+
+notify pgrst, 'reload schema';

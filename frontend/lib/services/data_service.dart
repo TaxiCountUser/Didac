@@ -1622,6 +1622,11 @@ class DataService {
     }).eq('id', uid);
   }
 
+  /// Registra la aceptación de los términos legales de la versión indicada.
+  Future<void> acceptLegal(int version) async {
+    await _c.rpc('accept_legal', params: {'p_version': version});
+  }
+
   // ---------------- Onboarding ----------------
   Future<void> completeOnboarding() async {
     final uid = _c.auth.currentUser?.id;
