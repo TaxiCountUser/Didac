@@ -331,34 +331,6 @@ class _DriversScreenState extends State<DriversScreen> {
     }
   }
 
-  /// Elimina definitivamente la cuenta del conductor.
-  Future<void> _confirmDelete(Map<String, dynamic> driver) async {
-    final name = driver['name'] as String? ?? driver['email'] as String;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.t('dr_delete_title')),
-        content: Text(ctx.l10n.t('dr_delete_msg', {'name': name})),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(ctx.l10n.t('delete')),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    try {
-      await _service.deleteDriver(driver['id'] as String);
-      _reload();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -431,8 +403,6 @@ class _DriversScreenState extends State<DriversScreen> {
                           _editCredentials(d);
                         case 'active':
                           _toggleActive(d);
-                        case 'delete':
-                          _confirmDelete(d);
                       }
                     },
                     itemBuilder: (ctx) => [
@@ -463,13 +433,6 @@ class _DriversScreenState extends State<DriversScreen> {
                         child: ListTile(
                           leading: Icon(isActive ? Icons.person_off : Icons.person_add_alt),
                           title: Text(isActive ? l.t('dr_remove') : l.t('dr_reactivate')),
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: ListTile(
-                          leading: const Icon(Icons.delete_outline, color: Colors.red),
-                          title: Text(l.t('delete'), style: const TextStyle(color: Colors.red)),
                         ),
                       ),
                     ],

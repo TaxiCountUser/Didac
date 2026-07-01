@@ -188,18 +188,39 @@ class DataService {
     return (data as List).cast<Map<String, dynamic>>();
   }
 
+  /// Alta de vehículo. [initialOdometer] (km actuales) es OBLIGATORIO: el reto de
+  /// km cuenta desde ahí. [licenseNumber] (opcional) solo lo ve/gestiona el jefe.
   Future<void> addVehicle({
     required String tenantId,
     required String licensePlate,
+    required int initialOdometer,
     String? model,
-    int? registeredKm,
+    String? licenseNumber,
   }) async {
-    await _c.from('vehicles').insert({
+    final rows = await _c.from('vehicles').insert({
       'tenant_id': tenantId,
       'license_plate': licensePlate,
       'model': model,
-      if (registeredKm != null) 'registered_km': registeredKm,
-    });
+      'initial_odometer': initialOdometer,
+      'registered_km': initialOdometer, // compat: mismo km de partida
+    }).select('id');
+    final id = (rows as List).isNotEmpty ? (rows.first as Map)['id'] as String? : null;
+    final lic = licenseNumber?.trim() ?? '';
+    if (id != null && lic.isNotEmpty) {
+      await setVehicleLicense(id, lic);
+    }
+  }
+
+  /// Nº de licencia del vehículo (RPC solo-owner; null si no eres el jefe).
+  Future<String?> getVehicleLicense(String vehicleId) async {
+    final res = await _c.rpc('vehicle_license', params: {'p_vehicle': vehicleId});
+    return res as String?;
+  }
+
+  /// Fija/actualiza el nº de licencia de un vehículo (RPC solo-owner).
+  Future<void> setVehicleLicense(String vehicleId, String license) async {
+    await _c.rpc('set_vehicle_license',
+        params: {'p_vehicle': vehicleId, 'p_license': license});
   }
 
   /// Da de baja un vehículo (baja LÓGICA: no se borra, se conserva el historial).
