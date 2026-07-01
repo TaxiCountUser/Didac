@@ -21,18 +21,31 @@ asesoramiento fiscal/contable ni gestiona obligaciones tributarias del cliente.
 finalizar, si no hay suscripción activa **y no se han aceptado estas
 condiciones**, la cuenta queda bloqueada hasta su aceptación/contratación.
 
-**3. Precio.** Según el plan por asiento vigente (por conductor). *[Detallar.]*
+**3. Precio.** 2,50 € al mes por conductor (plan por asiento). Los precios podrán
+actualizarse avisando al cliente con antelación razonable.
 
 **4. Obligaciones del cliente.** Usar la herramienta conforme a la ley; ser el
 **responsable** de los datos que introduce (conductores, clientes, carreras);
 informar a sus conductores del uso de la app (incluida la **ubicación** en
 jornada) y, cuando proceda, a terceros cuyos datos introduzca.
 
-**5. Disponibilidad y responsabilidad.** *[SLA/limitaciones — a completar.]*
+**5. Disponibilidad y responsabilidad.** El servicio se presta "tal cual" (*as
+is*), con disponibilidad en modo mejor esfuerzo; no se garantiza un
+funcionamiento ininterrumpido ni libre de errores. TaxiCount no responde de los
+daños indirectos ni del lucro cesante, ni de la exactitud de los datos que
+introduce el cliente. **El cliente es el único responsable de sus obligaciones
+fiscales y contables**; TaxiCount es solo una herramienta de registro. Se
+recomienda al cliente conservar copias de su información.
 
-**6. Baja.** El cliente puede darse de baja en cualquier momento. *[Efectos.]*
+**6. Baja.** El cliente puede darse de baja en cualquier momento desde la app o
+solicitándolo al contacto de privacidad. Al causar baja se cancela el acceso; los
+datos se suprimen o anonimizan en un plazo razonable, salvo los que deban
+conservarse por obligación legal. El cliente puede exportar su información antes
+de la baja.
 
-**7. Ley aplicable y fuero.** *[España — a completar.]*
+**7. Ley aplicable y fuero.** Este contrato se rige por la legislación española.
+Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de
+Figueres (Girona), salvo que una norma imperativa disponga otro fuero.
 
 ---
 
@@ -78,7 +91,7 @@ Privacidad §6.
 
 **6. Instrucciones documentadas.** El uso de la app y estas condiciones
 constituyen las instrucciones del responsable. Cualquier instrucción adicional
-deberá comunicarse por *[canal]*.
+deberá comunicarse por escrito al contacto de privacidad (didakdp.5@gmail.com).
 
 ---
 

@@ -4,7 +4,7 @@
 > un profesional de protección de datos antes de publicarlo. Basado en el
 > RGPD (Reglamento UE 2016/679) y la LOPDGDD 3/2018 (España).
 >
-> Versión del documento: **v1** · Última actualización: *[fecha]*
+> Versión del documento: **v1** · Última actualización: 01/07/2026
 > (La versión debe coincidir con `kLegalVersion` en la app para el control de aceptación.)
 
 ## 1. Quiénes somos y qué es TaxiCount
@@ -15,9 +15,9 @@ apuntar carreras, gastos, kilómetros y vehículos, antes gestionados en papel o
 en hojas de cálculo. **TaxiCount no es una gestoría, no emite facturas ni presta
 servicios de asesoría fiscal o contable.**
 
-- **Titular del servicio (proveedor de la herramienta):** *[Razón social / autónomo]*, NIF *[…]*, domicilio *[…]*.
-- **Contacto de privacidad:** *[email de contacto]*.
-- *[Delegado de Protección de Datos (DPO): indicar si se designa; ver DPIA.]*
+- **Titular del servicio (proveedor de la herramienta):** Didac Oliveras Galvez, NIF 41556654R, domicilio C/ Tapis 37, 1r, 17600 Figueres (Girona).
+- **Contacto de privacidad:** didakdp.5@gmail.com.
+- **Delegado de Protección de Datos (DPO):** no se designa; dado el volumen de tratamiento no concurren los supuestos del Art. 37 RGPD (a revisar por asesor legal). Para cualquier cuestión de privacidad, usa el contacto anterior.
 
 ## 2. Roles en el tratamiento (importante)
 
@@ -68,12 +68,12 @@ trata los datos según sus propias condiciones de tratamiento (DPA):
 
 | Proveedor | Función | Ubicación / transferencia |
 |---|---|---|
-| Supabase | base de datos, autenticación y almacenamiento | *[confirmar región UE]* |
+| Supabase | base de datos, autenticación y almacenamiento | UE (verificar región en la consola de Supabase) |
 | Render | alojamiento del servidor | UE (Frankfurt) |
 | Groq **o** OpenAI | transcripción de las notas de voz | **EE. UU.** (ver §6) |
 | Google Firebase (FCM) | notificaciones push (token de dispositivo) | EE. UU. |
 | Stripe | cobro de la suscripción | UE/EE. UU. |
-| *[Sentry, si se activa]* | registro de errores (incluye IP) | *[según configuración]* |
+| Sentry | registro de errores de la app (incluye IP) | según su configuración |
 
 ## 6. Transferencias internacionales (Cap. V RGPD)
 
@@ -81,8 +81,8 @@ Algunos proveedores tratan datos **fuera de la UE (EE. UU.)**. En esos casos, la
 transferencia se ampara en una **decisión de adecuación** (marco *EU-US Data
 Privacy Framework*) cuando el proveedor está certificado, o en **Cláusulas
 Contractuales Tipo (Art. 46)** con evaluación de la transferencia. En concreto,
-la transcripción de voz se envía a un proveedor en EE. UU. *[Groq durante el
-desarrollo; OpenAI, certificado en el DPF, en producción — confirmar].*
+la transcripción de voz se envía a un proveedor en EE. UU.: actualmente **Groq**
+(fase de desarrollo) y **OpenAI** (certificado en el EU-US DPF) en producción.
 
 ## 7. Conservación
 
@@ -94,7 +94,7 @@ desarrollo; OpenAI, certificado en el DPF, en producción — confirmar].*
 - **Ubicación:** solo se guarda la **última posición** (se sobrescribe); no hay
   histórico.
 - **Audio de voz:** no se conserva.
-- **Registros técnicos (IP/auditoría):** *[plazo corto a definir]*.
+- **Registros técnicos (IP/auditoría):** 12 meses.
 
 ## 8. Con quién NO compartimos y acceso del personal de TaxiCount
 
@@ -107,7 +107,7 @@ cuentas/suscripción e incidencias, y queda **registrado (auditoría)**.
 ## 9. Tus derechos (Arts. 15-22 RGPD)
 
 Acceso, rectificación, supresión, oposición, limitación y portabilidad,
-escribiendo a *[email de contacto]*. Responderemos en el plazo de **1 mes**
+escribiendo a didakdp.5@gmail.com. Responderemos en el plazo de **1 mes**
 (Art. 12). Puedes reclamar ante la **Agencia Española de Protección de Datos
 (AEPD)** o la autoridad de control de tu país.
 

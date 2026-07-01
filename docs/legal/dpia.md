@@ -41,8 +41,20 @@
 enmascarado del admin, login server-side, escáneres en CI).*
 
 ## 6. Conclusión y riesgo residual
-*[A completar.]* Si el riesgo residual fuera alto y no mitigable → **consulta
-previa a la AEPD (Art. 36)** antes de iniciar el tratamiento.
+Tras aplicar las medidas de minimización y seguridad descritas (ubicación solo
+última posición y en primer plano, audio no almacenado, panel de administración
+enmascarado, decisiones siempre con intervención humana, cifrado y control de
+acceso), el **riesgo residual se considera BAJO/aceptable**.
+
+En su fase actual TaxiCount trata datos de un número reducido de empresas/
+autónomos y conductores (fase inicial de pruebas), por lo que **no se aprecia
+tratamiento "a gran escala"** en el sentido del RGPD; esto también apoya la no
+obligatoriedad de designar DPO (Art. 37). **No se aprecia necesidad de consulta
+previa a la AEPD (Art. 36).**
+
+> Actualizar estas cifras y esta conclusión a medida que crezca el número de
+> clientes/conductores, o si se añaden tratamientos nuevos (p. ej. seguimiento en
+> segundo plano o decisiones automatizadas), que podrían cambiar la valoración.
 
 ## 7. Revisión
 Revisar esta DPIA ante cualquier cambio relevante (nuevo proveedor, seguimiento
