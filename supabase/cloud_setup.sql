@@ -2079,14 +2079,13 @@ notify pgrst, 'reload schema';
 
 
 -- ============================================================
--- 045 - Loop #6 Iteración 1: vehicles.initial_odometer (km al alta) +
--- visibilidad de license_number restringida al owner (RPCs SECURITY DEFINER).
+-- 045 + 049 - Loop #6 It.1: vehicles.initial_odometer (km al alta) y nº de
+-- licencia en tabla aparte vehicle_licenses (solo owner). Nota: NO se usa GRANT
+-- por columna sobre vehicles (rompía PostgREST al expandir `*`); la licencia
+-- vive en su propia tabla con RLS.
 -- ============================================================
 alter table public.vehicles
   add column if not exists initial_odometer int not null default 0;
-
-alter table public.vehicles
-  add column if not exists license_number text;
 
 update public.vehicles v
    set initial_odometer = sub.km
@@ -2104,38 +2103,52 @@ update public.vehicles
    and registered_km is not null
    and registered_km > 0;
 
-revoke select, insert, update on public.vehicles from authenticated;
+-- Tabla separada para el nº de licencia (solo el owner del tenant la ve/gestiona).
+create table if not exists public.vehicle_licenses (
+  vehicle_id     uuid primary key references public.vehicles(id) on delete cascade on update cascade,
+  tenant_id      uuid not null references public.tenants(id) on delete cascade on update cascade,
+  license_number text,
+  updated_at     timestamptz not null default now()
+);
+create index if not exists idx_vehicle_licenses_tenant on public.vehicle_licenses(tenant_id);
 
-grant select (
-  id, tenant_id, license_plate, model, created_at,
-  itv_expiry, insurance_expiry, transport_card_date, transport_card_years,
-  revision_interval_km, last_revision_km, maintenance_notes,
-  taximeter_itv_expiry, registered_km, initial_odometer
-) on public.vehicles to authenticated;
+grant select, insert, update, delete on public.vehicle_licenses to authenticated, service_role;
+alter table public.vehicle_licenses enable row level security;
 
-grant insert (
-  tenant_id, license_plate, model,
-  itv_expiry, insurance_expiry, transport_card_date, transport_card_years,
-  revision_interval_km, last_revision_km, maintenance_notes,
-  taximeter_itv_expiry, registered_km, initial_odometer
-) on public.vehicles to authenticated;
+drop policy if exists vehicle_licenses_owner on public.vehicle_licenses;
+create policy vehicle_licenses_owner on public.vehicle_licenses
+  for all to authenticated
+  using (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner')
+  with check (tenant_id = public.current_tenant_id() and public.current_role_name() = 'owner');
 
-grant update (
-  license_plate, model,
-  itv_expiry, insurance_expiry, transport_card_date, transport_card_years,
-  revision_interval_km, last_revision_km, maintenance_notes,
-  taximeter_itv_expiry, registered_km, initial_odometer
-) on public.vehicles to authenticated;
+-- Migrar valores existentes si la columna aún estuviera en vehicles (entornos que
+-- pasaron por la 045 original), y luego eliminarla.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'vehicles' and column_name = 'license_number'
+  ) then
+    insert into public.vehicle_licenses(vehicle_id, tenant_id, license_number)
+    select v.id, v.tenant_id, v.license_number
+      from public.vehicles v
+     where v.license_number is not null
+    on conflict (vehicle_id) do nothing;
+  end if;
+end $$;
+
+grant select, insert, update on public.vehicles to authenticated;
+alter table public.vehicles drop column if exists license_number;
 
 create or replace function public.vehicle_license(p_vehicle uuid)
 returns text
 language sql stable security definer
 set search_path = public
 as $$
-  select v.license_number
-    from public.vehicles v
-   where v.id = p_vehicle
-     and v.tenant_id = public.current_tenant_id()
+  select vl.license_number
+    from public.vehicle_licenses vl
+   where vl.vehicle_id = p_vehicle
+     and vl.tenant_id = public.current_tenant_id()
      and public.current_role_name() = 'owner';
 $$;
 revoke all on function public.vehicle_license(uuid) from public, anon;
@@ -2146,17 +2159,19 @@ returns void
 language plpgsql security definer
 set search_path = public
 as $$
+declare v_tenant uuid;
 begin
   if public.current_role_name() is distinct from 'owner' then
     raise exception 'solo el propietario puede editar el nº de licencia';
   end if;
-  update public.vehicles
-     set license_number = nullif(btrim(p_license), '')
-   where id = p_vehicle
-     and tenant_id = public.current_tenant_id();
-  if not found then
+  select tenant_id into v_tenant from public.vehicles where id = p_vehicle;
+  if v_tenant is null or v_tenant is distinct from public.current_tenant_id() then
     raise exception 'vehículo no encontrado en tu empresa';
   end if;
+  insert into public.vehicle_licenses(vehicle_id, tenant_id, license_number)
+  values (p_vehicle, v_tenant, nullif(btrim(p_license), ''))
+  on conflict (vehicle_id) do update
+    set license_number = excluded.license_number, updated_at = now();
 end;
 $$;
 revoke all on function public.set_vehicle_license(uuid, text) from public, anon;
