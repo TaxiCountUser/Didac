@@ -45,7 +45,7 @@ const stripePriceSeatYearly = String.fromEnvironment(
 const kSeatTierLimit = 75; // 1–75 por asiento; 76–100 tarifa plana
 const kMaxDrivers = 100; // tope del modelo; a partir de aquí, plan a medida
 const kSeatMonthly = 2.5; // €/mes por conductor
-const kSeatYearly = 19.5; // €/año por conductor (~1,63 €/mes, mismo descuento anual)
+const kSeatYearly = 24.0; // €/año por conductor (2 €/mes efectivo)
 const kFlatMonthly = 150.0; // €/mes tarifa plana (76+)
 const kFlatYearly = 1170.0; // €/año tarifa plana (76+)
 

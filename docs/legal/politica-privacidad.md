@@ -73,7 +73,6 @@ trata los datos según sus propias condiciones de tratamiento (DPA):
 | Groq **o** OpenAI | transcripción de las notas de voz | **EE. UU.** (ver §6) |
 | Google Firebase (FCM) | notificaciones push (token de dispositivo) | EE. UU. |
 | Stripe | cobro de la suscripción | UE/EE. UU. |
-| Sentry | registro de errores de la app (incluye IP) | según su configuración |
 
 ## 6. Transferencias internacionales (Cap. V RGPD)
 
