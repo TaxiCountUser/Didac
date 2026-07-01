@@ -370,6 +370,7 @@ export async function buildApp(options = {}) {
     // IA (Groq/OpenAI) para voz e importación: necesaria para nombres de lugar
     // con preposiciones ("Rambla de Figueres") y para mapear Excels raros.
     llm: !!(OPENAI_API_KEY && LLM_PARSE_MODEL),
+    sentry: !!SENTRY_DSN, // captura de errores activa si hay SENTRY_DSN
     timestamp: new Date().toISOString(),
   }));
 
