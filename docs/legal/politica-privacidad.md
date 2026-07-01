@@ -68,7 +68,7 @@ trata los datos según sus propias condiciones de tratamiento (DPA):
 
 | Proveedor | Función | Ubicación / transferencia |
 |---|---|---|
-| Supabase | base de datos, autenticación y almacenamiento | UE (verificar región en la consola de Supabase) |
+| Supabase | base de datos, autenticación y almacenamiento | UE |
 | Render | alojamiento del servidor | UE (Frankfurt) |
 | Groq **o** OpenAI | transcripción de las notas de voz | **EE. UU.** (ver §6) |
 | Google Firebase (FCM) | notificaciones push (token de dispositivo) | EE. UU. |
@@ -88,9 +88,9 @@ la transcripción de voz se envía a un proveedor en EE. UU.: actualmente **Groq
 
 - **Datos de cuenta:** mientras la cuenta esté activa; se suprimen o anonimizan
   tras la baja, salvo obligación legal de conservación.
-- **Datos de actividad/carreras:** el **profesional del taxi** puede tener la
-  obligación fiscal/mercantil de conservarlos varios años; en tal caso se
-  conservan bloqueados durante ese plazo.
+- **Datos de actividad/carreras:** se conservan **5 años** (obligación
+  fiscal/mercantil del profesional del taxi). Tras una baja, estos registros se
+  mantienen bloqueados hasta cumplir ese plazo y luego se eliminan.
 - **Ubicación:** solo se guarda la **última posición** (se sobrescribe); no hay
   histórico.
 - **Audio de voz:** no se conserva.

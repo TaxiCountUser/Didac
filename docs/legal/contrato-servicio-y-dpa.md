@@ -38,10 +38,11 @@ fiscales y contables**; TaxiCount es solo una herramienta de registro. Se
 recomienda al cliente conservar copias de su información.
 
 **6. Baja.** El cliente puede darse de baja en cualquier momento desde la app o
-solicitándolo al contacto de privacidad. Al causar baja se cancela el acceso; los
-datos se suprimen o anonimizan en un plazo razonable, salvo los que deban
-conservarse por obligación legal. El cliente puede exportar su información antes
-de la baja.
+solicitándolo al contacto de privacidad. Al causar baja se cancela el acceso y se
+anonimizan/suprimen los datos personales, **salvo los registros de actividad/
+carreras, que se conservan bloqueados durante 5 años** por la obligación
+fiscal/mercantil aplicable; transcurrido ese plazo se eliminan. El cliente puede
+exportar su información antes de la baja.
 
 **7. Ley aplicable y fuero.** Este contrato se rige por la legislación española.
 Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de
