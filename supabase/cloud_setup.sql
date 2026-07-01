@@ -2042,3 +2042,37 @@ $$;
 grant execute on function public.accept_legal(int) to authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 044 - Conservación fiscal 5 años: al borrar conductor -> carreras
+-- anonimizadas (user_id null); baja de empresa -> cierre lógico; purga >5 años.
+-- ============================================================
+alter table public.transactions alter column user_id drop not null;
+alter table public.transactions drop constraint if exists transactions_user_id_fkey;
+alter table public.transactions
+  add constraint transactions_user_id_fkey
+  foreign key (user_id) references public.users(id) on delete set null on update cascade;
+
+alter table public.tenants add column if not exists closed_at timestamptz;
+
+create or replace function public.purge_expired_retention()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_count integer;
+begin
+  delete from public.tenants
+   where closed_at is not null
+     and closed_at < now() - interval '5 years';
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+revoke all on function public.purge_expired_retention() from public, anon, authenticated;
+grant execute on function public.purge_expired_retention() to service_role;
+
+notify pgrst, 'reload schema';

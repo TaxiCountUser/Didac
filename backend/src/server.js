@@ -1028,14 +1028,40 @@ export async function buildApp(options = {}) {
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const id = request.params.id;
 
+    // CIERRE LÓGICO con retención fiscal (5 años): NO borramos la empresa (eso
+    // borraría en cascada sus carreras). Marcamos closed_at, anonimizamos y
+    // eliminamos las cuentas de acceso; las carreras quedan (user_id -> null) y
+    // se purgan a los 5 años (purge_expired_retention).
     const { data: users } = await supabase.from('users').select('id').eq('tenant_id', id);
-    const { error } = await supabase.from('tenants').delete().eq('id', id);
+    const { error } = await supabase.from('tenants').update({
+      closed_at: new Date().toISOString(),
+      name: 'Empresa dada de baja',
+      subscription_status: 'canceled',
+      stripe_customer_id: null,
+      stripe_subscription_id: null,
+      join_code: null,
+    }).eq('id', id);
     if (error) return reply.code(400).send({ error: error.message });
-    // Borra las cuentas de auth (las filas de public.users ya cayeron por cascada).
+    // Elimina las cuentas de auth (sus filas de public.users caen por cascada;
+    // las carreras se conservan con user_id null gracias a ON DELETE SET NULL).
     for (const u of users || []) {
       try { await supabase.auth.admin.deleteUser(u.id); } catch (_) {}
     }
-    return reply.send({ ok: true, deleted_users: (users || []).length });
+    await logAdminAction(request, g.caller.id, 'company_close', 'tenant', id,
+      { removed_access: (users || []).length });
+    return reply.send({ ok: true, closed: true, removed_access: (users || []).length });
+  });
+
+  // Purga de retención: elimina definitivamente las empresas cerradas hace más
+  // de 5 años (cascada a sus carreras). Pensado para ejecutarse periódicamente
+  // (cron externo o manual). Devuelve cuántas se eliminaron.
+  app.post('/api/v1/admin/cron/purge-retention', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data, error } = await supabase.rpc('purge_expired_retention');
+    if (error) return reply.code(500).send({ error: error.message });
+    await logAdminAction(request, g.caller.id, 'purge_retention', 'tenant', null, { purged: data ?? 0 });
+    return reply.send({ ok: true, purged: data ?? 0 });
   });
 
   // Modificar un usuario de cualquier empresa (activar, rol, nombre, admin).
