@@ -180,6 +180,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // (package app.taxicount + SHA-1) y el Web Client ID (kGoogleWebClientId).
       if (!kIsWeb && kGoogleWebClientId.isNotEmpty) {
         final gsi = GoogleSignIn(serverClientId: kGoogleWebClientId);
+        // Cierra la sesión de Google en el dispositivo para que SIEMPRE aparezca
+        // el selector de cuentas (si no, entra directo con la última usada).
+        try { await gsi.signOut(); } catch (_) {}
         final account = await gsi.signIn();
         if (account == null) { // el usuario canceló el selector
           if (mounted) setState(() => _loading = false);
