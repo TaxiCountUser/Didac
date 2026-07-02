@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
@@ -412,11 +411,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _changeAccount() async {
-    await Supabase.instance.client.auth.signOut();
-    // Cierra Ajustes (y lo que haya encima) para que el AuthGate muestre el login.
-    if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -565,11 +559,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
           const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.switch_account),
-            title: Text(l.t('set_change_account')),
-            onTap: _changeAccount,
-          ),
           AboutListTile(
             icon: const Icon(Icons.info_outline),
             applicationName: 'TaxiCount',
