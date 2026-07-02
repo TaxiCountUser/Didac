@@ -2355,3 +2355,14 @@ create index if not exists idx_vehicles_active on public.vehicles(tenant_id, act
 revoke delete on public.vehicles from authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 051 - Loop #6 It.7: marca de canje del premio de reto (crédito Stripe).
+-- ============================================================
+alter table public.challenge_claims
+  add column if not exists reward_redeemed_at timestamptz;
+create index if not exists idx_challenge_claims_pending_reward
+  on public.challenge_claims (status) where reward_redeemed_at is null;
+
+notify pgrst, 'reload schema';

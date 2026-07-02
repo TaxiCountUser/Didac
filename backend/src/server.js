@@ -155,6 +155,12 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_SUCCESS_URL = process.env.STRIPE_SUCCESS_URL || 'taxicount://subscription-success';
 const STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL || 'taxicount://subscription-cancel';
+// Loop #6: cupón PERMANENTE de lanzamiento (p. ej. TAXI2026, 38%) que se aplica
+// automáticamente en el checkout. Si está vacío, se permiten códigos manuales.
+const STRIPE_LAUNCH_COUPON = process.env.STRIPE_LAUNCH_COUPON || '';
+// Crédito (en céntimos) que se abona al jefe por cada reto completado por un
+// conductor: "1 mes-asiento gratis". Por defecto 250 = 2,50 €.
+const STRIPE_SEAT_CREDIT_CENTS = Number(process.env.STRIPE_SEAT_CREDIT_CENTS || 250);
 
 const DAILY_LIMIT = Number(process.env.TRANSCRIBE_DAILY_LIMIT || 150);
 const WHISPER_TIMEOUT_MS = Number(process.env.WHISPER_TIMEOUT_MS || 15000);
@@ -1158,6 +1164,52 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, purged: data ?? 0 });
   });
 
+  // Loop #6: abona al jefe "1 mes-asiento gratis" por cada reto completado
+  // ('rewarded') aún no canjeado, como CRÉDITO en el saldo del cliente de Stripe
+  // (Stripe lo descuenta solo de la próxima factura). Idempotente por
+  // reward_redeemed_at. Pensado para ejecutarse por cron/manual (no en el camino
+  // de lectura, para no meter llamadas a Stripe al abrir la pantalla de retos).
+  async function applyPendingChallengeCredits() {
+    if (!stripe) return { credited: 0, skipped: 0, no_stripe: true };
+    const { data: claims } = await supabase
+      .from('challenge_claims')
+      .select('id, tenant_id')
+      .eq('status', 'rewarded')
+      .is('reward_redeemed_at', null)
+      .limit(1000);
+    let credited = 0;
+    let skipped = 0;
+    for (const c of claims ?? []) {
+      const { data: t } = await supabase.from('tenants')
+        .select('stripe_customer_id').eq('id', c.tenant_id).maybeSingle();
+      const customer = t?.stripe_customer_id;
+      if (!customer) { skipped++; continue; } // aún sin cliente Stripe (en prueba)
+      try {
+        await stripe.customers.createBalanceTransaction(customer, {
+          amount: -Math.abs(STRIPE_SEAT_CREDIT_CENTS), // negativo = crédito a favor
+          currency: 'eur',
+          description: `TaxiCount: reto completado (${c.id})`,
+        });
+        await supabase.from('challenge_claims')
+          .update({ reward_redeemed_at: new Date().toISOString() }).eq('id', c.id);
+        credited++;
+      } catch (e) {
+        app.log.warn(`[challenge-credit] claim ${c.id}: ${e.message}`);
+        skipped++;
+      }
+    }
+    return { credited, skipped };
+  }
+
+  app.post('/api/v1/admin/cron/apply-challenge-credits', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
+    const res = await applyPendingChallengeCredits();
+    await logAdminAction(request, g.caller.id, 'challenge_credits_apply', 'challenge_claims', null, res);
+    return reply.send({ ok: true, ...res });
+  });
+
   // Modificar un usuario de cualquier empresa (activar, rol, nombre, admin).
   app.patch('/api/v1/admin/user/:id', async (request, reply) => {
     const g = await adminGuard(request);
@@ -1343,6 +1395,12 @@ export async function buildApp(options = {}) {
         success_url: STRIPE_SUCCESS_URL,
         cancel_url: STRIPE_CANCEL_URL,
         ...(tenant?.stripe_customer_id ? { customer: tenant.stripe_customer_id } : {}),
+        // Oferta de lanzamiento: cupón permanente auto-aplicado. Si no hay cupón
+        // configurado, se permiten códigos promocionales manuales (campañas).
+        // (discounts y allow_promotion_codes son excluyentes en Stripe.)
+        ...(STRIPE_LAUNCH_COUPON
+          ? { discounts: [{ coupon: STRIPE_LAUNCH_COUPON }] }
+          : { allow_promotion_codes: true }),
         metadata,
         subscription_data: { metadata },
         client_reference_id: caller.tenant_id,

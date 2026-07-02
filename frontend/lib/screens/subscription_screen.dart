@@ -285,9 +285,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 {'price': _eur(flat), 'period': period, 'n': '$kSeatTierLimit'})),
             _row(Icons.info_outline, l.t('sub_seat_max', {'max': '$kMaxDrivers'})),
             const Divider(height: 20),
+            Row(children: [
+              const Icon(Icons.local_offer, size: 16, color: Colors.green),
+              const SizedBox(width: 6),
+              Expanded(child: Text(l.t('sub_launch_offer', {'pct': '$kLaunchDiscountPct'}),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 13))),
+            ]),
+            const SizedBox(height: 6),
             Text(l.t('sub_seat_estimate', {
-              'n': '$_activeDrivers', 'cost': _eur(est), 'period': period,
+              'n': '$_activeDrivers',
+              'cost': _eur(launchOfferCost(_activeDrivers, _yearly)),
+              'period': period,
             }), style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text('${l.t('sub_before_offer')} ${_eur(est)}',
+                style: const TextStyle(
+                    fontSize: 12, color: Colors.grey, decoration: TextDecoration.lineThrough)),
             const SizedBox(height: 4),
             Text(l.t('sub_seat_note'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 12),

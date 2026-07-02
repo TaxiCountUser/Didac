@@ -52,9 +52,18 @@ const kFlatYearly = 1170.0; // €/año tarifa plana (76+)
 /// Price ID del asiento según el periodo elegido.
 String seatPriceFor(bool yearly) => yearly ? stripePriceSeatYearly : stripePriceSeatMonthly;
 
-/// Coste estimado para un nº de conductores y periodo (para mostrar en la UI).
+/// Coste estimado (precio BASE, sin oferta) para un nº de conductores y periodo.
 double estimatedCost(int drivers, bool yearly) {
   final n = drivers < 1 ? 1 : drivers;
   if (n > kSeatTierLimit) return yearly ? kFlatYearly : kFlatMonthly;
   return n * (yearly ? kSeatYearly : kSeatMonthly);
 }
+
+// Oferta de lanzamiento: cupón PERMANENTE en Stripe (p. ej. TAXI2026) que aplica
+// este % de descuento. Aquí SOLO para mostrar el precio con oferta; el descuento
+// real lo aplica Stripe con el cupón. 24 €/año -38% ≈ 14,88 €/año.
+const kLaunchDiscountPct = 38;
+
+/// Precio con la oferta de lanzamiento aplicada (para mostrar en la UI).
+double launchOfferCost(int drivers, bool yearly) =>
+    estimatedCost(drivers, yearly) * (100 - kLaunchDiscountPct) / 100;
