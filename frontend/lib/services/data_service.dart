@@ -997,11 +997,31 @@ class DataService {
     if (client != null && client.isNotEmpty) {
       query = query.ilike('client_name', '%$client%');
     }
-    // Buscador libre: empresa (client_name), origen, destino o descripción.
+    // Buscador libre: empresa (client_name), origen, destino o descripción; y
+    // TAMBIÉN por importe si el término es un número. "20" -> todo lo de 20,xx €
+    // (rango [20, 21)); "20,5"/"20.5" -> [20.5, 20.6); "20.50" -> ~exacto.
     if (search != null && search.trim().isNotEmpty) {
-      final s = search.trim().replaceAll(',', ' ').replaceAll('%', '');
-      query = query.or(
-          'client_name.ilike.%$s%,description.ilike.%$s%,origin.ilike.%$s%,destination.ilike.%$s%');
+      final raw = search.trim();
+      final s = raw.replaceAll(',', ' ').replaceAll('%', '');
+      final conds = <String>[
+        'client_name.ilike.%$s%',
+        'description.ilike.%$s%',
+        'origin.ilike.%$s%',
+        'destination.ilike.%$s%',
+      ];
+      final amtStr = raw.replaceAll(',', '.');
+      final amt = double.tryParse(amtStr);
+      if (amt != null && amt >= 0) {
+        final dot = amtStr.indexOf('.');
+        final decimals = dot < 0 ? 0 : (amtStr.length - dot - 1);
+        var step = 1.0;
+        for (var k = 0; k < decimals; k++) {
+          step /= 10;
+        }
+        final high = amt + step;
+        conds.add('and(amount.gte.$amt,amount.lt.$high)');
+      }
+      query = query.or(conds.join(','));
     }
     final data = await query
         .order('created_at', ascending: false)
