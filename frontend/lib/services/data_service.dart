@@ -596,6 +596,47 @@ class DataService {
     }
   }
 
+  // ---------------- Informes de error (Loop #6) ----------------
+
+  /// Envía un informe de error a soporte (admin) con copia al jefe. Es una vía
+  /// UNIDIRECCIONAL (no un chat): el jefe solo lo ve; el admin lo gestiona.
+  Future<void> submitErrorReport({required String description, String? deviceInfo}) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/error-reports'),
+      headers: _bearer,
+      body: jsonEncode({
+        'description': description,
+        if (deviceInfo != null && deviceInfo.isNotEmpty) 'device_info': deviceInfo,
+      }),
+    );
+    if (res.statusCode != 201) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo enviar el informe');
+    }
+  }
+
+  /// Admin: lista de informes de error (filtro opcional por estado).
+  Future<List<Map<String, dynamic>>> adminErrorReports({String? status}) async {
+    final qp = (status == null || status.isEmpty) ? '' : '?status=$status';
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/error-reports$qp'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['reports'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// Admin: cambia el estado de un informe (new/viewed/in_progress/resolved).
+  Future<void> adminSetErrorReportStatus(String id, String status) async {
+    final res = await http.patch(
+      Uri.parse('$backendUrl/api/v1/admin/error-reports/$id'),
+      headers: _bearer,
+      body: jsonEncode({'status': status}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo actualizar el informe');
+    }
+  }
+
   /// Lista de administradores actuales (solo admin).
   Future<List<Map<String, dynamic>>> adminListAdmins() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/admins'), headers: _bearer);

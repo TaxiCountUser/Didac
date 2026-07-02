@@ -21,7 +21,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStateMixin {
   final _service = DataService();
-  late final TabController _tabs = TabController(length: 5, vsync: this);
+  late final TabController _tabs = TabController(length: 6, vsync: this);
 
   @override
   void dispose() {
@@ -44,6 +44,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
             Tab(text: l.t('admin_challenges')),
             Tab(text: l.t('adm_ref_tab')),
             Tab(text: l.t('adm_sec_tab')),
+            Tab(text: l.t('adm_err_tab')),
           ],
         ),
         actions: [
@@ -61,7 +62,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab()],
+        children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab(), _ErrorReportsTab()],
       ),
     );
   }
@@ -832,6 +833,146 @@ class _ChallengesTabState extends State<_ChallengesTab> {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     }
+  }
+}
+
+// ── Informes de error (Loop #6) ─────────────────────────────────────────────
+// Solo el admin de plataforma ve esta pestaña. El jefe recibe copia por push
+// pero no tiene acceso aquí (RLS + esta pantalla es del panel admin).
+class _ErrorReportsTab extends StatefulWidget {
+  const _ErrorReportsTab();
+  @override
+  State<_ErrorReportsTab> createState() => _ErrorReportsTabState();
+}
+
+class _ErrorReportsTabState extends State<_ErrorReportsTab> {
+  final _service = DataService();
+  String _status = ''; // '' = todos
+  late Future<List<Map<String, dynamic>>> _future = _load();
+
+  Future<List<Map<String, dynamic>>> _load() =>
+      _service.adminErrorReports(status: _status.isEmpty ? null : _status);
+
+  void _reload() => setState(() => _future = _load());
+
+  Future<void> _setStatus(String id, String status) async {
+    try {
+      await _service.adminSetErrorReportStatus(id, status);
+      _reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  String _statusLabel(AppLocalizations l, String s) => switch (s) {
+        'new' => l.t('adm_err_new'),
+        'viewed' => l.t('adm_err_viewed'),
+        'in_progress' => l.t('adm_err_in_progress'),
+        'resolved' => l.t('adm_err_resolved'),
+        _ => s,
+      };
+
+  Color _statusColor(String s) => switch (s) {
+        'resolved' => Colors.green,
+        'in_progress' => Colors.blue,
+        'viewed' => Colors.blueGrey,
+        _ => Colors.deepOrange, // new
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: SizedBox(
+            width: 220,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                  isDense: true, labelText: l.t('adm_ref_status'), border: const OutlineInputBorder()),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _status,
+                  isExpanded: true,
+                  items: [
+                    DropdownMenuItem(value: '', child: Text(l.t('adm_ref_all'))),
+                    DropdownMenuItem(value: 'new', child: Text(l.t('adm_err_new'))),
+                    DropdownMenuItem(value: 'viewed', child: Text(l.t('adm_err_viewed'))),
+                    DropdownMenuItem(value: 'in_progress', child: Text(l.t('adm_err_in_progress'))),
+                    DropdownMenuItem(value: 'resolved', child: Text(l.t('adm_err_resolved'))),
+                  ],
+                  onChanged: (v) { _status = v ?? ''; _reload(); },
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snap.hasError) {
+                return _ErrorRetry(error: '${snap.error}', onRetry: _reload);
+              }
+              final list = snap.data ?? [];
+              if (list.isEmpty) {
+                return Center(child: Text(l.t('adm_err_empty')));
+              }
+              return RefreshIndicator(
+                onRefresh: () async => _reload(),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: list.length,
+                  itemBuilder: (context, i) => _reportTile(l, list[i]),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _reportTile(AppLocalizations l, Map<String, dynamic> r) {
+    final desc = (r['description'] as String?) ?? '';
+    final status = (r['status'] as String?) ?? 'new';
+    final company = ((r['tenants'] as Map?)?['name'] as String?) ?? '—';
+    final author = ((r['users'] as Map?)?['name'] as String?)
+        ?? ((r['users'] as Map?)?['email'] as String?) ?? '—';
+    final device = (r['device_info'] as String?) ?? '';
+    final created = DateTime.tryParse((r['created_at'] as String?) ?? '');
+    final df = DateFormat('dd/MM/yyyy HH:mm');
+    return Card(
+      child: ListTile(
+        leading: Icon(Icons.bug_report, color: _statusColor(status)),
+        title: Text(desc, maxLines: 4, overflow: TextOverflow.ellipsis),
+        subtitle: Text([
+          '$company · $author',
+          if (device.isNotEmpty) device,
+          if (created != null) df.format(created),
+        ].join('\n')),
+        isThreeLine: true,
+        trailing: PopupMenuButton<String>(
+          tooltip: l.t('adm_err_change_status'),
+          onSelected: (s) => _setStatus(r['id'] as String, s),
+          child: Chip(
+            label: Text(_statusLabel(l, status), style: const TextStyle(fontSize: 11)),
+            backgroundColor: _statusColor(status).withValues(alpha: 0.15),
+            visualDensity: VisualDensity.compact,
+          ),
+          itemBuilder: (ctx) => [
+            for (final s in ['new', 'viewed', 'in_progress', 'resolved'])
+              PopupMenuItem(value: s, child: Text(_statusLabel(l, s))),
+          ],
+        ),
+      ),
+    );
   }
 }
 

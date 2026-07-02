@@ -406,6 +406,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _open(Widget screen) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
+  /// Formulario para informar de un error de la app (va al equipo de TaxiCount
+  /// con copia al jefe). Unidireccional: no espera respuesta en un chat.
+  Future<void> _reportErrorDialog() async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.t('err_report_title')),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 5,
+          maxLength: 4000,
+          decoration: InputDecoration(
+            hintText: ctx.l10n.t('err_report_hint'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('err_report_send'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final text = ctrl.text.trim();
+    if (text.length < 3) return;
+    final device = 'app · ${widget.profile.isOwner ? 'owner' : 'driver'} · ${Theme.of(context).platform.name}';
+    try {
+      await _service.submitErrorReport(description: text, deviceInfo: device);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.t('err_report_sent'))));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   Future<void> _changeAccount() async {
     await Supabase.instance.client.auth.signOut();
     // Cierra Ajustes (y lo que haya encima) para que el AuthGate muestre el login.
@@ -470,6 +509,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(_newReply ? l.t('tk_new_reply') : l.t('set_report_bug_sub')),
             trailing: const Icon(Icons.chevron_right),
             onTap: _openTickets,
+          ),
+          // Informe de error (Loop #6): unidireccional al equipo de TaxiCount
+          // (admin) con copia al jefe. No es un chat ni va a "Mensajes al jefe".
+          ListTile(
+            leading: const Icon(Icons.bug_report_outlined, color: Colors.deepOrange),
+            title: Text(l.t('set_report_error')),
+            subtitle: Text(l.t('set_report_error_sub')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _reportErrorDialog,
           ),
           // Panel de administrador de plataforma (solo admins).
           if (widget.profile.isAdmin)
