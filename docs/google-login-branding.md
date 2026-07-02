@@ -26,18 +26,37 @@ código de la app.
   Supabase → Authentication → URL Configuration / Custom domain (función de plan
   de pago). El callback pasa a ser tu dominio y desaparece `supabase.co`.
 
-## Opción C: login nativo de Google (cambio de código)
+## Opción C: login nativo de Google (YA IMPLEMENTADO en código) ✅ recomendada
 
-Sustituir `signInWithOAuth` por el paquete `google_sign_in` + `signInWithIdToken`.
-El consentimiento nativo muestra "TaxiCount" directamente, sin abrir navegador ni
-mostrar URL. Requiere, en Google Cloud, un **OAuth Client ID de Android** (con el
-SHA-1 del keystore: `DF:87:2D:D0:CB:76:29:30:95:A3:DD:BA:61:67:09:62:0F:2D:78:EE`)
-y un **Web Client ID**, y pasar el `serverClientId` a la app. Es la solución más
-"limpia" en móvil, pero implica configuración de credenciales; hacerla solo si la
-Opción A no basta.
+El código ya usa `google_sign_in` + `signInWithIdToken` en **Android** cuando está
+configurado el Client ID: el selector nativo muestra **"para continuar en
+TaxiCount"**, sin navegador ni URL de Supabase. Si no se configura, se mantiene el
+login por navegador (sin romper nada). En **web** sigue el flujo de navegador
+(ahí solo lo quita la Opción B).
+
+### Lo que tienes que hacer para activarlo
+
+1. **Google Cloud → APIs y servicios → Credenciales → Crear credenciales →
+   ID de cliente de OAuth → Android:**
+   - **Nombre del paquete:** `app.taxicount`
+   - **Huella SHA-1:** `DF:87:2D:D0:CB:76:29:30:95:A3:DD:BA:61:67:09:62:0F:2D:78:EE`
+     *(es la del keystore de subida; para sideload vale. Si algún día publicas en
+     Play con "App Signing de Google", añade también el SHA-1 que te da Play.)*
+2. **Web Client ID:** ya tienes uno (es el que Supabase usa en su proveedor de
+   Google). Cópialo: Google Cloud → Credenciales → el cliente **Web** →
+   *ID de cliente* (`...apps.googleusercontent.com`). *(No hace falta crear otro;
+   es el mismo que ya está en Supabase → Authentication → Providers → Google.)*
+3. **GitHub → repo → Settings → Secrets and variables → Actions → New secret:**
+   - Nombre: `PROD_GOOGLE_WEB_CLIENT_ID`
+   - Valor: el Web Client ID del paso 2.
+4. **Relanzar el build** (build-apk). El nuevo APK ya usará el login nativo.
+
+> Sin el secret, el APK funciona igual que hasta ahora (login por navegador). El
+> cambio de código es seguro y no rompe nada mientras no lo configures.
 
 ## Estado del código
 
-El flujo actual (`login_screen.dart::_googleSignIn`, `signInWithOAuth`) es
-correcto y no necesita cambios para la Opción A/B. La Opción C sí requeriría
-tocar el login. Pendiente: es una tarea de **Google Cloud Console** del titular.
+- Opción A/B: solo configuración (sin cambios de código).
+- **Opción C: implementada** en `login_screen.dart::_googleSignIn` (activada por
+  `--dart-define=GOOGLE_WEB_CLIENT_ID`, inyectado desde el secret
+  `PROD_GOOGLE_WEB_CLIENT_ID` en `build-apk.yml`).

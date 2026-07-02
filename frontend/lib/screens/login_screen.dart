@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import '../widgets/lang_flag.dart';
@@ -172,14 +174,38 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _googleSignIn() async {
     setState(() { _loading = true; _error = null; });
     try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        // En web volvemos a la CARPETA donde corre la app, no solo al dominio:
-        // en GitHub Pages la app vive en /Didac/, así que el origen pelado daría
-        // una página inexistente. En móvil volvemos por el deep link.
-        redirectTo: kIsWeb ? _webRedirect() : 'app.taxicount://login-callback',
-      );
-      // En móvil abre el navegador; el AuthGate reaccionará al volver.
+      // Android con Client ID configurado: login NATIVO (google_sign_in). El
+      // selector de cuenta muestra "TaxiCount", sin la URL de Supabase, y no
+      // abre el navegador. Requiere en Google Cloud un OAuth Client de Android
+      // (package app.taxicount + SHA-1) y el Web Client ID (kGoogleWebClientId).
+      if (!kIsWeb && kGoogleWebClientId.isNotEmpty) {
+        final gsi = GoogleSignIn(serverClientId: kGoogleWebClientId);
+        final account = await gsi.signIn();
+        if (account == null) { // el usuario canceló el selector
+          if (mounted) setState(() => _loading = false);
+          return;
+        }
+        final gauth = await account.authentication;
+        final idToken = gauth.idToken;
+        if (idToken == null) {
+          throw const AuthException('No se pudo obtener el token de Google');
+        }
+        await Supabase.instance.client.auth.signInWithIdToken(
+          provider: OAuthProvider.google,
+          idToken: idToken,
+          accessToken: gauth.accessToken,
+        );
+        // El AuthGate reacciona al cambio de sesión.
+      } else {
+        await Supabase.instance.client.auth.signInWithOAuth(
+          OAuthProvider.google,
+          // En web volvemos a la CARPETA donde corre la app, no solo al dominio:
+          // en GitHub Pages la app vive en /Didac/, así que el origen pelado daría
+          // una página inexistente. En móvil volvemos por el deep link.
+          redirectTo: kIsWeb ? _webRedirect() : 'app.taxicount://login-callback',
+        );
+        // En móvil abre el navegador; el AuthGate reaccionará al volver.
+      }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {

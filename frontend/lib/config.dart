@@ -21,6 +21,12 @@ const backendUrl = String.fromEnvironment(
   defaultValue: 'http://localhost:3000',
 );
 
+// Client ID WEB de Google (OAuth). Si se define, en Android se usa el login
+// NATIVO (google_sign_in), que muestra "TaxiCount" sin la URL de Supabase. Si
+// se deja vacío, se mantiene el login por navegador (signInWithOAuth). Es el
+// mismo Client ID que Supabase tiene configurado en su proveedor de Google.
+const kGoogleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID', defaultValue: '');
+
 // Manifiesto de versión para el aviso de actualización (sideload). Apunta al
 // version.json publicado en la última GitHub Release.
 const updateManifestUrl = String.fromEnvironment(

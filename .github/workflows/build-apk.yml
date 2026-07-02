@@ -82,6 +82,7 @@ jobs:
           BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
           STRIPE_PRICE_SEAT_MONTHLY: ${{ secrets.PROD_STRIPE_PRICE_SEAT_MONTHLY }}
           STRIPE_PRICE_SEAT_YEARLY: ${{ secrets.PROD_STRIPE_PRICE_SEAT_YEARLY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.PROD_GOOGLE_WEB_CLIENT_ID }}
         run: |
           D=""
           add(){ [ -n "$2" ] && D="$D --dart-define=$1=$2"; return 0; }
@@ -90,6 +91,7 @@ jobs:
           add BACKEND_URL "$BACKEND_URL"
           add STRIPE_PRICE_SEAT_MONTHLY "$STRIPE_PRICE_SEAT_MONTHLY"
           add STRIPE_PRICE_SEAT_YEARLY "$STRIPE_PRICE_SEAT_YEARLY"
+          add GOOGLE_WEB_CLIENT_ID "$GOOGLE_WEB_CLIENT_ID"
           echo "args=$D" >> "$GITHUB_OUTPUT"
           if [ -z "$D" ]; then
             echo "::warning::Sin secrets PROD_*: el APK apuntará a localhost (solo sirve para validar la compilación)."
