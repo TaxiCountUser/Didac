@@ -42,6 +42,7 @@ class TransactionTile extends StatelessWidget {
       whenStr,
       if (showDriver) driverName(tx),
     ];
+    final pm = (tx['payment_method'] as String?)?.trim();
 
     return ListTile(
       leading: CircleAvatar(
@@ -50,11 +51,51 @@ class TransactionTile extends StatelessWidget {
       ),
       title: Text(title),
       subtitle: Text(subtitleParts.join(' · ')),
-      trailing: Text(
-        private ? '••••' : '$sign${money(amount)}',
-        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+      // Bajo el importe, el método de pago (efectivo/tarjeta/…): más fácil de
+      // leer de un vistazo.
+      trailing: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            private ? '••••' : '$sign${money(amount)}',
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          if (!private && pm != null && pm.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_payMethodIcon(pm), size: 12, color: Colors.grey),
+                const SizedBox(width: 3),
+                Text(_payMethodLabel(l, pm),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ],
+        ],
       ),
       onTap: onTap,
     );
   }
 }
+
+/// Etiqueta localizada del método de pago (efectivo/tarjeta/bizum/…).
+String _payMethodLabel(AppLocalizations l, String pm) => switch (pm) {
+      'efectivo' => l.t('ti_cash'),
+      'tarjeta' => l.t('ti_card'),
+      'bizum' => l.t('ti_bizum'),
+      'credito' => l.t('ti_credit'),
+      'transferencia' => l.t('ti_transfer'),
+      _ => l.t('cat_otros'),
+    };
+
+IconData _payMethodIcon(String pm) => switch (pm) {
+      'efectivo' => Icons.payments,
+      'tarjeta' => Icons.credit_card,
+      'bizum' => Icons.smartphone,
+      'credito' => Icons.schedule,
+      'transferencia' => Icons.account_balance,
+      _ => Icons.more_horiz,
+    };
