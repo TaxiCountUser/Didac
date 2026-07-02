@@ -1132,7 +1132,7 @@ export async function buildApp(options = {}) {
     // borraría en cascada sus carreras). Marcamos closed_at, anonimizamos y
     // eliminamos las cuentas de acceso; las carreras quedan (user_id -> null) y
     // se purgan a los 5 años (purge_expired_retention).
-    const { data: users } = await supabase.from('users').select('id').eq('tenant_id', id);
+    const { data: users } = await supabase.from('users').select('id, is_admin').eq('tenant_id', id);
     const { error } = await supabase.from('tenants').update({
       closed_at: new Date().toISOString(),
       name: 'Empresa dada de baja',
@@ -1142,14 +1142,22 @@ export async function buildApp(options = {}) {
       join_code: null,
     }).eq('id', id);
     if (error) return reply.code(400).send({ error: error.message });
-    // Elimina las cuentas de auth (sus filas de public.users caen por cascada;
-    // las carreras se conservan con user_id null gracias a ON DELETE SET NULL).
+    // Elimina las cuentas de acceso de la empresa. IMPORTANTE: un admin de
+    // plataforma NUNCA pierde su cuenta (aunque fuera propietario de esta
+    // empresa): solo se le desvincula (tenant_id = null). Los demás pierden el
+    // acceso; sus carreras se conservan (user_id -> null por ON DELETE SET NULL).
+    let removed = 0;
     for (const u of users || []) {
+      if (u.is_admin) {
+        await supabase.from('users').update({ tenant_id: null }).eq('id', u.id);
+        continue;
+      }
       try { await supabase.auth.admin.deleteUser(u.id); } catch (_) {}
+      removed += 1;
     }
     await logAdminAction(request, g.caller.id, 'company_close', 'tenant', id,
-      { removed_access: (users || []).length });
-    return reply.send({ ok: true, closed: true, removed_access: (users || []).length });
+      { removed_access: removed });
+    return reply.send({ ok: true, closed: true, removed_access: removed });
   });
 
   // Purga de retención: elimina definitivamente las empresas cerradas hace más
