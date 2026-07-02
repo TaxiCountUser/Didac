@@ -2366,3 +2366,17 @@ create index if not exists idx_challenge_claims_pending_reward
   on public.challenge_claims (status) where reward_redeemed_at is null;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 052 - Loop #6: parámetros de retos a system_config + challenge_claims.suspicious
+-- ============================================================
+insert into public.system_config(key, value) values
+  ('challenge_km_target',         '100000'),
+  ('challenge_max_jump',          '2000'),
+  ('challenge_max_income',        '1500'),
+  ('challenge_seat_credit_cents', '250')
+on conflict (key) do nothing;
+alter table public.challenge_claims add column if not exists suspicious boolean not null default false;
+
+notify pgrst, 'reload schema';

@@ -162,10 +162,6 @@ class _ReferralsTabState extends State<ReferralsTab> {
           onPressed: _exportCsv, icon: const Icon(Icons.download, size: 18),
           label: Text(l.t('adm_ref_export_csv')),
         ),
-        OutlinedButton.icon(
-          onPressed: _openConfig, icon: const Icon(Icons.tune, size: 18),
-          label: Text(l.t('adm_ref_config')),
-        ),
       ],
     );
   }
@@ -416,65 +412,4 @@ class _ReferralsTabState extends State<ReferralsTab> {
     }
   }
 
-  // ── Configuración de hitos ────────────────────────────────────────────────
-  Future<void> _openConfig() async {
-    final l = context.l10n;
-    Map<String, dynamic>? data;
-    try {
-      data = await _service.adminReferralConfig();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
-      return;
-    }
-    if (!mounted) return;
-    final config = Map<String, dynamic>.from((data['config'] as Map?) ?? {});
-    final entries = config.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    final ctrls = { for (final e in entries) e.key: TextEditingController(text: '${e.value}') };
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.t('adm_ref_config')),
-        content: SizedBox(
-          width: 460,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final e in entries)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: TextField(
-                      controller: ctrls[e.key],
-                      decoration: InputDecoration(isDense: true, labelText: e.key, border: const OutlineInputBorder()),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('cancel'))),
-          FilledButton(
-            onPressed: () async {
-              final changes = { for (final e in ctrls.entries) e.key: e.value.text.trim() };
-              Navigator.pop(ctx);
-              try {
-                await _service.adminReferralConfigUpdate(changes);
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_ref_saved'))));
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
-              }
-            },
-            child: Text(l.t('adm_ref_config_save')),
-          ),
-        ],
-      ),
-    );
-  }
 }

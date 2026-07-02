@@ -4,12 +4,11 @@ import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 
-/// Retos / metas — vista del EMPRESARIO. Arriba, el widget "Eficiencia de la
-/// flota" (recompensa TRIMESTRAL por % de conductores que logran un reto) y el
-/// histórico trimestral. Debajo, por cada conductor su progreso en 3 retos
-/// escalonados: km, balance y días de uso. El nivel 1 pide la base (100.000 km /
-/// 100.000 € / 300 días); a partir del 2, el doble, y se repite. Al alcanzar un
-/// reto se auto-registra y el conductor avanza de nivel (sin aprobación manual).
+/// Retos / metas — vista del EMPRESARIO (jefe). Por cada conductor, su progreso
+/// en los retos activos (km y días de uso). Al alcanzar un reto se auto-registra
+/// y el conductor avanza de nivel. La recompensa es 1 mes gratis del asiento de
+/// ese conductor por cada reto que completa. El control anti-fraude lo hace el
+/// administrador (aquí ya no se muestran avisos de sospecha).
 class ChallengesScreen extends StatefulWidget {
   const ChallengesScreen({super.key});
 
@@ -19,15 +18,11 @@ class ChallengesScreen extends StatefulWidget {
 
 class _ChallengesScreenState extends State<ChallengesScreen> {
   late Future<Map<String, dynamic>> _future;
-  late Future<Map<String, dynamic>> _fleetFuture;       // progreso trimestral en curso
-  late Future<List<Map<String, dynamic>>> _historyFuture; // histórico trimestral
 
   @override
   void initState() {
     super.initState();
     _future = DataService().companyChallenges();
-    _fleetFuture = DataService().fleetCurrentQuarter();
-    _historyFuture = DataService().fleetQuarterlyMetrics();
   }
 
   // Icono y unidad de cada reto.
@@ -68,195 +63,51 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
             ));
           }
           final drivers = (((snap.data ?? {})['drivers'] as List?) ?? []).cast<Map<String, dynamic>>();
-          if (drivers.isEmpty) {
-            return Center(child: Text(l.t('ch_no_drivers')));
-          }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _fleetEfficiencyCard(l),
-              const SizedBox(height: 12),
-              _historyCard(l),
-              const SizedBox(height: 20),
-              Text(l.t('ch_intro'), style: const TextStyle(color: Colors.grey)),
-              const SizedBox(height: 12),
-              for (final dr in drivers) _driverCard(l, dr),
-            ],
+          return RefreshIndicator(
+            onRefresh: () async => setState(() => _future = DataService().companyChallenges()),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _rewardBanner(l),
+                const SizedBox(height: 16),
+                if (drivers.isEmpty)
+                  Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('ch_no_drivers'))))
+                else ...[
+                  Text(l.t('ch_intro'), style: const TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 12),
+                  for (final dr in drivers) _driverCard(l, dr),
+                ],
+              ],
+            ),
           );
         },
       ),
     );
   }
 
-  // ── Widget "Eficiencia de la Flota" (progreso trimestral en curso) ──────────
-  Widget _fleetEfficiencyCard(AppLocalizations l) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _fleetFuture,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(children: [
-                const SizedBox(width: 18, height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
-                const SizedBox(width: 12),
-                Text(l.t('fleet_loading')),
-              ]),
-            ),
-          );
-        }
-        if (snap.hasError) return const SizedBox.shrink(); // no romper la pantalla
-        final d = snap.data ?? {};
-        final rate = (d['completion_rate'] as num?)?.toDouble() ?? 0;
-        final active = (d['active_drivers'] as num?)?.toInt() ?? 0;
-        final achievers = (d['drivers_with_achievement'] as num?)?.toInt() ?? 0;
-        final projected = (d['reward_days_projected'] as num?)?.toInt() ?? 0;
-        final year = (d['year'] as num?)?.toInt() ?? DateTime.now().year;
-        final quarter = (d['quarter'] as num?)?.toInt() ?? 1;
-        final pctStr = rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1);
-        final color = _rateColor(rate);
-        return Card(
-          color: color.withValues(alpha: 0.06),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+  // Explica la recompensa: 1 mes gratis del asiento de ese conductor por reto.
+  Widget _rewardBanner(AppLocalizations l) {
+    return Card(
+      color: Colors.green.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          Icon(Icons.card_giftcard, color: Colors.green.shade700),
+          const SizedBox(width: 12),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Icon(Icons.speed, color: color),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(l.t('fleet_title'),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                  Text('Q$quarter $year',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ]),
-                const SizedBox(height: 12),
-                Text(l.t('fleet_at_pct', {'pct': pctStr}),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: (rate / 100).clamp(0, 1).toDouble(),
-                    minHeight: 14,
-                    backgroundColor: Colors.grey.shade200,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(l.t('fleet_drivers', {'achievers': '$achievers', 'active': '$active'}),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(children: [
-                    Icon(projected > 0 ? Icons.card_giftcard : Icons.trending_up,
-                        size: 18, color: color),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_fleetMsg(l, rate, projected),
-                        style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600))),
-                  ]),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ── Tabla de histórico trimestral ───────────────────────────────────────────
-  Widget _historyCard(AppLocalizations l) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _historyFuture,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) return const SizedBox.shrink();
-        if (snap.hasError) return const SizedBox.shrink();
-        final rows = snap.data ?? [];
-        if (rows.isEmpty) return const SizedBox.shrink(); // aún no hay trimestres procesados
-        final df = DateFormat('dd/MM/yyyy');
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l.t('fleet_history_title'),
+                Text(l.t('ch_reward_title'),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 10),
-                Table(
-                  columnWidths: const {
-                    0: FlexColumnWidth(2),
-                    1: FlexColumnWidth(1.4),
-                    2: FlexColumnWidth(1.6),
-                    3: FlexColumnWidth(2),
-                  },
-                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                  children: [
-                    TableRow(
-                      decoration: BoxDecoration(color: Colors.grey.shade100),
-                      children: [
-                        _th(l.t('fleet_col_quarter')),
-                        _th(l.t('fleet_col_rate')),
-                        _th(l.t('fleet_col_reward')),
-                        _th(l.t('fleet_col_date')),
-                      ],
-                    ),
-                    for (final r in rows) _historyRow(l, r, df),
-                  ],
-                ),
+                const SizedBox(height: 4),
+                Text(l.t('ch_reward_sub'), style: const TextStyle(fontSize: 13, color: Colors.black54)),
               ],
             ),
           ),
-        );
-      },
+        ]),
+      ),
     );
-  }
-
-  TableRow _historyRow(AppLocalizations l, Map<String, dynamic> r, DateFormat df) {
-    final year = (r['year'] as num?)?.toInt() ?? 0;
-    final quarter = (r['quarter'] as num?)?.toInt() ?? 0;
-    final rate = (r['completion_rate'] as num?)?.toDouble() ?? 0;
-    final days = (r['reward_days_awarded'] as num?)?.toInt() ?? 0;
-    final processed = DateTime.tryParse((r['processed_at'] as String?) ?? '');
-    final pctStr = rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1);
-    return TableRow(children: [
-      _td('Q$quarter $year'),
-      _td('$pctStr%'),
-      _td(days > 0 ? l.t('fleet_days', {'n': '$days'}) : '—'),
-      _td(processed != null ? df.format(processed) : '—'),
-    ]);
-  }
-
-  Widget _th(String t) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        child: Text(t, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-      );
-
-  Widget _td(String t) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        child: Text(t, style: const TextStyle(fontSize: 12)),
-      );
-
-  // Color según el tramo de la tasa (alineado con la tabla de recompensa).
-  Color _rateColor(double rate) {
-    if (rate >= 90) return Colors.green.shade700;
-    if (rate >= 75) return Colors.teal.shade600;
-    if (rate >= 50) return Colors.amber.shade800;
-    return Colors.blueGrey;
-  }
-
-  // Mensaje motivador del jefe según el tramo (igual que reward_days_awarded).
-  String _fleetMsg(AppLocalizations l, double rate, int projectedDays) {
-    if (rate >= 90) return l.t('fleet_msg_90', {'days': '$projectedDays'});
-    if (rate >= 75) return l.t('fleet_msg_75', {'days': '$projectedDays'});
-    if (rate >= 50) return l.t('fleet_msg_50', {'days': '$projectedDays'});
-    return l.t('fleet_msg_0');
   }
 
   Widget _driverCard(AppLocalizations l, Map<String, dynamic> dr) {
@@ -264,11 +115,6 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
     final email = (dr['email'] as String?) ?? '';
     final title = (name != null && name.isNotEmpty) ? name : email;
     final challenges = ((dr['challenges'] as List?) ?? []).cast<Map<String, dynamic>>();
-    // El empresario ve aviso si hay un posible error/manipulación de km o dinero.
-    final kmSuspicious = dr['km_suspicious'] == true;
-    final moneySuspicious = dr['money_suspicious'] == true;
-    final maxJump = (dr['max_jump'] as num?)?.toDouble() ?? 0;
-    final maxIncome = (dr['max_income'] as num?)?.toDouble() ?? 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -288,32 +134,11 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
               _challengeBar(l, c),
               const SizedBox(height: 14),
             ],
-            if (kmSuspicious)
-              _warnBox(l.t('ch_km_warn', {'jump': NumberFormat.decimalPattern('es').format(maxJump)})),
-            if (moneySuspicious) ...[
-              if (kmSuspicious) const SizedBox(height: 6),
-              _warnBox(l.t('ch_money_warn', {'amount': NumberFormat.decimalPattern('es').format(maxIncome)})),
-            ],
           ],
         ),
       ),
     );
   }
-
-  Widget _warnBox(String text) => Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.orange.shade50,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
-            const SizedBox(width: 6),
-            Expanded(child: Text(text, style: const TextStyle(fontSize: 12, color: Colors.deepOrange))),
-          ],
-        ),
-      );
 
   Widget _challengeBar(AppLocalizations l, Map<String, dynamic> c) {
     final nf = NumberFormat.decimalPattern('es');
@@ -339,7 +164,6 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
           ],
         ),
         const SizedBox(height: 6),
-        // Barra con icono al final (la meta).
         Row(
           children: [
             Expanded(
@@ -365,28 +189,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
         else
           Text(l.t('ch_remaining', {'x': nf.format(remaining), 'unit': unit}),
               style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        // Mensaje motivador del premio, distinto según el progreso (color suave).
-        Row(
-          children: [
-            Icon(done ? Icons.celebration : Icons.card_giftcard,
-                size: 14, color: done ? Colors.green : Colors.blueGrey.shade300),
-            const SizedBox(width: 4),
-            Expanded(child: Text(l.t(_motivKey(done, pct)),
-                style: TextStyle(
-                    fontSize: 12,
-                    color: done ? Colors.green : Colors.blueGrey))),
-          ],
-        ),
       ],
     );
-  }
-
-  // Mensaje motivador según el porcentaje de avance del reto.
-  String _motivKey(bool done, double pct) {
-    if (done) return 'ch_reward_done';
-    if (pct >= 0.75) return 'ch_motiv_75';
-    if (pct >= 0.50) return 'ch_motiv_50';
-    if (pct >= 0.25) return 'ch_motiv_25';
-    return 'ch_motiv_0';
   }
 }

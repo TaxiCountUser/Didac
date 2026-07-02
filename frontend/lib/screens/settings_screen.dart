@@ -12,6 +12,7 @@ import '../widgets/lang_flag.dart';
 import 'admin_screen.dart';
 import 'incidents_screen.dart';
 import 'challenges_screen.dart';
+import 'driver_challenges_screen.dart';
 import 'referral_screen.dart';
 import 'tickets_screen.dart';
 import 'locate_vehicle_screen.dart';
@@ -490,6 +491,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: Text(l.t('ch_settings_sub')),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const ChallengesScreen()),
+            ),
+          // El conductor ve SUS propios retos (progreso de km y días).
+          if (!isOwner)
+            ListTile(
+              leading: const Icon(Icons.emoji_events, color: Colors.amber),
+              title: Text(l.t('ch_mine_title')),
+              subtitle: Text(l.t('ch_mine_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(const DriverChallengesScreen()),
             ),
           // Solo empresarios/autónomos con suscripción activa de pago (R-REF-01).
           if (isOwner && _subActive)

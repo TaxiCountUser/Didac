@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import 'admin_company_screen.dart';
+import 'admin_config_tab.dart';
 import 'admin_incident_chat_screen.dart';
 import 'admin_referrals_tab.dart';
 import 'admin_security_tab.dart';
@@ -21,7 +22,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStateMixin {
   final _service = DataService();
-  late final TabController _tabs = TabController(length: 6, vsync: this);
+  late final TabController _tabs = TabController(length: 7, vsync: this);
 
   @override
   void dispose() {
@@ -45,6 +46,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
             Tab(text: l.t('adm_ref_tab')),
             Tab(text: l.t('adm_sec_tab')),
             Tab(text: l.t('adm_err_tab')),
+            Tab(text: l.t('adm_cfg_tab')),
           ],
         ),
         actions: [
@@ -62,7 +64,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab(), _ErrorReportsTab()],
+        children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab(), _ErrorReportsTab(), ConfigTab()],
       ),
     );
   }

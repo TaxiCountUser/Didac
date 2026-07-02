@@ -340,6 +340,22 @@ class DataService {
     return body;
   }
 
+  /// Retos del propio conductor (para verlos en su app). {challenges:[...]}.
+  Future<Map<String, dynamic>> myChallenges() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/challenges/mine'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Config global (system_config) para el panel de admin. {config:{clave:valor}}.
+  /// Reutiliza el mismo endpoint que referidos (devuelve TODA la config).
+  Future<Map<String, dynamic>> adminSystemConfig() => adminReferralConfig();
+
+  /// Guarda cambios de config (acepta claves referral_* y challenge_*).
+  Future<void> adminSystemConfigUpdate(Map<String, String> changes) =>
+      adminReferralConfigUpdate(changes);
+
   /// Retos logrados pendientes de revisar (solo admin, todas las empresas).
   Future<List<Map<String, dynamic>>> adminChallenges() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/challenges'), headers: _bearer);

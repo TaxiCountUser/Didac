@@ -1171,6 +1171,7 @@ export async function buildApp(options = {}) {
   // de lectura, para no meter llamadas a Stripe al abrir la pantalla de retos).
   async function applyPendingChallengeCredits() {
     if (!stripe) return { credited: 0, skipped: 0, no_stripe: true };
+    const { creditCents } = await challengeConfig();
     const { data: claims } = await supabase
       .from('challenge_claims')
       .select('id, tenant_id')
@@ -1186,7 +1187,7 @@ export async function buildApp(options = {}) {
       if (!customer) { skipped++; continue; } // aún sin cliente Stripe (en prueba)
       try {
         await stripe.customers.createBalanceTransaction(customer, {
-          amount: -Math.abs(STRIPE_SEAT_CREDIT_CENTS), // negativo = crédito a favor
+          amount: -Math.abs(creditCents), // negativo = crédito a favor
           currency: 'eur',
           description: `TaxiCount: reto completado (${c.id})`,
         });
@@ -1450,31 +1451,44 @@ export async function buildApp(options = {}) {
   // administración aprueba el actual. Premio NO automático (lo aprueba el admin).
   // Anti-fraude: días activos < 300 -> sospechoso; max_jump grande -> km inflado.
   // ============================================================
-  const CHALLENGE_MAX_JUMP = 2000;    // salto de km de golpe por encima -> sospechoso
-  const CHALLENGE_MAX_INCOME = 1500;  // una carrera por encima de 1500 € -> sospechoso
-
-  // Loop #6: las bases de los retos se leen de system_config:
-  //   - money_100k solo se incluye si challenge_100k_euros_enabled = 'true'
-  //     (por defecto retirado);
-  //   - el reto de días usa challenge_days_required (por defecto 365; ya no hay
-  //     "mínimo de 300 días": se logra al llegar al objetivo).
+  // Loop #6: TODOS los parámetros de retos se leen de system_config (editables
+  // desde el panel de admin sin desplegar). Valores por defecto entre paréntesis:
+  //   challenge_100k_euros_enabled (false) - money_100k solo si 'true'
+  //   challenge_days_required      (365)   - objetivo del reto de días
+  //   challenge_km_target          (100000)- objetivo de km del nivel 1
+  //   challenge_max_jump           (2000)  - salto de km sospechoso (anti-fraude)
+  //   challenge_max_income         (1500)  - carrera € sospechosa (anti-fraude)
+  //   challenge_seat_credit_cents  (250)   - crédito por reto (1 mes-asiento)
   // La clave interna 'days_300' se mantiene por compatibilidad de datos/UI.
   async function challengeConfig() {
     let euros = false;
     let days = 365;
+    let kmTarget = 100000;
+    let maxJump = 2000;
+    let maxIncome = 1500;
+    let creditCents = STRIPE_SEAT_CREDIT_CENTS;
     try {
       const { data } = await supabase.from('system_config')
         .select('key, value')
-        .in('key', ['challenge_100k_euros_enabled', 'challenge_days_required']);
+        .in('key', ['challenge_100k_euros_enabled', 'challenge_days_required',
+          'challenge_km_target', 'challenge_max_jump', 'challenge_max_income',
+          'challenge_seat_credit_cents']);
       for (const r of data ?? []) {
-        if (r.key === 'challenge_100k_euros_enabled') euros = r.value === 'true';
-        if (r.key === 'challenge_days_required') days = parseInt(r.value, 10) || 365;
+        switch (r.key) {
+          case 'challenge_100k_euros_enabled': euros = r.value === 'true'; break;
+          case 'challenge_days_required': days = parseInt(r.value, 10) || days; break;
+          case 'challenge_km_target': kmTarget = parseInt(r.value, 10) || kmTarget; break;
+          case 'challenge_max_jump': maxJump = parseInt(r.value, 10) || maxJump; break;
+          case 'challenge_max_income': maxIncome = parseInt(r.value, 10) || maxIncome; break;
+          case 'challenge_seat_credit_cents': creditCents = parseInt(r.value, 10) || creditCents; break;
+          default: break;
+        }
       }
     } catch { /* sin config -> valores por defecto */ }
-    const base = { km_100k: 100000 };
+    const base = { km_100k: kmTarget };
     if (euros) base.money_100k = 100000;
     base.days_300 = days;
-    return { base, eurosEnabled: euros, daysRequired: days };
+    return { base, eurosEnabled: euros, daysRequired: days, maxJump, maxIncome, creditCents };
   }
 
   // Objetivo (incremento) de un reto en un nivel dado. Ciclo de 4 niveles: el
@@ -1509,7 +1523,7 @@ export async function buildApp(options = {}) {
       return reply.code(403).send({ error: 'Solo el propietario ve los retos' });
     }
     try {
-      const { base } = await challengeConfig();
+      const { base, maxJump: maxJumpCfg, maxIncome: maxIncomeCfg } = await challengeConfig();
       const { data: stats, error } = await supabase.rpc('challenge_stats_tenant', { p_tenant: caller.tenant_id });
       if (error) throw new Error(error.message);
 
@@ -1541,15 +1555,18 @@ export async function buildApp(options = {}) {
           const metric = metrics[type];
           const progress = Math.max(0, metric - st.baseline);
           const reached = progress >= target;
-          // Loop #4: al alcanzar el tramo se registra el logro YA como 'rewarded'
-          // (auto-avance de nivel + cuenta en la métrica trimestral), pero SIN
-          // recompensa individual al JEFE (los días gratis los reparte el cron
-          // trimestral por % de flota). El admin aún puede rechazarlo por fraude.
+          // Loop #6: al alcanzar el tramo se registra el logro como 'rewarded'
+          // (auto-avance de nivel). La recompensa es 1 mes-asiento gratis al jefe
+          // por conductor, que se aplica como crédito en Stripe (cron). Si hay
+          // señales de fraude se marca `suspicious` para que lo revise el ADMIN
+          // (ya no se avisa al jefe); el admin puede rechazarlo.
           if (reached && !st.pending && !st.rejected) {
+            const suspicious = (type === 'km_100k' && maxJump > maxJumpCfg)
+              || (type === 'money_100k' && maxIncome > maxIncomeCfg);
             const { error: insErr } = await supabase.from('challenge_claims').insert({
               tenant_id: caller.tenant_id, user_id: r.user_id, challenge: type,
               level: st.level, baseline: st.baseline, target,
-              metric_value: metric, active_days: activeDays,
+              metric_value: metric, active_days: activeDays, suspicious,
               status: 'rewarded', reviewed_at: new Date().toISOString(),
             });
             if (insErr && !/duplicate|unique|23505/i.test(insErr.message || '')) {
@@ -1563,13 +1580,10 @@ export async function buildApp(options = {}) {
             reached, pending: st.pending, rejected: st.rejected,
           });
         }
+        // NOTA: el aviso anti-fraude (salto de km / carrera enorme) ya NO se
+        // envía al jefe; se marca en el claim y lo revisa el admin.
         drivers.push({
           user_id: r.user_id, name: r.name, email: r.email,
-          max_jump: maxJump, max_income: maxIncome,
-          // El empresario ve aviso si hay un posible km o dinero manipulado
-          // (salto grande). Lo de "< 300 días" es señal interna para el admin.
-          km_suspicious: maxJump > CHALLENGE_MAX_JUMP,
-          money_suspicious: maxIncome > CHALLENGE_MAX_INCOME,
           challenges,
         });
       }
@@ -1577,6 +1591,45 @@ export async function buildApp(options = {}) {
     } catch (e) {
       request.log.error(e);
       return reply.code(500).send({ error: 'No se pudieron calcular los retos' });
+    }
+  });
+
+  // Loop #6: retos del PROPIO conductor (para que los vea en su app). Devuelve su
+  // progreso por reto (km / días), con nivel y objetivo actuales.
+  app.get('/api/v1/challenges/mine', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    try {
+      const { base } = await challengeConfig();
+      const { data: stats } = await supabase.rpc('challenge_stats', { p_user: caller.id });
+      const row = Array.isArray(stats) ? (stats[0] ?? {}) : (stats ?? {});
+      const metrics = {
+        km_100k: Number(row.km ?? 0),
+        money_100k: Number(row.money ?? 0),
+        days_300: Number(row.active_days ?? 0),
+      };
+      const { data: claims } = await supabase.from('challenge_claims')
+        .select('challenge, level, metric_value, status').eq('user_id', caller.id);
+      const byChal = {};
+      for (const c of claims ?? []) (byChal[c.challenge] ??= []).push(c);
+      const challenges = [];
+      for (const type of Object.keys(base)) {
+        const st = levelState(byChal[type] ?? []);
+        const target = incrementFor(base, type, st.level);
+        const metric = metrics[type];
+        const progress = Math.max(0, metric - st.baseline);
+        challenges.push({
+          type, level: st.level, target, progress,
+          remaining: Math.max(0, target - progress),
+          pct: target > 0 ? Math.min(1, progress / target) : 0,
+          reached: progress >= target,
+        });
+      }
+      return reply.send({ challenges });
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(500).send({ error: 'No se pudieron calcular tus retos' });
     }
   });
 
@@ -1594,7 +1647,7 @@ export async function buildApp(options = {}) {
     const { data, error } = await supabase
       .from('challenge_claims')
       .select('id, user_id, tenant_id, challenge, level, target, baseline, metric_value, active_days, '
-        + 'status, created_at, reviewed_at, users:user_id(email, name), tenants:tenant_id(name)')
+        + 'suspicious, status, created_at, reviewed_at, users:user_id(email, name), tenants:tenant_id(name)')
       .order('created_at', { ascending: false });
     if (error) return reply.code(500).send({ error: error.message });
 
@@ -1611,9 +1664,9 @@ export async function buildApp(options = {}) {
       ...r,
       status_label: challengeStatusLabel(r.status),
       last_completed: lastCompletedByUser[r.user_id] ?? null,
-      // Loop #6: se retira el "mínimo de 300 días". El anti-fraude de km real lo
-      // da max_jump en la vista de empresa; aquí ya no se marca por días.
-      suspicious: false,
+      // Loop #6: el anti-fraude lo revisa el admin. `suspicious` viene marcado en
+      // el claim cuando el logro tuvo un salto de km / carrera enorme.
+      suspicious: r.suspicious === true,
     }));
 
     const fLevel = request.query?.level;
@@ -2386,13 +2439,14 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
-  // Editar la configuración del programa (solo claves referral_*).
+  // Editar la configuración del programa (claves referral_* y challenge_*).
   app.put('/api/v1/admin/referrals/config', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const body = request.body ?? {};
-    const updates = Object.entries(body).filter(([k]) => k.startsWith('referral_'));
-    if (!updates.length) return reply.code(400).send({ error: 'Nada que actualizar (claves referral_*)' });
+    const updates = Object.entries(body)
+      .filter(([k]) => k.startsWith('referral_') || k.startsWith('challenge_'));
+    if (!updates.length) return reply.code(400).send({ error: 'Nada que actualizar (claves referral_*/challenge_*)' });
     for (const [key, value] of updates) {
       await supabase.from('system_config')
         .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
@@ -2500,14 +2554,15 @@ export async function buildApp(options = {}) {
     return reply.send({ referrals: rows, total: count ?? rows.length, limit, offset });
   });
 
-  // Configuración de hitos y parámetros (lectura). Devuelve claves referral_*
-  // y los hitos ya parseados.
+  // Configuración de parámetros (lectura). Devuelve las claves referral_* y
+  // challenge_* (el panel de admin edita ambas) y los hitos ya parseados.
   app.get('/api/v1/admin/referrals/config', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const cfg = await refConfig();
-    const referral = Object.fromEntries(Object.entries(cfg).filter(([k]) => k.startsWith('referral_')));
-    return reply.send({ config: referral, milestones: milestonesFrom(cfg) });
+    const config = Object.fromEntries(Object.entries(cfg)
+      .filter(([k]) => k.startsWith('referral_') || k.startsWith('challenge_')));
+    return reply.send({ config, milestones: milestonesFrom(cfg) });
   });
 
   // Detalle de un referido: referidor, invitado, empresa, historial y fraude.
