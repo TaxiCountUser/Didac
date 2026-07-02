@@ -2380,3 +2380,20 @@ on conflict (key) do nothing;
 alter table public.challenge_claims add column if not exists suspicious boolean not null default false;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 053 - users.tenant_id: ON DELETE SET NULL (el admin no depende de empresa)
+-- ============================================================
+do $$
+declare c text;
+begin
+  select conname into c from pg_constraint
+   where conrelid = 'public.users'::regclass and contype = 'f'
+     and (select attname from pg_attribute where attrelid = conrelid and attnum = conkey[1]) = 'tenant_id';
+  if c is not null then execute format('alter table public.users drop constraint %I', c); end if;
+end $$;
+alter table public.users add constraint users_tenant_id_fkey
+  foreign key (tenant_id) references public.tenants(id) on delete set null on update cascade;
+
+notify pgrst, 'reload schema';
