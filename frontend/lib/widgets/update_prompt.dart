@@ -1,4 +1,8 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
@@ -19,9 +23,60 @@ Future<void> maybeShowUpdate(BuildContext context) async {
   await _showDialog(context, info);
 }
 
+// Fallback (web/iOS o si falla la descarga): abre el enlace en el navegador.
 Future<void> _openApk(BuildContext context, String url) async {
   if (url.isEmpty) return;
   await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+}
+
+// Actualización "de un toque" en Android: descarga el APK dentro de la app y
+// abre el instalador del sistema (que pide una única confirmación). Si no es
+// Android o algo falla, cae al navegador.
+Future<void> _update(BuildContext context, UpdateInfo info) async {
+  if (info.apkUrl.isEmpty) return;
+  if (kIsWeb || !Platform.isAndroid) {
+    await _openApk(context, info.apkUrl);
+    return;
+  }
+  final l = context.l10n;
+  final progress = ValueNotifier<double>(0);
+  // Diálogo de progreso (no cancelable).
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => AlertDialog(
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(l.t('upd_downloading')),
+        const SizedBox(height: 14),
+        ValueListenableBuilder<double>(
+          valueListenable: progress,
+          builder: (_, v, __) => Column(children: [
+            LinearProgressIndicator(value: v > 0 ? v : null),
+            const SizedBox(height: 6),
+            Text(v > 0 ? '${(v * 100).toStringAsFixed(0)} %' : ''),
+          ]),
+        ),
+      ]),
+    ),
+  );
+  try {
+    final path = await UpdateService.downloadApk(info.apkUrl, onProgress: (v) => progress.value = v);
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop(); // cerrar progreso
+    if (path != null) {
+      await OpenFilex.open(path); // lanza el instalador del sistema
+    } else if (context.mounted) {
+      await _openApk(context, info.apkUrl);
+    }
+  } catch (_) {
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.t('upd_failed'))));
+      await _openApk(context, info.apkUrl); // fallback navegador
+    }
+  } finally {
+    progress.dispose();
+  }
 }
 
 Future<void> _showDialog(BuildContext context, UpdateInfo info) async {
@@ -65,7 +120,7 @@ Future<void> _showDialog(BuildContext context, UpdateInfo info) async {
       actions: [
         TextButton(onPressed: () => _onClose(ctx, info), child: Text(l.t('upd_later'))),
         FilledButton.icon(
-          onPressed: () => _openApk(ctx, info.apkUrl),
+          onPressed: () { Navigator.pop(ctx); _update(context, info); },
           icon: const Icon(Icons.download),
           label: Text(l.t('upd_update')),
         ),
@@ -88,7 +143,7 @@ Future<void> _onClose(BuildContext ctx, UpdateInfo info) async {
       content: Text(l.t('upd_warn_body')),
       actions: [
         FilledButton.icon(
-          onPressed: () { Navigator.pop(c, false); _openApk(ctx, info.apkUrl); },
+          onPressed: () { Navigator.pop(c, false); _update(ctx, info); },
           icon: const Icon(Icons.download),
           label: Text(l.t('upd_update')),
         ),

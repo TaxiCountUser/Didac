@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../config.dart';
 
@@ -52,6 +54,34 @@ class UpdateService {
       );
     } catch (_) {
       return null; // sin red o manifiesto no disponible: no molestamos
+    }
+  }
+
+  /// Descarga el APK a un fichero local (para actualizar sin salir de la app) y
+  /// devuelve su ruta. [onProgress] recibe 0..1. Solo Android. Lanza si falla.
+  static Future<String?> downloadApk(String url, {void Function(double)? onProgress}) async {
+    if (kIsWeb || url.isEmpty || !Platform.isAndroid) return null;
+    final client = http.Client();
+    try {
+      final resp = await client.send(http.Request('GET', Uri.parse(url)));
+      if (resp.statusCode != 200) {
+        throw Exception('Descarga fallida (${resp.statusCode})');
+      }
+      final total = resp.contentLength ?? 0;
+      final dir = (await getExternalStorageDirectory()) ?? await getTemporaryDirectory();
+      final file = File('${dir.path}/taxicount-update.apk');
+      final sink = file.openWrite();
+      var received = 0;
+      await for (final chunk in resp.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (total > 0) onProgress?.call(received / total);
+      }
+      await sink.flush();
+      await sink.close();
+      return file.path;
+    } finally {
+      client.close();
     }
   }
 }
