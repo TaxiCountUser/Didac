@@ -31,7 +31,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _service = DataService();
   late String _displayName = widget.profile.appName;
-  late String? _license = widget.profile.licenseNumber;
   late String? _avatarB64 = widget.profile.avatarUrl; // foto base64 o null = icono
   late String? _username = widget.profile.username; // para login con usuario
   String? _activeVehicleLabel;
@@ -277,39 +276,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _editLicense() async {
-    final l = context.l10n;
-    final ctrl = TextEditingController(text: _license ?? '');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.t('set_license')),
-        content: TextField(
-          key: const Key('license_field'),
-          controller: ctrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
-        ],
-      ),
-    );
-    if (ok == true) {
-      try {
-        await _service.updateLicenseNumber(ctrl.text);
-        if (mounted) {
-          setState(() => _license = ctrl.text.trim().isEmpty ? null : ctrl.text.trim());
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('set_name_updated'))));
-        }
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
-      }
-    }
-  }
-
   Future<void> _changeVehicle() async {
     final l = context.l10n;
     final vehicles = await _service.myVehicles();
@@ -462,6 +428,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           _header(l, isOwner),
           const Divider(height: 1),
+          // 1) Idioma
           ListTile(
             leading: const Icon(Icons.language),
             title: Text(l.t('set_language')),
@@ -475,6 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _pickLanguage,
           ),
+          // 2) Perfil (usuario para iniciar sesión)
           ListTile(
             leading: const Icon(Icons.alternate_email),
             title: Text(l.t('set_username')),
@@ -482,9 +450,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _editUsername,
           ),
-          // Referidos: solo en el panel de empresa (el chófer no paga, lo paga
-          // la empresa).
-          if (isOwner)
+
+          // ── Menú del EMPRESARIO ──
+          if (isOwner) ...[
             ListTile(
               leading: const Icon(Icons.emoji_events, color: Colors.amber),
               title: Text(l.t('ch_title')),
@@ -492,8 +460,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const ChallengesScreen()),
             ),
-          // El conductor ve SUS propios retos (progreso de km y días).
-          if (!isOwner)
+            if (_subActive)
+              ListTile(
+                leading: const Icon(Icons.card_giftcard, color: Colors.amber),
+                title: Text(l.t('set_referral')),
+                subtitle: Text(l.t('set_referral_sub')),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _open(ReferralScreen(profile: widget.profile)),
+              ),
+            // Soporte (tickets bidireccionales con el admin) — solo empresario.
+            ListTile(
+              leading: Badge(
+                isLabelVisible: _newReply,
+                child: const Icon(Icons.support_agent),
+              ),
+              title: Text(l.t('set_report_bug')),
+              subtitle: Text(_newReply ? l.t('tk_new_reply') : l.t('set_report_bug_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _openTickets,
+            ),
+            ListTile(
+              leading: const Icon(Icons.bug_report_outlined, color: Colors.deepOrange),
+              title: Text(l.t('set_report_error')),
+              subtitle: Text(l.t('set_report_error_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _reportErrorDialog,
+            ),
+            ListTile(
+              leading: const Icon(Icons.car_crash),
+              title: Text(l.t('set_incidents_owner')),
+              subtitle: Text(l.t('set_incidents_owner_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(IncidentsScreen(profile: widget.profile, standalone: true)),
+            ),
+          ],
+
+          // ── Menú del CONDUCTOR (orden: vehículo, mensaje al jefe, retos, error) ──
+          if (!isOwner) ...[
+            // 3) Cambiar el vehículo activo (si tiene más de uno)
+            if (_vehicleCount > 1)
+              ListTile(
+                key: const Key('change_vehicle_tile'),
+                leading: const Icon(Icons.directions_car),
+                title: Text(l.t('set_change_vehicle')),
+                subtitle: Text(_activeVehicleLabel == null
+                    ? l.t('set_change_vehicle_sub')
+                    : '${_activeVehicleLabel!}\n${l.t('set_change_vehicle_sub')}'),
+                isThreeLine: _activeVehicleLabel != null,
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _changeVehicle,
+              ),
+            // 4) Mensaje al jefe
+            ListTile(
+              leading: const Icon(Icons.car_crash),
+              title: Text(l.t('set_incidents_driver')),
+              subtitle: Text(l.t('set_incidents_driver_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(IncidentsScreen(profile: widget.profile, standalone: true)),
+            ),
+            // 5) Retos
             ListTile(
               leading: const Icon(Icons.emoji_events, color: Colors.amber),
               title: Text(l.t('ch_mine_title')),
@@ -501,34 +526,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const DriverChallengesScreen()),
             ),
-          // Solo empresarios/autónomos con suscripción activa de pago (R-REF-01).
-          if (isOwner && _subActive)
+            // 6) Informar de un error de la app
             ListTile(
-              leading: const Icon(Icons.card_giftcard, color: Colors.amber),
-              title: Text(l.t('set_referral')),
-              subtitle: Text(l.t('set_referral_sub')),
+              leading: const Icon(Icons.bug_report_outlined, color: Colors.deepOrange),
+              title: Text(l.t('set_report_error')),
+              subtitle: Text(l.t('set_report_error_sub')),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => _open(ReferralScreen(profile: widget.profile)),
+              onTap: _reportErrorDialog,
             ),
-          ListTile(
-            leading: Badge(
-              isLabelVisible: _newReply,
-              child: const Icon(Icons.support_agent),
-            ),
-            title: Text(l.t('set_report_bug')),
-            subtitle: Text(_newReply ? l.t('tk_new_reply') : l.t('set_report_bug_sub')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _openTickets,
-          ),
-          // Informe de error (Loop #6): unidireccional al equipo de TaxiCount
-          // (admin) con copia al jefe. No es un chat ni va a "Mensajes al jefe".
-          ListTile(
-            leading: const Icon(Icons.bug_report_outlined, color: Colors.deepOrange),
-            title: Text(l.t('set_report_error')),
-            subtitle: Text(l.t('set_report_error_sub')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _reportErrorDialog,
-          ),
+          ],
+
           // Panel de administrador de plataforma (solo admins).
           if (widget.profile.isAdmin)
             ListTile(
@@ -538,25 +545,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const AdminScreen()),
             ),
-          if (!isOwner && _vehicleCount > 1)
-            ListTile(
-              key: const Key('change_vehicle_tile'),
-              leading: const Icon(Icons.directions_car),
-              title: Text(l.t('set_change_vehicle')),
-              subtitle: Text(_activeVehicleLabel == null
-                  ? l.t('set_change_vehicle_sub')
-                  : '${_activeVehicleLabel!}\n${l.t('set_change_vehicle_sub')}'),
-              isThreeLine: _activeVehicleLabel != null,
-              trailing: const Icon(Icons.chevron_right),
-              onTap: _changeVehicle,
-            ),
-          ListTile(
-            leading: const Icon(Icons.car_crash),
-            title: Text(isOwner ? l.t('set_incidents_owner') : l.t('set_incidents_driver')),
-            subtitle: Text(isOwner ? l.t('set_incidents_owner_sub') : l.t('set_incidents_driver_sub')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _open(IncidentsScreen(profile: widget.profile, standalone: true)),
-          ),
           if (isOwner) ...[
             ListTile(
               leading: const Icon(Icons.workspace_premium_outlined),
@@ -646,19 +634,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ],
-                  ),
-                  InkWell(
-                    onTap: _editLicense,
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text('${l.t('set_license')}: ${_license ?? '—'}',
-                              style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.edit, size: 12, color: Colors.grey),
-                      ],
-                    ),
                   ),
                 ],
               ],
