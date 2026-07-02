@@ -16,7 +16,9 @@ revoke select on all tables in schema public from anon;
 -- Lectura pública intencionada (config de referidos, sin secretos).
 grant select on public.system_config to anon;
 
--- P3-01
-revoke execute on function public.email_for_username(text) from anon, authenticated;
+-- P3-01. Importante: las funciones conceden EXECUTE a PUBLIC por defecto y anon
+-- lo hereda; hay que revocar también de PUBLIC para que la restricción surta
+-- efecto (revocar solo de anon deja el permiso vivo vía PUBLIC).
+revoke execute on function public.email_for_username(text) from public, anon, authenticated;
 
 notify pgrst, 'reload schema';

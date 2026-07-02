@@ -899,7 +899,7 @@ $$;
 -- (P3-01) El email ya NO se resuelve por RPC: el backend (/auth/login-username)
 -- hace el login con usuario y nunca expone el email. Revocamos el execute (el
 -- grant global de funciones de más arriba incluye anon, por eso es explícito).
-revoke execute on function public.email_for_username(text) from anon, authenticated;
+revoke execute on function public.email_for_username(text) from public, anon, authenticated;
 
 -- ============================================================
 -- TaxiCount - "Sacar de la flota" (despedir/desactivar conductor).
@@ -2014,7 +2014,7 @@ notify pgrst, 'reload schema';
 -- ============================================================
 revoke select on all tables in schema public from anon;
 grant select on public.system_config to anon;
-revoke execute on function public.email_for_username(text) from anon, authenticated;
+revoke execute on function public.email_for_username(text) from public, anon, authenticated;
 
 notify pgrst, 'reload schema';
 
