@@ -11,7 +11,7 @@ import 'config.dart';
 import 'screens/login_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/legal_accept_screen.dart';
-import 'screens/admin_screen.dart';
+import 'screens/admin_home_screen.dart';
 import 'screens/owner_home_screen.dart';
 import 'screens/driver_home_screen.dart';
 import 'screens/solo_home_screen.dart';
@@ -134,7 +134,7 @@ class _ProfileRouterState extends State<ProfileRouter> {
         // la app operativa (protección de datos). No ve dinero ni carreras de
         // las empresas (enmascarado en el backend).
         if (profile.isAdmin) {
-          return const AdminScreen();
+          return const AdminHomeScreen();
         }
         if (profile.isInactiveDriver) {
           return const NoFleetScreen();

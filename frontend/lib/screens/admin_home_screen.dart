@@ -1,0 +1,562 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../l10n/app_localizations.dart';
+import '../services/data_service.dart';
+import 'admin_screen.dart';
+
+/// Portada del panel de administración (rediseño "eléctrico", Fase 1).
+/// Combina: centro de control (anillo de salud + KPIs + semáforos de crons),
+/// bandeja de trabajo (pendientes de todos los módulos con acción directa) y
+/// módulos en tarjetas (abren las pestañas del AdminScreen existente).
+/// Tema oscuro propio: entrar aquí se siente como "la sala de máquinas".
+class AdminHomeScreen extends StatefulWidget {
+  const AdminHomeScreen({super.key});
+
+  @override
+  State<AdminHomeScreen> createState() => _AdminHomeScreenState();
+}
+
+// Paleta "eléctrica" del panel (independiente del tema ámbar de la app).
+class _C {
+  static const bg = Color(0xFF0B0B0F);
+  static const card = Color(0xFF12121A);
+  static const hairline = Color(0xFF1D1D26);
+  static const text = Color(0xFFF1EFE8);
+  static const secondary = Color(0xFF7D8A94);
+  static const muted = Color(0xFF66616E);
+  static const teal = Color(0xFF5DCAA5);
+  static const purple = Color(0xFFAFA9EC);
+  static const blue = Color(0xFF85B7EB);
+  static const amber = Color(0xFFFAC775);
+  static const red = Color(0xFFF09595);
+  static const coral = Color(0xFFF0997B);
+  static const pink = Color(0xFFED93B1);
+  static const gray = Color(0xFFB4B2A9);
+  // Fondos oscuros de las etiquetas por tipo.
+  static const redBg = Color(0xFF38161C);
+  static const blueBg = Color(0xFF16273C);
+  static const amberBg = Color(0xFF33241A);
+  static const purpleBg = Color(0xFF2C1A38);
+  static const coralBg = Color(0xFF331D15);
+}
+
+class _AdminHomeScreenState extends State<AdminHomeScreen> {
+  final _service = DataService();
+  late Future<Map<String, dynamic>> _future = _service.adminOverview();
+
+  void _reload() => setState(() => _future = _service.adminOverview());
+
+  // Abre un módulo del AdminScreen clásico y recarga al volver.
+  Future<void> _openTab(int tab) async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => AdminScreen(initialTab: tab)));
+    _reload();
+  }
+
+  static const _moduleTab = {
+    'company': 0, 'incidents': 1, 'challenges': 2, 'referrals': 3,
+    'security': 4, 'errors': 5, 'config': 6,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    // Tema oscuro local: solo el panel de admin vive en modo "sala de máquinas".
+    return Theme(
+      data: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: _C.bg,
+        colorScheme: const ColorScheme.dark(
+          primary: _C.teal, surface: _C.card, onSurface: _C.text),
+        useMaterial3: true,
+      ),
+      child: Scaffold(
+        backgroundColor: _C.bg,
+        appBar: AppBar(
+          backgroundColor: _C.bg,
+          foregroundColor: _C.text,
+          elevation: 0,
+          title: Row(
+            children: [
+              Container(
+                width: 30, height: 30,
+                decoration: BoxDecoration(
+                  color: _C.amberBg, borderRadius: BorderRadius.circular(9)),
+                child: const Icon(Icons.shield, size: 17, color: _C.amber),
+              ),
+              const SizedBox(width: 10),
+              Text(l.t('admin_title'),
+                  style: const TextStyle(fontSize: 16, color: _C.text)),
+            ],
+          ),
+          actions: [
+            IconButton(
+              tooltip: l.t('logout'),
+              icon: const Icon(Icons.logout, size: 20, color: _C.secondary),
+              onPressed: () => Supabase.instance.client.auth.signOut(),
+            ),
+          ],
+        ),
+        body: FutureBuilder<Map<String, dynamic>>(
+          future: _future,
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return const Center(
+                  child: CircularProgressIndicator(color: _C.teal));
+            }
+            if (snap.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${snap.error}',
+                        style: const TextStyle(color: _C.red, fontSize: 13),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                        onPressed: _reload, child: Text(l.t('retry'))),
+                  ],
+                ),
+              );
+            }
+            final d = snap.data ?? {};
+            return RefreshIndicator(
+              color: _C.teal,
+              backgroundColor: _C.card,
+              onRefresh: () async => _reload(),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                children: [
+                  _statusRow(l, d),
+                  const SizedBox(height: 14),
+                  _controlCenter(l, d),
+                  const SizedBox(height: 18),
+                  _inboxHeader(l, d),
+                  const SizedBox(height: 8),
+                  _inbox(l, d),
+                  const SizedBox(height: 18),
+                  Text(l.t('adm_home_modules'),
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5, color: _C.text)),
+                  const SizedBox(height: 8),
+                  _modulesGrid(l, d),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // --- Semáforos: API (si hay datos, está viva) + crons de recompensas. ---
+  Widget _statusRow(AppLocalizations l, Map<String, dynamic> d) {
+    final crons = (d['crons'] as Map?) ?? const {};
+    bool fresh(String k) {
+      final v = crons[k] as String?;
+      if (v == null) return false;
+      final t = DateTime.tryParse(v);
+      return t != null && DateTime.now().difference(t).inHours < 48;
+    }
+
+    Widget dot(String label, bool ok) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+                width: 7, height: 7,
+                decoration: BoxDecoration(
+                    color: ok ? _C.teal : _C.red, shape: BoxShape.circle)),
+            const SizedBox(width: 5),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 10, letterSpacing: 1, color: _C.secondary)),
+          ],
+        );
+
+    return Row(
+      children: [
+        Text(_todayLabel(),
+            style: const TextStyle(fontSize: 11, color: _C.muted)),
+        const Spacer(),
+        dot('API', true),
+        const SizedBox(width: 12),
+        dot(l.t('adm_home_crons').toUpperCase(),
+            fresh('challenge_credits') && fresh('referral_validations')),
+      ],
+    );
+  }
+
+  String _todayLabel() {
+    final now = DateTime.now();
+    return '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} '
+        '· ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  }
+
+  // --- Centro de control: anillo de salud + 4 KPIs. ---
+  Widget _controlCenter(AppLocalizations l, Map<String, dynamic> d) {
+    final health = (d['health'] as num?)?.toInt() ?? 100;
+    final k = (d['kpis'] as Map?) ?? const {};
+    final inboxLen = ((d['inbox'] as List?) ?? const []).length;
+    final mrr = (k['mrr_estimate'] as num?)?.toDouble() ?? 0;
+    final trialing = (k['trialing'] as num?)?.toInt() ?? 0;
+    final soon = ((d['pending'] as Map?)?['trials_ending'] as num?)?.toInt() ?? 0;
+    final driversActive = (k['drivers_active'] as num?)?.toInt() ?? 0;
+    final driversTotal = (k['drivers_total'] as num?)?.toInt() ?? 0;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 108, height: 108,
+          child: CustomPaint(
+            painter: _RingPainter(health / 100),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$health',
+                      style: const TextStyle(
+                          fontSize: 26, fontWeight: FontWeight.w600,
+                          color: _C.text)),
+                  Text(l.t('adm_home_health').toUpperCase(),
+                      style: const TextStyle(
+                          fontSize: 8, letterSpacing: 1.5, color: _C.secondary)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(l.t('adm_home_ok'),
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500,
+                            color: _C.text)),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text('· ${l.t('adm_home_items', {'n': '$inboxLen'})}',
+                        style:
+                            const TextStyle(fontSize: 11, color: _C.secondary)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 7,
+                mainAxisSpacing: 7,
+                childAspectRatio: 2.5,
+                children: [
+                  _kpiTile(l.t('adm_kpi_mrr'), '${mrr.toStringAsFixed(0)}€',
+                      l.t('adm_kpi_paying', {'n': '${k['paying'] ?? 0}'}), _C.teal),
+                  _kpiTile(l.t('adm_kpi_companies'), '${k['tenants'] ?? 0}',
+                      l.t('adm_kpi_active', {'n': '${k['paying'] ?? 0}'}), _C.purple),
+                  _kpiTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal',
+                      l.t('adm_kpi_active', {'n': '$driversActive'}), _C.blue),
+                  _kpiTile(l.t('adm_kpi_trials'), '$trialing',
+                      soon > 0
+                          ? l.t('adm_kpi_soon', {'n': '$soon'})
+                          : l.t('adm_kpi_none_soon'), _C.amber),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _kpiTile(String label, String value, String sub, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        border: Border.all(color: color.withValues(alpha: .28)),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(label.toUpperCase(),
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style:
+                  TextStyle(fontSize: 8.5, letterSpacing: 1.2, color: color)),
+          const SizedBox(height: 1),
+          Text(value,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w600, color: _C.text)),
+          Text(sub,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 8.5, color: _C.muted)),
+        ],
+      ),
+    );
+  }
+
+  // --- Bandeja de trabajo. ---
+  Widget _inboxHeader(AppLocalizations l, Map<String, dynamic> d) {
+    final n = ((d['inbox'] as List?) ?? const []).length;
+    return Row(
+      children: [
+        Text(l.t('adm_home_inbox').toUpperCase(),
+            style: const TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w600,
+                letterSpacing: 1.5, color: _C.text)),
+        const SizedBox(width: 8),
+        if (n > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+            decoration: BoxDecoration(
+                color: const Color(0xFFE24B4A),
+                borderRadius: BorderRadius.circular(9)),
+            child: Text('$n',
+                style: const TextStyle(
+                    fontSize: 10, fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+          ),
+      ],
+    );
+  }
+
+  Widget _inbox(AppLocalizations l, Map<String, dynamic> d) {
+    final items = ((d['inbox'] as List?) ?? const []).cast<Map>();
+    if (items.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+            color: _C.card, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle, size: 18, color: _C.teal),
+            const SizedBox(width: 10),
+            Text(l.t('adm_home_inbox_empty'),
+                style: const TextStyle(fontSize: 13, color: _C.secondary)),
+          ],
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+          color: _C.card, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const Divider(height: 1, color: _C.hairline),
+            _inboxRow(l, items[i].cast<String, dynamic>()),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Colores/etiqueta/acción según el tipo de elemento.
+  ({Color fg, Color bg, String tagKey, String actKey}) _typeStyle(String type) {
+    switch (type) {
+      case 'fraud':
+        return (fg: _C.red, bg: _C.redBg, tagKey: 'adm_tag_fraud', actKey: 'adm_act_review');
+      case 'challenge':
+        return (fg: _C.purple, bg: _C.purpleBg, tagKey: 'adm_tag_challenge', actKey: 'adm_act_review');
+      case 'ticket':
+        return (fg: _C.blue, bg: _C.blueBg, tagKey: 'adm_tag_ticket', actKey: 'adm_act_reply');
+      case 'trial':
+        return (fg: _C.amber, bg: _C.amberBg, tagKey: 'adm_tag_trial', actKey: 'adm_act_view');
+      default:
+        return (fg: _C.coral, bg: _C.coralBg, tagKey: 'adm_tag_error', actKey: 'adm_act_view');
+    }
+  }
+
+  Widget _inboxRow(AppLocalizations l, Map<String, dynamic> it) {
+    final type = (it['type'] as String?) ?? 'error';
+    final s = _typeStyle(type);
+    final tab = _moduleTab[it['module']] ?? 0;
+    return InkWell(
+      onTap: () => _openTab(tab),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                  color: s.bg, borderRadius: BorderRadius.circular(6)),
+              child: Text(l.t(s.tagKey),
+                  style: TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w600,
+                      letterSpacing: 1, color: s.fg)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text((it['title'] as String?) ?? '—',
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: _C.text)),
+                  if ((it['subtitle'] as String?)?.isNotEmpty == true)
+                    Text(it['subtitle'] as String,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style:
+                            const TextStyle(fontSize: 10, color: _C.muted)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                border: Border.all(color: s.fg.withValues(alpha: .55)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(l.t(s.actKey),
+                  style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w500, color: s.fg)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Módulos en tarjetas. ---
+  Widget _modulesGrid(AppLocalizations l, Map<String, dynamic> d) {
+    final p = (d['pending'] as Map?) ?? const {};
+    final k = (d['kpis'] as Map?) ?? const {};
+    int pi(String key) => (p[key] as num?)?.toInt() ?? 0;
+
+    final modules = <_Module>[
+      _Module(l.t('admin_companies'), Icons.business, _C.purple,
+          '${k['tenants'] ?? 0} · ${l.t('adm_kpi_trials').toLowerCase()}: ${k['trialing'] ?? 0}',
+          0, 0),
+      _Module(l.t('adm_mod_support'), Icons.forum, _C.blue,
+          l.t('adm_pending_n', {'n': '${pi('tickets')}'}), pi('tickets'), 1),
+      _Module(l.t('admin_challenges'), Icons.emoji_events, _C.amber,
+          l.t('adm_pending_n', {'n': '${pi('challenges')}'}), pi('challenges'), 2),
+      _Module(l.t('adm_ref_tab'), Icons.card_giftcard, _C.pink, '', 0, 3),
+      _Module(l.t('adm_sec_tab'), Icons.lock, _C.red,
+          l.t('adm_pending_n', {'n': '${pi('fraud')}'}), pi('fraud'), 4),
+      _Module(l.t('adm_err_tab'), Icons.bug_report, _C.coral,
+          l.t('adm_pending_n', {'n': '${pi('errors')}'}), pi('errors'), 5),
+      _Module(l.t('adm_mod_billing'), Icons.payments, _C.teal,
+          l.t('adm_mod_billing_soon'), 0, -1), // Fase 3
+      _Module(l.t('adm_cfg_tab'), Icons.settings, _C.gray, '', 0, 6),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 170, mainAxisExtent: 92,
+        crossAxisSpacing: 8, mainAxisSpacing: 8,
+      ),
+      itemCount: modules.length,
+      itemBuilder: (context, i) {
+        final m = modules[i];
+        final enabled = m.tab >= 0;
+        return InkWell(
+          onTap: enabled ? () => _openTab(m.tab) : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _C.card,
+              border: Border.all(color: m.color.withValues(alpha: .25)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(m.icon, size: 20,
+                        color: enabled ? m.color : m.color.withValues(alpha: .4)),
+                    const SizedBox(height: 6),
+                    Text(m.title,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w500,
+                            color: enabled ? _C.text : _C.muted)),
+                    if (m.subtitle.isNotEmpty)
+                      Text(m.subtitle,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10, color: _C.muted)),
+                  ],
+                ),
+                if (m.badge > 0)
+                  Positioned(
+                    top: 0, right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                          color: m.color.withValues(alpha: .9),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text('${m.badge}',
+                          style: const TextStyle(
+                              fontSize: 9, fontWeight: FontWeight.w600,
+                              color: _C.bg)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Module {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final String subtitle;
+  final int badge;
+  final int tab; // pestaña del AdminScreen; -1 = deshabilitado (próxima fase)
+  const _Module(this.title, this.icon, this.color, this.subtitle, this.badge, this.tab);
+}
+
+/// Anillo de salud: pista gris + arco de progreso con extremos redondeados.
+class _RingPainter extends CustomPainter {
+  final double fraction; // 0..1
+  _RingPainter(this.fraction);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 6;
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8
+      ..color = _C.hairline;
+    canvas.drawCircle(center, radius, track);
+
+    final color = fraction >= .8
+        ? _C.teal
+        : (fraction >= .5 ? _C.amber : _C.red);
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2, 2 * math.pi * fraction.clamp(0, 1), false, arc);
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) => old.fraction != fraction;
+}

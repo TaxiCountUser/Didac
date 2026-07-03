@@ -8,7 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../widgets/lang_flag.dart';
-import 'admin_screen.dart';
+import 'admin_home_screen.dart';
 import 'change_password_screen.dart';
 import 'incidents_screen.dart';
 import 'challenges_screen.dart';
@@ -593,7 +593,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: Text(l.t('admin_title')),
               subtitle: Text(l.t('admin_sub')),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => _open(const AdminScreen()),
+              onTap: () => _open(const AdminHomeScreen()),
             ),
           const Divider(height: 1),
           AboutListTile(

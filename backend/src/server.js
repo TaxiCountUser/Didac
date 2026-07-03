@@ -725,6 +725,17 @@ export async function buildApp(options = {}) {
     return result;
   }
 
+  // Registra la última ejecución de un cron (para los semáforos del panel de
+  // admin). Best-effort: nunca rompe el cron si falla.
+  async function markCronRun(name) {
+    try {
+      await supabase.from('system_config').upsert(
+        { key: `cron_last_${name}`, value: new Date().toISOString() }, { onConflict: 'key' });
+    } catch (e) {
+      app.log.warn(`[cron] no se pudo registrar cron_last_${name}: ${e.message}`);
+    }
+  }
+
   // ¿Viene de un scheduler externo con el secreto de cron correcto?
   function cronAuthorized(request) {
     return !!CRON_SECRET && request.headers['x-cron-secret'] === CRON_SECRET;
@@ -889,6 +900,112 @@ export async function buildApp(options = {}) {
       users_count: usersByTenant[t.id] || 0,
       open_incidents: incByTenant[t.id] || 0,
     }));
+
+    // ---- Panel rediseñado (Fase 1): KPIs, pendientes, bandeja de trabajo,
+    // estado de crons y salud de la plataforma. Campos NUEVOS: la UI antigua
+    // sigue leyendo tenants/totals sin cambios.
+    const now = Date.now();
+    const dayMs = 86400000;
+    const paying = rows.filter((t) => t.subscription_status === 'active' || t.subscription_status === 'past_due');
+    const payingIds = new Set(paying.map((t) => t.id));
+    const pastDue = rows.filter((t) => t.subscription_status === 'past_due');
+    const inTrial = rows.filter((t) => !payingIds.has(t.id) && t.trial_ends_at && new Date(t.trial_ends_at).getTime() > now);
+    const trialSoon = inTrial.filter((t) => new Date(t.trial_ends_at).getTime() - now <= 5 * dayMs);
+
+    // Conductores y MRR estimado (annual_price_paid/12 de los activos de pago).
+    const { data: drivers } = await supabase.from('users')
+      .select('tenant_id, active, annual_price_paid').eq('role', 'driver');
+    const activeByTenant = {};
+    let driversTotal = 0;
+    let driversActive = 0;
+    let mrr = 0;
+    for (const d of drivers ?? []) {
+      driversTotal++;
+      if (d.active !== false) {
+        driversActive++;
+        (activeByTenant[d.tenant_id] ||= []).push(Number(d.annual_price_paid ?? 15));
+      }
+    }
+    for (const t of paying) {
+      const seats = activeByTenant[t.id] ?? [];
+      if (seats.length === 0) { mrr += 15 / 12; continue; } // autónomo: su propio asiento
+      for (const p of seats) mrr += p / 12;
+    }
+
+    // Pendientes por tipo (acotados; solo lo abierto/no resuelto).
+    const { data: refAlerts } = await supabase.from('referral_fraud_alerts')
+      .select('id, type, detail, severity, created_at').is('resolved_at', null)
+      .order('created_at', { ascending: false }).limit(100);
+    const { data: genAlerts } = await supabase.from('fraud_alerts')
+      .select('id, alert_type, description, severity, tenant_id, created_at').is('resolved_at', null)
+      .order('created_at', { ascending: false }).limit(100);
+    const { data: tickets } = await supabase.from('incidents')
+      .select('id, body, created_at, tenant_id, tenants(name)')
+      .eq('kind', 'app').eq('status', 'abierta')
+      .order('created_at', { ascending: true }).limit(100);
+    const { data: errNew } = await supabase.from('error_reports')
+      .select('id, description, created_at, tenants:tenant_id(name)').eq('status', 'new')
+      .order('created_at', { ascending: false }).limit(100);
+    const { data: suspicious } = await supabase.from('challenge_claims')
+      .select('id, tenant_id, user_id, created_at, users:user_id(name, email), tenants:tenant_id(name)')
+      .eq('suspicious', true).eq('status', 'rewarded').is('reward_redeemed_at', null)
+      .order('created_at', { ascending: false }).limit(100);
+
+    const fraudOpen = (refAlerts?.length ?? 0) + (genAlerts?.length ?? 0);
+    const ticketsOld = (tickets ?? []).filter((i) => now - new Date(i.created_at).getTime() > dayMs).length;
+
+    // Bandeja de trabajo: lo accionable de todos los módulos, priorizado.
+    const inbox = [];
+    for (const a of refAlerts ?? []) {
+      inbox.push({ type: 'fraud', id: a.id, title: a.detail || a.type || 'Alerta de referidos',
+        subtitle: `referidos · ${a.severity ?? ''}`.trim(), created_at: a.created_at, module: 'security' });
+    }
+    for (const a of genAlerts ?? []) {
+      inbox.push({ type: 'fraud', id: a.id, title: a.description || a.alert_type || 'Alerta de fraude',
+        subtitle: a.severity ?? '', tenant_id: a.tenant_id, created_at: a.created_at, module: 'security' });
+    }
+    for (const c of suspicious ?? []) {
+      inbox.push({ type: 'challenge', id: c.id,
+        title: `Reto sospechoso de ${c.users?.name || c.users?.email || 'conductor'}`,
+        subtitle: c.tenants?.name ?? '', tenant_id: c.tenant_id, created_at: c.created_at, module: 'challenges' });
+    }
+    for (const i of tickets ?? []) {
+      inbox.push({ type: 'ticket', id: i.id, title: (i.body || '').slice(0, 90),
+        subtitle: i.tenants?.name ?? '', tenant_id: i.tenant_id, created_at: i.created_at, module: 'incidents' });
+    }
+    for (const t of trialSoon) {
+      const days = Math.max(0, Math.ceil((new Date(t.trial_ends_at).getTime() - now) / dayMs));
+      inbox.push({ type: 'trial', id: t.id, title: `La prueba de ${t.name} acaba en ${days} día${days === 1 ? '' : 's'}`,
+        subtitle: `${t.users_count} usuarios`, tenant_id: t.id, created_at: t.trial_ends_at, module: 'company' });
+    }
+    for (const e of errNew ?? []) {
+      inbox.push({ type: 'error', id: e.id, title: (e.description || '').slice(0, 90),
+        subtitle: e.tenants?.name ?? '', created_at: e.created_at, module: 'errors' });
+    }
+    const prio = { fraud: 0, challenge: 1, ticket: 2, trial: 3, error: 4 };
+    inbox.sort((a, b) => (prio[a.type] - prio[b.type])
+      || (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+
+    // Última ejecución de cada cron (markCronRun) para los semáforos.
+    const { data: cronRows } = await supabase.from('system_config')
+      .select('key, value').like('key', 'cron_last_%');
+    const crons = {};
+    for (const r of cronRows ?? []) crons[r.key.replace('cron_last_', '')] = r.value;
+    const cronStale = ['challenge_credits', 'referral_validations'].some((k) => {
+      const v = crons[k];
+      return !v || now - new Date(v).getTime() > 2 * dayMs;
+    });
+
+    // Salud 0-100: penaliza fraude abierto, tickets envejecidos, impagos,
+    // crons parados y errores nuevos. Transparente y estable.
+    let health = 100;
+    health -= Math.min(30, fraudOpen * 15);
+    health -= Math.min(15, ticketsOld * 5);
+    health -= pastDue.length > 0 ? 10 : 0;
+    health -= cronStale ? 10 : 0;
+    health -= Math.min(10, (errNew?.length ?? 0) * 2);
+    health = Math.max(0, Math.round(health));
+
     return reply.send({
       tenants: rows,
       totals: {
@@ -896,6 +1013,25 @@ export async function buildApp(options = {}) {
         users: (users || []).length,
         open_incidents: (openInc || []).length,
       },
+      kpis: {
+        tenants: rows.length,
+        paying: paying.length,
+        trialing: inTrial.length,
+        past_due: pastDue.length,
+        drivers_total: driversTotal,
+        drivers_active: driversActive,
+        mrr_estimate: Number(mrr.toFixed(2)),
+      },
+      pending: {
+        fraud: fraudOpen,
+        challenges: suspicious?.length ?? 0,
+        tickets: tickets?.length ?? 0,
+        trials_ending: trialSoon.length,
+        errors: errNew?.length ?? 0,
+      },
+      inbox: inbox.slice(0, 12),
+      crons,
+      health,
     });
   });
 
@@ -1190,6 +1326,7 @@ export async function buildApp(options = {}) {
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const { data, error } = await supabase.rpc('purge_expired_retention');
     if (error) return reply.code(500).send({ error: error.message });
+    await markCronRun('purge_retention');
     await logAdminAction(request, g.caller.id, 'purge_retention', 'tenant', null, { purged: data ?? 0 });
     return reply.send({ ok: true, purged: data ?? 0 });
   });
@@ -1252,6 +1389,7 @@ export async function buildApp(options = {}) {
     if (g.error) return reply.code(g.code).send({ error: g.error });
     if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
     const res = await applyPendingChallengeCredits();
+    await markCronRun('challenge_credits');
     await logAdminAction(request, g.caller?.id ?? null, 'challenge_credits_apply', 'challenge_claims', null, res);
     return reply.send({ ok: true, ...res });
   });
@@ -3046,6 +3184,7 @@ export async function buildApp(options = {}) {
     const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const res = await processReferralValidationQueue();
+    await markCronRun('referral_validations');
     await logAdminAction(request, g.caller?.id ?? null, 'referral_validations_process', 'referral_validation_queue', null, res);
     return reply.send({ ok: true, ...res });
   });

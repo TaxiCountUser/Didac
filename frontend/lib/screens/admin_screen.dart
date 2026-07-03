@@ -14,7 +14,10 @@ import 'admin_security_tab.dart';
 /// incidencias, las resuelve, y puede nombrar a otros administradores.
 /// Solo accesible si el perfil tiene is_admin = true.
 class AdminScreen extends StatefulWidget {
-  const AdminScreen({super.key});
+  /// Pestaña con la que se abre (0 Empresas … 6 Config). La portada nueva
+  /// (AdminHomeScreen) usa esto para saltar directamente a cada módulo.
+  final int initialTab;
+  const AdminScreen({super.key, this.initialTab = 0});
 
   @override
   State<AdminScreen> createState() => _AdminScreenState();
@@ -22,7 +25,8 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStateMixin {
   final _service = DataService();
-  late final TabController _tabs = TabController(length: 7, vsync: this);
+  late final TabController _tabs =
+      TabController(length: 7, vsync: this, initialIndex: widget.initialTab.clamp(0, 6));
 
   @override
   void dispose() {
