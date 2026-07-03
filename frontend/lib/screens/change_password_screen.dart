@@ -8,9 +8,13 @@ import '../services/data_service.dart';
 /// Se muestra cuando el perfil tiene `must_change_password = true` (conductor
 /// con contraseña temporal generada/reseteada por el jefe). Al guardar, cambia
 /// la contraseña en GoTrue y limpia la marca; luego continúa a la app.
+///
+/// Con [forced] = false se usa como cambio VOLUNTARIO desde Ajustes: muestra
+/// la flecha de volver y oculta el botón de cerrar sesión.
 class ChangePasswordScreen extends StatefulWidget {
   final VoidCallback onDone;
-  const ChangePasswordScreen({super.key, required this.onDone});
+  final bool forced;
+  const ChangePasswordScreen({super.key, required this.onDone, this.forced = true});
 
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
@@ -59,12 +63,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l.t('cpw_title')),
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: !widget.forced,
         actions: [
-          TextButton(
-            onPressed: _loading ? null : () => Supabase.instance.client.auth.signOut(),
-            child: Text(l.t('cpw_signout'), style: const TextStyle(color: Colors.white)),
-          ),
+          if (widget.forced)
+            TextButton(
+              onPressed: _loading ? null : () => Supabase.instance.client.auth.signOut(),
+              child: Text(l.t('cpw_signout'), style: const TextStyle(color: Colors.white)),
+            ),
         ],
       ),
       body: Center(
@@ -79,7 +84,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 children: [
                   const Icon(Icons.password, size: 64, color: Colors.amber),
                   const SizedBox(height: 16),
-                  Text(l.t('cpw_subtitle'), textAlign: TextAlign.center),
+                  Text(l.t(widget.forced ? 'cpw_subtitle' : 'cpw_subtitle_voluntary'),
+                      textAlign: TextAlign.center),
                   const SizedBox(height: 24),
                   TextField(
                     controller: _pass,

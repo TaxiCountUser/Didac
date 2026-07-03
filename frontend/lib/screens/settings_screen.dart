@@ -9,6 +9,7 @@ import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../widgets/lang_flag.dart';
 import 'admin_screen.dart';
+import 'change_password_screen.dart';
 import 'incidents_screen.dart';
 import 'challenges_screen.dart';
 import 'driver_challenges_screen.dart';
@@ -162,6 +163,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SnackBar(content: Text(taken ? l.t('set_username_taken') : '${l.t('error')}: $e')));
       }
     }
+  }
+
+  // Cambio VOLUNTARIO de contraseña: reutiliza la pantalla del flujo forzado
+  // (M-05) en modo no forzado (con flecha de volver, sin botón de salir).
+  Future<void> _changePassword() async {
+    final l = context.l10n;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (nCtx) => ChangePasswordScreen(
+          forced: false,
+          onDone: () {
+            Navigator.of(nCtx).pop();
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(l.t('cpw_changed'))));
+          },
+        ),
+      ),
+    );
   }
 
   // Avatar: elegir foto (comprimida a base64) o quitarla (vuelve al icono).
@@ -448,13 +467,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _pickLanguage,
           ),
-          // 2) Perfil (usuario para iniciar sesión)
+          // 2) Acceso: usuario de login + contraseña. (El NOMBRE visible se
+          // cambia solo con el lápiz de la cabecera; esto es la credencial.)
           ListTile(
             leading: const Icon(Icons.alternate_email),
             title: Text(l.t('set_username')),
             subtitle: Text(_username == null ? l.t('set_username_hint') : '@$_username'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _editUsername,
+          ),
+          ListTile(
+            key: const Key('change_password_tile'),
+            leading: const Icon(Icons.lock_outline),
+            title: Text(l.t('set_change_password')),
+            subtitle: Text(l.t('set_change_password_sub')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _changePassword,
           ),
 
           // ── Menú del EMPRESARIO ──
