@@ -1676,14 +1676,14 @@ class DataService {
 
   // ---------------- Perfil ----------------
 
-  /// Actualiza el nombre "de avatar" del propio usuario (RLS: users_update_self).
-  /// No cambia el `name` que ve el jefe.
+  /// Actualiza el nombre visible del propio usuario (RLS: users_update_self).
+  /// Cambia name + display_name a la vez: es UN solo nombre, y así el jefe ve
+  /// el cambio en dashboard/informes (migración 059 permite editar `name`).
   Future<void> updateDisplayName(String? displayName) async {
     final uid = _c.auth.currentUser?.id;
     if (uid == null) return;
-    await _c.from('users').update({
-      'display_name': (displayName == null || displayName.trim().isEmpty) ? null : displayName.trim(),
-    }).eq('id', uid);
+    final v = (displayName == null || displayName.trim().isEmpty) ? null : displayName.trim();
+    await _c.from('users').update({'display_name': v, 'name': v}).eq('id', uid);
   }
 
   /// Login con nombre de usuario vía backend (P3-01): el email se resuelve en el

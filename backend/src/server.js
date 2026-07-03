@@ -668,6 +668,9 @@ export async function buildApp(options = {}) {
     if (name !== undefined) {
       const n = (name == null ? '' : String(name)).trim();
       patch.name = n === '' ? null : n;
+      // Un solo nombre en toda la app: si el jefe renombra, el conductor también
+      // lo ve (display_name sincronizado; el último que escribe gana).
+      patch.display_name = patch.name;
     }
     if (active !== undefined) patch.active = active === true || active === 'true';
 

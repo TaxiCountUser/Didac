@@ -2626,3 +2626,13 @@ revoke all on function public.bump_monthly_savings(uuid, int, int, numeric, nume
 grant execute on function public.bump_monthly_savings(uuid, int, int, numeric, numeric) to service_role;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 059 - el conductor puede editar su `name` (el que ve el jefe).
+-- El lápiz de Ajustes actualiza name + display_name a la vez para
+-- que el nombre sea UNO en toda la app (RLS acota al propio usuario).
+-- ============================================================
+grant update (name) on public.users to authenticated;
+
+notify pgrst, 'reload schema';

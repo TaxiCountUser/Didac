@@ -486,7 +486,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           // ── Menú del EMPRESARIO ──
+          // Orden pedido: Incidencias flota, Localizar vehículo, Suscripción,
+          // Retos, Invita y gana, Informar de un error.
           if (isOwner) ...[
+            ListTile(
+              leading: const Icon(Icons.car_crash),
+              title: Text(l.t('set_incidents_owner')),
+              subtitle: Text(l.t('set_incidents_owner_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(IncidentsScreen(profile: widget.profile, standalone: true)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.my_location),
+              title: Text(l.t('set_locate_vehicle')),
+              subtitle: Text(l.t('set_locate_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(LocateVehicleScreen(profile: widget.profile)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.workspace_premium_outlined),
+              title: Text(l.t('nav_subscription')),
+              subtitle: Text(l.t('set_subscription_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(Scaffold(
+                appBar: AppBar(title: Text(l.t('nav_subscription'))),
+                body: SubscriptionScreen(profile: widget.profile),
+              )),
+            ),
             ListTile(
               leading: const Icon(Icons.emoji_events, color: Colors.amber),
               title: Text(l.t('ch_title')),
@@ -513,13 +539,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: Text(_newReply ? l.t('tk_new_reply') : l.t('set_report_bug_sub')),
               trailing: const Icon(Icons.chevron_right),
               onTap: _openTickets,
-            ),
-            ListTile(
-              leading: const Icon(Icons.car_crash),
-              title: Text(l.t('set_incidents_owner')),
-              subtitle: Text(l.t('set_incidents_owner_sub')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _open(IncidentsScreen(profile: widget.profile, standalone: true)),
             ),
           ],
 
@@ -576,25 +595,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const AdminScreen()),
             ),
-          if (isOwner) ...[
-            ListTile(
-              leading: const Icon(Icons.workspace_premium_outlined),
-              title: Text(l.t('nav_subscription')),
-              subtitle: Text(l.t('set_subscription_sub')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _open(Scaffold(
-                appBar: AppBar(title: Text(l.t('nav_subscription'))),
-                body: SubscriptionScreen(profile: widget.profile),
-              )),
-            ),
-            ListTile(
-              leading: const Icon(Icons.my_location),
-              title: Text(l.t('set_locate_vehicle')),
-              subtitle: Text(l.t('set_locate_sub')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _open(LocateVehicleScreen(profile: widget.profile)),
-            ),
-          ],
           const Divider(height: 1),
           AboutListTile(
             icon: const Icon(Icons.info_outline),

@@ -58,6 +58,7 @@ class SubscriptionScreen extends StatefulWidget {
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   final _service = DataService();
   Map<String, dynamic>? _billing;
+  Map<String, dynamic>? _savings; // ahorro por retos/referidos (Loop #8)
   int _activeDrivers = 1;
   bool _loading = true;
   bool _busy = false;
@@ -80,6 +81,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         final n = list.where((d) => d['active'] != false).length;
         drivers = n < 1 ? 1 : n; // mínimo 1 asiento (el propio autónomo)
       } catch (_) {/* best-effort */}
+      // Ahorro por retos/referidos: best-effort, no bloquea la pantalla.
+      try {
+        final s = await _service.tenantMonthlySavings();
+        if (mounted) setState(() => _savings = s);
+      } catch (_) {/* sin tarjetas de ahorro */}
       if (!mounted) return;
       setState(() {
         _billing = b;
@@ -166,6 +172,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _currentPlanCard(l, status, hasCustomer, trialDaysLeft),
+          if (_savings != null) ...[
+            const SizedBox(height: 12),
+            _savingsCards(l),
+          ],
           const SizedBox(height: 24),
           Text(
             subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_choose_plan'),
@@ -205,6 +215,120 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       ),
     );
   }
+
+  // --------------- Ahorro por retos/referidos (Loop #8) ---------------
+  Widget _savingsCards(AppLocalizations l) {
+    final s = _savings!;
+    final total = (s['total'] as Map?) ?? const {};
+    final ch = (total['challenges'] as num?)?.toDouble() ?? 0;
+    final rf = (total['referrals'] as num?)?.toDouble() ?? 0;
+    final year = (s['year'] as Map?) ?? const {};
+    final yCh = (year['challenges'] as num?)?.toDouble() ?? 0;
+    final yRf = (year['referrals'] as num?)?.toDouble() ?? 0;
+    return Row(
+      children: [
+        _savingsCard(l.t('sav_challenges'), ch, yCh,
+            const Color(0xFF6A1B9A), Icons.emoji_events, const Key('sav_challenges')),
+        const SizedBox(width: 8),
+        _savingsCard(l.t('sav_referrals'), rf, yRf,
+            const Color(0xFF00838F), Icons.group_add, const Key('sav_referrals')),
+      ],
+    );
+  }
+
+  Widget _savingsCard(String label, double total, double thisYear, Color color, IconData icon, Key key) {
+    return Expanded(
+      child: Card(
+        key: key,
+        child: InkWell(
+          onTap: _openSavingsDetail,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            child: Column(
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(height: 6),
+                FittedBox(
+                  child: Text(_eur(total),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16)),
+                ),
+                const SizedBox(height: 2),
+                Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(context.l10n.t('sav_this_year', {'v': _eur(thisYear)}),
+                    style: const TextStyle(fontSize: 9, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Modal con el desglose mensual del ahorro.
+  Future<void> _openSavingsDetail() async {
+    final s = _savings;
+    if (s == null) return;
+    final l = context.l10n;
+    final total = (s['total'] as Map?) ?? const {};
+    final tCh = (total['challenges'] as num?)?.toDouble() ?? 0;
+    final tRf = (total['referrals'] as num?)?.toDouble() ?? 0;
+    final rows = ((s['breakdown'] as List?) ?? []).cast<Map<String, dynamic>>();
+    const months = ['—', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l.t('sav_detail_title'), style: Theme.of(ctx).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text('${l.t('sav_total')}: ${_eur(tCh + tRf)}',
+                  style: Theme.of(ctx).textTheme.bodyMedium),
+              Row(children: [
+                _dot(const Color(0xFF6A1B9A)), Text(' ${l.t('sav_challenges')}: ${_eur(tCh)}   '),
+                _dot(const Color(0xFF00838F)), Text(' ${l.t('sav_referrals')}: ${_eur(tRf)}'),
+              ]),
+              const Divider(),
+              if (rows.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: Text(l.t('sav_none'), textAlign: TextAlign.center)),
+                )
+              else
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (final r in rows)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.savings, size: 18),
+                            title: Text('${months[(r['month'] as num?)?.toInt() ?? 0]} ${r['year']}'),
+                            subtitle: Text(
+                              '${l.t('sav_challenges')} ${_eur((r['challenges'] as num?)?.toDouble() ?? 0)}'
+                              ' · ${l.t('sav_referrals')} ${_eur((r['referrals'] as num?)?.toDouble() ?? 0)}'),
+                            trailing: Text(_eur((r['total'] as num?)?.toDouble() ?? 0),
+                                style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dot(Color c) => Container(width: 10, height: 10,
+      decoration: BoxDecoration(color: c, shape: BoxShape.circle));
 
   Widget _currentPlanCard(AppLocalizations l, String? status, bool hasCustomer, int trialDaysLeft) {
     final est = estimatedCost(_activeDrivers, _yearly);
