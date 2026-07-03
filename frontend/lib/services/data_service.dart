@@ -1475,17 +1475,6 @@ class DataService {
     return (data as List).cast<Map<String, dynamic>>();
   }
 
-  /// Incidencias visibles para el usuario en su panel: las notas (conductor<->
-  /// jefe) y, además, los reportes de fallo ('app') que ÉL mismo creó, para que
-  /// pueda seguir el chat con la administración. (RLS sigue acotando por tenant.)
-  Future<List<Map<String, dynamic>>> listVisibleIncidents() async {
-    final uid = _c.auth.currentUser?.id;
-    var q = _c.from('incidents').select('*, users:user_id(name, email)');
-    if (uid != null) q = q.or('kind.eq.nota,user_id.eq.$uid');
-    final data = await q.order('created_at', ascending: false);
-    return (data as List).cast<Map<String, dynamic>>();
-  }
-
   /// Mis tickets de soporte (reportes de fallo 'app' que yo he creado), abiertos
   /// y cerrados, para chatear con la administración.
   Future<List<Map<String, dynamic>>> listMyTickets() async {

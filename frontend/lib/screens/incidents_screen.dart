@@ -30,9 +30,12 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     _reload();
   }
 
-  // Todo en un sitio: el jefe ve todas las incidencias de su flota (notas y
-  // tickets de soporte chófer<->admin); el conductor ve las suyas. (RLS acota.)
-  void _reload() => setState(() => _future = _service.listIncidents());
+  // El jefe ve todas las incidencias de su flota (notas y tickets de soporte
+  // chófer<->admin). El conductor aquí SOLO ve sus notas al jefe: sus reportes
+  // de error ('app') viven en "Informar de un error" (TicketsScreen), para que
+  // no se dupliquen en "Mensaje al jefe". (RLS acota por tenant/autor.)
+  void _reload() => setState(() => _future =
+      _service.listIncidents(kind: widget.profile.isOwner ? null : 'nota'));
 
   Future<void> _addNote() async {
     final l = context.l10n;
