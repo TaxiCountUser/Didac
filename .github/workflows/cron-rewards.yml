@@ -1,0 +1,36 @@
+name: Crons de recompensas (diario)
+
+# Programador HTTP de los crons del Loop #8. Cada día a las 03:00 UTC llama a
+# los dos endpoints de recompensas del backend con la cabecera x-cron-secret:
+#   - apply-challenge-credits      -> crédito Stripe por retos completados
+#   - process-referral-validations -> valida/rechaza referidos a los 15 días
+#
+# Necesita 2 secrets del repo (Settings -> Secrets and variables -> Actions):
+#   PROD_BACKEND_URL  -> URL del backend en Render (ya existe, sin barra final)
+#   CRON_SECRET       -> el mismo valor que la env var CRON_SECRET en Render
+#
+# Ambos endpoints son idempotentes: ejecutarlos de más no duplica créditos.
+# También se puede lanzar a mano: Actions -> "Crons de recompensas" -> Run workflow.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # cada día a las 03:00 UTC (04:00/05:00 en España)
+  workflow_dispatch: {}
+
+jobs:
+  rewards:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Créditos de retos (apply-challenge-credits)
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.PROD_BACKEND_URL }}/api/v1/admin/cron/apply-challenge-credits"
+
+      - name: Validación de referidos (process-referral-validations)
+        # Se ejecuta aunque el paso anterior falle: son crons independientes.
+        if: always()
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.PROD_BACKEND_URL }}/api/v1/admin/cron/process-referral-validations"
