@@ -692,6 +692,17 @@ class DataService {
     return body;
   }
 
+  /// Buscador global del admin: empresa por nombre, usuario por email/nombre/
+  /// usuario o vehículo por matrícula. Devuelve [{tenant_id, tenant_name, reason}].
+  Future<List<Map<String, dynamic>>> adminSearch(String q) async {
+    final uri = Uri.parse('$backendUrl/api/v1/admin/search')
+        .replace(queryParameters: {'q': q});
+    final res = await http.get(uri, headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['results'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
   /// Modificar una empresa (suscripción, plan, límite, prueba, nombre, solo).
   Future<void> adminUpdateCompany(String id, Map<String, dynamic> patch) async {
     final res = await http.patch(

@@ -1150,7 +1150,7 @@ export async function buildApp(options = {}) {
 
     const { data: users } = await supabase
       .from('users')
-      .select('id, email, name, username, role, active, is_admin, created_at')
+      .select('id, email, name, display_name, username, role, active, is_admin, created_at, annual_price_paid')
       .eq('tenant_id', id)
       .order('role', { ascending: true });
 
@@ -1189,6 +1189,22 @@ export async function buildApp(options = {}) {
       .order('created_at', { ascending: false })
       .limit(100);
 
+    // Datos de SUSCRIPCIÓN (lado TaxiCount, no finanzas del cliente): cuota
+    // mensual estimada (annual_price_paid/12 de los conductores activos) y
+    // ahorro total repartido (monthly_savings). Para la ficha rediseñada.
+    let mrrCompany = 0;
+    const activeDrivers = (users || []).filter((u) => u.role === 'driver' && u.active !== false);
+    if ((tenant.subscription_status === 'active' || tenant.subscription_status === 'past_due')) {
+      if (activeDrivers.length === 0) mrrCompany = 15 / 12;
+      for (const u of activeDrivers) mrrCompany += Number(u.annual_price_paid ?? 15) / 12;
+    }
+    const { data: savRows } = await supabase.from('monthly_savings')
+      .select('savings_from_challenges, savings_from_referrals').eq('tenant_id', id);
+    let savingsTotal = 0;
+    for (const r of savRows ?? []) {
+      savingsTotal += Number(r.savings_from_challenges ?? 0) + Number(r.savings_from_referrals ?? 0);
+    }
+
     return reply.send({
       tenant,
       users: users || [],
@@ -1198,7 +1214,51 @@ export async function buildApp(options = {}) {
       financials_masked: true,       // el front muestra ***** en vez de cifras
       vehicles_list: vehicleList || [],
       incidents_list: incidentList || [],
+      billing: {
+        mrr_estimate: Number(mrrCompany.toFixed(2)),
+        savings_total: Number(savingsTotal.toFixed(2)),
+        active_drivers: activeDrivers.length,
+      },
     });
+  });
+
+  // Buscador global del admin: empresa por nombre, usuario por email/nombre/
+  // usuario, o vehículo por matrícula. Devuelve empresas con el motivo del
+  // match, para saltar directamente a su ficha.
+  app.get('/api/v1/admin/search', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const q = String(request.query?.q ?? '').trim();
+    if (q.length < 2) return reply.send({ results: [] });
+    const like = `%${q}%`;
+
+    const [byTenant, byUser, byPlate] = await Promise.all([
+      supabase.from('tenants').select('id, name').ilike('name', like).limit(10),
+      supabase.from('users')
+        .select('tenant_id, email, name, username, tenants:tenant_id(id, name)')
+        .or(`email.ilike.${like},name.ilike.${like},username.ilike.${like}`)
+        .not('tenant_id', 'is', null).limit(10),
+      supabase.from('vehicles')
+        .select('tenant_id, license_plate, tenants:tenant_id(id, name)')
+        .ilike('license_plate', like).limit(10),
+    ]);
+
+    const results = [];
+    const seen = new Set();
+    const push = (id, name, reason) => {
+      if (!id || seen.has(`${id}|${reason}`)) return;
+      seen.add(`${id}|${reason}`);
+      results.push({ tenant_id: id, tenant_name: name ?? '—', reason });
+    };
+    for (const t of byTenant.data ?? []) push(t.id, t.name, '');
+    for (const u of byUser.data ?? []) {
+      push(u.tenants?.id ?? u.tenant_id, u.tenants?.name,
+        u.email ?? u.username ?? u.name ?? '');
+    }
+    for (const v of byPlate.data ?? []) {
+      push(v.tenants?.id ?? v.tenant_id, v.tenants?.name, v.license_plate ?? '');
+    }
+    return reply.send({ results: results.slice(0, 15) });
   });
 
   // Añadir un vehículo a una empresa (admin).

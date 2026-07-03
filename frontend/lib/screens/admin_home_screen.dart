@@ -5,7 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_companies_screen.dart';
 import 'admin_screen.dart';
+import 'admin_theme.dart';
 
 /// Portada del panel de administración (rediseño "eléctrico", Fase 1).
 /// Combina: centro de control (anillo de salud + KPIs + semáforos de crons),
@@ -19,45 +21,24 @@ class AdminHomeScreen extends StatefulWidget {
   State<AdminHomeScreen> createState() => _AdminHomeScreenState();
 }
 
-// Paleta "eléctrica" del panel (independiente del tema ámbar de la app).
-class _C {
-  static const bg = Color(0xFF0B0B0F);
-  static const card = Color(0xFF12121A);
-  static const hairline = Color(0xFF1D1D26);
-  static const text = Color(0xFFF1EFE8);
-  static const secondary = Color(0xFF7D8A94);
-  static const muted = Color(0xFF66616E);
-  static const teal = Color(0xFF5DCAA5);
-  static const purple = Color(0xFFAFA9EC);
-  static const blue = Color(0xFF85B7EB);
-  static const amber = Color(0xFFFAC775);
-  static const red = Color(0xFFF09595);
-  static const coral = Color(0xFFF0997B);
-  static const pink = Color(0xFFED93B1);
-  static const gray = Color(0xFFB4B2A9);
-  // Fondos oscuros de las etiquetas por tipo.
-  static const redBg = Color(0xFF38161C);
-  static const blueBg = Color(0xFF16273C);
-  static const amberBg = Color(0xFF33241A);
-  static const purpleBg = Color(0xFF2C1A38);
-  static const coralBg = Color(0xFF331D15);
-}
-
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final _service = DataService();
   late Future<Map<String, dynamic>> _future = _service.adminOverview();
 
   void _reload() => setState(() => _future = _service.adminOverview());
 
-  // Abre un módulo del AdminScreen clásico y recarga al volver.
+  // Abre un módulo: -2 = Empresas rediseñado (Fase 2); 0..6 = pestaña del
+  // AdminScreen clásico (se irán migrando por fases). Recarga al volver.
   Future<void> _openTab(int tab) async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => AdminScreen(initialTab: tab)));
+    final page = tab == -2
+        ? const AdminCompaniesScreen()
+        : AdminScreen(initialTab: tab) as Widget;
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
     _reload();
   }
 
   static const _moduleTab = {
-    'company': 0, 'incidents': 1, 'challenges': 2, 'referrals': 3,
+    'company': -2, 'incidents': 1, 'challenges': 2, 'referrals': 3,
     'security': 4, 'errors': 5, 'config': 6,
   };
 
@@ -66,36 +47,30 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final l = context.l10n;
     // Tema oscuro local: solo el panel de admin vive en modo "sala de máquinas".
     return Theme(
-      data: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: _C.bg,
-        colorScheme: const ColorScheme.dark(
-          primary: _C.teal, surface: _C.card, onSurface: _C.text),
-        useMaterial3: true,
-      ),
+      data: adminDarkTheme(),
       child: Scaffold(
-        backgroundColor: _C.bg,
+        backgroundColor: AdminColors.bg,
         appBar: AppBar(
-          backgroundColor: _C.bg,
-          foregroundColor: _C.text,
+          backgroundColor: AdminColors.bg,
+          foregroundColor: AdminColors.text,
           elevation: 0,
           title: Row(
             children: [
               Container(
                 width: 30, height: 30,
                 decoration: BoxDecoration(
-                  color: _C.amberBg, borderRadius: BorderRadius.circular(9)),
-                child: const Icon(Icons.shield, size: 17, color: _C.amber),
+                  color: AdminColors.amberBg, borderRadius: BorderRadius.circular(9)),
+                child: const Icon(Icons.shield, size: 17, color: AdminColors.amber),
               ),
               const SizedBox(width: 10),
               Text(l.t('admin_title'),
-                  style: const TextStyle(fontSize: 16, color: _C.text)),
+                  style: const TextStyle(fontSize: 16, color: AdminColors.text)),
             ],
           ),
           actions: [
             IconButton(
               tooltip: l.t('logout'),
-              icon: const Icon(Icons.logout, size: 20, color: _C.secondary),
+              icon: const Icon(Icons.logout, size: 20, color: AdminColors.secondary),
               onPressed: () => Supabase.instance.client.auth.signOut(),
             ),
           ],
@@ -105,7 +80,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
               return const Center(
-                  child: CircularProgressIndicator(color: _C.teal));
+                  child: CircularProgressIndicator(color: AdminColors.teal));
             }
             if (snap.hasError) {
               return Center(
@@ -113,7 +88,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('${snap.error}',
-                        style: const TextStyle(color: _C.red, fontSize: 13),
+                        style: const TextStyle(color: AdminColors.red, fontSize: 13),
                         textAlign: TextAlign.center),
                     const SizedBox(height: 12),
                     OutlinedButton(
@@ -124,8 +99,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             }
             final d = snap.data ?? {};
             return RefreshIndicator(
-              color: _C.teal,
-              backgroundColor: _C.card,
+              color: AdminColors.teal,
+              backgroundColor: AdminColors.card,
               onRefresh: () async => _reload(),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
@@ -141,7 +116,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   Text(l.t('adm_home_modules'),
                       style: const TextStyle(
                           fontSize: 11, fontWeight: FontWeight.w600,
-                          letterSpacing: 1.5, color: _C.text)),
+                          letterSpacing: 1.5, color: AdminColors.text)),
                   const SizedBox(height: 8),
                   _modulesGrid(l, d),
                 ],
@@ -169,18 +144,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             Container(
                 width: 7, height: 7,
                 decoration: BoxDecoration(
-                    color: ok ? _C.teal : _C.red, shape: BoxShape.circle)),
+                    color: ok ? AdminColors.teal : AdminColors.red, shape: BoxShape.circle)),
             const SizedBox(width: 5),
             Text(label,
                 style: const TextStyle(
-                    fontSize: 10, letterSpacing: 1, color: _C.secondary)),
+                    fontSize: 10, letterSpacing: 1, color: AdminColors.secondary)),
           ],
         );
 
     return Row(
       children: [
         Text(_todayLabel(),
-            style: const TextStyle(fontSize: 11, color: _C.muted)),
+            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
         const Spacer(),
         dot('API', true),
         const SizedBox(width: 12),
@@ -221,10 +196,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   Text('$health',
                       style: const TextStyle(
                           fontSize: 26, fontWeight: FontWeight.w600,
-                          color: _C.text)),
+                          color: AdminColors.text)),
                   Text(l.t('adm_home_health').toUpperCase(),
                       style: const TextStyle(
-                          fontSize: 8, letterSpacing: 1.5, color: _C.secondary)),
+                          fontSize: 8, letterSpacing: 1.5, color: AdminColors.secondary)),
                 ],
               ),
             ),
@@ -241,13 +216,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     child: Text(l.t('adm_home_ok'),
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w500,
-                            color: _C.text)),
+                            color: AdminColors.text)),
                   ),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text('· ${l.t('adm_home_items', {'n': '$inboxLen'})}',
                         style:
-                            const TextStyle(fontSize: 11, color: _C.secondary)),
+                            const TextStyle(fontSize: 11, color: AdminColors.secondary)),
                   ),
                 ],
               ),
@@ -261,15 +236,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 childAspectRatio: 2.5,
                 children: [
                   _kpiTile(l.t('adm_kpi_mrr'), '${mrr.toStringAsFixed(0)}€',
-                      l.t('adm_kpi_paying', {'n': '${k['paying'] ?? 0}'}), _C.teal),
+                      l.t('adm_kpi_paying', {'n': '${k['paying'] ?? 0}'}), AdminColors.teal),
                   _kpiTile(l.t('adm_kpi_companies'), '${k['tenants'] ?? 0}',
-                      l.t('adm_kpi_active', {'n': '${k['paying'] ?? 0}'}), _C.purple),
+                      l.t('adm_kpi_active', {'n': '${k['paying'] ?? 0}'}), AdminColors.purple),
                   _kpiTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal',
-                      l.t('adm_kpi_active', {'n': '$driversActive'}), _C.blue),
+                      l.t('adm_kpi_active', {'n': '$driversActive'}), AdminColors.blue),
                   _kpiTile(l.t('adm_kpi_trials'), '$trialing',
                       soon > 0
                           ? l.t('adm_kpi_soon', {'n': '$soon'})
-                          : l.t('adm_kpi_none_soon'), _C.amber),
+                          : l.t('adm_kpi_none_soon'), AdminColors.amber),
                 ],
               ),
             ],
@@ -298,10 +273,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           Text(value,
               maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w600, color: _C.text)),
+                  fontSize: 15, fontWeight: FontWeight.w600, color: AdminColors.text)),
           Text(sub,
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 8.5, color: _C.muted)),
+              style: const TextStyle(fontSize: 8.5, color: AdminColors.muted)),
         ],
       ),
     );
@@ -315,13 +290,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         Text(l.t('adm_home_inbox').toUpperCase(),
             style: const TextStyle(
                 fontSize: 11, fontWeight: FontWeight.w600,
-                letterSpacing: 1.5, color: _C.text)),
+                letterSpacing: 1.5, color: AdminColors.text)),
         const SizedBox(width: 8),
         if (n > 0)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
             decoration: BoxDecoration(
-                color: const Color(0xFFE24B4A),
+                color: AdminColors.redSolid,
                 borderRadius: BorderRadius.circular(9)),
             child: Text('$n',
                 style: const TextStyle(
@@ -338,24 +313,24 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-            color: _C.card, borderRadius: BorderRadius.circular(12)),
+            color: AdminColors.card, borderRadius: BorderRadius.circular(12)),
         child: Row(
           children: [
-            const Icon(Icons.check_circle, size: 18, color: _C.teal),
+            const Icon(Icons.check_circle, size: 18, color: AdminColors.teal),
             const SizedBox(width: 10),
             Text(l.t('adm_home_inbox_empty'),
-                style: const TextStyle(fontSize: 13, color: _C.secondary)),
+                style: const TextStyle(fontSize: 13, color: AdminColors.secondary)),
           ],
         ),
       );
     }
     return Container(
       decoration: BoxDecoration(
-          color: _C.card, borderRadius: BorderRadius.circular(12)),
+          color: AdminColors.card, borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
           for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const Divider(height: 1, color: _C.hairline),
+            if (i > 0) const Divider(height: 1, color: AdminColors.hairline),
             _inboxRow(l, items[i].cast<String, dynamic>()),
           ],
         ],
@@ -367,15 +342,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   ({Color fg, Color bg, String tagKey, String actKey}) _typeStyle(String type) {
     switch (type) {
       case 'fraud':
-        return (fg: _C.red, bg: _C.redBg, tagKey: 'adm_tag_fraud', actKey: 'adm_act_review');
+        return (fg: AdminColors.red, bg: AdminColors.redBg, tagKey: 'adm_tag_fraud', actKey: 'adm_act_review');
       case 'challenge':
-        return (fg: _C.purple, bg: _C.purpleBg, tagKey: 'adm_tag_challenge', actKey: 'adm_act_review');
+        return (fg: AdminColors.purple, bg: AdminColors.purpleBg, tagKey: 'adm_tag_challenge', actKey: 'adm_act_review');
       case 'ticket':
-        return (fg: _C.blue, bg: _C.blueBg, tagKey: 'adm_tag_ticket', actKey: 'adm_act_reply');
+        return (fg: AdminColors.blue, bg: AdminColors.blueBg, tagKey: 'adm_tag_ticket', actKey: 'adm_act_reply');
       case 'trial':
-        return (fg: _C.amber, bg: _C.amberBg, tagKey: 'adm_tag_trial', actKey: 'adm_act_view');
+        return (fg: AdminColors.amber, bg: AdminColors.amberBg, tagKey: 'adm_tag_trial', actKey: 'adm_act_view');
       default:
-        return (fg: _C.coral, bg: _C.coralBg, tagKey: 'adm_tag_error', actKey: 'adm_act_view');
+        return (fg: AdminColors.coral, bg: AdminColors.coralBg, tagKey: 'adm_tag_error', actKey: 'adm_act_view');
     }
   }
 
@@ -405,12 +380,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 children: [
                   Text((it['title'] as String?) ?? '—',
                       maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: _C.text)),
+                      style: const TextStyle(fontSize: 12, color: AdminColors.text)),
                   if ((it['subtitle'] as String?)?.isNotEmpty == true)
                     Text(it['subtitle'] as String,
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 10, color: _C.muted)),
+                            const TextStyle(fontSize: 10, color: AdminColors.muted)),
                 ],
               ),
             ),
@@ -438,21 +413,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     int pi(String key) => (p[key] as num?)?.toInt() ?? 0;
 
     final modules = <_Module>[
-      _Module(l.t('admin_companies'), Icons.business, _C.purple,
+      _Module(l.t('admin_companies'), Icons.business, AdminColors.purple,
           '${k['tenants'] ?? 0} · ${l.t('adm_kpi_trials').toLowerCase()}: ${k['trialing'] ?? 0}',
-          0, 0),
-      _Module(l.t('adm_mod_support'), Icons.forum, _C.blue,
+          0, -2),
+      _Module(l.t('adm_mod_support'), Icons.forum, AdminColors.blue,
           l.t('adm_pending_n', {'n': '${pi('tickets')}'}), pi('tickets'), 1),
-      _Module(l.t('admin_challenges'), Icons.emoji_events, _C.amber,
+      _Module(l.t('admin_challenges'), Icons.emoji_events, AdminColors.amber,
           l.t('adm_pending_n', {'n': '${pi('challenges')}'}), pi('challenges'), 2),
-      _Module(l.t('adm_ref_tab'), Icons.card_giftcard, _C.pink, '', 0, 3),
-      _Module(l.t('adm_sec_tab'), Icons.lock, _C.red,
+      _Module(l.t('adm_ref_tab'), Icons.card_giftcard, AdminColors.pink, '', 0, 3),
+      _Module(l.t('adm_sec_tab'), Icons.lock, AdminColors.red,
           l.t('adm_pending_n', {'n': '${pi('fraud')}'}), pi('fraud'), 4),
-      _Module(l.t('adm_err_tab'), Icons.bug_report, _C.coral,
+      _Module(l.t('adm_err_tab'), Icons.bug_report, AdminColors.coral,
           l.t('adm_pending_n', {'n': '${pi('errors')}'}), pi('errors'), 5),
-      _Module(l.t('adm_mod_billing'), Icons.payments, _C.teal,
+      _Module(l.t('adm_mod_billing'), Icons.payments, AdminColors.teal,
           l.t('adm_mod_billing_soon'), 0, -1), // Fase 3
-      _Module(l.t('adm_cfg_tab'), Icons.settings, _C.gray, '', 0, 6),
+      _Module(l.t('adm_cfg_tab'), Icons.settings, AdminColors.gray, '', 0, 6),
     ];
 
     return GridView.builder(
@@ -465,14 +440,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       itemCount: modules.length,
       itemBuilder: (context, i) {
         final m = modules[i];
-        final enabled = m.tab >= 0;
+        final enabled = m.tab != -1; // -1 = módulo aún no disponible
         return InkWell(
           onTap: enabled ? () => _openTab(m.tab) : null,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _C.card,
+              color: AdminColors.card,
               border: Border.all(color: m.color.withValues(alpha: .25)),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -488,11 +463,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w500,
-                            color: enabled ? _C.text : _C.muted)),
+                            color: enabled ? AdminColors.text : AdminColors.muted)),
                     if (m.subtitle.isNotEmpty)
                       Text(m.subtitle,
                           maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 10, color: _C.muted)),
+                          style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
                   ],
                 ),
                 if (m.badge > 0)
@@ -507,7 +482,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       child: Text('${m.badge}',
                           style: const TextStyle(
                               fontSize: 9, fontWeight: FontWeight.w600,
-                              color: _C.bg)),
+                              color: AdminColors.bg)),
                     ),
                   ),
               ],
@@ -541,12 +516,12 @@ class _RingPainter extends CustomPainter {
     final track = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
-      ..color = _C.hairline;
+      ..color = AdminColors.hairline;
     canvas.drawCircle(center, radius, track);
 
     final color = fraction >= .8
-        ? _C.teal
-        : (fraction >= .5 ? _C.amber : _C.red);
+        ? AdminColors.teal
+        : (fraction >= .5 ? AdminColors.amber : AdminColors.red);
     final arc = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
