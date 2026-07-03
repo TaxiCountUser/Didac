@@ -153,6 +153,11 @@ const PARSE_TEST_HTML = `<!doctype html>
 const SENTRY_DSN = process.env.SENTRY_DSN || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+// Secreto para que un scheduler externo (cron-job.org, GitHub Actions, Render
+// cron…) dispare los endpoints /api/v1/admin/cron/* sin un JWT de admin (que
+// caduca). El scheduler manda la cabecera "x-cron-secret: <valor>". Si no se
+// define, los crons solo aceptan un admin autenticado (comportamiento previo).
+const CRON_SECRET = process.env.CRON_SECRET || '';
 const STRIPE_SUCCESS_URL = process.env.STRIPE_SUCCESS_URL || 'taxicount://subscription-success';
 const STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL || 'taxicount://subscription-cancel';
 // Loop #6: cupón PERMANENTE de lanzamiento (p. ej. TAXI2026, 38%) que se aplica
@@ -717,12 +722,26 @@ export async function buildApp(options = {}) {
     return result;
   }
 
+  // ¿Viene de un scheduler externo con el secreto de cron correcto?
+  function cronAuthorized(request) {
+    return !!CRON_SECRET && request.headers['x-cron-secret'] === CRON_SECRET;
+  }
+
+  // Autoriza un endpoint de cron: acepta el secreto de cron O un admin. Devuelve
+  // { caller } (caller = null si viene por secreto) o { code, error }.
+  async function cronOrAdmin(request) {
+    if (cronAuthorized(request)) return { caller: null, viaCron: true };
+    return adminGuard(request);
+  }
+
   // Defensa en profundidad: TODA ruta /api/v1/admin/* exige admin aquí, aunque
   // el handler también lo verifique. Así un endpoint admin nuevo no puede quedar
   // sin protección por olvido. La memoización evita la doble verificación.
+  // Excepción: /api/v1/admin/cron/* con el secreto de cron válido (schedulers).
   app.addHook('preHandler', async (request, reply) => {
     const path = (request.url || '').split('?')[0];
     if (!path.startsWith('/api/v1/admin/')) return;
+    if (path.startsWith('/api/v1/admin/cron/') && cronAuthorized(request)) return;
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
   });
@@ -1226,11 +1245,11 @@ export async function buildApp(options = {}) {
   }
 
   app.post('/api/v1/admin/cron/apply-challenge-credits', async (request, reply) => {
-    const g = await adminGuard(request);
+    const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
     const res = await applyPendingChallengeCredits();
-    await logAdminAction(request, g.caller.id, 'challenge_credits_apply', 'challenge_claims', null, res);
+    await logAdminAction(request, g.caller?.id ?? null, 'challenge_credits_apply', 'challenge_claims', null, res);
     return reply.send({ ok: true, ...res });
   });
 
@@ -3021,10 +3040,10 @@ export async function buildApp(options = {}) {
   }
 
   app.post('/api/v1/admin/cron/process-referral-validations', async (request, reply) => {
-    const g = await adminGuard(request);
+    const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const res = await processReferralValidationQueue();
-    await logAdminAction(request, g.caller.id, 'referral_validations_process', 'referral_validation_queue', null, res);
+    await logAdminAction(request, g.caller?.id ?? null, 'referral_validations_process', 'referral_validation_queue', null, res);
     return reply.send({ ok: true, ...res });
   });
 
