@@ -67,7 +67,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
       await prefs.setString('day_greet_seen', today); // no repetir hoy
       if (!mounted) return;
       final l = context.l10n;
-      final name = _nameOverride ?? widget.profile.appName;
+      final name = widget.profile.appName;
       await _showKmDialog(
         vehicles,
         title: '${_greetingText(l)}, $name 👋',
@@ -288,42 +288,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     }
   }
 
-  String? _nameOverride; // nombre editado en esta sesión (refresca el saludo)
-
-  // Cambia "cómo quieres que te llame" (display_name del propio usuario).
-  Future<void> _editName() async {
-    final l = context.l10n;
-    final ctrl = TextEditingController(text: _nameOverride ?? widget.profile.appName);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.t('dh_name_title')),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l.t('dh_name_hint'), border: const OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final name = ctrl.text.trim();
-    try {
-      await _service.updateDisplayName(name);
-      if (mounted) setState(() => _nameOverride = name.isEmpty ? widget.profile.email : name);
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final profile = widget.profile;
-    final displayName = _nameOverride ?? profile.appName;
+    // El nombre se edita SOLO desde Ajustes (lápiz de la cabecera).
+    final displayName = profile.appName;
     return Scaffold(
       // Atajo de voz: graba directamente sin entrar en "Añadir registro".
       floatingActionButton: FloatingActionButton.extended(
@@ -371,22 +341,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
               children: [
                 const Icon(Icons.local_taxi, size: 64, color: Colors.amber),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        l.t('dh_hello', {'name': displayName}),
-                        style: Theme.of(context).textTheme.headlineSmall,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: l.t('dh_name_title'),
-                      icon: const Icon(Icons.edit, size: 20),
-                      onPressed: _editName,
-                    ),
-                  ],
+                Text(
+                  l.t('dh_hello', {'name': displayName}),
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 28),
                 _BigButton(
