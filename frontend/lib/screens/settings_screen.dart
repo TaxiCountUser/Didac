@@ -33,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late String? _avatarB64 = widget.profile.avatarUrl; // foto base64 o null = icono
   late String? _username = widget.profile.username; // para login con usuario
   String? _activeVehicleLabel;
+  String? _vehicleLicense; // nº de licencia del taxi (el conductor lo VE, no edita)
   String? _companyName;
   int _vehicleCount = 0; // nº de coches del conductor; el cambio solo si hay >1
   bool _subActive = false; // suscripción activa de pago o prueba vigente (referidos)
@@ -107,10 +108,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         for (final e in vehicles) {
           if (e['id'] == vid) { v = e; break; }
         }
+        // Vehículo de referencia para la licencia: el activo o, si no hay, el
+        // único que tenga. La licencia la fija el jefe; el conductor solo la ve.
+        final ref = v ?? (vehicles.length == 1 ? vehicles.first : null);
+        String? lic;
+        if (ref != null) {
+          try { lic = await _service.getVehicleLicense(ref['id'] as String); } catch (_) {}
+        }
         if (mounted) {
           setState(() {
             _vehicleCount = vehicles.length;
             _activeVehicleLabel = v == null ? null : _vehLabel(v);
+            _vehicleLicense = lic;
           });
         }
       }
@@ -374,6 +383,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Formulario para informar de un error de la app (va al equipo de TaxiCount
   /// con copia al jefe). Unidireccional: no espera respuesta en un chat.
+  /// De momento NO se usa (el botón "Informar de un error" abre el chat de
+  /// tickets); se conservará para cuando pase a ser solo formulario sin chat.
+  // ignore: unused_element
   Future<void> _reportErrorDialog() async {
     final ctrl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -462,23 +474,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _open(ReferralScreen(profile: widget.profile)),
               ),
-            // Soporte (tickets bidireccionales con el admin) — solo empresario.
+            // Informar de un error: DE MOMENTO es un chat (tickets con soporte).
+            // Más adelante pasará a ser solo el formulario (_reportErrorDialog).
             ListTile(
               leading: Badge(
                 isLabelVisible: _newReply,
                 child: const Icon(Icons.support_agent),
               ),
-              title: Text(l.t('set_report_bug')),
+              title: Text(l.t('set_report_error')),
               subtitle: Text(_newReply ? l.t('tk_new_reply') : l.t('set_report_bug_sub')),
               trailing: const Icon(Icons.chevron_right),
               onTap: _openTickets,
-            ),
-            ListTile(
-              leading: const Icon(Icons.bug_report_outlined, color: Colors.deepOrange),
-              title: Text(l.t('set_report_error')),
-              subtitle: Text(l.t('set_report_error_sub')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: _reportErrorDialog,
             ),
             ListTile(
               leading: const Icon(Icons.car_crash),
@@ -520,13 +526,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const DriverChallengesScreen()),
             ),
-            // 6) Informar de un error de la app
+            // 6) Informar de un error de la app — DE MOMENTO es un chat (tickets).
             ListTile(
-              leading: const Icon(Icons.bug_report_outlined, color: Colors.deepOrange),
+              leading: Badge(
+                isLabelVisible: _newReply,
+                child: const Icon(Icons.support_agent),
+              ),
               title: Text(l.t('set_report_error')),
-              subtitle: Text(l.t('set_report_error_sub')),
+              subtitle: Text(_newReply ? l.t('tk_new_reply') : l.t('set_report_bug_sub')),
               trailing: const Icon(Icons.chevron_right),
-              onTap: _reportErrorDialog,
+              onTap: _openTickets,
             ),
           ],
 
@@ -624,6 +633,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
+                  // Nº de licencia del taxi: SOLO lectura (lo gestiona el jefe).
+                  if (_vehicleLicense != null && _vehicleLicense!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.badge_outlined, size: 13, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text('${l.t('set_license')}: ${_vehicleLicense!}',
+                                style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ],
             ),

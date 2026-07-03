@@ -2498,3 +2498,22 @@ end;
 $$;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 056 - El conductor puede VER (no editar) el nº de licencia del vehículo.
+-- ============================================================
+create or replace function public.vehicle_license(p_vehicle uuid)
+returns text
+language sql stable security definer
+set search_path = public
+as $$
+  select vl.license_number
+    from public.vehicle_licenses vl
+   where vl.vehicle_id = p_vehicle
+     and vl.tenant_id = public.current_tenant_id();
+$$;
+revoke all on function public.vehicle_license(uuid) from public, anon;
+grant execute on function public.vehicle_license(uuid) to authenticated, service_role;
+
+notify pgrst, 'reload schema';
