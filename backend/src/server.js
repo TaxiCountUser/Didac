@@ -2873,11 +2873,55 @@ export async function buildApp(options = {}) {
     return ['active', 'past_due', 'trialing'].includes(t?.subscription_status);
   }
 
-  // Recompensa por referido validado. La materialización (crédito Stripe por la
-  // suma del valor mensual de la flota) la implementa la Iteración 4; aquí solo
-  // se deja el punto de enganche para no bloquear la validación.
+  // Recompensa por referido validado (Loop #8 It.4). Premia al REFERIDOR con un
+  // "mes gratis de flota": crédito en Stripe por la SUMA del valor mensual
+  // (annual_price_paid/12) de sus conductores activos. Registra la extensión y
+  // suma al contador de ahorro. Idempotente por source_id (no re-acredita).
   async function processReferralReward(referral) {
-    app.log.info(`[referral-v8] (It.4) recompensa pendiente para referido validado ${referral.id}`);
+    if (!stripe) { app.log.info(`[referral-v8] sin Stripe: recompensa de ${referral.id} diferida`); return; }
+    const referrerId = referral.referrer_user_id;
+    if (!referrerId) return;
+
+    // Ya acreditado antes -> no repetir.
+    const { data: prev } = await supabase.from('subscription_extensions')
+      .select('id').eq('extension_type', 'referral').eq('source_id', referral.id).maybeSingle();
+    if (prev) return;
+
+    // Tenant (flota) del referidor y su cliente de Stripe.
+    const { data: refUser } = await supabase.from('users')
+      .select('tenant_id').eq('id', referrerId).maybeSingle();
+    const tenantId = refUser?.tenant_id;
+    if (!tenantId) return;
+    const { data: t } = await supabase.from('tenants')
+      .select('stripe_customer_id').eq('id', tenantId).maybeSingle();
+    const customer = t?.stripe_customer_id;
+    if (!customer) { app.log.info(`[referral-v8] flota ${tenantId} sin cliente Stripe: recompensa de ${referral.id} diferida`); return; }
+
+    // Suma del valor mensual de los conductores activos = un mes de flota gratis.
+    const { data: drivers } = await supabase.from('users')
+      .select('annual_price_paid').eq('tenant_id', tenantId).eq('role', 'driver').eq('active', true);
+    let monthly = 0;
+    for (const d of drivers ?? []) monthly += Number(d.annual_price_paid ?? 15) / 12;
+    if (monthly <= 0) monthly = Number(15) / 12; // autónomo sin conductores extra: al menos su asiento
+    const total = Number(monthly.toFixed(2));
+    const cents = Math.max(1, Math.round(total * 100));
+
+    await stripe.customers.createBalanceTransaction(customer, {
+      amount: -cents, // negativo = crédito a favor
+      currency: 'eur',
+      description: `TaxiCount: referido validado (${referral.id})`,
+    });
+    const now = new Date();
+    await supabase.from('subscription_extensions').insert({
+      user_id: referrerId, tenant_id: tenantId, extension_type: 'referral',
+      source_id: referral.id, days_extended: 30, monthly_value: total.toFixed(2),
+      extended_until: new Date(now.getTime() + 30 * 86400000).toISOString(),
+    });
+    await supabase.rpc('bump_monthly_savings', {
+      p_tenant: tenantId, p_year: now.getUTCFullYear(), p_month: now.getUTCMonth() + 1,
+      p_challenges: 0, p_referrals: total,
+    });
+    app.log.info(`[referral-v8] recompensa de ${referral.id}: ${total}€ crédito a flota ${tenantId}`);
   }
 
   // Cron diario: procesa las validaciones vencidas. Para cada entrada con
