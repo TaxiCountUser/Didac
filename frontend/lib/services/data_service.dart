@@ -384,6 +384,16 @@ class DataService {
     return ((body['metrics'] as List?) ?? []).cast<Map<String, dynamic>>();
   }
 
+  /// Ahorro conseguido con retos y referidos (Loop #8, solo owner/admin).
+  /// Devuelve { total:{challenges,referrals,total}, year:{...}, breakdown:[...] }.
+  Future<Map<String, dynamic>> tenantMonthlySavings() async {
+    final res = await http.get(
+      Uri.parse('$backendUrl/api/v1/tenant/monthly-savings'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
   /// Aprueba (mes gratis) o rechaza un reto logrado (solo admin).
   Future<void> adminReviewChallenge(String id, String action) async {
     final res = await http.post(
