@@ -1172,17 +1172,17 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, purged: data ?? 0 });
   });
 
-  // Loop #6: abona al jefe "1 mes-asiento gratis" por cada reto completado
-  // ('rewarded') aún no canjeado, como CRÉDITO en el saldo del cliente de Stripe
-  // (Stripe lo descuenta solo de la próxima factura). Idempotente por
-  // reward_redeemed_at. Pensado para ejecutarse por cron/manual (no en el camino
-  // de lectura, para no meter llamadas a Stripe al abrir la pantalla de retos).
+  // Loop #8: abona al jefe la recompensa por cada reto completado ('rewarded')
+  // aún no canjeado, como CRÉDITO en el saldo del cliente de Stripe. El importe
+  // es el VALOR MENSUAL REAL del conductor = annual_price_paid / 12 (no un fijo).
+  // Registra la extensión en subscription_extensions (auditoría) y suma al ahorro
+  // del mes (monthly_savings). Idempotente por reward_redeemed_at. Se ejecuta por
+  // cron/manual (no en el camino de lectura, para no llamar a Stripe al abrir retos).
   async function applyPendingChallengeCredits() {
     if (!stripe) return { credited: 0, skipped: 0, no_stripe: true };
-    const { creditCents } = await challengeConfig();
     const { data: claims } = await supabase
       .from('challenge_claims')
-      .select('id, tenant_id')
+      .select('id, tenant_id, user_id')
       .eq('status', 'rewarded')
       .is('reward_redeemed_at', null)
       .limit(1000);
@@ -1193,14 +1193,29 @@ export async function buildApp(options = {}) {
         .select('stripe_customer_id').eq('id', c.tenant_id).maybeSingle();
       const customer = t?.stripe_customer_id;
       if (!customer) { skipped++; continue; } // aún sin cliente Stripe (en prueba)
+      // Valor mensual del conductor = precio anual real / 12 (Loop #8).
+      const { data: u } = await supabase.from('users')
+        .select('annual_price_paid').eq('id', c.user_id).maybeSingle();
+      const monthlyValue = Number(u?.annual_price_paid ?? 15) / 12;
+      const cents = Math.max(1, Math.round(monthlyValue * 100));
       try {
         await stripe.customers.createBalanceTransaction(customer, {
-          amount: -Math.abs(creditCents), // negativo = crédito a favor
+          amount: -cents, // negativo = crédito a favor
           currency: 'eur',
           description: `TaxiCount: reto completado (${c.id})`,
         });
+        const now = new Date();
+        await supabase.from('subscription_extensions').insert({
+          user_id: c.user_id, tenant_id: c.tenant_id, extension_type: 'challenge',
+          source_id: c.id, days_extended: 30, monthly_value: monthlyValue.toFixed(2),
+          extended_until: new Date(now.getTime() + 30 * 86400000).toISOString(),
+        });
+        await supabase.rpc('bump_monthly_savings', {
+          p_tenant: c.tenant_id, p_year: now.getUTCFullYear(), p_month: now.getUTCMonth() + 1,
+          p_challenges: Number(monthlyValue.toFixed(2)), p_referrals: 0,
+        });
         await supabase.from('challenge_claims')
-          .update({ reward_redeemed_at: new Date().toISOString() }).eq('id', c.id);
+          .update({ reward_redeemed_at: now.toISOString() }).eq('id', c.id);
         credited++;
       } catch (e) {
         app.log.warn(`[challenge-credit] claim ${c.id}: ${e.message}`);

@@ -2598,3 +2598,31 @@ alter table public.referral_validation_queue enable row level security;
 -- Sin política para authenticated: solo el backend (service_role) accede a la cola.
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 058 - Loop #8 It.2: incremento atómico de monthly_savings.
+-- ============================================================
+create or replace function public.bump_monthly_savings(
+  p_tenant     uuid,
+  p_year       int,
+  p_month      int,
+  p_challenges numeric,
+  p_referrals  numeric
+) returns void
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.monthly_savings(
+      tenant_id, year, month, savings_from_challenges, savings_from_referrals, calculated_at)
+  values (p_tenant, p_year, p_month, coalesce(p_challenges, 0), coalesce(p_referrals, 0), now())
+  on conflict (tenant_id, year, month) do update
+    set savings_from_challenges = public.monthly_savings.savings_from_challenges + coalesce(excluded.savings_from_challenges, 0),
+        savings_from_referrals  = public.monthly_savings.savings_from_referrals  + coalesce(excluded.savings_from_referrals, 0),
+        calculated_at = now();
+$$;
+revoke all on function public.bump_monthly_savings(uuid, int, int, numeric, numeric) from public, anon, authenticated;
+grant execute on function public.bump_monthly_savings(uuid, int, int, numeric, numeric) to service_role;
+
+notify pgrst, 'reload schema';
