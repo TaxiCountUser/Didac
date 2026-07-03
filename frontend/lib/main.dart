@@ -110,10 +110,20 @@ class TaxiCountApp extends StatelessWidget {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         // Respeta el tamaño de letra del sistema, pero acotado (0.85–1.3) para
         // que con letras muy grandes la interfaz no se solape ni se rompa.
+        //
+        // SafeArea global inferior: con Android 15 (edge-to-edge obligatorio)
+        // la app se dibuja DEBAJO de la barra de gestos/botones del sistema y
+        // los botones inferiores quedaban tapados en algunos móviles. Un solo
+        // SafeArea aquí (envuelve al Navigator) protege TODAS las pantallas;
+        // los SafeArea internos no duplican margen (el padding ya consumido
+        // llega a 0). El de arriba lo siguen gestionando los AppBar.
         builder: (context, child) {
           final mq = MediaQuery.of(context);
           final clamped = mq.textScaler.clamp(minScaleFactor: 0.85, maxScaleFactor: 1.3);
-          return MediaQuery(data: mq.copyWith(textScaler: clamped), child: child!);
+          return MediaQuery(
+            data: mq.copyWith(textScaler: clamped),
+            child: SafeArea(top: false, left: false, right: false, child: child!),
+          );
         },
         home: const AuthGate(),
       ),
