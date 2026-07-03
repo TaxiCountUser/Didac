@@ -2096,6 +2096,60 @@ export async function buildApp(options = {}) {
     return reply.send({ metrics: data ?? [], limit, offset });
   });
 
+  // JEFE (Loop #8 It.5): ahorro conseguido con retos y referidos. Devuelve el
+  // total acumulado (todo el histórico), el del año en curso y el desglose por
+  // mes. Solo owner (o admin con ?tenant_id=). Los datos los alimenta el backend
+  // vía bump_monthly_savings al aplicar cada recompensa (It.2/It.4).
+  app.get('/api/v1/tenant/monthly-savings', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner' && !caller.is_admin) {
+      return reply.code(403).send({ error: 'Solo el propietario o el admin' });
+    }
+    if (rateLimited(`ms:${caller.id}`)) {
+      return reply.code(429).send({ error: 'Demasiadas peticiones, prueba en un minuto' });
+    }
+    const tenantId = (caller.is_admin && request.query?.tenant_id)
+      ? request.query.tenant_id : caller.tenant_id;
+    const { data, error } = await supabase
+      .from('monthly_savings')
+      .select('year, month, savings_from_challenges, savings_from_referrals, calculated_at')
+      .eq('tenant_id', tenantId)
+      .order('year', { ascending: false })
+      .order('month', { ascending: false });
+    if (error) return reply.code(500).send({ error: error.message });
+
+    const rows = data ?? [];
+    const thisYear = new Date().getUTCFullYear();
+    const acc = { challenges: 0, referrals: 0 };
+    const year = { challenges: 0, referrals: 0 };
+    const breakdown = rows.map((r) => {
+      const ch = Number(r.savings_from_challenges ?? 0);
+      const rf = Number(r.savings_from_referrals ?? 0);
+      acc.challenges += ch; acc.referrals += rf;
+      if (r.year === thisYear) { year.challenges += ch; year.referrals += rf; }
+      return {
+        year: r.year, month: r.month,
+        challenges: Number(ch.toFixed(2)), referrals: Number(rf.toFixed(2)),
+        total: Number((ch + rf).toFixed(2)),
+      };
+    });
+    const round2 = (n) => Number(n.toFixed(2));
+    return reply.send({
+      total: {
+        challenges: round2(acc.challenges), referrals: round2(acc.referrals),
+        total: round2(acc.challenges + acc.referrals),
+      },
+      year: {
+        year: thisYear,
+        challenges: round2(year.challenges), referrals: round2(year.referrals),
+        total: round2(year.challenges + year.referrals),
+      },
+      breakdown,
+    });
+  });
+
   // JEFE: progreso del trimestre EN CURSO, calculado en tiempo real (no espera al
   // cron). Devuelve active_drivers, drivers_with_achievement, completion_rate y la
   // recompensa proyectada si el trimestre cerrara ahora.
