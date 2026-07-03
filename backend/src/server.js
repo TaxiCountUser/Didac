@@ -2808,6 +2808,128 @@ export async function buildApp(options = {}) {
     await recomputeReferrerMilestones(ref.referrer_user_id);
   }
 
+  // ==========================================================================
+  // Loop #8 · Iteración 3 — validación de referidos a 15 días desde el PRIMER
+  // PAGO. Es un mecanismo PARALELO al de hitos (referidos-v2): usa las columnas
+  // validation_status/first_payment_date/validation_date y la cola
+  // referral_validation_queue de la migración 057. El reto y el referido pueden
+  // ambos generar recompensas por su valor real (annual_price_paid/12).
+  // ==========================================================================
+
+  // Ventana de validación en días (desde el primer pago del referido).
+  async function referralPayWindowDays() {
+    const cfg = await refConfig();
+    return parseInt(cfg.referral_pay_window_days ?? '15', 10);
+  }
+
+  // Primer pago del referido -> fija first_payment_date (si no estaba) y encola
+  // la validación a +N días. Idempotente: no re-encola si ya hay una entrada
+  // sin procesar, ni toca referidos que no estén 'pending'.
+  async function enqueueReferralValidation(tenantId) {
+    if (!tenantId) return;
+    const { data: ref } = await supabase.from('referrals')
+      .select('id, validation_status, first_payment_date')
+      .eq('referred_tenant_id', tenantId).maybeSingle();
+    if (!ref || ref.validation_status !== 'pending') return;
+
+    const nowIso = new Date().toISOString();
+    const firstPay = ref.first_payment_date ?? nowIso;
+    if (!ref.first_payment_date) {
+      await supabase.from('referrals')
+        .update({ first_payment_date: firstPay }).eq('id', ref.id);
+    }
+    // ¿Ya hay una validación pendiente en la cola? -> no duplicar.
+    const { data: pend } = await supabase.from('referral_validation_queue')
+      .select('id').eq('referral_id', ref.id).eq('processed', false).maybeSingle();
+    if (pend) return;
+
+    const days = await referralPayWindowDays();
+    const scheduledFor = new Date(new Date(firstPay).getTime() + days * 86400000).toISOString();
+    await supabase.from('referral_validation_queue')
+      .insert({ referral_id: ref.id, scheduled_for: scheduledFor });
+    app.log.info(`[referral-v8] encolada validación de ${ref.id} para ${scheduledFor}`);
+  }
+
+  // Cancelación mientras la validación aún está pendiente -> se rechaza y se
+  // marca la cola como procesada (ya no hay nada que validar).
+  async function rejectPendingReferralValidation(tenantId) {
+    if (!tenantId) return;
+    const { data: ref } = await supabase.from('referrals')
+      .select('id, validation_status')
+      .eq('referred_tenant_id', tenantId).maybeSingle();
+    if (!ref || ref.validation_status !== 'pending') return;
+    await supabase.from('referrals')
+      .update({ validation_status: 'rejected', validation_date: new Date().toISOString() })
+      .eq('id', ref.id);
+    await supabase.from('referral_validation_queue')
+      .update({ processed: true }).eq('referral_id', ref.id).eq('processed', false);
+    app.log.info(`[referral-v8] validación de ${ref.id} rechazada por cancelación`);
+  }
+
+  // ¿La empresa referida sigue siendo cliente de pago?
+  async function tenantSubscriptionActive(tenantId) {
+    const { data: t } = await supabase.from('tenants')
+      .select('subscription_status').eq('id', tenantId).maybeSingle();
+    return ['active', 'past_due', 'trialing'].includes(t?.subscription_status);
+  }
+
+  // Recompensa por referido validado. La materialización (crédito Stripe por la
+  // suma del valor mensual de la flota) la implementa la Iteración 4; aquí solo
+  // se deja el punto de enganche para no bloquear la validación.
+  async function processReferralReward(referral) {
+    app.log.info(`[referral-v8] (It.4) recompensa pendiente para referido validado ${referral.id}`);
+  }
+
+  // Cron diario: procesa las validaciones vencidas. Para cada entrada con
+  // scheduled_for <= ahora y processed=false: si el referido sigue activo ->
+  // 'validated' + recompensa; si canceló -> 'rejected'. Marca la cola procesada.
+  async function processReferralValidationQueue() {
+    const nowIso = new Date().toISOString();
+    const { data: due } = await supabase.from('referral_validation_queue')
+      .select('id, referral_id, referrals:referral_id(id, referred_tenant_id, validation_status, referrer_user_id)')
+      .eq('processed', false).lte('scheduled_for', nowIso).limit(500);
+    let validated = 0;
+    let rejected = 0;
+    for (const q of due ?? []) {
+      const ref = q.referrals;
+      if (!ref || ref.validation_status !== 'pending') {
+        // Ya resuelto por otra vía (p. ej. cancelación): solo cerrar la cola.
+        await supabase.from('referral_validation_queue').update({ processed: true }).eq('id', q.id);
+        continue;
+      }
+      const active = await tenantSubscriptionActive(ref.referred_tenant_id);
+      if (active) {
+        await supabase.from('referrals')
+          .update({ validation_status: 'validated', validation_date: nowIso }).eq('id', ref.id);
+        try {
+          await processReferralReward(ref);
+        } catch (e) {
+          app.log.warn(`[referral-v8] recompensa de ${ref.id}: ${e.message}`);
+        }
+        if (ref.referrer_user_id) {
+          await notifyUser(ref.referrer_user_id, '🎉 ¡Invitación validada!',
+            'Tu invitado sigue siendo cliente tras el periodo de prueba. Tu recompensa está en camino.',
+            { type: 'referral_validated' });
+        }
+        validated++;
+      } else {
+        await supabase.from('referrals')
+          .update({ validation_status: 'rejected', validation_date: nowIso }).eq('id', ref.id);
+        rejected++;
+      }
+      await supabase.from('referral_validation_queue').update({ processed: true }).eq('id', q.id);
+    }
+    return { processed: (due ?? []).length, validated, rejected };
+  }
+
+  app.post('/api/v1/admin/cron/process-referral-validations', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const res = await processReferralValidationQueue();
+    await logAdminAction(request, g.caller.id, 'referral_validations_process', 'referral_validation_queue', null, res);
+    return reply.send({ ok: true, ...res });
+  });
+
   app.post('/webhooks/stripe', async (request, reply) => {
     if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
@@ -2827,9 +2949,11 @@ export async function buildApp(options = {}) {
       if (result.handled && result.tenant_id) {
         try {
           if (result.type === 'checkout.session.completed' || result.type === 'invoice.paid') {
-            await validateReferralForTenant(result.tenant_id);
+            await validateReferralForTenant(result.tenant_id);       // hitos (referidos-v2)
+            await enqueueReferralValidation(result.tenant_id);       // validación 15d (Loop #8)
           } else if (result.type === 'customer.subscription.deleted') {
-            await revertReferralForTenant(result.tenant_id);
+            await revertReferralForTenant(result.tenant_id);         // hitos (referidos-v2)
+            await rejectPendingReferralValidation(result.tenant_id); // validación 15d (Loop #8)
           }
         } catch (e) {
           request.log.error(`[referral] ${e.message}`);
