@@ -40,9 +40,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _reload();
   }
 
+  // Índices tras la Fase 4 (la pestaña Empresas clásica ya no existe):
+  // 0 Soporte · 1 Retos · 2 Referidos · 3 Seguridad · 4 Errores · 5 Config.
   static const _moduleTab = {
-    'company': -2, 'incidents': 1, 'challenges': 2, 'referrals': 3,
-    'security': 4, 'errors': 5, 'config': 6,
+    'company': -2, 'incidents': 0, 'challenges': 1, 'referrals': 2,
+    'security': 3, 'errors': 4, 'config': 5,
   };
 
   @override
@@ -420,18 +422,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           '${k['tenants'] ?? 0} · ${l.t('adm_kpi_trials').toLowerCase()}: ${k['trialing'] ?? 0}',
           0, -2),
       _Module(l.t('adm_mod_support'), Icons.forum, AdminColors.blue,
-          l.t('adm_pending_n', {'n': '${pi('tickets')}'}), pi('tickets'), 1),
+          l.t('adm_pending_n', {'n': '${pi('tickets')}'}), pi('tickets'), 0),
       _Module(l.t('admin_challenges'), Icons.emoji_events, AdminColors.amber,
-          l.t('adm_pending_n', {'n': '${pi('challenges')}'}), pi('challenges'), 2),
-      _Module(l.t('adm_ref_tab'), Icons.card_giftcard, AdminColors.pink, '', 0, 3),
+          l.t('adm_pending_n', {'n': '${pi('challenges')}'}), pi('challenges'), 1),
+      _Module(l.t('adm_ref_tab'), Icons.card_giftcard, AdminColors.pink, '', 0, 2),
       _Module(l.t('adm_sec_tab'), Icons.lock, AdminColors.red,
-          l.t('adm_pending_n', {'n': '${pi('fraud')}'}), pi('fraud'), 4),
+          l.t('adm_pending_n', {'n': '${pi('fraud')}'}), pi('fraud'), 3),
       _Module(l.t('adm_err_tab'), Icons.bug_report, AdminColors.coral,
-          l.t('adm_pending_n', {'n': '${pi('errors')}'}), pi('errors'), 5),
+          l.t('adm_pending_n', {'n': '${pi('errors')}'}), pi('errors'), 4),
       _Module(l.t('adm_mod_billing'), Icons.payments, AdminColors.teal,
           '${(k['mrr_estimate'] as num?)?.toStringAsFixed(0) ?? '0'}€/mes',
           (k['past_due'] as num?)?.toInt() ?? 0, -3),
-      _Module(l.t('adm_cfg_tab'), Icons.settings, AdminColors.gray, '', 0, 6),
+      _Module(l.t('adm_cfg_tab'), Icons.settings, AdminColors.gray, '', 0, 5),
     ];
 
     return GridView.builder(

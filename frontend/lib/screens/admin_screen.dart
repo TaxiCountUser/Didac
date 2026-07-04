@@ -4,19 +4,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
-import 'admin_company_screen.dart';
 import 'admin_config_tab.dart';
 import 'admin_theme.dart';
 import 'admin_incident_chat_screen.dart';
 import 'admin_referrals_tab.dart';
 import 'admin_security_tab.dart';
 
-/// Panel de administrador de plataforma: ve TODAS las empresas y todas las
-/// incidencias, las resuelve, y puede nombrar a otros administradores.
-/// Solo accesible si el perfil tiene is_admin = true.
+/// Panel de administrador de plataforma: módulos aún no migrados al rediseño
+/// (Fase 4: Empresas vive en AdminCompaniesScreen y los admins se gestionan
+/// desde Config). Solo accesible si el perfil tiene is_admin = true.
 class AdminScreen extends StatefulWidget {
-  /// Pestaña con la que se abre (0 Empresas … 6 Config). La portada nueva
-  /// (AdminHomeScreen) usa esto para saltar directamente a cada módulo.
+  /// Pestaña con la que se abre (0 Soporte · 1 Retos · 2 Referidos ·
+  /// 3 Seguridad · 4 Errores · 5 Config). La portada nueva (AdminHomeScreen)
+  /// usa esto para saltar directamente a cada módulo.
   final int initialTab;
   const AdminScreen({super.key, this.initialTab = 0});
 
@@ -25,9 +25,8 @@ class AdminScreen extends StatefulWidget {
 }
 
 class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStateMixin {
-  final _service = DataService();
   late final TabController _tabs =
-      TabController(length: 7, vsync: this, initialIndex: widget.initialTab.clamp(0, 6));
+      TabController(length: 6, vsync: this, initialIndex: widget.initialTab.clamp(0, 5));
 
   @override
   void dispose() {
@@ -52,7 +51,6 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
           controller: _tabs,
           isScrollable: true,
           tabs: [
-            Tab(text: l.t('admin_companies')),
             Tab(text: l.t('admin_incidents')),
             Tab(text: l.t('admin_challenges')),
             Tab(text: l.t('adm_ref_tab')),
@@ -63,11 +61,6 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
         ),
         actions: [
           IconButton(
-            tooltip: l.t('admin_add_admin'),
-            icon: const Icon(Icons.admin_panel_settings),
-            onPressed: _makeAdminDialog,
-          ),
-          IconButton(
             tooltip: l.t('logout'),
             icon: const Icon(Icons.logout),
             onPressed: () => Supabase.instance.client.auth.signOut(),
@@ -76,211 +69,12 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab(), _ErrorReportsTab(), ConfigTab()],
+        children: const [_IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab(), _ErrorReportsTab(), ConfigTab()],
       ),
       ),
     );
   }
 
-  // Gestión de administradores: lista los actuales (quitar) y permite añadir.
-  Future<void> _makeAdminDialog() async {
-    final l = context.l10n;
-    final ctrl = TextEditingController();
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        Future<List<Map<String, dynamic>>> future = _service.adminListAdmins();
-        return StatefulBuilder(
-          builder: (ctx, setLocal) {
-            void reload() => setLocal(() => future = _service.adminListAdmins());
-            Future<void> act(Future<void> Function() fn, String okMsg) async {
-              try {
-                await fn();
-                if (ctx.mounted) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(okMsg)));
-                }
-                reload();
-              } catch (e) {
-                if (ctx.mounted) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                      content: Text('${l.t('error')}: ${e.toString().replaceFirst('Exception: ', '')}')));
-                }
-              }
-            }
-
-            return AlertDialog(
-              title: Text(l.t('admin_manage_title')),
-              content: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l.t('admin_current'), style: Theme.of(ctx).textTheme.bodySmall),
-                    const SizedBox(height: 4),
-                    Flexible(
-                      child: FutureBuilder<List<Map<String, dynamic>>>(
-                        future: future,
-                        builder: (ctx, snap) {
-                          if (snap.connectionState != ConnectionState.done) {
-                            return const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: Center(child: CircularProgressIndicator()));
-                          }
-                          final admins = snap.data ?? [];
-                          if (admins.isEmpty) return Text(l.t('admin_no_admins'));
-                          return ListView(
-                            shrinkWrap: true,
-                            children: [
-                              for (final a in admins)
-                                ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(Icons.shield, color: Colors.deepPurple),
-                                  title: Text((a['email'] as String?) ?? '—',
-                                      overflow: TextOverflow.ellipsis),
-                                  trailing: IconButton(
-                                    tooltip: l.t('admin_remove_admin'),
-                                    icon: const Icon(Icons.person_remove, color: Colors.red),
-                                    onPressed: () => act(
-                                      () => _service.adminMakeAdmin(a['email'] as String, isAdmin: false),
-                                      l.t('admin_removed'),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                    const Divider(),
-                    Text(l.t('admin_add_admin'), style: Theme.of(ctx).textTheme.bodySmall),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: ctrl,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              labelText: l.t('admin_email'),
-                              hintText: 'correo@ejemplo.com',
-                              isDense: true,
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed: () async {
-                            if (ctrl.text.trim().isEmpty) return;
-                            await act(() => _service.adminMakeAdmin(ctrl.text.trim()), l.t('admin_added'));
-                            ctrl.clear();
-                          },
-                          child: Text(l.t('admin_add')),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _CompaniesTab extends StatefulWidget {
-  const _CompaniesTab();
-  @override
-  State<_CompaniesTab> createState() => _CompaniesTabState();
-}
-
-class _CompaniesTabState extends State<_CompaniesTab> {
-  final _service = DataService();
-  late Future<Map<String, dynamic>> _future = _service.adminOverview();
-
-  void _reload() => setState(() => _future = _service.adminOverview());
-
-  @override
-  Widget build(BuildContext context) {
-    final l = context.l10n;
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _future,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snap.hasError) {
-          return _ErrorRetry(error: '${snap.error}', onRetry: _reload);
-        }
-        final data = snap.data ?? {};
-        final totals = (data['totals'] as Map?)?.cast<String, dynamic>() ?? {};
-        final tenants = ((data['tenants'] as List?) ?? []).cast<Map<String, dynamic>>();
-        return RefreshIndicator(
-          onRefresh: () async => _reload(),
-          child: ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              Card(
-                color: AdminColors.card,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _Stat(label: l.t('admin_companies'), value: '${totals['tenants'] ?? 0}'),
-                      _Stat(label: l.t('admin_users'), value: '${totals['users'] ?? 0}'),
-                      _Stat(label: l.t('admin_open'), value: '${totals['open_incidents'] ?? 0}'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              for (final t in tenants) _companyTile(l, t),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _companyTile(AppLocalizations l, Map<String, dynamic> t) {
-    final name = (t['name'] as String?) ?? '—';
-    final solo = t['solo'] == true;
-    final status = (t['subscription_status'] as String?) ?? 'inactive';
-    final users = t['users_count'] ?? 0;
-    final open = t['open_incidents'] ?? 0;
-    return Card(
-      child: ListTile(
-        leading: Icon(solo ? Icons.person_pin_circle : Icons.business,
-            color: solo ? Colors.teal : Colors.amber.shade800),
-        title: Text(name),
-        subtitle: Text('${l.t('admin_users')}: $users · ${l.t('admin_open')}: $open'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AdminStatusChip(status: status),
-            const Icon(Icons.chevron_right),
-          ],
-        ),
-        onTap: () async {
-          await Navigator.of(context).push<bool>(MaterialPageRoute(
-            builder: (_) => AdminCompanyScreen(
-              tenantId: t['id'] as String,
-              tenantName: name,
-            ),
-          ));
-          _reload(); // refresca por si cambió/eliminó algo
-        },
-      ),
-    );
-  }
 }
 
 class _IncidentsTab extends StatefulWidget {
@@ -582,7 +376,9 @@ class _ChallengesTabState extends State<_ChallengesTab> {
         ]),
       );
 
-  // ── Filtros + acceso a trimestrales ────────────────────────────────────────
+  // ── Filtros ────────────────────────────────────────────────────────────────
+  // Fase 4 del rediseño: se retira el acceso a las recompensas trimestrales
+  // (Loop #4, desactivadas desde Loop #6). El histórico sigue disponible por API.
   Widget _filtersBar(AppLocalizations l) => Wrap(
         spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center,
         children: [
@@ -595,8 +391,6 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             'pending': l.t('ref_status_pending'),
             'rejected': l.t('admin_ch_rejected'),
           }, (v) => setState(() => _fStatus = v)),
-          OutlinedButton.icon(onPressed: _openQuarterly, icon: const Icon(Icons.calendar_view_month, size: 18),
-              label: Text(l.t('adm_ch_quarterly'))),
         ],
       );
 
@@ -753,98 +547,6 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     }
   }
 
-  // ── Recompensas trimestrales ───────────────────────────────────────────────
-  Future<void> _openQuarterly() async {
-    final l = context.l10n;
-    Map<String, dynamic>? data;
-    try {
-      data = await _service.adminChallengeQuarterly();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
-      return;
-    }
-    if (!mounted) return;
-    final rows = ((data['metrics'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final df = DateFormat('dd/MM/yyyy');
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.t('adm_ch_quarterly')),
-        content: SizedBox(
-          width: 560,
-          child: rows.isEmpty
-              ? Text(l.t('admin_no_challenges'))
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columns: [
-                      DataColumn(label: Text(l.t('adm_ch_col_quarter'))),
-                      DataColumn(label: Text(l.t('adm_ch_col_company'))),
-                      DataColumn(label: Text(l.t('adm_ch_col_rate'))),
-                      DataColumn(label: Text(l.t('adm_ch_col_reward'))),
-                      DataColumn(label: Text(l.t('adm_ch_col_status'))),
-                      const DataColumn(label: Text('')),
-                    ],
-                    rows: rows.map((r) {
-                      final rate = (r['completion_rate'] as num?)?.toDouble() ?? 0;
-                      final days = (r['reward_days_awarded'] as num?)?.toInt() ?? 0;
-                      final processed = DateTime.tryParse((r['processed_at'] as String?) ?? '');
-                      return DataRow(cells: [
-                        DataCell(Text('Q${r['quarter']} ${r['year']}')),
-                        DataCell(Text(((r['tenant'] as Map?)?['name'] as String?) ?? '—')),
-                        DataCell(Text('${rate.toStringAsFixed(1)}%')),
-                        DataCell(Text('$days')),
-                        DataCell(Text(processed != null ? df.format(processed) : (r['status'] as String? ?? '—'))),
-                        DataCell(IconButton(
-                          icon: const Icon(Icons.edit, size: 18),
-                          tooltip: l.t('adm_ch_q_adjust'),
-                          onPressed: () { Navigator.pop(ctx); _adjustQuarterly(r['id'] as String, days); },
-                        )),
-                      ]);
-                    }).toList(),
-                  ),
-                ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close')))],
-      ),
-    );
-  }
-
-  Future<void> _adjustQuarterly(String id, int currentDays) async {
-    final l = context.l10n;
-    final daysCtrl = TextEditingController(text: '$currentDays');
-    final reasonCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.t('adm_ch_q_adjust')),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: daysCtrl, keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: l.t('adm_ch_q_days'))),
-          TextField(controller: reasonCtrl, decoration: InputDecoration(labelText: l.t('adm_ch_q_reason'))),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('adm_ref_config_save'))),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final days = int.tryParse(daysCtrl.text.trim());
-    final reason = reasonCtrl.text.trim();
-    if (days == null || reason.isEmpty) return;
-    try {
-      await _service.adminChallengeQuarterlyAdjust(id, days, reason);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_ch_adjusted'))));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
-    }
-  }
 }
 
 // ── Informes de error (Loop #6) ─────────────────────────────────────────────
@@ -983,21 +685,6 @@ class _ErrorReportsTabState extends State<_ErrorReportsTab> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  final String label;
-  final String value;
-  const _Stat({required this.label, required this.value});
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value, style: Theme.of(context).textTheme.headlineSmall),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
     );
   }
 }

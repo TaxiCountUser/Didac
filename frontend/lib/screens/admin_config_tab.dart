@@ -110,6 +110,8 @@ class _ConfigTabState extends State<ConfigTab> {
             _challengesCard(l),
             const SizedBox(height: 16),
             _referralsCard(l, creditEur),
+            const SizedBox(height: 16),
+            _adminsCard(l),
           ],
         ),
         Positioned(
@@ -180,6 +182,136 @@ class _ConfigTabState extends State<ConfigTab> {
         _numField('referral_max_per_ip_24h', l.t('cfg_ref_ip_24h'), '', _g('referral_max_per_ip_24h', '3')),
         _numField('referral_cancellation_grace_days', l.t('cfg_ref_grace'), '', _g('referral_cancellation_grace_days', '15'), suffix: l.t('ch_days_unit')),
       ],
+    );
+  }
+
+  // ── ADMINISTRADORES (Fase 4: antes vivía en el AppBar del panel) ──────────
+  Widget _adminsCard(AppLocalizations l) {
+    return _section(
+      icon: Icons.shield, color: Colors.deepPurple,
+      title: l.t('admin_manage_title'), intro: l.t('admin_current'),
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.admin_panel_settings, size: 18),
+            label: Text(l.t('admin_manage_title')),
+            onPressed: _manageAdminsDialog,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Gestión de administradores: lista los actuales (quitar) y permite añadir.
+  Future<void> _manageAdminsDialog() async {
+    final l = context.l10n;
+    final ctrl = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        Future<List<Map<String, dynamic>>> future = _service.adminListAdmins();
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            void reload() => setLocal(() => future = _service.adminListAdmins());
+            Future<void> act(Future<void> Function() fn, String okMsg) async {
+              try {
+                await fn();
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(okMsg)));
+                }
+                reload();
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                      content: Text('${l.t('error')}: ${e.toString().replaceFirst('Exception: ', '')}')));
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: Text(l.t('admin_manage_title')),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.t('admin_current'), style: Theme.of(ctx).textTheme.bodySmall),
+                    const SizedBox(height: 4),
+                    Flexible(
+                      child: FutureBuilder<List<Map<String, dynamic>>>(
+                        future: future,
+                        builder: (ctx, snap) {
+                          if (snap.connectionState != ConnectionState.done) {
+                            return const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: Center(child: CircularProgressIndicator()));
+                          }
+                          final admins = snap.data ?? [];
+                          if (admins.isEmpty) return Text(l.t('admin_no_admins'));
+                          return ListView(
+                            shrinkWrap: true,
+                            children: [
+                              for (final a in admins)
+                                ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.shield, color: Colors.deepPurple),
+                                  title: Text((a['email'] as String?) ?? '—',
+                                      overflow: TextOverflow.ellipsis),
+                                  trailing: IconButton(
+                                    tooltip: l.t('admin_remove_admin'),
+                                    icon: const Icon(Icons.person_remove, color: Colors.red),
+                                    onPressed: () => act(
+                                      () => _service.adminMakeAdmin(a['email'] as String, isAdmin: false),
+                                      l.t('admin_removed'),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    const Divider(),
+                    Text(l.t('admin_add_admin'), style: Theme.of(ctx).textTheme.bodySmall),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: ctrl,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: l.t('admin_email'),
+                              hintText: 'correo@ejemplo.com',
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: () async {
+                            if (ctrl.text.trim().isEmpty) return;
+                            await act(() => _service.adminMakeAdmin(ctrl.text.trim()), l.t('admin_added'));
+                            ctrl.clear();
+                          },
+                          child: Text(l.t('admin_add')),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
