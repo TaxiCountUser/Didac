@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_theme.dart';
 
 /// Loop #5 — Pestaña "Seguridad" del Super Admin: alertas de fraude (lista
 /// unificada referidos + genéricas, con resolución y notas) y logs de auditoría
@@ -125,8 +126,11 @@ class _SecurityTabState extends State<SecurityTab> {
         subtitle: Text('${l.t('adm_sec_src_$source')} · '
             '${created != null ? df.format(created) : ''}'),
         trailing: Chip(
-          label: Text(l.t('adm_sec_$status'), style: const TextStyle(fontSize: 11)),
-          backgroundColor: resolved ? Colors.green.shade100 : Colors.orange.shade100,
+          label: Text(l.t('adm_sec_$status'),
+              style: TextStyle(
+                  fontSize: 11,
+                  color: resolved ? AdminColors.teal : AdminColors.amber)),
+          backgroundColor: resolved ? AdminColors.tealBg : AdminColors.amberBg,
           visualDensity: VisualDensity.compact,
         ),
       ),

@@ -1222,6 +1222,78 @@ export async function buildApp(options = {}) {
     });
   });
 
+  // Módulo Facturación del panel (Fase 3): visión de negocio lado TaxiCount.
+  // MRR estimado por empresa (annual_price_paid/12 de conductores activos),
+  // impagados, pruebas próximas a vencer y ahorro total repartido. NUNCA
+  // finanzas internas de los clientes (protección de datos).
+  app.get('/api/v1/admin/billing', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const now = Date.now();
+    const dayMs = 86400000;
+
+    const [{ data: tenants }, { data: drivers }, { data: savings }] = await Promise.all([
+      supabase.from('tenants')
+        .select('id, name, subscription_status, trial_ends_at, drivers_limit, created_at')
+        .order('created_at', { ascending: false }),
+      supabase.from('users').select('tenant_id, active, annual_price_paid').eq('role', 'driver'),
+      supabase.from('monthly_savings').select('tenant_id, savings_from_challenges, savings_from_referrals'),
+    ]);
+
+    const seatsByTenant = {};
+    for (const d of drivers ?? []) {
+      if (d.active !== false) (seatsByTenant[d.tenant_id] ||= []).push(Number(d.annual_price_paid ?? 15));
+    }
+    const savByTenant = {};
+    let savCh = 0;
+    let savRef = 0;
+    for (const s of savings ?? []) {
+      const ch = Number(s.savings_from_challenges ?? 0);
+      const rf = Number(s.savings_from_referrals ?? 0);
+      savByTenant[s.tenant_id] = (savByTenant[s.tenant_id] ?? 0) + ch + rf;
+      savCh += ch;
+      savRef += rf;
+    }
+
+    let mrrTotal = 0;
+    const rows = (tenants ?? []).map((t) => {
+      const paying = t.subscription_status === 'active' || t.subscription_status === 'past_due';
+      const seats = seatsByTenant[t.id] ?? [];
+      let mrr = 0;
+      if (paying) {
+        if (seats.length === 0) mrr = 15 / 12;
+        for (const p of seats) mrr += p / 12;
+        mrrTotal += mrr;
+      }
+      const trialEnds = t.trial_ends_at ? new Date(t.trial_ends_at).getTime() : null;
+      const trialDays = (!paying && trialEnds && trialEnds > now)
+        ? Math.ceil((trialEnds - now) / dayMs) : null;
+      return {
+        id: t.id, name: t.name, status: t.subscription_status,
+        seats: Math.max(1, seats.length), drivers_limit: t.drivers_limit,
+        mrr: Number(mrr.toFixed(2)), trial_days_left: trialDays,
+        savings: Number((savByTenant[t.id] ?? 0).toFixed(2)),
+      };
+    });
+
+    return reply.send({
+      totals: {
+        mrr: Number(mrrTotal.toFixed(2)),
+        paying: rows.filter((r) => r.status === 'active').length,
+        past_due: rows.filter((r) => r.status === 'past_due').length,
+        trialing: rows.filter((r) => r.trial_days_left != null).length,
+        savings_total: Number((savCh + savRef).toFixed(2)),
+        savings_challenges: Number(savCh.toFixed(2)),
+        savings_referrals: Number(savRef.toFixed(2)),
+      },
+      past_due: rows.filter((r) => r.status === 'past_due'),
+      trials: rows.filter((r) => r.trial_days_left != null)
+        .sort((a, b) => a.trial_days_left - b.trial_days_left),
+      paying: rows.filter((r) => r.status === 'active')
+        .sort((a, b) => b.mrr - a.mrr),
+    });
+  });
+
   // Buscador global del admin: empresa por nombre, usuario por email/nombre/
   // usuario, o vehículo por matrícula. Devuelve empresas con el motivo del
   // match, para saltar directamente a su ficha.

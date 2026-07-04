@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import 'admin_company_screen.dart';
 import 'admin_config_tab.dart';
+import 'admin_theme.dart';
 import 'admin_incident_chat_screen.dart';
 import 'admin_referrals_tab.dart';
 import 'admin_security_tab.dart';
@@ -37,8 +38,15 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    return Scaffold(
+    // Piel oscura del panel rediseñado (Fase 3): los módulos aún no migrados
+    // heredan el tema "sala de máquinas" para no romper la coherencia visual.
+    return Theme(
+      data: adminDarkTheme(),
+      child: Scaffold(
+      backgroundColor: AdminColors.bg,
       appBar: AppBar(
+        backgroundColor: AdminColors.bg,
+        foregroundColor: AdminColors.text,
         title: Text(l.t('admin_title')),
         bottom: TabBar(
           controller: _tabs,
@@ -69,6 +77,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
       body: TabBarView(
         controller: _tabs,
         children: const [_CompaniesTab(), _IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab(), _ErrorReportsTab(), ConfigTab()],
+      ),
       ),
     );
   }
@@ -219,7 +228,7 @@ class _CompaniesTabState extends State<_CompaniesTab> {
             padding: const EdgeInsets.all(12),
             children: [
               Card(
-                color: Colors.amber.shade50,
+                color: AdminColors.card,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -256,12 +265,7 @@ class _CompaniesTabState extends State<_CompaniesTab> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Chip(
-              label: Text(adminStatusLabel(l, status), style: const TextStyle(fontSize: 11)),
-              backgroundColor: (status == 'active')
-                  ? Colors.green.shade100
-                  : (status == 'trialing' ? Colors.blue.shade100 : Colors.red.shade100),
-            ),
+            AdminStatusChip(status: status),
             const Icon(Icons.chevron_right),
           ],
         ),
@@ -568,7 +572,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
               final frac = max == 0 ? 0.0 : (value / max).clamp(0.0, 1.0);
               return Stack(children: [
                 Container(height: 16, decoration: BoxDecoration(
-                    color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4))),
+                    color: AdminColors.hairline, borderRadius: BorderRadius.circular(4))),
                 Container(height: 16, width: cons.maxWidth * frac,
                     decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
               ]);
@@ -641,14 +645,15 @@ class _ChallengesTabState extends State<_ChallengesTab> {
         trailing: rejected
             ? Chip(
                 label: Text(l.t('admin_ch_rejected'), style: const TextStyle(fontSize: 11)),
-                backgroundColor: Colors.grey.shade300,
+                backgroundColor: AdminColors.hairline,
               )
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Chip(
-                    label: Text(l.t('admin_ch_achieved'), style: const TextStyle(fontSize: 11)),
-                    backgroundColor: Colors.green.shade100,
+                    label: Text(l.t('admin_ch_achieved'),
+                        style: const TextStyle(fontSize: 11, color: AdminColors.teal)),
+                    backgroundColor: AdminColors.tealBg,
                     visualDensity: VisualDensity.compact,
                   ),
                   IconButton(

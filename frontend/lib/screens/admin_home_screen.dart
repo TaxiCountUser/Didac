@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_billing_screen.dart';
 import 'admin_companies_screen.dart';
 import 'admin_screen.dart';
 import 'admin_theme.dart';
@@ -27,12 +28,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   void _reload() => setState(() => _future = _service.adminOverview());
 
-  // Abre un módulo: -2 = Empresas rediseñado (Fase 2); 0..6 = pestaña del
-  // AdminScreen clásico (se irán migrando por fases). Recarga al volver.
+  // Abre un módulo: -2 = Empresas y -3 = Facturación (rediseñados); 0..6 =
+  // pestaña del AdminScreen clásico (ya con piel oscura). Recarga al volver.
   Future<void> _openTab(int tab) async {
-    final page = tab == -2
-        ? const AdminCompaniesScreen()
-        : AdminScreen(initialTab: tab) as Widget;
+    final Widget page = switch (tab) {
+      -2 => const AdminCompaniesScreen(),
+      -3 => const AdminBillingScreen(),
+      _ => AdminScreen(initialTab: tab),
+    };
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
     _reload();
   }
@@ -426,7 +429,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       _Module(l.t('adm_err_tab'), Icons.bug_report, AdminColors.coral,
           l.t('adm_pending_n', {'n': '${pi('errors')}'}), pi('errors'), 5),
       _Module(l.t('adm_mod_billing'), Icons.payments, AdminColors.teal,
-          l.t('adm_mod_billing_soon'), 0, -1), // Fase 3
+          '${(k['mrr_estimate'] as num?)?.toStringAsFixed(0) ?? '0'}€/mes',
+          (k['past_due'] as num?)?.toInt() ?? 0, -3),
       _Module(l.t('adm_cfg_tab'), Icons.settings, AdminColors.gray, '', 0, 6),
     ];
 

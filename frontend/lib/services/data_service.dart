@@ -692,6 +692,14 @@ class DataService {
     return body;
   }
 
+  /// Módulo Facturación del admin: MRR, impagados, pruebas y ahorro global.
+  Future<Map<String, dynamic>> adminBilling() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/billing'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
   /// Buscador global del admin: empresa por nombre, usuario por email/nombre/
   /// usuario o vehículo por matrícula. Devuelve [{tenant_id, tenant_name, reason}].
   Future<List<Map<String, dynamic>>> adminSearch(String q) async {
