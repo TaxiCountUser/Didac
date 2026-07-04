@@ -1483,6 +1483,15 @@ export async function buildApp(options = {}) {
       .eq('id', tenantId);
   }
 
+  // ¿El tenant es cliente DE PAGO? Las recompensas (mes de retos / días de
+  // referidos) solo se aplican sobre una suscripción activa; durante la PRUEBA
+  // se difieren (no tiene sentido alargar una prueba que ya es gratis).
+  async function tenantIsPaying(tenantId) {
+    const { data: t } = await supabase.from('tenants')
+      .select('subscription_status').eq('id', tenantId).maybeSingle();
+    return t?.subscription_status === 'active' || t?.subscription_status === 'past_due';
+  }
+
   async function applyPendingChallengeCredits() {
     const { data: claims } = await supabase
       .from('challenge_claims')
@@ -1491,9 +1500,12 @@ export async function buildApp(options = {}) {
       .is('reward_redeemed_at', null)
       .limit(1000);
     let rewarded = 0;
+    let deferred = 0;
     let skipped = 0;
     for (const c of claims ?? []) {
-      // Valor mensual del conductor (auditoría) = precio anual real / 12.
+      // Solo se premia si la empresa ya es de PAGO. En prueba se deja pendiente
+      // (sin marcar canjeado) y el cron lo aplicará cuando pase a suscripción.
+      if (!(await tenantIsPaying(c.tenant_id))) { deferred++; continue; }
       const { data: u } = await supabase.from('users')
         .select('annual_price_paid').eq('id', c.user_id).maybeSingle();
       const monthlyValue = Number(u?.annual_price_paid ?? 15) / 12;
@@ -1515,7 +1527,7 @@ export async function buildApp(options = {}) {
         skipped++;
       }
     }
-    return { rewarded, skipped };
+    return { rewarded, deferred, skipped };
   }
 
   // Días gratis conseguidos por un tenant: por RETOS (subscription_extensions
@@ -2940,9 +2952,16 @@ export async function buildApp(options = {}) {
     const claimed = new Map((claimedRows ?? []).map((r) => [r.milestone_level, r]));
     const target = new Set(milestones.filter((m) => valid >= m.required).map((m) => m.level));
 
-    // Conceder hitos alcanzados que aún no se hayan concedido.
+    // Los días solo se conceden si el referidor ya es cliente DE PAGO. En prueba
+    // se difieren: al pasar a suscripción (webhook) se vuelve a recalcular y se
+    // conceden los hitos pendientes.
+    const { data: refUser } = await supabase.from('users')
+      .select('tenant_id').eq('id', referrerUserId).maybeSingle();
+    const paying = refUser?.tenant_id ? await tenantIsPaying(refUser.tenant_id) : false;
+
+    // Conceder hitos alcanzados que aún no se hayan concedido (solo si de pago).
     for (const m of milestones) {
-      if (target.has(m.level) && !claimed.has(m.level)) {
+      if (target.has(m.level) && !claimed.has(m.level) && paying) {
         const remaining = Math.max(0, annualMax - annualDays);
         const award = Math.min(m.days, remaining);
         await supabase.from('referral_milestone_rewards').insert({
@@ -3140,6 +3159,11 @@ export async function buildApp(options = {}) {
         try {
           if (result.type === 'checkout.session.completed' || result.type === 'invoice.paid') {
             await enqueueReferralValidation(result.tenant_id);
+            // Si este tenant es un REFERIDOR que tenía hitos diferidos (estaba
+            // en prueba), ahora que paga se le conceden los días pendientes.
+            const { data: owner } = await supabase.from('users')
+              .select('id').eq('tenant_id', result.tenant_id).eq('role', 'owner').maybeSingle();
+            if (owner?.id) await recomputeReferrerMilestones(owner.id);
           } else if (result.type === 'customer.subscription.deleted') {
             await rejectPendingReferralValidation(result.tenant_id);
             await revertReferralForTenant(result.tenant_id); // clawback de días si ya validado
