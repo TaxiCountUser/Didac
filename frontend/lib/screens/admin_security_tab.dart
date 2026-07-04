@@ -27,6 +27,7 @@ class _SecurityTabState extends State<SecurityTab> {
   String? _error;
   String _severity = '';
   String _status = '';
+  String _actionFilter = ''; // auditoría: filtro por tipo de acción
 
   @override
   void initState() {
@@ -168,7 +169,7 @@ class _SecurityTabState extends State<SecurityTab> {
     final evidence = a['evidence'];
     final status = (a['status'] as String?) ?? 'open';
     final resolved = status == 'resolved';
-    await showDialog<void>(
+    await showAdminDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('${a['alert_type']}'),
@@ -219,29 +220,74 @@ class _SecurityTabState extends State<SecurityTab> {
     );
   }
 
-  // ── Logs de auditoría (rediseño N: filas oscuras, legible en móvil) ────────
+  // ── Logs de auditoría (rediseño N: filtro por tipo de acción + detalle) ────
+  // Color por familia de acción, para distinguir de un vistazo qué pasó.
+  Color _actionColor(String a) {
+    if (a.startsWith('challenge')) return AdminColors.amber;
+    if (a.startsWith('referral')) return AdminColors.pink;
+    if (a.startsWith('fraud')) return AdminColors.red;
+    if (a.startsWith('company')) return AdminColors.purple;
+    if (a.startsWith('error_report')) return AdminColors.coral;
+    if (a.startsWith('purge')) return AdminColors.blue;
+    return AdminColors.gray;
+  }
+
   Widget _auditView(AppLocalizations l) {
     final df = DateFormat('dd/MM/yyyy HH:mm');
+    // Tipos de acción presentes en los logs cargados (dinámico).
+    final types = _logs
+        .map((g) => (g['action_type'] as String?) ?? '')
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final visible = _actionFilter.isEmpty
+        ? _logs
+        : _logs.where((g) => g['action_type'] == _actionFilter).toList();
     return RefreshIndicator(
       onRefresh: _reload,
-      child: _logs.isEmpty
-          ? ListView(children: [Padding(padding: const EdgeInsets.all(24),
-              child: Center(child: Text(l.t('adm_audit_none'))))])
-          : ListView(
-              padding: const EdgeInsets.all(12),
-              children: [
-                Container(
-                  decoration: adminCardBox(),
-                  child: Column(children: [
-                    for (var i = 0; i < _logs.length; i++) ...[
-                      if (i > 0)
-                        const Divider(height: 1, color: AdminColors.hairline),
-                      _auditRow(l, _logs[i], df),
-                    ],
-                  ]),
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          if (types.length > 1)
+            SizedBox(
+              height: 30,
+              child: ListView(scrollDirection: Axis.horizontal, children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(
+                      label: l.t('adm_ref_all'),
+                      selected: _actionFilter.isEmpty,
+                      color: AdminColors.gray,
+                      onTap: () => setState(() => _actionFilter = '')),
                 ),
-              ],
+                for (final t in types)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: AdminPill(
+                        label: t, selected: _actionFilter == t,
+                        color: _actionColor(t),
+                        onTap: () => setState(() => _actionFilter = t)),
+                  ),
+              ]),
             ),
+          const SizedBox(height: 8),
+          if (visible.isEmpty)
+            Padding(padding: const EdgeInsets.all(24),
+                child: Center(child: Text(l.t('adm_audit_none'))))
+          else
+            Container(
+              decoration: adminCardBox(),
+              child: Column(children: [
+                for (var i = 0; i < visible.length; i++) ...[
+                  if (i > 0)
+                    const Divider(height: 1, color: AdminColors.hairline),
+                  _auditRow(l, visible[i], df),
+                ],
+              ]),
+            ),
+        ],
+      ),
     );
   }
 
@@ -249,32 +295,89 @@ class _SecurityTabState extends State<SecurityTab> {
     final created = DateTime.tryParse((g['created_at'] as String?) ?? '');
     final admin = ((g['admin'] as Map?)?['email'] as String?) ?? '—';
     final details = g['details'];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AdminTag((g['action_type'] as String?) ?? '—',
-              fg: AdminColors.gray, bg: AdminColors.hairline),
-          const SizedBox(width: 10),
-          Expanded(
+    final action = (g['action_type'] as String?) ?? '—';
+    final color = _actionColor(action);
+    return InkWell(
+      onTap: () => _openAuditDetail(l, g, df),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AdminTag(action, fg: color, bg: color.withValues(alpha: .16)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${g['target_type'] ?? ''} ${g['target_id'] ?? ''}'.trim(),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: AdminColors.text)),
+                  Text('$admin · ${created != null ? df.format(created) : '—'}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+                  if (details != null)
+                    Text(jsonEncode(details),
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 10, color: AdminColors.secondary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 14, color: AdminColors.muted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Detalle completo de una acción de auditoría (JSON legible).
+  Future<void> _openAuditDetail(
+      AppLocalizations l, Map<String, dynamic> g, DateFormat df) async {
+    final created = DateTime.tryParse((g['created_at'] as String?) ?? '');
+    final admin = ((g['admin'] as Map?)?['email'] as String?) ?? '—';
+    final details = g['details'];
+    final pretty = details == null
+        ? '—'
+        : const JsonEncoder.withIndent('  ').convert(details);
+    await showAdminDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${g['action_type'] ?? '—'}',
+            style: const TextStyle(fontSize: 16)),
+        content: SizedBox(
+          width: 440,
+          child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${g['target_type'] ?? ''} ${g['target_id'] ?? ''}'.trim(),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AdminColors.text)),
                 Text('$admin · ${created != null ? df.format(created) : '—'}',
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
-                if (details != null)
-                  Text(jsonEncode(details),
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, color: AdminColors.muted)),
+                const SizedBox(height: 4),
+                Text('${g['target_type'] ?? ''} ${g['target_id'] ?? ''}'.trim(),
+                    style: const TextStyle(fontSize: 12)),
+                const Divider(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AdminColors.bg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SelectableText(pretty,
                       style: const TextStyle(
-                          fontSize: 10, color: AdminColors.secondary)),
+                          fontSize: 11, fontFamily: 'monospace',
+                          color: AdminColors.secondary)),
+                ),
               ],
             ),
           ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
         ],
       ),
     );

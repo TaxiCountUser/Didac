@@ -329,7 +329,7 @@ class _ReferralsTabState extends State<ReferralsTab> {
     final status = (ref['status'] as String?) ?? '';
     final df = DateFormat('dd/MM/yyyy HH:mm');
 
-    await showDialog<void>(
+    await showAdminDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.t('adm_ref_detail')),
@@ -395,7 +395,7 @@ class _ReferralsTabState extends State<ReferralsTab> {
   Future<void> _blockWithReason(String id) async {
     final l = context.l10n;
     final ctrl = TextEditingController();
-    final reason = await showDialog<String>(
+    final reason = await showAdminDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.t('adm_ref_block')),

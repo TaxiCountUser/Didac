@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_company_detail_screen.dart';
 import 'admin_config_tab.dart';
 import 'admin_theme.dart';
 import 'admin_incident_chat_screen.dart';
@@ -555,7 +556,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final history = ((data['driver_history'] as List?) ?? []).cast<Map<String, dynamic>>();
     final df = DateFormat('dd/MM/yyyy');
 
-    await showDialog<void>(
+    await showAdminDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(driver),
@@ -595,7 +596,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   Future<void> _forceComplete(String id) async {
     final l = context.l10n;
     final ctrl = TextEditingController();
-    final reason = await showDialog<String>(
+    final reason = await showAdminDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.t('adm_ch_force')),
@@ -737,31 +738,120 @@ class _ErrorReportsTabState extends State<_ErrorReportsTab> {
     final device = (r['device_info'] as String?) ?? '';
     final created = DateTime.tryParse((r['created_at'] as String?) ?? '');
     final df = DateFormat('dd/MM/yyyy HH:mm');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: adminCardBox(),
-      child: ListTile(
-        leading: Icon(Icons.bug_report, color: _statusColor(status)),
-        title: Text(desc, maxLines: 4, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13)),
-        subtitle: Text([
-          '$company · $author',
-          if (device.isNotEmpty) device,
-          if (created != null) df.format(created),
-        ].join('\n'),
-            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
-        isThreeLine: true,
-        trailing: PopupMenuButton<String>(
-          tooltip: l.t('adm_err_change_status'),
-          onSelected: (s) => _setStatus(r['id'] as String, s),
-          child: AdminTag(_statusLabel(l, status),
-              fg: _statusColor(status),
-              bg: _statusColor(status).withValues(alpha: .16)),
-          itemBuilder: (ctx) => [
-            for (final s in ['new', 'viewed', 'in_progress', 'resolved'])
-              PopupMenuItem(value: s, child: Text(_statusLabel(l, s))),
+    return InkWell(
+      onTap: () => _openReport(l, r, df),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: adminCardBox(),
+        child: Row(
+          children: [
+            Icon(Icons.bug_report, size: 18, color: _statusColor(status)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12, color: AdminColors.text)),
+                  Text(
+                    '$company · $author${created != null ? ' · ${df.format(created)}' : ''}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 10, color: AdminColors.muted),
+                  ),
+                  if (device.isNotEmpty)
+                    Text(device,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 9, color: AdminColors.muted)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            AdminTag(_statusLabel(l, status),
+                fg: _statusColor(status),
+                bg: _statusColor(status).withValues(alpha: .16)),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 15, color: AdminColors.muted),
           ],
         ),
+      ),
+    );
+  }
+
+  // Detalle del informe: texto completo, contexto y ACCIONES (cambiar estado
+  // con un toque, abrir la ficha de la empresa afectada).
+  Future<void> _openReport(
+      AppLocalizations l, Map<String, dynamic> r, DateFormat df) async {
+    final status = (r['status'] as String?) ?? 'new';
+    final company = ((r['tenants'] as Map?)?['name'] as String?) ?? '—';
+    final author = ((r['users'] as Map?)?['name'] as String?)
+        ?? ((r['users'] as Map?)?['email'] as String?) ?? '—';
+    final device = (r['device_info'] as String?) ?? '';
+    final created = DateTime.tryParse((r['created_at'] as String?) ?? '');
+    final tenantId = r['tenant_id'] as String?;
+    await showAdminDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_err_detail'), style: const TextStyle(fontSize: 16)),
+        content: SizedBox(
+          width: 440,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$company · $author'
+                  '${created != null ? ' · ${df.format(created)}' : ''}'
+                  '${device.isNotEmpty ? '\n$device' : ''}',
+                  style: const TextStyle(fontSize: 11, color: AdminColors.muted),
+                ),
+                const Divider(height: 16),
+                SelectableText((r['description'] as String?) ?? '—',
+                    style: const TextStyle(fontSize: 13)),
+                const Divider(height: 16),
+                Text(l.t('adm_err_change_status').toUpperCase(),
+                    style: const TextStyle(
+                        fontSize: 10, letterSpacing: 1.2,
+                        color: AdminColors.muted)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  for (final s in ['new', 'viewed', 'in_progress', 'resolved'])
+                    AdminPill(
+                      label: _statusLabel(l, s),
+                      selected: status == s,
+                      color: _statusColor(s),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _setStatus(r['id'] as String, s);
+                      },
+                    ),
+                ]),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          if (tenantId != null)
+            TextButton.icon(
+              icon: const Icon(Icons.business, size: 16, color: AdminColors.purple),
+              label: Text(l.t('adm_open_company'),
+                  style: const TextStyle(color: AdminColors.purple)),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => AdminCompanyDetailScreen(
+                      tenantId: tenantId, tenantName: company),
+                ));
+              },
+            ),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
+        ],
       ),
     );
   }

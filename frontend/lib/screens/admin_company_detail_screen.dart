@@ -445,7 +445,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
 
   Future<void> _toggleSuspend(AppLocalizations l, bool suspended) async {
     if (!suspended) {
-      final ok = await showDialog<bool>(
+      final ok = await showAdminDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(l.t('adm_dz_suspend')),
@@ -472,7 +472,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   // Borrado con DOBLE confirmación: hay que escribir el nombre exacto.
   Future<void> _deleteCompany(AppLocalizations l) async {
     final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showAdminDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
@@ -542,7 +542,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     const statuses = ['active', 'trialing', 'past_due', 'canceled', 'inactive'];
     const plans = ['', 'starter', 'pro', 'business'];
 
-    final saved = await showDialog<bool>(
+    final saved = await showAdminDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
@@ -748,7 +748,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       return;
     }
     if (!mounted) return;
-    final ok = await showDialog<bool>(
+    final ok = await showAdminDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
@@ -809,7 +809,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       case 'role':
         final newRole = (u['role'] == 'owner') ? 'driver' : 'owner';
         // Cambiar el rol es delicado: confirmación explícita.
-        final ok = await showDialog<bool>(
+        final ok = await showAdminDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: Text(newRole == 'owner'
@@ -831,7 +831,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             () => _service.adminUpdateUser(id, {'role': newRole}), l.t('saved'));
         break;
       case 'delete':
-        final ok = await showDialog<bool>(
+        final ok = await showAdminDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: Text(l.t('admin_delete_user')),
@@ -934,7 +934,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               if (a == 'edit') {
                 _vehicleDialog(l, vehicle: v);
               } else if (a == 'delete') {
-                showDialog<bool>(
+                showAdminDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: Text(l.t('admin_delete_vehicle')),
@@ -978,7 +978,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         text: (vehicle?['license_plate'] as String?) ?? '');
     final modelCtrl =
         TextEditingController(text: (vehicle?['model'] as String?) ?? '');
-    final ok = await showDialog<bool>(
+    final ok = await showAdminDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(vehicle == null ? l.t('admin_add_vehicle') : l.t('edit')),

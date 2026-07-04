@@ -214,7 +214,7 @@ class _ConfigTabState extends State<ConfigTab> {
   Future<void> _manageAdminsDialog() async {
     final l = context.l10n;
     final ctrl = TextEditingController();
-    await showDialog<void>(
+    await showAdminDialog<void>(
       context: context,
       builder: (ctx) {
         Future<List<Map<String, dynamic>>> future = _service.adminListAdmins();

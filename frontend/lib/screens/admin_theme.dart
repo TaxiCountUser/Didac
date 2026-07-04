@@ -123,6 +123,25 @@ class AdminStatusChip extends StatelessWidget {
   }
 }
 
+/// showDialog captura el Theme del CONTEXT que le pasas; como el context de un
+/// State está por ENCIMA del Theme(adminDarkTheme) que construye su build(),
+/// los diálogos salían con el tema claro de la app. Este helper envuelve el
+/// diálogo con la piel N SIEMPRE: úsalo en todo el panel en vez de showDialog.
+Future<T?> showAdminDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) {
+  return showDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    builder: (ctx) => Theme(
+      data: adminDarkTheme(),
+      child: Builder(builder: builder),
+    ),
+  );
+}
+
 /// Decoración estándar de "tarjeta oscura" del panel.
 BoxDecoration adminCardBox({Color? borderColor}) => BoxDecoration(
       color: AdminColors.card,
