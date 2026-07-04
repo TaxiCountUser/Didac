@@ -308,10 +308,12 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     num n(String k) => (_summary[k] as num?) ?? 0;
     return Wrap(spacing: 8, runSpacing: 8, children: [
       _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'), '${n('total_completed')}', AdminColors.amber),
+      _kpi(Icons.calendar_month, l.t('adm_ch_kpi_month'), '${n('completed_this_month')}', AdminColors.blue),
       _kpi(Icons.groups, l.t('adm_ch_kpi_drivers'), '${n('drivers_with_challenge')}%', AdminColors.blue),
       _kpi(Icons.trending_up, l.t('adm_ch_kpi_avglevel'), '${n('avg_level')}', AdminColors.purple),
       _kpi(Icons.savings, l.t('adm_ch_kpi_days_free'), l.t('fd_days', {'n': '${n('days_challenges').toInt()}'}), AdminColors.teal),
       _kpi(Icons.hourglass_bottom, l.t('adm_ch_kpi_pending'), '${n('pending_approvals')}', AdminColors.coral),
+      _kpi(Icons.gpp_maybe, l.t('adm_ch_kpi_fraud'), '${n('fraud_rate')}%', AdminColors.red),
     ]);
   }
 
@@ -352,6 +354,8 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final top = byDriver.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
     return Column(children: [
+      _dailyChart(l),
+      const SizedBox(height: 12),
       _chartCard(l.t('adm_ch_chart_levels'), [
         for (int lvl = 1; lvl <= 5; lvl++)
           _bar(l.t('ch_level', {'n': lvl == 5 ? '5+' : '$lvl'}), byLevel[lvl] ?? 0,
@@ -372,6 +376,57 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   }
 
   int _maxVal(Iterable<int> v) => v.isEmpty ? 1 : v.reduce((a, b) => a > b ? a : b);
+
+  // Evolución DIARIA (últimos 30 días): barras verticales compactas.
+  Widget _dailyChart(AppLocalizations l) {
+    final daily = ((_summary['daily'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final counts = daily.map((d) => (d['count'] as num?)?.toInt() ?? 0).toList();
+    final max = counts.isEmpty ? 1 : counts.reduce((a, b) => a > b ? a : b);
+    final total = counts.fold<int>(0, (s, v) => s + v);
+    return Container(
+      decoration: adminCardBox(),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Text(l.t('adm_ch_chart_daily'),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Text(l.t('adm_ch_last30', {'n': '$total'}),
+                  style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+            ]),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 60,
+              child: counts.isEmpty
+                  ? Center(child: Text(l.t('admin_no_challenges'),
+                      style: const TextStyle(fontSize: 12, color: AdminColors.muted)))
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        for (final c in counts)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 1),
+                              child: Container(
+                                height: max == 0 ? 2 : (2 + 56 * c / max),
+                                decoration: BoxDecoration(
+                                  color: c > 0 ? AdminColors.amber : AdminColors.hairline,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _chartCard(String title, List<Widget> bars) => Container(
         decoration: adminCardBox(),

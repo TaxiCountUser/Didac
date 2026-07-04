@@ -2069,12 +2069,24 @@ export async function buildApp(options = {}) {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const { data: claims } = await supabase.from('challenge_claims')
-      .select('user_id, level, status').limit(20000);
+      .select('user_id, level, status, created_at, reviewed_at').limit(20000);
     const { count: totalDrivers } = await supabase.from('users')
       .select('id', { count: 'exact', head: true }).eq('role', 'driver');
 
+    const now = new Date();
+    const dayMs = 86400000;
+    const monthStart = new Date(now.getUTCFullYear(), now.getUTCMonth(), 1).getTime();
+    // Serie diaria de retos completados (últimos 30 días), por fecha ISO.
+    const daily = {};
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * dayMs).toISOString().slice(0, 10);
+      daily[d] = 0;
+    }
+
     let totalCompleted = 0;
     let pendingApprovals = 0;
+    let rejected = 0;
+    let completedThisMonth = 0;
     const driversWithClaim = new Set();
     const maxLevelByUser = {};        // nivel máximo aprobado por conductor
     for (const c of claims ?? []) {
@@ -2083,14 +2095,26 @@ export async function buildApp(options = {}) {
         totalCompleted += 1;
         const lvl = c.level ?? 1;
         if (!maxLevelByUser[c.user_id] || lvl > maxLevelByUser[c.user_id]) maxLevelByUser[c.user_id] = lvl;
+        const when = c.reviewed_at || c.created_at;
+        if (when) {
+          const t = new Date(when).getTime();
+          if (t >= monthStart) completedThisMonth += 1;
+          const key = new Date(when).toISOString().slice(0, 10);
+          if (key in daily) daily[key] += 1;
+        }
       } else if (c.status === 'pending') {
         pendingApprovals += 1;
+      } else if (c.status === 'rejected') {
+        rejected += 1;
       }
     }
     const levels = Object.values(maxLevelByUser);
     const avgLevel = levels.length ? +(levels.reduce((s, n) => s + n, 0) / levels.length).toFixed(1) : 0;
     const driversWithChallenge = totalDrivers
       ? +((driversWithClaim.size / totalDrivers) * 100).toFixed(1) : 0;
+    // Tasa de fraude = rechazados / (completados + rechazados).
+    const fraudRate = (totalCompleted + rejected) > 0
+      ? +((rejected / (totalCompleted + rejected)) * 100).toFixed(1) : 0;
 
     // Días gratis concedidos por retos = suma de las extensiones de suscripción
     // (cada reto completado = 1 mes gratis / 30 días).
@@ -2105,6 +2129,10 @@ export async function buildApp(options = {}) {
       avg_level: avgLevel,
       days_challenges: daysChallenges,
       pending_approvals: pendingApprovals,
+      rejected,
+      fraud_rate: fraudRate, // %
+      completed_this_month: completedThisMonth,
+      daily: Object.entries(daily).map(([date, count]) => ({ date, count })),
     });
   });
 
