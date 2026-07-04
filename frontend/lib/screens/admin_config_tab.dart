@@ -370,20 +370,47 @@ class _ConfigTabState extends State<ConfigTab> {
     );
   }
 
+  // Fila de ajuste estilo panel: etiqueta y ayuda a la izquierda, campo
+  // numérico compacto a la derecha (como los settings modernos).
   Widget _numField(String key, String label, String help, String value, {String? suffix}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: TextField(
-        controller: _c(key, value),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          isDense: true,
-          labelText: label,
-          helperText: help.isEmpty ? null : help,
-          helperMaxLines: 2,
-          suffixText: suffix,
-          border: const OutlineInputBorder(),
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 13, color: AdminColors.text)),
+                if (help.isNotEmpty)
+                  Text(help,
+                      style: const TextStyle(
+                          fontSize: 10.5, color: AdminColors.muted)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _c(key, value),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 13, color: AdminColors.text),
+              decoration: InputDecoration(
+                isDense: true,
+                suffixText: suffix,
+                suffixStyle: const TextStyle(
+                    fontSize: 11, color: AdminColors.muted),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 9),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

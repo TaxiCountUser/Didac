@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
 import '../widgets/dictate_button.dart';
+import 'admin_theme.dart';
 
 /// Chat de una incidencia desde el panel de administración: el admin habla con
 /// el cliente (autor de la incidencia) hasta que la cierra. Va por endpoints de
@@ -96,14 +97,22 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
           // (el padre recarga en su propio flujo)
         }
       },
-      child: Scaffold(
+      child: Theme(
+        data: adminDarkTheme(),
+        child: Scaffold(
+        backgroundColor: AdminColors.bg,
         appBar: AppBar(
-          title: Text(l.t('inc_chat_title')),
+          backgroundColor: AdminColors.bg,
+          foregroundColor: AdminColors.text,
+          elevation: 0,
+          title: Text(l.t('inc_chat_title'),
+              style: const TextStyle(fontSize: 16, color: AdminColors.text)),
           actions: [
             TextButton(
               onPressed: _toggleResolved,
               child: Text(_resolved ? l.t('admin_reopen') : l.t('inc_resolve'),
-                  style: const TextStyle(color: Colors.white)),
+                  style: TextStyle(
+                      color: _resolved ? AdminColors.amber : AdminColors.teal)),
             ),
           ],
         ),
@@ -115,6 +124,7 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
             _composer(l),
           ],
         ),
+        ),
       ),
     );
   }
@@ -125,19 +135,24 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
     final author = ((widget.incident['users'] as Map?)?['email'] as String?) ?? '';
     return Container(
       width: double.infinity,
-      color: Colors.amber.shade50,
+      color: AdminColors.card,
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(kind == 'app' ? Icons.bug_report : Icons.report_problem,
-                  size: 18, color: Colors.deepOrange),
-              const SizedBox(width: 6),
+              AdminTag(
+                kind == 'app' ? l.t('adm_tag_ticket') : l.t('adm_tag_note'),
+                fg: kind == 'app' ? AdminColors.blue : AdminColors.purple,
+                bg: kind == 'app' ? AdminColors.blueBg : AdminColors.purpleBg,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(widget.incident['body'] as String? ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w500, fontSize: 13,
+                        color: AdminColors.text)),
               ),
             ],
           ),
@@ -145,16 +160,13 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text([company, author].where((e) => e.isNotEmpty).join(' · '),
-                  style: Theme.of(context).textTheme.bodySmall),
+                  style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
             ),
           if (_resolved)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Chip(
-                label: Text(l.t('inc_resolved')),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: Colors.grey.shade300,
-              ),
+              child: AdminTag(l.t('inc_resolved'),
+                  fg: AdminColors.teal, bg: AdminColors.tealBg),
             ),
         ],
       ),
@@ -177,7 +189,8 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(l.t('inc_chat_empty'),
-                  textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AdminColors.muted)),
             ),
           );
         }
@@ -199,17 +212,25 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 constraints: const BoxConstraints(maxWidth: 320),
                 decoration: BoxDecoration(
-                  color: mine ? Colors.deepPurple.shade100 : Colors.grey.shade200,
+                  color: mine ? AdminColors.purpleBg : AdminColors.card,
+                  border: Border.all(
+                      color: mine ? AdminColors.purpleBg : AdminColors.hairline),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(roleLabel,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    Text(m['body'] as String? ?? ''),
+                        style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.w600,
+                            letterSpacing: .5,
+                            color: mine ? AdminColors.purple : AdminColors.blue)),
+                    Text(m['body'] as String? ?? '',
+                        style: const TextStyle(
+                            fontSize: 13, color: AdminColors.text)),
                     Text(fmtDateTime(parseCreatedAt(m['created_at'])),
-                        style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        style: const TextStyle(
+                            fontSize: 9, color: AdminColors.muted)),
                   ],
                 ),
               ),
@@ -225,9 +246,10 @@ class _AdminIncidentChatScreenState extends State<AdminIncidentChatScreen> {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        color: Colors.grey.shade100,
+        color: AdminColors.card,
         child: Text(l.t('inc_closed'),
-            textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AdminColors.muted)),
       );
     }
     return SafeArea(

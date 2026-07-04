@@ -141,38 +141,63 @@ class _IncidentsTabState extends State<_IncidentsTab> {
     final author = ((inc['users'] as Map?)?['email'] as String?) ?? '—';
     final resolved = status == 'resuelta';
     final hidden = inc['hidden_for_tenant'] == true;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: adminCardBox(),
-      child: ListTile(
-        leading: AdminTag(
-          kind == 'app' ? l.t('adm_tag_ticket') : l.t('adm_tag_note'),
-          fg: kind == 'app' ? AdminColors.blue : AdminColors.purple,
-          bg: kind == 'app' ? AdminColors.blueBg : AdminColors.purpleBg,
-        ),
-        title: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13)),
-        subtitle: Text('$company · $author${hidden ? ' · 🗑️ ${l.t('admin_inc_hidden')}' : ''}',
-            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+    // Fila estilo "bandeja" (como la portada): etiqueta, texto y acción directa.
+    return InkWell(
+      onTap: () async {
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => AdminIncidentChatScreen(incident: inc),
+        ));
+        _reload();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: adminCardBox(),
+        child: Row(
           children: [
-            IconButton(
-              tooltip: resolved ? l.t('admin_reopen') : l.t('admin_resolve'),
-              icon: Icon(resolved ? Icons.replay : Icons.check_circle,
-                  color: resolved ? AdminColors.amber : AdminColors.teal),
-              onPressed: () => _setStatus(inc['id'] as String, resolved ? 'abierta' : 'resuelta'),
+            AdminTag(
+              kind == 'app' ? l.t('adm_tag_ticket') : l.t('adm_tag_note'),
+              fg: kind == 'app' ? AdminColors.blue : AdminColors.purple,
+              bg: kind == 'app' ? AdminColors.blueBg : AdminColors.purpleBg,
             ),
-            const Icon(Icons.chat_bubble_outline, size: 18, color: AdminColors.muted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(body, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: resolved ? AdminColors.muted : AdminColors.text,
+                        decoration: resolved ? TextDecoration.lineThrough : null,
+                      )),
+                  Text('$company · $author${hidden ? ' · ${l.t('admin_inc_hidden')}' : ''}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            InkWell(
+              onTap: () => _setStatus(inc['id'] as String, resolved ? 'abierta' : 'resuelta'),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                      color: (resolved ? AdminColors.amber : AdminColors.teal)
+                          .withValues(alpha: .55)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(resolved ? l.t('admin_reopen') : l.t('admin_resolve'),
+                    style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w500,
+                        color: resolved ? AdminColors.amber : AdminColors.teal)),
+              ),
+            ),
           ],
         ),
-        // Abrir el chat para hablar con el cliente hasta cerrar la avería.
-        onTap: () async {
-          await Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => AdminIncidentChatScreen(incident: inc),
-          ));
-          _reload();
-        },
       ),
     );
   }
@@ -433,37 +458,78 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     // Loop #4: ya no hay aprobación manual (los retos se auto-registran y la
     // recompensa es trimestral por flota). El admin solo puede RECHAZAR por
     // fraude un logro, lo que lo excluye de la métrica trimestral.
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: adminCardBox(
-          borderColor: suspicious ? AdminColors.red : null),
-      child: ListTile(
-        onTap: () => _openDetail(c['id'] as String),
-        leading: Icon(icon, color: AdminColors.amber),
-        title: Text('$title · ${l.t('ch_level', {'n': '$level'})} · $driver',
-            style: const TextStyle(fontSize: 13)),
-        subtitle: Text('$company\n'
-            '${l.t('admin_ch_goal')}: ${target.toStringAsFixed(0)} $unit · ${l.t('ch_days_progress', {'n': '$days', 'min': '300'})}'
-            '${suspicious ? '\n⚠️ ${l.t('admin_ch_suspicious')}' : ''}',
-            style: TextStyle(
-                fontSize: 11,
-                color: suspicious ? AdminColors.red : AdminColors.muted)),
-        isThreeLine: true,
-        trailing: rejected
-            ? AdminTag(l.t('admin_ch_rejected'),
-                fg: AdminColors.muted, bg: AdminColors.hairline)
-            : Row(
-                mainAxisSize: MainAxisSize.min,
+    return InkWell(
+      onTap: () => _openDetail(c['id'] as String),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: adminCardBox(
+            borderColor: suspicious ? AdminColors.red : null),
+        child: Row(
+          children: [
+            Container(
+              width: 34, height: 34,
+              decoration: BoxDecoration(
+                color: AdminColors.amberBg,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, size: 18, color: AdminColors.amber),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AdminTag(l.t('admin_ch_achieved'),
-                      fg: AdminColors.teal, bg: AdminColors.tealBg),
-                  IconButton(
-                    tooltip: l.t('admin_ch_fraud'),
-                    icon: const Icon(Icons.block, color: AdminColors.red),
-                    onPressed: () => _review(c['id'] as String, 'reject'),
+                  Row(children: [
+                    Flexible(
+                      child: Text('$driver · $title',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w500,
+                              color: AdminColors.text)),
+                    ),
+                    const SizedBox(width: 6),
+                    AdminTag('N$level',
+                        fg: AdminColors.purple, bg: AdminColors.purpleBg),
+                  ]),
+                  Text(
+                    '$company · ${l.t('admin_ch_goal')}: ${target.toStringAsFixed(0)} $unit · ${l.t('ch_days_progress', {'n': '$days', 'min': '300'})}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, color: AdminColors.muted),
                   ),
+                  if (suspicious)
+                    Text('⚠ ${l.t('admin_ch_suspicious')}',
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 10, color: AdminColors.red)),
                 ],
               ),
+            ),
+            const SizedBox(width: 8),
+            if (rejected)
+              AdminTag(l.t('admin_ch_rejected'),
+                  fg: AdminColors.muted, bg: AdminColors.hairline)
+            else ...[
+              AdminTag(l.t('admin_ch_achieved'),
+                  fg: AdminColors.teal, bg: AdminColors.tealBg),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () => _review(c['id'] as String, 'reject'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                        color: AdminColors.redSolid.withValues(alpha: .55)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.block, size: 15, color: AdminColors.red),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
