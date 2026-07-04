@@ -170,7 +170,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   Widget _kpiStrip(AppLocalizations l, Map<String, dynamic> t,
       Map<String, dynamic> billing) {
     final mrr = (billing['mrr_estimate'] as num?)?.toDouble() ?? 0;
-    final savings = (billing['savings_total'] as num?)?.toDouble() ?? 0;
+    final freeDays = (billing['free_days'] as num?)?.toInt() ?? 0;
     final seats = (billing['active_drivers'] as num?)?.toInt() ?? 0;
     final limit = t['drivers_limit'];
     final created = DateTime.tryParse('${t['created_at']}')?.toLocal();
@@ -210,7 +210,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         tile(l.t('adm_kpi_seats'),
             limit == null ? '$seats' : '$seats/$limit', AdminColors.blue),
         const SizedBox(width: 7),
-        tile(l.t('adm_kpi_savings'), '${savings.toStringAsFixed(2)}€',
+        tile(l.t('adm_kpi_freedays'), l.t('fd_days', {'n': '$freeDays'}),
             AdminColors.teal),
         const SizedBox(width: 7),
         tile(l.t('adm_kpi_since'), since, AdminColors.purple),

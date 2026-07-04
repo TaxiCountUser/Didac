@@ -1188,20 +1188,15 @@ export async function buildApp(options = {}) {
       .limit(100);
 
     // Datos de SUSCRIPCIÓN (lado TaxiCount, no finanzas del cliente): cuota
-    // mensual estimada (annual_price_paid/12 de los conductores activos) y
-    // ahorro total repartido (monthly_savings). Para la ficha rediseñada.
+    // mensual estimada (annual_price_paid/12 de los conductores activos) y días
+    // gratis conseguidos (retos + referidos). Para la ficha rediseñada.
     let mrrCompany = 0;
     const activeDrivers = (users || []).filter((u) => u.role === 'driver' && u.active !== false);
     if ((tenant.subscription_status === 'active' || tenant.subscription_status === 'past_due')) {
       if (activeDrivers.length === 0) mrrCompany = 15 / 12;
       for (const u of activeDrivers) mrrCompany += Number(u.annual_price_paid ?? 15) / 12;
     }
-    const { data: savRows } = await supabase.from('monthly_savings')
-      .select('savings_from_challenges, savings_from_referrals').eq('tenant_id', id);
-    let savingsTotal = 0;
-    for (const r of savRows ?? []) {
-      savingsTotal += Number(r.savings_from_challenges ?? 0) + Number(r.savings_from_referrals ?? 0);
-    }
+    const freeDays = await freeDaysForTenant(id);
 
     return reply.send({
       tenant,
@@ -1214,7 +1209,9 @@ export async function buildApp(options = {}) {
       incidents_list: incidentList || [],
       billing: {
         mrr_estimate: Number(mrrCompany.toFixed(2)),
-        savings_total: Number(savingsTotal.toFixed(2)),
+        free_days: freeDays.total,
+        free_days_challenges: freeDays.challenges,
+        free_days_referrals: freeDays.referrals,
         active_drivers: activeDrivers.length,
       },
     });
@@ -1230,27 +1227,37 @@ export async function buildApp(options = {}) {
     const now = Date.now();
     const dayMs = 86400000;
 
-    const [{ data: tenants }, { data: drivers }, { data: savings }] = await Promise.all([
+    const [{ data: tenants }, { data: drivers }, { data: exts }, { data: milestones }] = await Promise.all([
       supabase.from('tenants')
         .select('id, name, subscription_status, trial_ends_at, drivers_limit, created_at')
         .order('created_at', { ascending: false }),
-      supabase.from('users').select('tenant_id, active, annual_price_paid').eq('role', 'driver'),
-      supabase.from('monthly_savings').select('tenant_id, savings_from_challenges, savings_from_referrals'),
+      supabase.from('users').select('id, tenant_id, active, annual_price_paid, role'),
+      supabase.from('subscription_extensions').select('tenant_id, days_extended').eq('extension_type', 'challenge'),
+      supabase.from('referral_milestone_rewards').select('user_id, days_awarded'),
     ]);
 
+    // Días gratis por retos (por tenant) y por referidos (por owner -> tenant).
+    const ownerTenant = {};
     const seatsByTenant = {};
-    for (const d of drivers ?? []) {
-      if (d.active !== false) (seatsByTenant[d.tenant_id] ||= []).push(Number(d.annual_price_paid ?? 15));
+    for (const u of drivers ?? []) {
+      if (u.role === 'owner') ownerTenant[u.id] = u.tenant_id;
+      if (u.role === 'driver' && u.active !== false) {
+        (seatsByTenant[u.tenant_id] ||= []).push(Number(u.annual_price_paid ?? 15));
+      }
     }
-    const savByTenant = {};
-    let savCh = 0;
-    let savRef = 0;
-    for (const s of savings ?? []) {
-      const ch = Number(s.savings_from_challenges ?? 0);
-      const rf = Number(s.savings_from_referrals ?? 0);
-      savByTenant[s.tenant_id] = (savByTenant[s.tenant_id] ?? 0) + ch + rf;
-      savCh += ch;
-      savRef += rf;
+    const daysByTenant = {};
+    let daysCh = 0;
+    let daysRef = 0;
+    for (const e of exts ?? []) {
+      const d = e.days_extended ?? 0;
+      daysByTenant[e.tenant_id] = (daysByTenant[e.tenant_id] ?? 0) + d;
+      daysCh += d;
+    }
+    for (const m of milestones ?? []) {
+      const tid = ownerTenant[m.user_id];
+      const d = m.days_awarded ?? 0;
+      if (tid) daysByTenant[tid] = (daysByTenant[tid] ?? 0) + d;
+      daysRef += d;
     }
 
     let mrrTotal = 0;
@@ -1270,7 +1277,7 @@ export async function buildApp(options = {}) {
         id: t.id, name: t.name, status: t.subscription_status,
         seats: Math.max(1, seats.length), drivers_limit: t.drivers_limit,
         mrr: Number(mrr.toFixed(2)), trial_days_left: trialDays,
-        savings: Number((savByTenant[t.id] ?? 0).toFixed(2)),
+        free_days: daysByTenant[t.id] ?? 0,
       };
     });
 
@@ -1280,9 +1287,9 @@ export async function buildApp(options = {}) {
         paying: rows.filter((r) => r.status === 'active').length,
         past_due: rows.filter((r) => r.status === 'past_due').length,
         trialing: rows.filter((r) => r.trial_days_left != null).length,
-        savings_total: Number((savCh + savRef).toFixed(2)),
-        savings_challenges: Number(savCh.toFixed(2)),
-        savings_referrals: Number(savRef.toFixed(2)),
+        free_days_total: daysCh + daysRef,
+        free_days_challenges: daysCh,
+        free_days_referrals: daysRef,
       },
       past_due: rows.filter((r) => r.status === 'past_due'),
       trials: rows.filter((r) => r.trial_days_left != null)
@@ -1461,63 +1468,78 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, purged: data ?? 0 });
   });
 
-  // Loop #8: abona al jefe la recompensa por cada reto completado ('rewarded')
-  // aún no canjeado, como CRÉDITO en el saldo del cliente de Stripe. El importe
-  // es el VALOR MENSUAL REAL del conductor = annual_price_paid / 12 (no un fijo).
-  // Registra la extensión en subscription_extensions (auditoría) y suma al ahorro
-  // del mes (monthly_savings). Idempotente por reward_redeemed_at. Se ejecuta por
-  // cron/manual (no en el camino de lectura, para no llamar a Stripe al abrir retos).
+  // Extiende la suscripción de un tenant N días (1 mes = 30). Si trial_ends_at
+  // está en el pasado, cuenta desde hoy. Es el mecanismo común de "mes/días
+  // gratis" para retos y referidos (ya no se usa crédito Stripe).
+  async function extendTenantTrial(tenantId, deltaDays) {
+    if (!tenantId || !deltaDays) return;
+    const { data: t } = await supabase.from('tenants')
+      .select('trial_ends_at').eq('id', tenantId).maybeSingle();
+    const now = Date.now();
+    const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : now;
+    const base = cur > now ? cur : now;
+    await supabase.from('tenants')
+      .update({ trial_ends_at: new Date(base + deltaDays * 86400000).toISOString() })
+      .eq('id', tenantId);
+  }
+
   async function applyPendingChallengeCredits() {
-    if (!stripe) return { credited: 0, skipped: 0, no_stripe: true };
     const { data: claims } = await supabase
       .from('challenge_claims')
       .select('id, tenant_id, user_id')
       .eq('status', 'rewarded')
       .is('reward_redeemed_at', null)
       .limit(1000);
-    let credited = 0;
+    let rewarded = 0;
     let skipped = 0;
     for (const c of claims ?? []) {
-      const { data: t } = await supabase.from('tenants')
-        .select('stripe_customer_id').eq('id', c.tenant_id).maybeSingle();
-      const customer = t?.stripe_customer_id;
-      if (!customer) { skipped++; continue; } // aún sin cliente Stripe (en prueba)
-      // Valor mensual del conductor = precio anual real / 12 (Loop #8).
+      // Valor mensual del conductor (auditoría) = precio anual real / 12.
       const { data: u } = await supabase.from('users')
         .select('annual_price_paid').eq('id', c.user_id).maybeSingle();
       const monthlyValue = Number(u?.annual_price_paid ?? 15) / 12;
-      const cents = Math.max(1, Math.round(monthlyValue * 100));
       try {
-        await stripe.customers.createBalanceTransaction(customer, {
-          amount: -cents, // negativo = crédito a favor
-          currency: 'eur',
-          description: `TaxiCount: reto completado (${c.id})`,
-        });
         const now = new Date();
+        // Recompensa: 1 MES GRATIS (extiende la suscripción 30 días), por el
+        // valor de un conductor. Antes era crédito Stripe; ahora extensión.
+        await extendTenantTrial(c.tenant_id, 30);
         await supabase.from('subscription_extensions').insert({
           user_id: c.user_id, tenant_id: c.tenant_id, extension_type: 'challenge',
           source_id: c.id, days_extended: 30, monthly_value: monthlyValue.toFixed(2),
           extended_until: new Date(now.getTime() + 30 * 86400000).toISOString(),
         });
-        await supabase.rpc('bump_monthly_savings', {
-          p_tenant: c.tenant_id, p_year: now.getUTCFullYear(), p_month: now.getUTCMonth() + 1,
-          p_challenges: Number(monthlyValue.toFixed(2)), p_referrals: 0,
-        });
         await supabase.from('challenge_claims')
           .update({ reward_redeemed_at: now.toISOString() }).eq('id', c.id);
-        credited++;
+        rewarded++;
       } catch (e) {
-        app.log.warn(`[challenge-credit] claim ${c.id}: ${e.message}`);
+        app.log.warn(`[challenge-reward] claim ${c.id}: ${e.message}`);
         skipped++;
       }
     }
-    return { credited, skipped };
+    return { rewarded, skipped };
+  }
+
+  // Días gratis conseguidos por un tenant: por RETOS (subscription_extensions
+  // type=challenge) y por REFERIDOS (referral_milestone_rewards de sus owners).
+  // Es el "ahorro" real del nuevo modelo, medido en días de suscripción gratis.
+  async function freeDaysForTenant(tenantId) {
+    const { data: exts } = await supabase.from('subscription_extensions')
+      .select('days_extended').eq('tenant_id', tenantId).eq('extension_type', 'challenge');
+    const challenges = (exts ?? []).reduce((s, r) => s + (r.days_extended ?? 0), 0);
+    const { data: owners } = await supabase.from('users')
+      .select('id').eq('tenant_id', tenantId).eq('role', 'owner');
+    const ownerIds = (owners ?? []).map((o) => o.id);
+    let referrals = 0;
+    if (ownerIds.length) {
+      const { data: rr } = await supabase.from('referral_milestone_rewards')
+        .select('days_awarded').in('user_id', ownerIds);
+      referrals = (rr ?? []).reduce((s, r) => s + (r.days_awarded ?? 0), 0);
+    }
+    return { challenges, referrals, total: challenges + referrals };
   }
 
   app.post('/api/v1/admin/cron/apply-challenge-credits', async (request, reply) => {
     const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
-    if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
     const res = await applyPendingChallengeCredits();
     await markCronRun('challenge_credits');
     await logAdminAction(request, g.caller?.id ?? null, 'challenge_credits_apply', 'challenge_claims', null, res);
@@ -2019,19 +2041,18 @@ export async function buildApp(options = {}) {
     const driversWithChallenge = totalDrivers
       ? +((driversWithClaim.size / totalDrivers) * 100).toFixed(1) : 0;
 
-    // Ahorro repartido por retos (Loop #8): la recompensa ya NO son "días"
-    // (modelo trimestral del Loop #4, retirado) sino crédito Stripe por el
-    // valor real del conductor, contabilizado en monthly_savings.
-    const { data: savRows } = await supabase.from('monthly_savings')
-      .select('savings_from_challenges').limit(20000);
-    const savingsChallenges = (savRows ?? [])
-      .reduce((s, r) => s + Number(r.savings_from_challenges ?? 0), 0);
+    // Días gratis concedidos por retos = suma de las extensiones de suscripción
+    // (cada reto completado = 1 mes gratis / 30 días).
+    const { data: extRows } = await supabase.from('subscription_extensions')
+      .select('days_extended').eq('extension_type', 'challenge').limit(20000);
+    const daysChallenges = (extRows ?? [])
+      .reduce((s, r) => s + (r.days_extended ?? 0), 0);
 
     return reply.send({
       total_completed: totalCompleted,
       drivers_with_challenge: driversWithChallenge, // %
       avg_level: avgLevel,
-      savings_challenges: Number(savingsChallenges.toFixed(2)),
+      days_challenges: daysChallenges,
       pending_approvals: pendingApprovals,
     });
   });
@@ -2273,57 +2294,46 @@ export async function buildApp(options = {}) {
     return b.count > max;
   }
 
-  // JEFE (Loop #8 It.5): ahorro conseguido con retos y referidos. Devuelve el
-  // total acumulado (todo el histórico), el del año en curso y el desglose por
-  // mes. Solo owner (o admin con ?tenant_id=). Los datos los alimenta el backend
-  // vía bump_monthly_savings al aplicar cada recompensa (It.2/It.4).
-  app.get('/api/v1/tenant/monthly-savings', async (request, reply) => {
+  // JEFE: días gratis conseguidos con RETOS y REFERIDOS (el "ahorro" del nuevo
+  // modelo: cada reto o referido validado extiende la suscripción). Devuelve el
+  // total por retos/referidos y el detalle de cada extensión. Solo owner (o
+  // admin con ?tenant_id=).
+  app.get('/api/v1/tenant/free-days', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
     const caller = await getCaller(request);
     if (!caller) return reply.code(401).send({ error: 'No autenticado' });
     if (caller.role !== 'owner' && !caller.is_admin) {
       return reply.code(403).send({ error: 'Solo el propietario o el admin' });
     }
-    if (rateLimited(`ms:${caller.id}`)) {
+    if (rateLimited(`fd:${caller.id}`)) {
       return reply.code(429).send({ error: 'Demasiadas peticiones, prueba en un minuto' });
     }
     const tenantId = (caller.is_admin && request.query?.tenant_id)
       ? request.query.tenant_id : caller.tenant_id;
-    const { data, error } = await supabase
-      .from('monthly_savings')
-      .select('year, month, savings_from_challenges, savings_from_referrals, calculated_at')
-      .eq('tenant_id', tenantId)
-      .order('year', { ascending: false })
-      .order('month', { ascending: false });
-    if (error) return reply.code(500).send({ error: error.message });
+    const totals = await freeDaysForTenant(tenantId);
 
-    const rows = data ?? [];
-    const thisYear = new Date().getUTCFullYear();
-    const acc = { challenges: 0, referrals: 0 };
-    const year = { challenges: 0, referrals: 0 };
-    const breakdown = rows.map((r) => {
-      const ch = Number(r.savings_from_challenges ?? 0);
-      const rf = Number(r.savings_from_referrals ?? 0);
-      acc.challenges += ch; acc.referrals += rf;
-      if (r.year === thisYear) { year.challenges += ch; year.referrals += rf; }
-      return {
-        year: r.year, month: r.month,
-        challenges: Number(ch.toFixed(2)), referrals: Number(rf.toFixed(2)),
-        total: Number((ch + rf).toFixed(2)),
-      };
-    });
-    const round2 = (n) => Number(n.toFixed(2));
+    // Detalle de retos: cada extensión con su fecha y días.
+    const { data: exts } = await supabase.from('subscription_extensions')
+      .select('days_extended, applied_at, extension_type')
+      .eq('tenant_id', tenantId).eq('extension_type', 'challenge')
+      .order('applied_at', { ascending: false }).limit(100);
+    // Detalle de referidos: hitos conseguidos por los owners del tenant.
+    const { data: owners } = await supabase.from('users')
+      .select('id').eq('tenant_id', tenantId).eq('role', 'owner');
+    const ownerIds = (owners ?? []).map((o) => o.id);
+    let milestones = [];
+    if (ownerIds.length) {
+      const { data: rr } = await supabase.from('referral_milestone_rewards')
+        .select('milestone_level, days_awarded, created_at').in('user_id', ownerIds)
+        .order('created_at', { ascending: false }).limit(100);
+      milestones = rr ?? [];
+    }
     return reply.send({
-      total: {
-        challenges: round2(acc.challenges), referrals: round2(acc.referrals),
-        total: round2(acc.challenges + acc.referrals),
-      },
-      year: {
-        year: thisYear,
-        challenges: round2(year.challenges), referrals: round2(year.referrals),
-        total: round2(year.challenges + year.referrals),
-      },
-      breakdown,
+      challenges_days: totals.challenges,
+      referrals_days: totals.referrals,
+      total_days: totals.total,
+      challenge_extensions: exts ?? [],
+      referral_milestones: milestones,
     });
   });
 

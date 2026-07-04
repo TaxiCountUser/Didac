@@ -366,9 +366,9 @@ class DataService {
 
   /// Ahorro conseguido con retos y referidos (Loop #8, solo owner/admin).
   /// Devuelve { total:{challenges,referrals,total}, year:{...}, breakdown:[...] }.
-  Future<Map<String, dynamic>> tenantMonthlySavings() async {
+  Future<Map<String, dynamic>> tenantFreeDays() async {
     final res = await http.get(
-      Uri.parse('$backendUrl/api/v1/tenant/monthly-savings'), headers: _bearer);
+      Uri.parse('$backendUrl/api/v1/tenant/free-days'), headers: _bearer);
     final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
     return body;

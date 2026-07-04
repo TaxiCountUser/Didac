@@ -73,8 +73,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             final paying =
                 ((d['paying'] as List?) ?? []).cast<Map<String, dynamic>>();
             final mrr = (t['mrr'] as num?)?.toDouble() ?? 0;
-            final savCh = (t['savings_challenges'] as num?)?.toDouble() ?? 0;
-            final savRef = (t['savings_referrals'] as num?)?.toDouble() ?? 0;
+            final daysCh = (t['free_days_challenges'] as num?)?.toInt() ?? 0;
+            final daysRef = (t['free_days_referrals'] as num?)?.toInt() ?? 0;
 
             return RefreshIndicator(
               color: AdminColors.teal,
@@ -118,15 +118,15 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                                   fontSize: 11, color: AdminColors.secondary)),
                         ),
                         Text(
-                          '${(savCh + savRef).toStringAsFixed(2)}€',
+                          l.t('fd_days', {'n': '${daysCh + daysRef}'}),
                           style: const TextStyle(
                               fontSize: 14, fontWeight: FontWeight.w600,
                               color: AdminColors.text),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${l.t('sav_challenges')} ${savCh.toStringAsFixed(2)}€ · '
-                          '${l.t('sav_referrals')} ${savRef.toStringAsFixed(2)}€',
+                          '${l.t('sav_challenges')} ${l.t('fd_days', {'n': '$daysCh'})} · '
+                          '${l.t('sav_referrals')} ${l.t('fd_days', {'n': '$daysRef'})}',
                           style: const TextStyle(
                               fontSize: 9, color: AdminColors.muted),
                         ),
@@ -244,7 +244,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
       {required String trailing, required Color trailingColor}) {
     final name = (r['name'] as String?) ?? '—';
     final seats = (r['seats'] as num?)?.toInt() ?? 1;
-    final savings = (r['savings'] as num?)?.toDouble() ?? 0;
+    final freeDays = (r['free_days'] as num?)?.toInt() ?? 0;
     return InkWell(
       onTap: () => _openCompany(r),
       child: Padding(
@@ -264,7 +264,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                           color: AdminColors.text)),
                   Text(
                     '$seats ${l.t('adm_kpi_seats').toLowerCase()}'
-                    '${savings > 0 ? ' · ${l.t('adm_kpi_savings').toLowerCase()} ${savings.toStringAsFixed(2)}€' : ''}',
+                    '${freeDays > 0 ? ' · ${l.t('fd_days', {'n': '$freeDays'})}' : ''}',
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 10, color: AdminColors.muted),
