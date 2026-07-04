@@ -364,26 +364,6 @@ class DataService {
     return ((body['claims'] as List?) ?? []).cast<Map<String, dynamic>>();
   }
 
-  /// Progreso del trimestre EN CURSO de la flota (solo owner/admin).
-  /// Devuelve { year, quarter, active_drivers, drivers_with_achievement,
-  /// completion_rate, reward_days_projected }.
-  Future<Map<String, dynamic>> fleetCurrentQuarter() async {
-    final res = await http.get(
-      Uri.parse('$backendUrl/api/v1/tenant/current-quarter-progress'), headers: _bearer);
-    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
-    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
-    return body;
-  }
-
-  /// Histórico de recompensas trimestrales de la flota (solo owner/admin).
-  Future<List<Map<String, dynamic>>> fleetQuarterlyMetrics({int limit = 12}) async {
-    final res = await http.get(
-      Uri.parse('$backendUrl/api/v1/tenant/quarterly-metrics?limit=$limit'), headers: _bearer);
-    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
-    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
-    return ((body['metrics'] as List?) ?? []).cast<Map<String, dynamic>>();
-  }
-
   /// Ahorro conseguido con retos y referidos (Loop #8, solo owner/admin).
   /// Devuelve { total:{challenges,referrals,total}, year:{...}, breakdown:[...] }.
   Future<Map<String, dynamic>> tenantMonthlySavings() async {
@@ -432,28 +412,6 @@ class DataService {
     if (res.statusCode != 200) {
       final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
       throw Exception(body['error'] ?? 'No se pudo forzar');
-    }
-  }
-
-  /// Recompensas trimestrales de todas las empresas (solo admin).
-  Future<Map<String, dynamic>> adminChallengeQuarterly({int? year, int? quarter, int limit = 50, int offset = 0}) async {
-    final qp = <String, String>{'limit': '$limit', 'offset': '$offset'};
-    if (year != null) qp['year'] = '$year';
-    if (quarter != null) qp['quarter'] = '$quarter';
-    final uri = Uri.parse('$backendUrl/api/v1/admin/challenges/quarterly').replace(queryParameters: qp);
-    final res = await http.get(uri, headers: _bearer);
-    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
-    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
-    return body;
-  }
-
-  /// Ajustar manualmente una recompensa trimestral (solo admin).
-  Future<void> adminChallengeQuarterlyAdjust(String id, int rewardDays, String reason) async {
-    final res = await http.put(Uri.parse('$backendUrl/api/v1/admin/challenges/quarterly/$id'),
-        headers: _bearer, body: jsonEncode({'reward_days_awarded': rewardDays, 'reason': reason}));
-    if (res.statusCode != 200) {
-      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
-      throw Exception(body['error'] ?? 'No se pudo ajustar');
     }
   }
 
@@ -623,23 +581,6 @@ class DataService {
   }
 
   // ---------------- Informes de error (Loop #6) ----------------
-
-  /// Envía un informe de error a soporte (admin) con copia al jefe. Es una vía
-  /// UNIDIRECCIONAL (no un chat): el jefe solo lo ve; el admin lo gestiona.
-  Future<void> submitErrorReport({required String description, String? deviceInfo}) async {
-    final res = await http.post(
-      Uri.parse('$backendUrl/api/v1/error-reports'),
-      headers: _bearer,
-      body: jsonEncode({
-        'description': description,
-        if (deviceInfo != null && deviceInfo.isNotEmpty) 'device_info': deviceInfo,
-      }),
-    );
-    if (res.statusCode != 201) {
-      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
-      throw Exception(body['error'] ?? 'No se pudo enviar el informe');
-    }
-  }
 
   /// Admin: lista de informes de error (filtro opcional por estado).
   Future<List<Map<String, dynamic>>> adminErrorReports({String? status}) async {

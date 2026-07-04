@@ -400,49 +400,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _open(Widget screen) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
-  /// Formulario para informar de un error de la app (va al equipo de TaxiCount
-  /// con copia al jefe). Unidireccional: no espera respuesta en un chat.
-  /// De momento NO se usa (el botón "Informar de un error" abre el chat de
-  /// tickets); se conservará para cuando pase a ser solo formulario sin chat.
-  // ignore: unused_element
-  Future<void> _reportErrorDialog() async {
-    final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.t('err_report_title')),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          maxLines: 5,
-          maxLength: 4000,
-          decoration: InputDecoration(
-            hintText: ctx.l10n.t('err_report_hint'),
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('err_report_send'))),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    final text = ctrl.text.trim();
-    if (text.length < 3) return;
-    final device = 'app · ${widget.profile.isOwner ? 'owner' : 'driver'} · ${Theme.of(context).platform.name}';
-    try {
-      await _service.submitErrorReport(description: text, deviceInfo: device);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.t('err_report_sent'))));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
-
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -528,8 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _open(ReferralScreen(profile: widget.profile)),
               ),
-            // Informar de un error: DE MOMENTO es un chat (tickets con soporte).
-            // Más adelante pasará a ser solo el formulario (_reportErrorDialog).
+            // Informar de un error: es un chat (tickets con soporte).
             ListTile(
               leading: Badge(
                 isLabelVisible: _newReply,

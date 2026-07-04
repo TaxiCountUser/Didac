@@ -13,7 +13,6 @@ import { correctTranscript } from './corrections.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { applyStripeEvent, planForPrice } from './billing.js';
-import { runQuarterlyFleetRewards, quarterOf, quarterRange, computeTenantQuarterMetrics, rewardDaysForRate } from './gamification.js';
 import {
   fetchReportData,
   buildExcel,
@@ -2107,69 +2106,6 @@ export async function buildApp(options = {}) {
   });
 
   // ============================================================
-  // Loop #5 — Recompensas trimestrales (vista admin) y ajuste manual.
-  // ============================================================
-
-  // Admin: histórico de recompensas trimestrales de todas las empresas.
-  // Filtros: ?year= &quarter= &tenant_id=. Paginación ?limit= &offset=.
-  app.get('/api/v1/admin/challenges/quarterly', async (request, reply) => {
-    const g = await adminGuard(request);
-    if (g.error) return reply.code(g.code).send({ error: g.error });
-    const qp = request.query ?? {};
-    const limit = Math.min(Math.max(parseInt(qp.limit ?? '50', 10) || 50, 1), 200);
-    const offset = Math.max(parseInt(qp.offset ?? '0', 10) || 0, 0);
-    let q = supabase.from('fleet_quarterly_metrics')
-      .select('id, tenant_id, year, quarter, active_drivers, drivers_with_achievement, '
-        + 'completion_rate, reward_days_awarded, processed_at, tenant:tenant_id(name)',
-        { count: 'exact' })
-      .order('year', { ascending: false }).order('quarter', { ascending: false });
-    if (qp.year) q = q.eq('year', parseInt(qp.year, 10));
-    if (qp.quarter) q = q.eq('quarter', parseInt(qp.quarter, 10));
-    if (qp.tenant_id) q = q.eq('tenant_id', qp.tenant_id);
-    const { data, count, error } = await q.range(offset, offset + limit - 1);
-    if (error) return reply.code(500).send({ error: error.message });
-    const rows = (data ?? []).map((r) => ({ ...r, status: r.processed_at ? 'processed' : 'pending' }));
-    return reply.send({ metrics: rows, total: count ?? rows.length, limit, offset });
-  });
-
-  // Admin: ajustar manualmente una recompensa trimestral. Requiere justificación.
-  // Si cambia reward_days_awarded, ajusta la suscripción del tenant por la
-  // diferencia (suma o resta días) y queda registrado en auditoría.
-  app.put('/api/v1/admin/challenges/quarterly/:id', async (request, reply) => {
-    const g = await adminGuard(request);
-    if (g.error) return reply.code(g.code).send({ error: g.error });
-    const b = request.body ?? {};
-    const reason = b.reason;
-    if (!reason || !String(reason).trim()) {
-      return reply.code(400).send({ error: 'Se requiere una justificación (reason)' });
-    }
-    if (b.reward_days_awarded == null || isNaN(Number(b.reward_days_awarded))) {
-      return reply.code(400).send({ error: 'reward_days_awarded numérico requerido' });
-    }
-    const newDays = Math.max(0, Math.round(Number(b.reward_days_awarded)));
-    const { data: row } = await supabase.from('fleet_quarterly_metrics')
-      .select('id, tenant_id, reward_days_awarded').eq('id', request.params.id).maybeSingle();
-    if (!row) return reply.code(404).send({ error: 'Métrica trimestral no encontrada' });
-    const delta = newDays - (row.reward_days_awarded ?? 0);
-    await supabase.from('fleet_quarterly_metrics')
-      .update({ reward_days_awarded: newDays }).eq('id', row.id);
-    // Ajustar trial_ends_at del tenant por la diferencia (con signo).
-    if (delta !== 0) {
-      const { data: t } = await supabase.from('tenants')
-        .select('trial_ends_at').eq('id', row.tenant_id).maybeSingle();
-      const now = Date.now();
-      const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : now;
-      const base = cur > now ? cur : now;
-      await supabase.from('tenants')
-        .update({ trial_ends_at: new Date(base + delta * 86400000).toISOString() })
-        .eq('id', row.tenant_id);
-    }
-    await logAdminAction(request, g.caller.id, 'quarterly_reward_adjust', 'fleet_quarterly_metrics', row.id,
-      { reason: String(reason), previous_days: row.reward_days_awarded ?? 0, new_days: newDays, delta });
-    return reply.send({ ok: true, reward_days_awarded: newDays, delta });
-  });
-
-  // ============================================================
   // Loop #5 — Centro de fraude (unifica referral_fraud_alerts + fraud_alerts)
   // y logs de auditoría. Solo admin. El id unificado es "<source>:<uuid>".
   // ============================================================
@@ -2323,29 +2259,6 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, note: 'reward individual deprecado; recompensa trimestral por flota' });
   });
 
-  // Admin: ejecutar manualmente el reparto trimestral de flota (para probar el
-  // cron fuera de horario). body: { year?, quarter?, dryRun? }. Si no se indican
-  // year/quarter, usa el trimestre actual. dryRun=true calcula sin premiar.
-  app.post('/api/v1/admin/cron/quarterly-rewards', async (request, reply) => {
-    const g = await adminGuard(request);
-    if (g.error) return reply.code(g.code).send({ error: g.error });
-    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
-    const b = request.body ?? {};
-    try {
-      const summary = await runQuarterlyFleetRewards(supabase, {
-        year: b.year ? Number(b.year) : undefined,
-        quarter: b.quarter ? Number(b.quarter) : undefined,
-        dryRun: b.dryRun === true || b.dryRun === 'true',
-        notifyOwner: notifyUser,
-        log: app.log,
-      });
-      return reply.send(summary);
-    } catch (e) {
-      request.log.error(e);
-      return reply.code(500).send({ error: 'Fallo en el reparto trimestral' });
-    }
-  });
-
   // Rate limiter básico en memoria (sin dependencias): N peticiones por ventana
   // y clave. Devuelve true si la petición debe bloquearse (límite superado).
   const _rlBuckets = new Map();
@@ -2359,34 +2272,6 @@ export async function buildApp(options = {}) {
     b.count += 1;
     return b.count > max;
   }
-
-  // JEFE: histórico de recompensas trimestrales de su empresa (o admin: por
-  // tenant_id en query). Paginación opcional ?limit=&offset=.
-  app.get('/api/v1/tenant/quarterly-metrics', async (request, reply) => {
-    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
-    const caller = await getCaller(request);
-    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
-    if (caller.role !== 'owner' && !caller.is_admin) {
-      return reply.code(403).send({ error: 'Solo el propietario o el admin' });
-    }
-    if (rateLimited(`qm:${caller.id}`)) {
-      return reply.code(429).send({ error: 'Demasiadas peticiones, prueba en un minuto' });
-    }
-    // El admin puede consultar otro tenant con ?tenant_id=; el owner, solo el suyo.
-    const tenantId = (caller.is_admin && request.query?.tenant_id)
-      ? request.query.tenant_id : caller.tenant_id;
-    const limit = Math.min(Math.max(parseInt(request.query?.limit ?? '20', 10) || 20, 1), 100);
-    const offset = Math.max(parseInt(request.query?.offset ?? '0', 10) || 0, 0);
-    const { data, error } = await supabase
-      .from('fleet_quarterly_metrics')
-      .select('year, quarter, active_drivers, drivers_with_achievement, completion_rate, reward_days_awarded, processed_at')
-      .eq('tenant_id', tenantId)
-      .order('year', { ascending: false })
-      .order('quarter', { ascending: false })
-      .range(offset, offset + limit - 1);
-    if (error) return reply.code(500).send({ error: error.message });
-    return reply.send({ metrics: data ?? [], limit, offset });
-  });
 
   // JEFE (Loop #8 It.5): ahorro conseguido con retos y referidos. Devuelve el
   // total acumulado (todo el histórico), el del año en curso y el desglose por
@@ -2440,37 +2325,6 @@ export async function buildApp(options = {}) {
       },
       breakdown,
     });
-  });
-
-  // JEFE: progreso del trimestre EN CURSO, calculado en tiempo real (no espera al
-  // cron). Devuelve active_drivers, drivers_with_achievement, completion_rate y la
-  // recompensa proyectada si el trimestre cerrara ahora.
-  app.get('/api/v1/tenant/current-quarter-progress', async (request, reply) => {
-    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
-    const caller = await getCaller(request);
-    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
-    if (caller.role !== 'owner' && !caller.is_admin) {
-      return reply.code(403).send({ error: 'Solo el propietario o el admin' });
-    }
-    if (rateLimited(`cqp:${caller.id}`)) {
-      return reply.code(429).send({ error: 'Demasiadas peticiones, prueba en un minuto' });
-    }
-    const tenantId = (caller.is_admin && request.query?.tenant_id)
-      ? request.query.tenant_id : caller.tenant_id;
-    try {
-      const { year, quarter } = quarterOf();
-      const range = quarterRange(year, quarter);
-      const since30ISO = new Date(Date.now() - 30 * 86400000).toISOString();
-      const m = await computeTenantQuarterMetrics(supabase, tenantId, range, since30ISO);
-      return reply.send({
-        year, quarter,
-        ...m,
-        reward_days_projected: rewardDaysForRate(m.completion_rate),
-      });
-    } catch (e) {
-      request.log.error(e);
-      return reply.code(500).send({ error: 'No se pudo calcular el progreso' });
-    }
   });
 
   // ============================================================
@@ -3511,18 +3365,6 @@ export async function buildApp(options = {}) {
     }
     return reply.send({ imported, skipped: parsed.skipped || 0, headers: parsed.headers || [] });
   });
-
-  // Loop #6: se RETIRA el reparto trimestral por % de flota (Loop #4). La nueva
-  // recompensa es POR CONDUCTOR: cada reto completado (challenge_claims.status =
-  // 'rewarded') otorga 1 mes-asiento gratis al jefe, que se aplica en la
-  // facturación por asiento (Stripe, Iteración 7). El scheduler queda desactivado
-  // para no seguir concediendo días por flota. Los endpoints e histórico
-  // trimestral se conservan solo como consulta (datos ya generados).
-  //
-  // if (supabase && process.env.NODE_ENV !== 'test') {
-  //   scheduleQuarterly(supabase, { notifyOwner: notifyUser, log: app.log });
-  //   app.log.info('[cron] Scheduler trimestral de flota activado.');
-  // }
 
   return app;
 }
