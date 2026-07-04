@@ -1297,12 +1297,22 @@ export async function buildApp(options = {}) {
       };
     });
 
+    const payingCount = rows.filter((r) => r.status === 'active').length;
+    const canceled = rows.filter((r) => r.status === 'canceled').length;
+    // Churn = cancelaciones / (activas + canceladas). ARPU = MRR / empresas de pago.
+    const churn = (payingCount + canceled) > 0
+      ? +((canceled / (payingCount + canceled)) * 100).toFixed(1) : 0;
+    const arpu = payingCount > 0 ? +(mrrTotal / payingCount).toFixed(2) : 0;
+
     return reply.send({
       totals: {
         mrr: Number(mrrTotal.toFixed(2)),
-        paying: rows.filter((r) => r.status === 'active').length,
+        paying: payingCount,
         past_due: rows.filter((r) => r.status === 'past_due').length,
         trialing: rows.filter((r) => r.trial_days_left != null).length,
+        canceled,
+        churn, // %
+        arpu, // €
         free_days_total: daysCh + daysRef,
         free_days_challenges: daysCh,
         free_days_referrals: daysRef,
@@ -2722,10 +2732,15 @@ export async function buildApp(options = {}) {
     const milestonesAchieved = (rewardRows ?? []).length;
     const { count: openAlerts } = await supabase.from('referral_fraud_alerts')
       .select('id', { count: 'exact', head: true }).eq('status', 'open');
+    // Pendientes de validar: en la cola de los 15 días (aún sin procesar).
+    const { count: pendingValidation } = await supabase.from('referral_validation_queue')
+      .select('id', { count: 'exact', head: true }).eq('processed', false);
     return reply.send({
       total, pending, valid, reverted, rejected,
       total_referrals: total,                                          // alias spec
       shares_total: sharesTotal ?? 0,
+      pending_validation: pendingValidation ?? 0,                      // en cola de 15d
+      distinct_referrers: distinctReferrers,
       conversion_rate: total ? +(valid / total).toFixed(3) : 0,        // válidos / total
       cpa_days: valid ? +(daysAwarded / valid).toFixed(1) : 0,         // días gratis por adquisición
       k_factor: distinctReferrers ? +(valid / distinctReferrers).toFixed(2) : 0, // válidos por referidor

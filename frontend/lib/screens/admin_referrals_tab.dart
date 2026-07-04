@@ -102,9 +102,12 @@ class _ReferralsTabState extends State<ReferralsTab> {
       spacing: 8, runSpacing: 8,
       children: [
         _kpiCard(Icons.group, l.t('adm_ref_kpi_total'), '${n('total_referrals')}', AdminColors.pink),
+        _kpiCard(Icons.hourglass_top, l.t('adm_ref_kpi_pending'), '${n('pending_validation')}', AdminColors.amber),
+        _kpiCard(Icons.check_circle, l.t('adm_ref_kpi_valid'), '${n('valid')}', AdminColors.teal),
+        _kpiCard(Icons.cancel, l.t('adm_ref_kpi_rejected'), '${n('rejected')}', AdminColors.red),
         _kpiCard(Icons.trending_up, l.t('adm_ref_kpi_conv'), '$conv%', AdminColors.teal),
         _kpiCard(Icons.emoji_events, l.t('adm_ref_kpi_milestones'), '${n('milestones_achieved')}', AdminColors.amber),
-        _kpiCard(Icons.card_giftcard, l.t('adm_ref_kpi_days'), '${n('days_awarded')}', AdminColors.blue),
+        _kpiCard(Icons.card_giftcard, l.t('adm_ref_kpi_days'), l.t('fd_days', {'n': '${n('days_awarded').toInt()}'}), AdminColors.blue),
         _kpiCard(Icons.warning_amber, l.t('adm_ref_kpi_fraud'), '${n('fraud_alerts')}', AdminColors.red),
       ],
     );

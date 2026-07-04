@@ -83,18 +83,34 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 children: [
-                  // KPIs
+                  // KPIs (fila 1: negocio)
                   Row(
                     children: [
                       _kpi(l.t('adm_kpi_mrr'), '${mrr.toStringAsFixed(2)}€',
                           '${t['paying'] ?? 0} ${l.t('adm_co_paying').toLowerCase()}',
                           AdminColors.teal),
                       const SizedBox(width: 7),
+                      _kpi(l.t('adm_bill_arpu'), '${(t['arpu'] as num?)?.toStringAsFixed(2) ?? '0'}€', '',
+                          AdminColors.blue),
+                      const SizedBox(width: 7),
+                      _kpi(l.t('adm_bill_churn'), '${(t['churn'] as num?)?.toStringAsFixed(1) ?? '0'}%',
+                          '${t['canceled'] ?? 0} ${l.t('adm_bill_canceled').toLowerCase()}',
+                          AdminColors.red),
+                    ],
+                  ),
+                  const SizedBox(height: 7),
+                  // KPIs (fila 2: estado)
+                  Row(
+                    children: [
                       _kpi(l.t('adm_bill_pastdue'), '${t['past_due'] ?? 0}', '',
                           AdminColors.red),
                       const SizedBox(width: 7),
                       _kpi(l.t('adm_kpi_trials'), '${t['trialing'] ?? 0}', '',
                           AdminColors.amber),
+                      const SizedBox(width: 7),
+                      _kpi(l.t('adm_kpi_freedays'),
+                          l.t('fd_days', {'n': '${(t['free_days_total'] as num?)?.toInt() ?? 0}'}),
+                          '', AdminColors.teal),
                     ],
                   ),
                   const SizedBox(height: 8),
