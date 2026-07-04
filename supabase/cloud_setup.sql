@@ -2636,3 +2636,19 @@ notify pgrst, 'reload schema';
 grant update (name) on public.users to authenticated;
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- 060 - mantenimiento: reset de retos + re-base de km.
+-- En una BD nueva no hace nada. Ver migración 060 para el detalle.
+-- ============================================================
+update public.vehicles v
+set initial_odometer = greatest(
+  coalesce(v.initial_odometer, 0),
+  coalesce(v.registered_km, 0),
+  coalesce((select max(r.reading_km) from public.odometer_readings r
+             where r.vehicle_id = v.id), 0),
+  coalesce((select max(t.odometer_km)::int from public.transactions t
+             where t.vehicle_id = v.id and t.odometer_km is not null), 0)
+);
+delete from public.challenge_claims;
