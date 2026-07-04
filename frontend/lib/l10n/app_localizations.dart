@@ -576,7 +576,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_ref_config_save': 'Guardar', 'adm_ref_saved': 'Configuración guardada',
     // Dashboard super admin: super retos.
     'adm_ch_kpi_completed': 'Retos completados', 'adm_ch_kpi_drivers': 'Conductores con reto',
-    'adm_ch_kpi_avglevel': 'Nivel promedio', 'adm_ch_kpi_days': 'Días otorgados',
+    'adm_ch_kpi_avglevel': 'Nivel promedio', 'adm_ch_kpi_days': 'Días otorgados', 'adm_ch_kpi_savings': 'Ahorro retos',
     'adm_ch_kpi_pending': 'Pendiente aprobación',
     'adm_ch_chart_levels': 'Distribución por nivel', 'adm_ch_chart_monthly': 'Evolución mensual',
     'adm_ch_chart_top': 'Top 10 conductores',
@@ -1078,7 +1078,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_ref_config_save': 'Save', 'adm_ref_saved': 'Configuration saved',
     // Super admin dashboard: super challenges.
     'adm_ch_kpi_completed': 'Completed challenges', 'adm_ch_kpi_drivers': 'Drivers with challenge',
-    'adm_ch_kpi_avglevel': 'Average level', 'adm_ch_kpi_days': 'Days awarded',
+    'adm_ch_kpi_avglevel': 'Average level', 'adm_ch_kpi_days': 'Days awarded', 'adm_ch_kpi_savings': 'Challenge savings',
     'adm_ch_kpi_pending': 'Pending approval',
     'adm_ch_chart_levels': 'Distribution by level', 'adm_ch_chart_monthly': 'Monthly evolution',
     'adm_ch_chart_top': 'Top 10 drivers',
@@ -1580,7 +1580,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_ref_config_save': 'Desa', 'adm_ref_saved': 'Configuració desada',
     // Tauler super admin: super retos.
     'adm_ch_kpi_completed': 'Reptes completats', 'adm_ch_kpi_drivers': 'Conductors amb repte',
-    'adm_ch_kpi_avglevel': 'Nivell mitjà', 'adm_ch_kpi_days': 'Dies atorgats',
+    'adm_ch_kpi_avglevel': 'Nivell mitjà', 'adm_ch_kpi_days': 'Dies atorgats', 'adm_ch_kpi_savings': 'Estalvi reptes',
     'adm_ch_kpi_pending': 'Pendent aprovació',
     'adm_ch_chart_levels': 'Distribució per nivell', 'adm_ch_chart_monthly': 'Evolució mensual',
     'adm_ch_chart_top': 'Top 10 conductors',

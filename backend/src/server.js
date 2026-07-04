@@ -2020,16 +2020,19 @@ export async function buildApp(options = {}) {
     const driversWithChallenge = totalDrivers
       ? +((driversWithClaim.size / totalDrivers) * 100).toFixed(1) : 0;
 
-    // Días concedidos: en el modelo nuevo, la recompensa de retos es trimestral.
-    const { data: fleetRows } = await supabase.from('fleet_quarterly_metrics')
-      .select('reward_days_awarded').limit(20000);
-    const daysAwarded = (fleetRows ?? []).reduce((s, r) => s + (r.reward_days_awarded ?? 0), 0);
+    // Ahorro repartido por retos (Loop #8): la recompensa ya NO son "días"
+    // (modelo trimestral del Loop #4, retirado) sino crédito Stripe por el
+    // valor real del conductor, contabilizado en monthly_savings.
+    const { data: savRows } = await supabase.from('monthly_savings')
+      .select('savings_from_challenges').limit(20000);
+    const savingsChallenges = (savRows ?? [])
+      .reduce((s, r) => s + Number(r.savings_from_challenges ?? 0), 0);
 
     return reply.send({
       total_completed: totalCompleted,
       drivers_with_challenge: driversWithChallenge, // %
       avg_level: avgLevel,
-      days_awarded: daysAwarded,
+      savings_challenges: Number(savingsChallenges.toFixed(2)),
       pending_approvals: pendingApprovals,
     });
   });

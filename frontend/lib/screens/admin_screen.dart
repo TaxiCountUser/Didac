@@ -310,7 +310,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
       _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'), '${n('total_completed')}', AdminColors.amber),
       _kpi(Icons.groups, l.t('adm_ch_kpi_drivers'), '${n('drivers_with_challenge')}%', AdminColors.blue),
       _kpi(Icons.trending_up, l.t('adm_ch_kpi_avglevel'), '${n('avg_level')}', AdminColors.purple),
-      _kpi(Icons.card_giftcard, l.t('adm_ch_kpi_days'), '${n('days_awarded')}', AdminColors.teal),
+      _kpi(Icons.savings, l.t('adm_ch_kpi_savings'), '${n('savings_challenges').toStringAsFixed(2)}€', AdminColors.teal),
       _kpi(Icons.hourglass_bottom, l.t('adm_ch_kpi_pending'), '${n('pending_approvals')}', AdminColors.coral),
     ]);
   }
