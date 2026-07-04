@@ -2466,7 +2466,7 @@ export async function buildApp(options = {}) {
         enabled: true, eligible, code,
         milestones: milestonesFrom(cfg),
         annual_max_days: parseInt(cfg.referral_annual_max_days ?? '360', 10),
-        validation_days: parseInt(cfg.referral_validation_days ?? '30', 10),
+        validation_days: parseInt(cfg.referral_pay_window_days ?? '15', 10),
       });
     } catch (e) {
       request.log.error(e);
@@ -2966,28 +2966,6 @@ export async function buildApp(options = {}) {
     }).eq('id', referrerUserId);
   }
 
-  // El referido PAGA -> su referral pasa a 'valid' (si está dentro de plazo) y se
-  // recalculan los hitos del referidor.
-  async function validateReferralForTenant(tenantId) {
-    if (!tenantId) return;
-    const cfg = await refConfig();
-    const validationDays = parseInt(cfg.referral_validation_days ?? '30', 10);
-    const { data: ref } = await supabase.from('referrals')
-      .select('id, referrer_user_id, created_at, status').eq('referred_tenant_id', tenantId).maybeSingle();
-    if (!ref || ref.status !== 'pending') return;
-    const ageDays = (Date.now() - new Date(ref.created_at).getTime()) / 86400000;
-    if (ageDays > validationDays) {
-      await supabase.from('referrals').update({ status: 'rejected' }).eq('id', ref.id);
-      return;
-    }
-    await supabase.from('referrals')
-      .update({ status: 'valid', validated_at: new Date().toISOString() }).eq('id', ref.id);
-    await notifyUser(ref.referrer_user_id, '🎉 ¡Tu invitado se ha suscrito!',
-      'Una empresa que invitaste ya es cliente. Revisa tus retos: puede que hayas ganado días gratis.',
-      { type: 'referral_valid' });
-    await recomputeReferrerMilestones(ref.referrer_user_id);
-  }
-
   // El referido CANCELA dentro del periodo de gracia -> su referral se revierte
   // y se recalculan (revocan) los hitos del referidor.
   async function revertReferralForTenant(tenantId) {
@@ -3009,11 +2987,10 @@ export async function buildApp(options = {}) {
   }
 
   // ==========================================================================
-  // Loop #8 · Iteración 3 — validación de referidos a 15 días desde el PRIMER
-  // PAGO. Es un mecanismo PARALELO al de hitos (referidos-v2): usa las columnas
-  // validation_status/first_payment_date/validation_date y la cola
-  // referral_validation_queue de la migración 057. El reto y el referido pueden
-  // ambos generar recompensas por su valor real (annual_price_paid/12).
+  // Validación de referidos a 15 días desde el PRIMER PAGO (unificada con los
+  // hitos). Al pagar el invitado NO se premia aún: se encola. A los 15 días, si
+  // sigue de alta, el referido pasa a 'valid' y se recalculan los HITOS del
+  // referidor, que le conceden los DÍAS gratis según su nº de referidos válidos.
   // ==========================================================================
 
   // Ventana de validación en días (desde el primer pago del referido).
@@ -3073,60 +3050,10 @@ export async function buildApp(options = {}) {
     return ['active', 'past_due', 'trialing'].includes(t?.subscription_status);
   }
 
-  // Recompensa por referido validado (Loop #8 It.4). Premia al REFERIDOR con un
-  // "mes gratis de flota": crédito en Stripe por la SUMA del valor mensual
-  // (annual_price_paid/12) de sus conductores activos. Registra la extensión y
-  // suma al contador de ahorro. Idempotente por source_id (no re-acredita).
-  async function processReferralReward(referral) {
-    if (!stripe) { app.log.info(`[referral-v8] sin Stripe: recompensa de ${referral.id} diferida`); return; }
-    const referrerId = referral.referrer_user_id;
-    if (!referrerId) return;
-
-    // Ya acreditado antes -> no repetir.
-    const { data: prev } = await supabase.from('subscription_extensions')
-      .select('id').eq('extension_type', 'referral').eq('source_id', referral.id).maybeSingle();
-    if (prev) return;
-
-    // Tenant (flota) del referidor y su cliente de Stripe.
-    const { data: refUser } = await supabase.from('users')
-      .select('tenant_id').eq('id', referrerId).maybeSingle();
-    const tenantId = refUser?.tenant_id;
-    if (!tenantId) return;
-    const { data: t } = await supabase.from('tenants')
-      .select('stripe_customer_id').eq('id', tenantId).maybeSingle();
-    const customer = t?.stripe_customer_id;
-    if (!customer) { app.log.info(`[referral-v8] flota ${tenantId} sin cliente Stripe: recompensa de ${referral.id} diferida`); return; }
-
-    // Suma del valor mensual de los conductores activos = un mes de flota gratis.
-    const { data: drivers } = await supabase.from('users')
-      .select('annual_price_paid').eq('tenant_id', tenantId).eq('role', 'driver').eq('active', true);
-    let monthly = 0;
-    for (const d of drivers ?? []) monthly += Number(d.annual_price_paid ?? 15) / 12;
-    if (monthly <= 0) monthly = Number(15) / 12; // autónomo sin conductores extra: al menos su asiento
-    const total = Number(monthly.toFixed(2));
-    const cents = Math.max(1, Math.round(total * 100));
-
-    await stripe.customers.createBalanceTransaction(customer, {
-      amount: -cents, // negativo = crédito a favor
-      currency: 'eur',
-      description: `TaxiCount: referido validado (${referral.id})`,
-    });
-    const now = new Date();
-    await supabase.from('subscription_extensions').insert({
-      user_id: referrerId, tenant_id: tenantId, extension_type: 'referral',
-      source_id: referral.id, days_extended: 30, monthly_value: total.toFixed(2),
-      extended_until: new Date(now.getTime() + 30 * 86400000).toISOString(),
-    });
-    await supabase.rpc('bump_monthly_savings', {
-      p_tenant: tenantId, p_year: now.getUTCFullYear(), p_month: now.getUTCMonth() + 1,
-      p_challenges: 0, p_referrals: total,
-    });
-    app.log.info(`[referral-v8] recompensa de ${referral.id}: ${total}€ crédito a flota ${tenantId}`);
-  }
-
-  // Cron diario: procesa las validaciones vencidas. Para cada entrada con
-  // scheduled_for <= ahora y processed=false: si el referido sigue activo ->
-  // 'validated' + recompensa; si canceló -> 'rejected'. Marca la cola procesada.
+  // Cron diario: procesa las validaciones vencidas (15 días desde el 1er pago).
+  // Si el invitado sigue de alta -> el referido pasa a 'valid' y se recalculan
+  // los HITOS del referidor (días gratis según su nº de referidos válidos). Si
+  // canceló -> 'rejected'. Marca la cola como procesada.
   async function processReferralValidationQueue() {
     const nowIso = new Date().toISOString();
     const { data: due } = await supabase.from('referral_validation_queue')
@@ -3143,22 +3070,27 @@ export async function buildApp(options = {}) {
       }
       const active = await tenantSubscriptionActive(ref.referred_tenant_id);
       if (active) {
-        await supabase.from('referrals')
-          .update({ validation_status: 'validated', validation_date: nowIso }).eq('id', ref.id);
+        // Validado: el referido cuenta como 'valid' y se recalculan los hitos
+        // del referidor, que le conceden los días gratis correspondientes.
+        await supabase.from('referrals').update({
+          status: 'valid', validated_at: nowIso,
+          validation_status: 'validated', validation_date: nowIso,
+        }).eq('id', ref.id);
         try {
-          await processReferralReward(ref);
+          await recomputeReferrerMilestones(ref.referrer_user_id);
         } catch (e) {
-          app.log.warn(`[referral-v8] recompensa de ${ref.id}: ${e.message}`);
+          app.log.warn(`[referral] hitos de ${ref.id}: ${e.message}`);
         }
         if (ref.referrer_user_id) {
           await notifyUser(ref.referrer_user_id, '🎉 ¡Invitación validada!',
-            'Tu invitado sigue siendo cliente tras el periodo de prueba. Tu recompensa está en camino.',
+            'Tu invitado sigue de alta tras 15 días. Revisa tus días gratis por referidos.',
             { type: 'referral_validated' });
         }
         validated++;
       } else {
-        await supabase.from('referrals')
-          .update({ validation_status: 'rejected', validation_date: nowIso }).eq('id', ref.id);
+        await supabase.from('referrals').update({
+          status: 'rejected', validation_status: 'rejected', validation_date: nowIso,
+        }).eq('id', ref.id);
         rejected++;
       }
       await supabase.from('referral_validation_queue').update({ processed: true }).eq('id', q.id);
@@ -3190,15 +3122,17 @@ export async function buildApp(options = {}) {
     try {
       const result = await applyStripeEvent(supabase, event);
       app.log.info(`[stripe-webhook] ${result.type} handled=${result.handled} tenant=${result.tenant_id ?? '-'}`);
-      // Programa de referidos: validar al pagar / revertir al cancelar.
+      // Programa de referidos: al PAGAR el invitado NO se premia aún; se encola
+      // la validación a +15 días (si sigue de alta, gana los días por hitos).
+      // Al CANCELAR: se rechaza la validación pendiente y se revierten (clawback)
+      // los días si ya se habían concedido.
       if (result.handled && result.tenant_id) {
         try {
           if (result.type === 'checkout.session.completed' || result.type === 'invoice.paid') {
-            await validateReferralForTenant(result.tenant_id);       // hitos (referidos-v2)
-            await enqueueReferralValidation(result.tenant_id);       // validación 15d (Loop #8)
+            await enqueueReferralValidation(result.tenant_id);
           } else if (result.type === 'customer.subscription.deleted') {
-            await revertReferralForTenant(result.tenant_id);         // hitos (referidos-v2)
-            await rejectPendingReferralValidation(result.tenant_id); // validación 15d (Loop #8)
+            await rejectPendingReferralValidation(result.tenant_id);
+            await revertReferralForTenant(result.tenant_id); // clawback de días si ya validado
           }
         } catch (e) {
           request.log.error(`[referral] ${e.message}`);

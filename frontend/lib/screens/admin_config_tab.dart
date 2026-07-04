@@ -177,9 +177,8 @@ class _ConfigTabState extends State<ConfigTab> {
         const SizedBox(height: 8),
         for (var n = 1; n <= 5; n++) _milestoneRow(l, n),
         const Divider(height: 24),
-        _numField('referral_validation_days', l.t('cfg_ref_validation'), l.t('cfg_ref_validation_help'), _g('referral_validation_days', '30'), suffix: l.t('ch_days_unit')),
-        // Loop #8: ventana de validación desde el PRIMER PAGO del referido
-        // (si sigue de alta al vencer, la flota del referidor gana 1 mes gratis).
+        // Ventana de validación: días desde el PRIMER PAGO del invitado; si
+        // sigue de alta al vencer, se conceden los días por hitos al referidor.
         _numField('referral_pay_window_days', l.t('cfg_ref_pay_window'), l.t('cfg_ref_pay_window_help'), _g('referral_pay_window_days', '15'), suffix: l.t('ch_days_unit')),
         _numField('referral_annual_max_days', l.t('cfg_ref_annual_max'), l.t('cfg_ref_annual_max_help'), _g('referral_annual_max_days', '360'), suffix: l.t('ch_days_unit')),
         const Divider(height: 24),
