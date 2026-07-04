@@ -142,6 +142,15 @@ Future<T?> showAdminDialog<T>({
   );
 }
 
+/// Limita el ancho del contenido en pantallas anchas (web/PC) y lo centra, para
+/// que las tarjetas no se vuelvan enormes. En móvil ocupa todo el ancho.
+Widget adminConstrained(Widget child, {double maxWidth = 720}) => Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+
 /// Decoración estándar de "tarjeta oscura" del panel.
 BoxDecoration adminCardBox({Color? borderColor}) => BoxDecoration(
       color: AdminColors.card,

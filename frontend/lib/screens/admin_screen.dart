@@ -53,7 +53,7 @@ class AdminModuleScreen extends StatelessWidget {
             ),
           ],
         ),
-        body: children[m],
+        body: adminConstrained(children[m]),
       ),
     );
   }

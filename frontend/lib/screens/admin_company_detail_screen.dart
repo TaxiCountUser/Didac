@@ -105,7 +105,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             final billing =
                 (data['billing'] as Map?)?.cast<String, dynamic>() ?? {};
 
-            return ListView(
+            return adminConstrained(ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               children: [
                 _header(l, tenant, users),
@@ -121,7 +121,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                   _ => _summaryTab(l, tenant, counts),
                 },
               ],
-            );
+            ));
           },
         ),
       ),

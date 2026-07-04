@@ -103,7 +103,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               );
             }
             final d = snap.data ?? {};
-            return RefreshIndicator(
+            return adminConstrained(RefreshIndicator(
               color: AdminColors.teal,
               backgroundColor: AdminColors.card,
               onRefresh: () async => _reload(),
@@ -126,7 +126,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   _modulesGrid(l, d),
                 ],
               ),
-            );
+            ));
           },
         ),
       ),

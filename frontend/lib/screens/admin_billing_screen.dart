@@ -76,7 +76,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             final daysCh = (t['free_days_challenges'] as num?)?.toInt() ?? 0;
             final daysRef = (t['free_days_referrals'] as num?)?.toInt() ?? 0;
 
-            return RefreshIndicator(
+            return adminConstrained(RefreshIndicator(
               color: AdminColors.teal,
               backgroundColor: AdminColors.card,
               onRefresh: () async => _reload(),
@@ -190,7 +190,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                     ]),
                 ],
               ),
-            );
+            ));
           },
         ),
       ),

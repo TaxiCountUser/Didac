@@ -127,7 +127,7 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                 .where(_matchesFilter)
                 .where(_matchesQuery)
                 .toList();
-            return Column(
+            return adminConstrained(Column(
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -197,7 +197,7 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                         ),
                 ),
               ],
-            );
+            ));
           },
         ),
       ),
