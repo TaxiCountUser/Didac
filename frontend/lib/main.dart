@@ -10,6 +10,7 @@ import 'l10n/app_localizations.dart';
 import 'services/data_service.dart';
 import 'services/push_service.dart';
 import 'screens/referral_screen.dart';
+import 'widgets/maintenance_banner.dart';
 
 /// Navegador raíz, para poder navegar desde fuera del árbol (deep-links de push).
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -122,7 +123,15 @@ class TaxiCountApp extends StatelessWidget {
           final clamped = mq.textScaler.clamp(minScaleFactor: 0.85, maxScaleFactor: 1.3);
           return MediaQuery(
             data: mq.copyWith(textScaler: clamped),
-            child: SafeArea(top: false, left: false, right: false, child: child!),
+            child: SafeArea(
+              top: false, left: false, right: false,
+              child: Column(
+                children: [
+                  const MaintenanceBanner(),
+                  Expanded(child: child!),
+                ],
+              ),
+            ),
           );
         },
         home: const AuthGate(),

@@ -26,6 +26,9 @@ class _ConfigTabState extends State<ConfigTab> {
   // Estado de los switches (booleanos).
   bool _eurosOn = false;
   bool _refOn = true;
+  bool _kmOn = true;
+  bool _daysOn = true;
+  bool _maintenanceOn = false;
 
   @override
   void initState() {
@@ -57,6 +60,9 @@ class _ConfigTabState extends State<ConfigTab> {
         _cfg = cfg;
         _eurosOn = _g('challenge_100k_euros_enabled', 'false') == 'true';
         _refOn = _g('referral_enabled', 'true') == 'true';
+        _kmOn = _g('challenge_km_enabled', 'true') != 'false';
+        _daysOn = _g('challenge_days_enabled', 'true') != 'false';
+        _maintenanceOn = _g('maintenance_mode', 'false') == 'true';
         _loading = false;
       });
     } catch (e) {
@@ -74,6 +80,9 @@ class _ConfigTabState extends State<ConfigTab> {
     // Switches.
     changes['challenge_100k_euros_enabled'] = _eurosOn ? 'true' : 'false';
     changes['referral_enabled'] = _refOn ? 'true' : 'false';
+    changes['challenge_km_enabled'] = _kmOn ? 'true' : 'false';
+    changes['challenge_days_enabled'] = _daysOn ? 'true' : 'false';
+    changes['maintenance_mode'] = _maintenanceOn ? 'true' : 'false';
     try {
       await _service.adminSystemConfigUpdate(changes);
       if (!mounted) return;
@@ -101,6 +110,8 @@ class _ConfigTabState extends State<ConfigTab> {
             const SizedBox(height: 16),
             _referralsCard(l),
             const SizedBox(height: 16),
+            _generalCard(l),
+            const SizedBox(height: 16),
             _adminsCard(l),
           ],
         ),
@@ -120,21 +131,32 @@ class _ConfigTabState extends State<ConfigTab> {
 
   // ── RETOS ──────────────────────────────────────────────────────────────────
   Widget _challengesCard(AppLocalizations l) {
+    final mult = int.tryParse(_g('challenge_level_multiplier', '2')) ?? 2;
+    final cycle = int.tryParse(_g('challenge_level_cycle', '4')) ?? 4;
     return _section(
       icon: Icons.emoji_events, color: AdminColors.amber,
       title: l.t('cfg_reptes'), intro: l.t('cfg_intro_reptes'),
       children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(l.t('cfg_euros_on')),
-          subtitle: Text(l.t('cfg_euros_on_help'), style: _help),
-          value: _eurosOn,
-          onChanged: (v) => setState(() => _eurosOn = v),
-        ),
-        _numField('challenge_days_required', l.t('cfg_days_req'), l.t('cfg_days_req_help'), _g('challenge_days_required', '365'), suffix: l.t('ch_days_unit')),
-        _numField('challenge_km_target', l.t('cfg_km_target'), l.t('cfg_km_target_help'), _g('challenge_km_target', '100000'), suffix: 'km'),
-        // Loop #8: la recompensa ya NO se configura — es 1 mes gratis según el
-        // precio real que paga el conductor (annual_price_paid / 12).
+        // Los 3 retos, cada uno con activar/desactivar, objetivo base y preview.
+        _challengeBlock(l, l.t('cfg_ch_km'), Icons.speed, _kmOn,
+            (v) => setState(() => _kmOn = v),
+            'challenge_km_target', _g('challenge_km_target', '100000'), 'km', mult, cycle),
+        const Divider(height: 20),
+        _challengeBlock(l, l.t('cfg_ch_days'), Icons.calendar_today, _daysOn,
+            (v) => setState(() => _daysOn = v),
+            'challenge_days_required', _g('challenge_days_required', '365'),
+            l.t('ch_days_unit'), 1, 1), // días no escalan por ciclo (target fijo)
+        const Divider(height: 20),
+        _challengeBlock(l, l.t('cfg_ch_money'), Icons.euro, _eurosOn,
+            (v) => setState(() => _eurosOn = v),
+            'challenge_money_target', _g('challenge_money_target', '100000'), '€', mult, cycle),
+        const Divider(height: 24),
+        // Fórmula de niveles (aplica a km e ingresos).
+        Text(l.t('cfg_ch_formula'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(l.t('cfg_ch_formula_help'), style: _help),
+        const SizedBox(height: 4),
+        _numField('challenge_level_multiplier', l.t('cfg_ch_mult'), '', '$mult', suffix: '×'),
+        _numField('challenge_level_cycle', l.t('cfg_ch_cycle'), '', '$cycle'),
         Container(
           margin: const EdgeInsets.symmetric(vertical: 8),
           padding: const EdgeInsets.all(10),
@@ -155,6 +177,90 @@ class _ConfigTabState extends State<ConfigTab> {
         const SizedBox(height: 8),
         _numField('challenge_max_jump', l.t('cfg_max_jump'), '', _g('challenge_max_jump', '2000'), suffix: 'km'),
         _numField('challenge_max_income', l.t('cfg_max_income'), '', _g('challenge_max_income', '1500'), suffix: '€'),
+      ],
+    );
+  }
+
+  // Un reto: cabecera con switch + objetivo base + preview de los primeros
+  // niveles (calculados con la misma fórmula del backend).
+  Widget _challengeBlock(AppLocalizations l, String title, IconData icon,
+      bool enabled, ValueChanged<bool> onToggle, String key, String value,
+      String suffix, int mult, int cycle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Icon(icon, size: 16, color: enabled ? AdminColors.amber : AdminColors.muted),
+          const SizedBox(width: 8),
+          Expanded(child: Text(title,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600,
+                  color: enabled ? AdminColors.text : AdminColors.muted))),
+          Switch(value: enabled, onChanged: onToggle),
+        ]),
+        if (enabled) ...[
+          _numField(key, l.t('cfg_ch_base'), '', value, suffix: suffix, livePreview: true),
+          Builder(builder: (ctx) {
+            // Preview reactivo: usa el valor del controlador.
+            final base = double.tryParse(
+                    (_ctrls[key]?.text ?? value).replaceAll(',', '.')) ??
+                0;
+            final levels = [
+              for (var lvl = 1; lvl <= 6; lvl++)
+                ((lvl - 1) % (cycle < 1 ? 1 : cycle) == 0 ? base : base * mult),
+            ];
+            return Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 2),
+              child: Wrap(
+                spacing: 6, runSpacing: 4,
+                children: [
+                  for (var i = 0; i < levels.length; i++)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AdminColors.amberBg,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'N${i + 1}: ${levels[i].toStringAsFixed(0)}$suffix',
+                        style: const TextStyle(fontSize: 10, color: AdminColors.amber),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  // ── GENERAL ─────────────────────────────────────────────────────────────────
+  Widget _generalCard(AppLocalizations l) {
+    return _section(
+      icon: Icons.tune, color: AdminColors.blue,
+      title: l.t('cfg_general'), intro: l.t('cfg_general_intro'),
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(l.t('cfg_maintenance')),
+          subtitle: Text(l.t('cfg_maintenance_help'), style: _help),
+          value: _maintenanceOn,
+          onChanged: (v) => setState(() => _maintenanceOn = v),
+        ),
+        if (_maintenanceOn)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: TextField(
+              controller: _c('maintenance_message', _g('maintenance_message', '')),
+              maxLines: 2,
+              style: const TextStyle(fontSize: 13, color: AdminColors.text),
+              decoration: InputDecoration(
+                labelText: l.t('cfg_maintenance_msg'),
+                hintText: l.t('cfg_maintenance_msg_hint'),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -371,7 +477,7 @@ class _ConfigTabState extends State<ConfigTab> {
 
   // Fila de ajuste estilo panel: etiqueta y ayuda a la izquierda, campo
   // numérico compacto a la derecha (como los settings modernos).
-  Widget _numField(String key, String label, String help, String value, {String? suffix}) {
+  Widget _numField(String key, String label, String help, String value, {String? suffix, bool livePreview = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -399,6 +505,7 @@ class _ConfigTabState extends State<ConfigTab> {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 13, color: AdminColors.text),
+              onChanged: livePreview ? (_) => setState(() {}) : null,
               decoration: InputDecoration(
                 isDense: true,
                 suffixText: suffix,

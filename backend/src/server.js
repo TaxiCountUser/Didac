@@ -383,6 +383,22 @@ export async function buildApp(options = {}) {
     timestamp: new Date().toISOString(),
   }));
 
+  // Config pública de la app (sin auth): modo mantenimiento y su mensaje. La app
+  // la consulta al arrancar para mostrar un aviso a todos los usuarios.
+  app.get('/api/v1/app-config', async (_request, reply) => {
+    let maintenance = false;
+    let message = '';
+    try {
+      const { data } = await supabase.from('system_config')
+        .select('key, value').in('key', ['maintenance_mode', 'maintenance_message']);
+      for (const r of data ?? []) {
+        if (r.key === 'maintenance_mode') maintenance = r.value === 'true';
+        if (r.key === 'maintenance_message') message = r.value ?? '';
+      }
+    } catch { /* sin config -> sin mantenimiento */ }
+    return reply.send({ maintenance, maintenance_message: message });
+  });
+
   // Política de privacidad (URL pública requerida por Google Play).
   app.get('/privacy', async (_request, reply) => {
     reply.type('text/html').send(privacyHtml());
@@ -1812,35 +1828,51 @@ export async function buildApp(options = {}) {
     let euros = false;
     let days = 365;
     let kmTarget = 100000;
+    let moneyTarget = 100000;
     let maxJump = 2000;
     let maxIncome = 1500;
+    let kmEnabled = true;
+    let daysEnabled = true;
+    let levelMultiplier = 2;
+    let levelCycle = 4;
     try {
       const { data } = await supabase.from('system_config')
         .select('key, value')
         .in('key', ['challenge_100k_euros_enabled', 'challenge_days_required',
-          'challenge_km_target', 'challenge_max_jump', 'challenge_max_income']);
+          'challenge_km_target', 'challenge_money_target', 'challenge_max_jump',
+          'challenge_max_income', 'challenge_km_enabled', 'challenge_days_enabled',
+          'challenge_level_multiplier', 'challenge_level_cycle']);
       for (const r of data ?? []) {
         switch (r.key) {
           case 'challenge_100k_euros_enabled': euros = r.value === 'true'; break;
           case 'challenge_days_required': days = parseInt(r.value, 10) || days; break;
           case 'challenge_km_target': kmTarget = parseInt(r.value, 10) || kmTarget; break;
+          case 'challenge_money_target': moneyTarget = parseInt(r.value, 10) || moneyTarget; break;
           case 'challenge_max_jump': maxJump = parseInt(r.value, 10) || maxJump; break;
           case 'challenge_max_income': maxIncome = parseInt(r.value, 10) || maxIncome; break;
+          case 'challenge_km_enabled': kmEnabled = r.value !== 'false'; break;
+          case 'challenge_days_enabled': daysEnabled = r.value !== 'false'; break;
+          case 'challenge_level_multiplier': levelMultiplier = parseInt(r.value, 10) || levelMultiplier; break;
+          case 'challenge_level_cycle': levelCycle = parseInt(r.value, 10) || levelCycle; break;
           default: break;
         }
       }
     } catch { /* sin config -> valores por defecto */ }
-    const base = { km_100k: kmTarget };
-    if (euros) base.money_100k = 100000;
-    base.days_300 = days;
-    return { base, eurosEnabled: euros, daysRequired: days, maxJump, maxIncome };
+    const base = {};
+    if (kmEnabled) base.km_100k = kmTarget;
+    if (euros) base.money_100k = moneyTarget;
+    if (daysEnabled) base.days_300 = days;
+    return {
+      base, eurosEnabled: euros, daysRequired: days, maxJump, maxIncome,
+      levelMultiplier, levelCycle,
+    };
   }
 
-  // Objetivo (incremento) de un reto en un nivel dado. Ciclo de 4 niveles: el
-  // 1º de cada ciclo (niveles 1, 5, 9, 13...) vuelve a la base; los otros tres,
-  // el doble. Así de vez en cuando "baja" como sorpresa.
-  const incrementFor = (base, challenge, level) =>
-    (base[challenge] ?? 0) * (((level - 1) % 4) === 0 ? 1 : 2);
+  // Objetivo (incremento) de un reto en un nivel dado. Ciclo configurable: el
+  // 1º de cada ciclo (niveles 1, cycle+1, 2·cycle+1...) vuelve a la base; los
+  // demás, la base × multiplicador. Así de vez en cuando "baja" como sorpresa.
+  const incrementFor = (base, challenge, level, mult = 2, cycle = 4) =>
+    (base[challenge] ?? 0) * (((level - 1) % Math.max(1, cycle)) === 0 ? 1 : mult);
 
   // A partir de los claims de un conductor+reto, calcula el nivel actual, el
   // baseline (métrica al empezar el tramo) y si hay un claim pendiente/rechazado.
@@ -1868,7 +1900,7 @@ export async function buildApp(options = {}) {
       return reply.code(403).send({ error: 'Solo el propietario ve los retos' });
     }
     try {
-      const { base, maxJump: maxJumpCfg, maxIncome: maxIncomeCfg } = await challengeConfig();
+      const { base, maxJump: maxJumpCfg, maxIncome: maxIncomeCfg, levelMultiplier, levelCycle } = await challengeConfig();
       const { data: stats, error } = await supabase.rpc('challenge_stats_tenant', { p_tenant: caller.tenant_id });
       if (error) throw new Error(error.message);
 
@@ -1896,7 +1928,7 @@ export async function buildApp(options = {}) {
         for (const type of Object.keys(base)) {
           const claims = (byUserChal[r.user_id]?.[type]) ?? [];
           const st = levelState(claims);
-          const target = incrementFor(base, type, st.level);
+          const target = incrementFor(base, type, st.level, levelMultiplier, levelCycle);
           const metric = metrics[type];
           const progress = Math.max(0, metric - st.baseline);
           const reached = progress >= target;
@@ -1946,7 +1978,7 @@ export async function buildApp(options = {}) {
     const caller = await getCaller(request);
     if (!caller) return reply.code(401).send({ error: 'No autenticado' });
     try {
-      const { base } = await challengeConfig();
+      const { base, levelMultiplier, levelCycle } = await challengeConfig();
       const { data: stats } = await supabase.rpc('challenge_stats', { p_user: caller.id });
       const row = Array.isArray(stats) ? (stats[0] ?? {}) : (stats ?? {});
       const metrics = {
@@ -1961,7 +1993,7 @@ export async function buildApp(options = {}) {
       const challenges = [];
       for (const type of Object.keys(base)) {
         const st = levelState(byChal[type] ?? []);
-        const target = incrementFor(base, type, st.level);
+        const target = incrementFor(base, type, st.level, levelMultiplier, levelCycle);
         const metric = metrics[type];
         const progress = Math.max(0, metric - st.baseline);
         challenges.push({
@@ -2690,8 +2722,8 @@ export async function buildApp(options = {}) {
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const body = request.body ?? {};
     const updates = Object.entries(body)
-      .filter(([k]) => k.startsWith('referral_') || k.startsWith('challenge_'));
-    if (!updates.length) return reply.code(400).send({ error: 'Nada que actualizar (claves referral_*/challenge_*)' });
+      .filter(([k]) => k.startsWith('referral_') || k.startsWith('challenge_') || k.startsWith('maintenance_'));
+    if (!updates.length) return reply.code(400).send({ error: 'Nada que actualizar (claves referral_*/challenge_*/maintenance_*)' });
     for (const [key, value] of updates) {
       await supabase.from('system_config')
         .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });

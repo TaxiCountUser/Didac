@@ -88,6 +88,13 @@ class DataService {
     await _c.rpc('create_solo_company', params: {'p_name': name});
   }
 
+  /// Config pública de la app (modo mantenimiento). Sin auth; best-effort.
+  Future<Map<String, dynamic>> appConfig() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/app-config'));
+    if (res.statusCode != 200 || res.body.isEmpty) return const {};
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
   // ---------------- Referidos "Invita y Gana" (v2, por hitos) ----------------
   // Capa de datos del módulo de referidos. Todo va por el backend (service_role
   // + reglas de negocio: elegibilidad, hitos, anti-fraude). Devuelve Map/List
