@@ -33,17 +33,60 @@ class AdminColors {
 }
 
 /// Tema oscuro local del panel: se aplica con un `Theme(...)` alrededor del
-/// Scaffold para que los diálogos y controles estándar salgan oscuros también.
+/// Scaffold para que TODO (diálogos, campos, menús, snackbars, switches…)
+/// salga con la piel del rediseño, también al editar.
 ThemeData adminDarkTheme() => ThemeData(
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AdminColors.bg,
       colorScheme: const ColorScheme.dark(
         primary: AdminColors.teal,
+        secondary: AdminColors.purple,
         surface: AdminColors.card,
         onSurface: AdminColors.text,
         error: AdminColors.redSolid,
       ),
-      dialogTheme: const DialogThemeData(backgroundColor: AdminColors.card),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: AdminColors.card,
+        surfaceTintColor: Colors.transparent,
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: AdminColors.hairline,
+        contentTextStyle: TextStyle(color: AdminColors.text, fontSize: 13),
+        behavior: SnackBarBehavior.floating,
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: AdminColors.card,
+        surfaceTintColor: Colors.transparent,
+        textStyle: TextStyle(color: AdminColors.text, fontSize: 13),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AdminColors.card,
+        labelStyle: const TextStyle(color: AdminColors.secondary, fontSize: 13),
+        hintStyle: const TextStyle(color: AdminColors.muted, fontSize: 12),
+        helperStyle: const TextStyle(color: AdminColors.muted, fontSize: 11),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AdminColors.hairline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AdminColors.hairline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AdminColors.teal),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(color: AdminColors.hairline),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((s) =>
+            s.contains(WidgetState.selected) ? AdminColors.teal : AdminColors.muted),
+        trackColor: WidgetStateProperty.resolveWith((s) =>
+            s.contains(WidgetState.selected)
+                ? AdminColors.tealBg
+                : AdminColors.hairline),
+      ),
       useMaterial3: true,
     );
 

@@ -70,16 +70,7 @@ class _ConfigTabState extends State<ConfigTab> {
     setState(() => _saving = true);
     final changes = <String, String>{};
     // Campos de texto (números).
-    _ctrls.forEach((key, ctrl) {
-      final v = ctrl.text.trim();
-      // El regalo se muestra en €, se guarda en céntimos.
-      if (key == 'challenge_seat_credit_cents') {
-        final eur = double.tryParse(v.replaceAll(',', '.')) ?? 0;
-        changes[key] = '${(eur * 100).round()}';
-      } else {
-        changes[key] = v;
-      }
-    });
+    _ctrls.forEach((key, ctrl) => changes[key] = ctrl.text.trim());
     // Switches.
     changes['challenge_100k_euros_enabled'] = _eurosOn ? 'true' : 'false';
     changes['referral_enabled'] = _refOn ? 'true' : 'false';
@@ -101,8 +92,6 @@ class _ConfigTabState extends State<ConfigTab> {
     final l = context.l10n;
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text('${l.t('error')}: $_error'));
-    final creditEur = ((int.tryParse(_g('challenge_seat_credit_cents', '250')) ?? 250) / 100)
-        .toStringAsFixed(2);
     return Stack(
       children: [
         ListView(
@@ -110,7 +99,7 @@ class _ConfigTabState extends State<ConfigTab> {
           children: [
             _challengesCard(l),
             const SizedBox(height: 16),
-            _referralsCard(l, creditEur),
+            _referralsCard(l),
             const SizedBox(height: 16),
             _adminsCard(l),
           ],
@@ -130,8 +119,7 @@ class _ConfigTabState extends State<ConfigTab> {
   }
 
   // ── RETOS ──────────────────────────────────────────────────────────────────
-  Widget _challengesCard(AppLocalizations l, [String creditEur = '']) {
-    creditEur = ((int.tryParse(_g('challenge_seat_credit_cents', '250')) ?? 250) / 100).toStringAsFixed(2);
+  Widget _challengesCard(AppLocalizations l) {
     return _section(
       icon: Icons.emoji_events, color: AdminColors.amber,
       title: l.t('cfg_reptes'), intro: l.t('cfg_intro_reptes'),
@@ -145,7 +133,22 @@ class _ConfigTabState extends State<ConfigTab> {
         ),
         _numField('challenge_days_required', l.t('cfg_days_req'), l.t('cfg_days_req_help'), _g('challenge_days_required', '365'), suffix: l.t('ch_days_unit')),
         _numField('challenge_km_target', l.t('cfg_km_target'), l.t('cfg_km_target_help'), _g('challenge_km_target', '100000'), suffix: 'km'),
-        _numField('challenge_seat_credit_cents', l.t('cfg_credit_eur'), l.t('cfg_credit_eur_help'), creditEur, suffix: '€'),
+        // Loop #8: la recompensa ya NO se configura — es 1 mes gratis según el
+        // precio real que paga el conductor (annual_price_paid / 12).
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            border: Border.all(color: AdminColors.teal.withValues(alpha: .28)),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Row(children: [
+            const Icon(Icons.auto_awesome, size: 15, color: AdminColors.teal),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l.t('cfg_credit_auto'),
+                style: const TextStyle(fontSize: 11, color: AdminColors.secondary))),
+          ]),
+        ),
         const Divider(height: 24),
         Text(l.t('cfg_antifraud'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
         Text(l.t('cfg_antifraud_help'), style: _help),
@@ -157,7 +160,7 @@ class _ConfigTabState extends State<ConfigTab> {
   }
 
   // ── REFERIDOS ──────────────────────────────────────────────────────────────
-  Widget _referralsCard(AppLocalizations l, String creditEur) {
+  Widget _referralsCard(AppLocalizations l) {
     return _section(
       icon: Icons.card_giftcard, color: AdminColors.pink,
       title: l.t('cfg_referits'), intro: l.t('cfg_intro_referits'),
@@ -175,6 +178,9 @@ class _ConfigTabState extends State<ConfigTab> {
         for (var n = 1; n <= 5; n++) _milestoneRow(l, n),
         const Divider(height: 24),
         _numField('referral_validation_days', l.t('cfg_ref_validation'), l.t('cfg_ref_validation_help'), _g('referral_validation_days', '30'), suffix: l.t('ch_days_unit')),
+        // Loop #8: ventana de validación desde el PRIMER PAGO del referido
+        // (si sigue de alta al vencer, la flota del referidor gana 1 mes gratis).
+        _numField('referral_pay_window_days', l.t('cfg_ref_pay_window'), l.t('cfg_ref_pay_window_help'), _g('referral_pay_window_days', '15'), suffix: l.t('ch_days_unit')),
         _numField('referral_annual_max_days', l.t('cfg_ref_annual_max'), l.t('cfg_ref_annual_max_help'), _g('referral_annual_max_days', '360'), suffix: l.t('ch_days_unit')),
         const Divider(height: 24),
         Text(l.t('cfg_antifraud'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

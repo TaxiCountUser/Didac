@@ -113,98 +113,141 @@ class _ReferralsTabState extends State<ReferralsTab> {
   Widget _kpiCard(IconData icon, String label, String value, Color color) =>
       AdminKpiTile(width: 150, icon: icon, label: label, value: value, color: color);
 
-  // ── Filtros ──────────────────────────────────────────────────────────────
+  // ── Filtros (rediseño N: buscador + píldoras de estado y canal) ────────────
   Widget _filtersBar(AppLocalizations l) {
-    return Wrap(
-      spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
+    Widget pills(List<(String, String)> opts, String current, Color color,
+            ValueChanged<String> onTap) =>
         SizedBox(
-          width: 220,
-          child: TextField(
-            controller: _searchCtrl,
-            decoration: InputDecoration(
-              isDense: true, prefixIcon: const Icon(Icons.search, size: 18),
-              hintText: l.t('adm_ref_search'), border: const OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => _applyFilters(),
+          height: 30,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              for (final (v, label) in opts)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(
+                      label: label, selected: current == v, color: color,
+                      onTap: () => onTap(v)),
+                ),
+            ],
           ),
-        ),
-        _dropdown(l.t('adm_ref_status'), _status, {
-          '': l.t('adm_ref_all'),
-          'pending': l.t('ref_status_pending'),
-          'valid': l.t('ref_status_valid'),
-          'reverted': l.t('ref_status_reverted'),
-          'rejected': l.t('ref_status_rejected'),
-        }, (v) { setState(() => _status = v); _applyFilters(); }),
-        _dropdown(l.t('adm_ref_channel'), _channel, const {
-          '': '—', 'whatsapp': 'WhatsApp', 'email': 'Email', 'sms': 'SMS', 'link': 'Link', 'other': 'Otro',
-        }, (v) { setState(() => _channel = v); _applyFilters(); }),
-        FilledButton.tonalIcon(
-          onPressed: _applyFilters, icon: const Icon(Icons.filter_alt, size: 18),
-          label: Text(l.t('adm_ref_apply')),
-        ),
-        OutlinedButton.icon(
-          onPressed: _exportCsv, icon: const Icon(Icons.download, size: 18),
-          label: Text(l.t('adm_ref_export_csv')),
-        ),
+        );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search, size: 17, color: AdminColors.muted),
+                hintText: l.t('adm_ref_search'),
+              ),
+              onSubmitted: (_) => _applyFilters(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: l.t('adm_ref_export_csv'),
+            icon: const Icon(Icons.download, size: 19, color: AdminColors.secondary),
+            onPressed: _exportCsv,
+          ),
+        ]),
+        const SizedBox(height: 8),
+        pills([
+          ('', l.t('adm_ref_all')),
+          ('pending', l.t('ref_status_pending')),
+          ('valid', l.t('ref_status_valid')),
+          ('reverted', l.t('ref_status_reverted')),
+          ('rejected', l.t('ref_status_rejected')),
+        ], _status, AdminColors.pink,
+            (v) { setState(() => _status = v); _applyFilters(); }),
+        const SizedBox(height: 6),
+        pills([
+          ('', l.t('adm_ref_channel')),
+          ('whatsapp', 'WhatsApp'),
+          ('email', 'Email'),
+          ('sms', 'SMS'),
+          ('link', 'Link'),
+        ], _channel, AdminColors.blue,
+            (v) { setState(() => _channel = v); _applyFilters(); }),
       ],
     );
   }
 
-  Widget _dropdown(String label, String value, Map<String, String> opts, ValueChanged<String> onChanged) {
-    return SizedBox(
-      width: 170,
-      child: InputDecorator(
-        decoration: InputDecoration(isDense: true, labelText: label, border: const OutlineInputBorder()),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: value, isExpanded: true,
-            items: opts.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis))).toList(),
-            onChanged: (v) => onChanged(v ?? ''),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Tabla ──────────────────────────────────────────────────────────────
+  // ── Lista (rediseño N: filas oscuras, legible también en móvil) ────────────
   Widget _table(AppLocalizations l) {
     if (_rows.isEmpty) {
       return Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('adm_ref_none'))));
     }
     final df = DateFormat('dd/MM/yyyy');
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: [
-          DataColumn(label: Text(l.t('adm_ref_col_company'))),
-          DataColumn(label: Text(l.t('adm_ref_col_referrer'))),
-          DataColumn(label: Text(l.t('adm_ref_col_invited'))),
-          DataColumn(label: Text(l.t('adm_ref_col_status'))),
-          DataColumn(label: Text(l.t('adm_ref_col_date'))),
-          const DataColumn(label: Text('')),
+    return Container(
+      decoration: adminCardBox(),
+      child: Column(
+        children: [
+          for (var i = 0; i < _rows.length; i++) ...[
+            if (i > 0) const Divider(height: 1, color: AdminColors.hairline),
+            _referralRow(l, _rows[i], df),
+          ],
         ],
-        rows: _rows.map((r) {
-          final referrer = (r['referrer'] as Map?) ?? {};
-          final referred = (r['referred'] as Map?) ?? {};
-          final tenant = (r['tenant'] as Map?) ?? {};
-          final status = (r['status'] as String?) ?? '';
-          final alerts = ((r['alerts'] as List?) ?? []);
-          final created = DateTime.tryParse((r['created_at'] as String?) ?? '');
-          return DataRow(
-            onSelectChanged: (_) => _openDetail(r['id'] as String),
-            cells: [
-              DataCell(Text((tenant['name'] as String?) ?? '—')),
-              DataCell(Text((referrer['email'] as String?) ?? '—')),
-              DataCell(Text((referred['email'] as String?) ?? '—')),
-              DataCell(_statusChip(l, status)),
-              DataCell(Text(created != null ? df.format(created) : '—')),
-              DataCell(alerts.isNotEmpty
-                  ? const Icon(Icons.warning_amber, color: AdminColors.amber, size: 18)
-                  : const SizedBox.shrink()),
-            ],
-          );
-        }).toList(),
+      ),
+    );
+  }
+
+  Widget _referralRow(AppLocalizations l, Map<String, dynamic> r, DateFormat df) {
+    final referrer = (r['referrer'] as Map?) ?? {};
+    final referred = (r['referred'] as Map?) ?? {};
+    final tenant = (r['tenant'] as Map?) ?? {};
+    final status = (r['status'] as String?) ?? '';
+    final alerts = ((r['alerts'] as List?) ?? []);
+    final created = DateTime.tryParse((r['created_at'] as String?) ?? '');
+    return InkWell(
+      onTap: () => _openDetail(r['id'] as String),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: Row(
+          children: [
+            AdminInitialsAvatar(
+                name: (tenant['name'] as String?) ?? '—',
+                color: AdminColors.pink, bg: AdminColors.redBg, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text((tenant['name'] as String?) ?? '—',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w500,
+                              color: AdminColors.text)),
+                    ),
+                    if (alerts.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.warning_amber,
+                          size: 13, color: AdminColors.amber),
+                    ],
+                  ]),
+                  Text(
+                    '${(referrer['email'] as String?) ?? '—'} → ${(referred['email'] as String?) ?? '—'}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, color: AdminColors.muted),
+                  ),
+                  Text(created != null ? df.format(created) : '—',
+                      style: const TextStyle(
+                          fontSize: 9, color: AdminColors.muted)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _statusChip(l, status),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 15, color: AdminColors.muted),
+          ],
+        ),
       ),
     );
   }

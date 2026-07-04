@@ -58,15 +58,18 @@ class _SecurityTabState extends State<SecurityTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
-          child: SegmentedButton<int>(
-            segments: [
-              ButtonSegment(value: 0, label: Text(l.t('adm_sec_alerts')), icon: const Icon(Icons.warning_amber)),
-              ButtonSegment(value: 1, label: Text(l.t('adm_sec_audit')), icon: const Icon(Icons.receipt_long)),
-            ],
-            selected: {_view},
-            onSelectionChanged: (s) { setState(() => _view = s.first); _reload(); },
-          ),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+          child: Row(children: [
+            AdminPill(
+                label: l.t('adm_sec_alerts'), selected: _view == 0,
+                color: AdminColors.red,
+                onTap: () { setState(() => _view = 0); _reload(); }),
+            const SizedBox(width: 6),
+            AdminPill(
+                label: l.t('adm_sec_audit'), selected: _view == 1,
+                color: AdminColors.gray,
+                onTap: () { setState(() => _view = 1); _reload(); }),
+          ]),
         ),
         Expanded(
           child: _error != null
@@ -88,16 +91,39 @@ class _SecurityTabState extends State<SecurityTab> {
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          Wrap(spacing: 12, runSpacing: 8, children: [
-            _ddown(l.t('adm_sec_severity'), _severity, {
-              '': l.t('adm_ref_all'), 'low': l.t('adm_sec_low'),
-              'medium': l.t('adm_sec_medium'), 'high': l.t('adm_sec_high'),
-            }, (v) { setState(() => _severity = v); _reload(); }),
-            _ddown(l.t('adm_sec_status'), _status, {
-              '': l.t('adm_ref_all'), 'open': l.t('adm_sec_open'),
-              'investigating': l.t('adm_sec_investigating'), 'resolved': l.t('adm_sec_resolved'),
-            }, (v) { setState(() => _status = v); _reload(); }),
-          ]),
+          SizedBox(
+            height: 30,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final (v, label, c) in [
+                ('', l.t('adm_ref_all'), AdminColors.red),
+                ('high', l.t('adm_sec_high'), AdminColors.red),
+                ('medium', l.t('adm_sec_medium'), AdminColors.amber),
+                ('low', l.t('adm_sec_low'), AdminColors.gray),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(label: label, selected: _severity == v, color: c,
+                      onTap: () { setState(() => _severity = v); _reload(); }),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 30,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final (v, label, c) in [
+                ('', l.t('adm_ref_all'), AdminColors.amber),
+                ('open', l.t('adm_sec_open'), AdminColors.amber),
+                ('investigating', l.t('adm_sec_investigating'), AdminColors.blue),
+                ('resolved', l.t('adm_sec_resolved'), AdminColors.teal),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(label: label, selected: _status == v, color: c,
+                      onTap: () { setState(() => _status = v); _reload(); }),
+                ),
+            ]),
+          ),
           const SizedBox(height: 8),
           if (_alerts.isEmpty)
             Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('adm_sec_none'))))
@@ -193,7 +219,7 @@ class _SecurityTabState extends State<SecurityTab> {
     );
   }
 
-  // ── Logs de auditoría ─────────────────────────────────────────────────────
+  // ── Logs de auditoría (rediseño N: filas oscuras, legible en móvil) ────────
   Widget _auditView(AppLocalizations l) {
     final df = DateFormat('dd/MM/yyyy HH:mm');
     return RefreshIndicator(
@@ -204,48 +230,53 @@ class _SecurityTabState extends State<SecurityTab> {
           : ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columns: [
-                      DataColumn(label: Text(l.t('adm_audit_col_date'))),
-                      DataColumn(label: Text(l.t('adm_audit_col_admin'))),
-                      DataColumn(label: Text(l.t('adm_audit_col_action'))),
-                      DataColumn(label: Text(l.t('adm_audit_col_target'))),
-                      DataColumn(label: Text(l.t('adm_audit_col_details'))),
+                Container(
+                  decoration: adminCardBox(),
+                  child: Column(children: [
+                    for (var i = 0; i < _logs.length; i++) ...[
+                      if (i > 0)
+                        const Divider(height: 1, color: AdminColors.hairline),
+                      _auditRow(l, _logs[i], df),
                     ],
-                    rows: _logs.map((g) {
-                      final created = DateTime.tryParse((g['created_at'] as String?) ?? '');
-                      final admin = ((g['admin'] as Map?)?['email'] as String?) ?? '—';
-                      final details = g['details'];
-                      return DataRow(cells: [
-                        DataCell(Text(created != null ? df.format(created) : '—')),
-                        DataCell(Text(admin)),
-                        DataCell(Text((g['action_type'] as String?) ?? '—')),
-                        DataCell(Text('${g['target_type'] ?? ''} ${g['target_id'] ?? ''}'.trim())),
-                        DataCell(SizedBox(width: 240,
-                            child: Text(details == null ? '' : jsonEncode(details),
-                                overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)))),
-                      ]);
-                    }).toList(),
-                  ),
+                  ]),
                 ),
               ],
             ),
     );
   }
 
-  Widget _ddown(String label, String value, Map<String, String> opts, ValueChanged<String> onChanged) => SizedBox(
-        width: 170,
-        child: InputDecorator(
-          decoration: InputDecoration(isDense: true, labelText: label, border: const OutlineInputBorder()),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value, isExpanded: true,
-              items: opts.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
-              onChanged: (v) => onChanged(v ?? ''),
+  Widget _auditRow(AppLocalizations l, Map<String, dynamic> g, DateFormat df) {
+    final created = DateTime.tryParse((g['created_at'] as String?) ?? '');
+    final admin = ((g['admin'] as Map?)?['email'] as String?) ?? '—';
+    final details = g['details'];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AdminTag((g['action_type'] as String?) ?? '—',
+              fg: AdminColors.gray, bg: AdminColors.hairline),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${g['target_type'] ?? ''} ${g['target_id'] ?? ''}'.trim(),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: AdminColors.text)),
+                Text('$admin · ${created != null ? df.format(created) : '—'}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+                if (details != null)
+                  Text(jsonEncode(details),
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 10, color: AdminColors.secondary)),
+              ],
             ),
           ),
-        ),
-      );
+        ],
+      ),
+    );
+  }
 }

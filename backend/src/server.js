@@ -165,7 +165,6 @@ const STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL || 'taxicount://subscrip
 const STRIPE_LAUNCH_COUPON = process.env.STRIPE_LAUNCH_COUPON || '';
 // Crédito (en céntimos) que se abona al jefe por cada reto completado por un
 // conductor: "1 mes-asiento gratis". Por defecto 250 = 2,50 €.
-const STRIPE_SEAT_CREDIT_CENTS = Number(process.env.STRIPE_SEAT_CREDIT_CENTS || 250);
 
 const DAILY_LIMIT = Number(process.env.TRANSCRIBE_DAILY_LIMIT || 150);
 const WHISPER_TIMEOUT_MS = Number(process.env.WHISPER_TIMEOUT_MS || 15000);
@@ -1773,21 +1772,20 @@ export async function buildApp(options = {}) {
   //   challenge_km_target          (100000)- objetivo de km del nivel 1
   //   challenge_max_jump           (2000)  - salto de km sospechoso (anti-fraude)
   //   challenge_max_income         (1500)  - carrera € sospechosa (anti-fraude)
-  //   challenge_seat_credit_cents  (250)   - crédito por reto (1 mes-asiento)
   // La clave interna 'days_300' se mantiene por compatibilidad de datos/UI.
+  // Loop #8: la recompensa ya NO se configura (challenge_seat_credit_cents
+  // obsoleta) — es annual_price_paid/12 del conductor, ver applyPendingChallengeCredits.
   async function challengeConfig() {
     let euros = false;
     let days = 365;
     let kmTarget = 100000;
     let maxJump = 2000;
     let maxIncome = 1500;
-    let creditCents = STRIPE_SEAT_CREDIT_CENTS;
     try {
       const { data } = await supabase.from('system_config')
         .select('key, value')
         .in('key', ['challenge_100k_euros_enabled', 'challenge_days_required',
-          'challenge_km_target', 'challenge_max_jump', 'challenge_max_income',
-          'challenge_seat_credit_cents']);
+          'challenge_km_target', 'challenge_max_jump', 'challenge_max_income']);
       for (const r of data ?? []) {
         switch (r.key) {
           case 'challenge_100k_euros_enabled': euros = r.value === 'true'; break;
@@ -1795,7 +1793,6 @@ export async function buildApp(options = {}) {
           case 'challenge_km_target': kmTarget = parseInt(r.value, 10) || kmTarget; break;
           case 'challenge_max_jump': maxJump = parseInt(r.value, 10) || maxJump; break;
           case 'challenge_max_income': maxIncome = parseInt(r.value, 10) || maxIncome; break;
-          case 'challenge_seat_credit_cents': creditCents = parseInt(r.value, 10) || creditCents; break;
           default: break;
         }
       }
@@ -1803,7 +1800,7 @@ export async function buildApp(options = {}) {
     const base = { km_100k: kmTarget };
     if (euros) base.money_100k = 100000;
     base.days_300 = days;
-    return { base, eurosEnabled: euros, daysRequired: days, maxJump, maxIncome, creditCents };
+    return { base, eurosEnabled: euros, daysRequired: days, maxJump, maxIncome };
   }
 
   // Objetivo (incremento) de un reto en un nivel dado. Ciclo de 4 niveles: el

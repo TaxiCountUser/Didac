@@ -237,21 +237,41 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final l = context.l10n;
     if (_error != null) return _ErrorRetry(error: _error!, onRetry: _reload);
     if (_loading) return const Center(child: CircularProgressIndicator());
+    // Los sospechosos pendientes de decisión van ARRIBA: son lo accionable.
+    final review = _filtered
+        .where((c) => c['suspicious'] == true && (c['status_label'] as String?) != 'rejected')
+        .toList();
+    final rest = _filtered.where((c) => !review.contains(c)).toList();
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
           _summaryCards(l),
-          const SizedBox(height: 16),
-          _charts(l),
+          if (review.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Row(children: [
+              Container(width: 7, height: 7,
+                  decoration: const BoxDecoration(
+                      color: AdminColors.red, shape: BoxShape.circle)),
+              const SizedBox(width: 7),
+              Text(l.t('adm_ch_review_first').toUpperCase(),
+                  style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5, color: AdminColors.text)),
+            ]),
+            const SizedBox(height: 8),
+            for (final c in review) _claimTile(l, c),
+          ],
           const SizedBox(height: 16),
           _filtersBar(l),
           const SizedBox(height: 8),
-          if (_filtered.isEmpty)
+          if (rest.isEmpty && review.isEmpty)
             Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('admin_no_challenges'))))
           else
-            for (final c in _filtered) _claimTile(l, c),
+            for (final c in rest) _claimTile(l, c),
+          const SizedBox(height: 16),
+          _charts(l),
         ],
       ),
     );
@@ -358,37 +378,41 @@ class _ChallengesTabState extends State<_ChallengesTab> {
         ]),
       );
 
-  // ── Filtros ────────────────────────────────────────────────────────────────
+  // ── Filtros de píldora (nivel + estado) ────────────────────────────────────
   // Fase 4 del rediseño: se retira el acceso a las recompensas trimestrales
   // (Loop #4, desactivadas desde Loop #6). El histórico sigue disponible por API.
-  Widget _filtersBar(AppLocalizations l) => Wrap(
-        spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          _ddown(l.t('adm_ch_filter_level'), _fLevel, {
-            '': l.t('adm_ref_all'), '1': '1', '2': '2', '3': '3', '4': '4', '5': '5',
-          }, (v) => setState(() => _fLevel = v)),
-          _ddown(l.t('adm_ref_status'), _fStatus, {
-            '': l.t('adm_ref_all'),
-            'approved': l.t('admin_ch_achieved'),
-            'pending': l.t('ref_status_pending'),
-            'rejected': l.t('admin_ch_rejected'),
-          }, (v) => setState(() => _fStatus = v)),
-        ],
-      );
-
-  Widget _ddown(String label, String value, Map<String, String> opts, ValueChanged<String> onChanged) => SizedBox(
-        width: 160,
-        child: InputDecorator(
-          decoration: InputDecoration(isDense: true, labelText: label, border: const OutlineInputBorder()),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value, isExpanded: true,
-              items: opts.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
-              onChanged: (v) => onChanged(v ?? ''),
-            ),
+  Widget _filtersBar(AppLocalizations l) {
+    Widget pills(List<(String, String)> opts, String current, Color color,
+            ValueChanged<String> onTap) =>
+        SizedBox(
+          height: 30,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              for (final (v, label) in opts)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(
+                      label: label, selected: current == v, color: color,
+                      onTap: () => onTap(v)),
+                ),
+            ],
           ),
-        ),
-      );
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      pills([
+        ('', l.t('adm_ref_all')),
+        ('approved', l.t('admin_ch_achieved')),
+        ('pending', l.t('ref_status_pending')),
+        ('rejected', l.t('admin_ch_rejected')),
+      ], _fStatus, AdminColors.amber, (v) => setState(() => _fStatus = v)),
+      const SizedBox(height: 6),
+      pills([
+        ('', '${l.t('adm_ch_filter_level')}: ${l.t('adm_ref_all')}'),
+        for (var n = 1; n <= 5; n++) ('$n', '${l.t('adm_ch_filter_level')} $n'),
+      ], _fLevel, AdminColors.purple, (v) => setState(() => _fLevel = v)),
+    ]);
+  }
 
   Widget _claimTile(AppLocalizations l, Map<String, dynamic> c) {
     final challenge = (c['challenge'] as String?) ?? '';
