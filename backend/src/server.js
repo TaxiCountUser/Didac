@@ -1368,6 +1368,8 @@ export async function buildApp(options = {}) {
       model: model ? String(model).trim() : null,
     });
     if (error) return reply.code(400).send({ error: error.message });
+    await logAdminAction(request, g.caller.id, 'vehicle_add', 'tenant', request.params.id,
+      { license_plate: String(license_plate).trim() });
     return reply.send({ ok: true });
   });
 
@@ -1382,6 +1384,7 @@ export async function buildApp(options = {}) {
     if (Object.keys(patch).length === 0) return reply.code(400).send({ error: 'Nada que actualizar' });
     const { error } = await supabase.from('vehicles').update(patch).eq('id', request.params.id);
     if (error) return reply.code(400).send({ error: error.message });
+    await logAdminAction(request, g.caller.id, 'vehicle_update', 'vehicle', request.params.id, patch);
     return reply.send({ ok: true });
   });
 
@@ -1391,6 +1394,7 @@ export async function buildApp(options = {}) {
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const { error } = await supabase.from('vehicles').delete().eq('id', request.params.id);
     if (error) return reply.code(400).send({ error: error.message });
+    await logAdminAction(request, g.caller.id, 'vehicle_delete', 'vehicle', request.params.id, null);
     return reply.send({ ok: true });
   });
 
@@ -1429,6 +1433,7 @@ export async function buildApp(options = {}) {
       return reply.code(dup ? 409 : 400)
         .send({ error: dup ? 'Ese código de flota ya está en uso' : error.message });
     }
+    await logAdminAction(request, g.caller.id, 'company_update', 'tenant', request.params.id, patch);
     return reply.send({ ok: true });
   });
 
@@ -1589,6 +1594,7 @@ export async function buildApp(options = {}) {
     }
     const { error } = await supabase.from('users').update(patch).eq('id', request.params.id);
     if (error) return reply.code(400).send({ error: error.message });
+    await logAdminAction(request, g.caller.id, 'user_update', 'user', request.params.id, patch);
     return reply.send({ ok: true });
   });
 
@@ -1605,6 +1611,7 @@ export async function buildApp(options = {}) {
         return reply.code(400).send({ error: `No se pudo eliminar la cuenta: ${e.message}` });
       }
     }
+    await logAdminAction(request, g.caller.id, 'user_delete', 'user', id, null);
     return reply.send({ ok: true });
   });
 

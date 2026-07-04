@@ -265,7 +265,7 @@ class _SecurityTabState extends State<SecurityTab> {
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: AdminPill(
-                        label: t, selected: _actionFilter == t,
+                        label: _actionLabel(l, t), selected: _actionFilter == t,
                         color: _actionColor(t),
                         onTap: () => setState(() => _actionFilter = t)),
                   ),
@@ -291,6 +291,12 @@ class _SecurityTabState extends State<SecurityTab> {
     );
   }
 
+  // Etiqueta legible de la acción (aud_<action>), con fallback al código crudo.
+  String _actionLabel(AppLocalizations l, String action) {
+    final s = l.t('aud_$action');
+    return s == 'aud_$action' ? action : s;
+  }
+
   Widget _auditRow(AppLocalizations l, Map<String, dynamic> g, DateFormat df) {
     final created = DateTime.tryParse((g['created_at'] as String?) ?? '');
     final admin = ((g['admin'] as Map?)?['email'] as String?) ?? '—';
@@ -304,7 +310,7 @@ class _SecurityTabState extends State<SecurityTab> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AdminTag(action, fg: color, bg: color.withValues(alpha: .16)),
+            AdminTag(_actionLabel(l, action), fg: color, bg: color.withValues(alpha: .16)),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -343,7 +349,7 @@ class _SecurityTabState extends State<SecurityTab> {
     await showAdminDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('${g['action_type'] ?? '—'}',
+        title: Text(_actionLabel(l, (g['action_type'] as String?) ?? '—'),
             style: const TextStyle(fontSize: 16)),
         content: SizedBox(
           width: 440,
