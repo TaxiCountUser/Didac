@@ -10,71 +10,52 @@ import 'admin_incident_chat_screen.dart';
 import 'admin_referrals_tab.dart';
 import 'admin_security_tab.dart';
 
-/// Panel de administrador de plataforma: módulos aún no migrados al rediseño
-/// (Fase 4: Empresas vive en AdminCompaniesScreen y los admins se gestionan
-/// desde Config). Solo accesible si el perfil tiene is_admin = true.
-class AdminScreen extends StatefulWidget {
-  /// Pestaña con la que se abre (0 Soporte · 1 Retos · 2 Referidos ·
-  /// 3 Seguridad · 4 Errores · 5 Config). La portada nueva (AdminHomeScreen)
-  /// usa esto para saltar directamente a cada módulo.
-  final int initialTab;
-  const AdminScreen({super.key, this.initialTab = 0});
-
-  @override
-  State<AdminScreen> createState() => _AdminScreenState();
-}
-
-class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabs =
-      TabController(length: 6, vsync: this, initialIndex: widget.initialTab.clamp(0, 5));
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
+/// Módulos del panel de administración como pantallas PROPIAS (sin la barra
+/// de pestañas antigua): cada tarjeta de la portada abre su módulo con AppBar
+/// oscura y título, igual que Empresas y Facturación.
+/// 0 Soporte · 1 Retos · 2 Referidos · 3 Seguridad · 4 Errores · 5 Config.
+class AdminModuleScreen extends StatelessWidget {
+  final int module;
+  const AdminModuleScreen({super.key, required this.module});
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    // Piel oscura del panel rediseñado (Fase 3): los módulos aún no migrados
-    // heredan el tema "sala de máquinas" para no romper la coherencia visual.
+    final m = module.clamp(0, 5);
+    final titles = [
+      l.t('adm_mod_support'),
+      l.t('admin_challenges'),
+      l.t('adm_ref_tab'),
+      l.t('adm_sec_tab'),
+      l.t('adm_err_tab'),
+      l.t('adm_cfg_tab'),
+    ];
+    const children = <Widget>[
+      _IncidentsTab(), _ChallengesTab(), ReferralsTab(),
+      SecurityTab(), _ErrorReportsTab(), ConfigTab(),
+    ];
     return Theme(
       data: adminDarkTheme(),
       child: Scaffold(
-      backgroundColor: AdminColors.bg,
-      appBar: AppBar(
         backgroundColor: AdminColors.bg,
-        foregroundColor: AdminColors.text,
-        title: Text(l.t('admin_title')),
-        bottom: TabBar(
-          controller: _tabs,
-          isScrollable: true,
-          tabs: [
-            Tab(text: l.t('admin_incidents')),
-            Tab(text: l.t('admin_challenges')),
-            Tab(text: l.t('adm_ref_tab')),
-            Tab(text: l.t('adm_sec_tab')),
-            Tab(text: l.t('adm_err_tab')),
-            Tab(text: l.t('adm_cfg_tab')),
+        appBar: AppBar(
+          backgroundColor: AdminColors.bg,
+          foregroundColor: AdminColors.text,
+          elevation: 0,
+          title: Text(titles[m],
+              style: const TextStyle(fontSize: 16, color: AdminColors.text)),
+          actions: [
+            IconButton(
+              tooltip: l.t('logout'),
+              icon: const Icon(Icons.logout, size: 20, color: AdminColors.secondary),
+              onPressed: () => Supabase.instance.client.auth.signOut(),
+            ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: l.t('logout'),
-            icon: const Icon(Icons.logout),
-            onPressed: () => Supabase.instance.client.auth.signOut(),
-          ),
-        ],
-      ),
-      body: TabBarView(
-        controller: _tabs,
-        children: const [_IncidentsTab(), _ChallengesTab(), ReferralsTab(), SecurityTab(), _ErrorReportsTab(), ConfigTab()],
-      ),
+        body: children[m],
       ),
     );
   }
-
 }
 
 class _IncidentsTab extends StatefulWidget {

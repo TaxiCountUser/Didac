@@ -28,13 +28,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   void _reload() => setState(() => _future = _service.adminOverview());
 
-  // Abre un módulo: -2 = Empresas y -3 = Facturación (rediseñados); 0..6 =
-  // pestaña del AdminScreen clásico (ya con piel oscura). Recarga al volver.
+  // Abre un módulo: -2 = Empresas y -3 = Facturación; 0..5 = pantalla propia
+  // del módulo (AdminModuleScreen, sin pestañas). Recarga al volver.
   Future<void> _openTab(int tab) async {
     final Widget page = switch (tab) {
       -2 => const AdminCompaniesScreen(),
       -3 => const AdminBillingScreen(),
-      _ => AdminScreen(initialTab: tab),
+      _ => AdminModuleScreen(module: tab),
     };
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
     _reload();
