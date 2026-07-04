@@ -80,6 +80,126 @@ class AdminStatusChip extends StatelessWidget {
   }
 }
 
+/// Decoración estándar de "tarjeta oscura" del panel.
+BoxDecoration adminCardBox({Color? borderColor}) => BoxDecoration(
+      color: AdminColors.card,
+      border: borderColor == null
+          ? null
+          : Border.all(color: borderColor.withValues(alpha: .28)),
+      borderRadius: BorderRadius.circular(12),
+    );
+
+/// KPI del rediseño: borde del color del módulo, etiqueta pequeña en
+/// mayúsculas del mismo color y valor grande en blanco.
+class AdminKpiTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final String sub;
+  final Color color;
+  final IconData? icon;
+  final double? width;
+  const AdminKpiTile(
+      {super.key, required this.label, required this.value, this.sub = '',
+      required this.color, this.icon, this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: color.withValues(alpha: .28)),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 5),
+            ],
+            Flexible(
+              child: Text(label.toUpperCase(),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 8.5, letterSpacing: 1.1, color: color)),
+            ),
+          ]),
+          const SizedBox(height: 2),
+          Text(value,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600,
+                  color: AdminColors.text)),
+          if (sub.isNotEmpty)
+            Text(sub,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontSize: 9, color: AdminColors.muted)),
+        ],
+      ),
+    );
+    return tile;
+  }
+}
+
+/// Píldora de filtro (seleccionada = fondo del color, texto oscuro).
+class AdminPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+  const AdminPill(
+      {super.key, required this.label, required this.selected,
+      required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? color : Colors.transparent,
+          border:
+              Border.all(color: selected ? color : color.withValues(alpha: .35)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: selected ? AdminColors.bg : color,
+            )),
+      ),
+    );
+  }
+}
+
+/// Etiqueta pequeña en mayúsculas (FRAU, SUPORT…) con fondo oscuro del color.
+class AdminTag extends StatelessWidget {
+  final String text;
+  final Color fg;
+  final Color bg;
+  const AdminTag(this.text, {super.key, required this.fg, required this.bg});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(text.toUpperCase(),
+          style: TextStyle(
+              fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1,
+              color: fg)),
+    );
+  }
+}
+
 /// Avatar cuadrado con las iniciales de la empresa.
 class AdminInitialsAvatar extends StatelessWidget {
   final String name;

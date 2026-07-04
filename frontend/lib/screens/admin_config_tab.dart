@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_theme.dart';
 
 /// Pestaña "Configuración" del panel de admin: edita en un solo sitio los
 /// parámetros de RETOS y de REFERIDOS, con etiquetas claras y explicaciones
@@ -132,7 +133,7 @@ class _ConfigTabState extends State<ConfigTab> {
   Widget _challengesCard(AppLocalizations l, [String creditEur = '']) {
     creditEur = ((int.tryParse(_g('challenge_seat_credit_cents', '250')) ?? 250) / 100).toStringAsFixed(2);
     return _section(
-      icon: Icons.emoji_events, color: Colors.amber.shade800,
+      icon: Icons.emoji_events, color: AdminColors.amber,
       title: l.t('cfg_reptes'), intro: l.t('cfg_intro_reptes'),
       children: [
         SwitchListTile(
@@ -158,7 +159,7 @@ class _ConfigTabState extends State<ConfigTab> {
   // ── REFERIDOS ──────────────────────────────────────────────────────────────
   Widget _referralsCard(AppLocalizations l, String creditEur) {
     return _section(
-      icon: Icons.card_giftcard, color: Colors.green.shade700,
+      icon: Icons.card_giftcard, color: AdminColors.pink,
       title: l.t('cfg_referits'), intro: l.t('cfg_intro_referits'),
       children: [
         SwitchListTile(
@@ -188,7 +189,7 @@ class _ConfigTabState extends State<ConfigTab> {
   // ── ADMINISTRADORES (Fase 4: antes vivía en el AppBar del panel) ──────────
   Widget _adminsCard(AppLocalizations l) {
     return _section(
-      icon: Icons.shield, color: Colors.deepPurple,
+      icon: Icons.shield, color: AdminColors.purple,
       title: l.t('admin_manage_title'), intro: l.t('admin_current'),
       children: [
         Align(
@@ -257,7 +258,7 @@ class _ConfigTabState extends State<ConfigTab> {
                                 ListTile(
                                   dense: true,
                                   contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(Icons.shield, color: Colors.deepPurple),
+                                  leading: const Icon(Icons.shield, color: AdminColors.purple),
                                   title: Text((a['email'] as String?) ?? '—',
                                       overflow: TextOverflow.ellipsis),
                                   trailing: IconButton(
@@ -337,11 +338,12 @@ class _ConfigTabState extends State<ConfigTab> {
   }
 
   // ── Helpers de UI ───────────────────────────────────────────────────────────
-  static const _help = TextStyle(fontSize: 11, color: Colors.grey);
+  static const _help = TextStyle(fontSize: 11, color: AdminColors.muted);
 
   Widget _section({required IconData icon, required Color color, required String title,
       required String intro, required List<Widget> children}) {
-    return Card(
+    return Container(
+      decoration: adminCardBox(borderColor: color),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -350,10 +352,10 @@ class _ConfigTabState extends State<ConfigTab> {
             Row(children: [
               Icon(icon, color: color),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ]),
             const SizedBox(height: 4),
-            Text(intro, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(intro, style: const TextStyle(fontSize: 12, color: AdminColors.muted)),
             const SizedBox(height: 12),
             ...children,
           ],

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_theme.dart';
 
 /// Loop #5 — Pestaña "Referidos" del panel de Super Admin.
 /// KPIs + tabla con filtros y paginación + detalle (bloquear/desbloquear) +
@@ -98,35 +99,19 @@ class _ReferralsTabState extends State<ReferralsTab> {
     num n(String key) => (k[key] as num?) ?? 0;
     final conv = (n('conversion_rate') * 100).toStringAsFixed(1);
     return Wrap(
-      spacing: 12, runSpacing: 12,
+      spacing: 8, runSpacing: 8,
       children: [
-        _kpiCard(Icons.group, l.t('adm_ref_kpi_total'), '${n('total_referrals')}', Colors.blue),
-        _kpiCard(Icons.trending_up, l.t('adm_ref_kpi_conv'), '$conv%', Colors.teal),
-        _kpiCard(Icons.emoji_events, l.t('adm_ref_kpi_milestones'), '${n('milestones_achieved')}', Colors.amber.shade800),
-        _kpiCard(Icons.card_giftcard, l.t('adm_ref_kpi_days'), '${n('days_awarded')}', Colors.green),
-        _kpiCard(Icons.warning_amber, l.t('adm_ref_kpi_fraud'), '${n('fraud_alerts')}', Colors.red),
+        _kpiCard(Icons.group, l.t('adm_ref_kpi_total'), '${n('total_referrals')}', AdminColors.pink),
+        _kpiCard(Icons.trending_up, l.t('adm_ref_kpi_conv'), '$conv%', AdminColors.teal),
+        _kpiCard(Icons.emoji_events, l.t('adm_ref_kpi_milestones'), '${n('milestones_achieved')}', AdminColors.amber),
+        _kpiCard(Icons.card_giftcard, l.t('adm_ref_kpi_days'), '${n('days_awarded')}', AdminColors.blue),
+        _kpiCard(Icons.warning_amber, l.t('adm_ref_kpi_fraud'), '${n('fraud_alerts')}', AdminColors.red),
       ],
     );
   }
 
-  Widget _kpiCard(IconData icon, String label, String value, Color color) => Container(
-        width: 150,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
-        ),
-      );
+  Widget _kpiCard(IconData icon, String label, String value, Color color) =>
+      AdminKpiTile(width: 150, icon: icon, label: label, value: value, color: color);
 
   // ── Filtros ──────────────────────────────────────────────────────────────
   Widget _filtersBar(AppLocalizations l) {
@@ -215,7 +200,7 @@ class _ReferralsTabState extends State<ReferralsTab> {
               DataCell(_statusChip(l, status)),
               DataCell(Text(created != null ? df.format(created) : '—')),
               DataCell(alerts.isNotEmpty
-                  ? const Icon(Icons.warning_amber, color: Colors.orange, size: 18)
+                  ? const Icon(Icons.warning_amber, color: AdminColors.amber, size: 18)
                   : const SizedBox.shrink()),
             ],
           );
@@ -226,17 +211,13 @@ class _ReferralsTabState extends State<ReferralsTab> {
 
   Widget _statusChip(AppLocalizations l, String status) {
     final color = switch (status) {
-      'valid' => Colors.green,
-      'pending' => Colors.blueGrey,
-      'reverted' || 'rejected' => Colors.red,
-      _ => Colors.grey,
+      'valid' => AdminColors.teal,
+      'pending' => AdminColors.amber,
+      'reverted' || 'rejected' => AdminColors.red,
+      _ => AdminColors.gray,
     };
-    return Chip(
-      label: Text(l.t('ref_status_$status'), style: const TextStyle(fontSize: 11)),
-      backgroundColor: color.withValues(alpha: 0.12),
-      visualDensity: VisualDensity.compact,
-      side: BorderSide(color: color.withValues(alpha: 0.3)),
-    );
+    return AdminTag(l.t('ref_status_$status'),
+        fg: color, bg: color.withValues(alpha: .16));
   }
 
   // ── Paginación ───────────────────────────────────────────────────────────
@@ -360,7 +341,7 @@ class _ReferralsTabState extends State<ReferralsTab> {
   Widget _kv(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: RichText(text: TextSpan(
-          style: const TextStyle(color: Colors.black87, fontSize: 13),
+          style: const TextStyle(color: AdminColors.text, fontSize: 13),
           children: [
             TextSpan(text: '$k: ', style: const TextStyle(fontWeight: FontWeight.w600)),
             TextSpan(text: v),

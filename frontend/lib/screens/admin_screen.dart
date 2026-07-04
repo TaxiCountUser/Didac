@@ -109,13 +109,19 @@ class _IncidentsTabState extends State<_IncidentsTab> {
     final l = context.l10n;
     return Column(
       children: [
-        SwitchListTile(
-          value: _onlyOpen,
-          onChanged: (v) => setState(() {
-            _onlyOpen = v;
-            _future = _load();
-          }),
-          title: Text(l.t('admin_only_open')),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+          child: Row(children: [
+            AdminPill(
+                label: l.t('admin_only_open'), selected: _onlyOpen,
+                color: AdminColors.blue,
+                onTap: () => setState(() { _onlyOpen = true; _future = _load(); })),
+            const SizedBox(width: 6),
+            AdminPill(
+                label: l.t('adm_ref_all'), selected: !_onlyOpen,
+                color: AdminColors.blue,
+                onTap: () => setState(() { _onlyOpen = false; _future = _load(); })),
+          ]),
         ),
         Expanded(
           child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -154,24 +160,29 @@ class _IncidentsTabState extends State<_IncidentsTab> {
     final author = ((inc['users'] as Map?)?['email'] as String?) ?? '—';
     final resolved = status == 'resuelta';
     final hidden = inc['hidden_for_tenant'] == true;
-    return Card(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: adminCardBox(),
       child: ListTile(
-        leading: Icon(
-          kind == 'app' ? Icons.bug_report : Icons.note_alt,
-          color: kind == 'app' ? Colors.deepPurple : Colors.blueGrey,
+        leading: AdminTag(
+          kind == 'app' ? l.t('adm_tag_ticket') : l.t('adm_tag_note'),
+          fg: kind == 'app' ? AdminColors.blue : AdminColors.purple,
+          bg: kind == 'app' ? AdminColors.blueBg : AdminColors.purpleBg,
         ),
-        title: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis),
-        subtitle: Text('$company · $author${hidden ? ' · 🗑️ ${l.t('admin_inc_hidden')}' : ''}'),
+        title: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13)),
+        subtitle: Text('$company · $author${hidden ? ' · 🗑️ ${l.t('admin_inc_hidden')}' : ''}',
+            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               tooltip: resolved ? l.t('admin_reopen') : l.t('admin_resolve'),
               icon: Icon(resolved ? Icons.replay : Icons.check_circle,
-                  color: resolved ? Colors.orange : Colors.green),
+                  color: resolved ? AdminColors.amber : AdminColors.teal),
               onPressed: () => _setStatus(inc['id'] as String, resolved ? 'abierta' : 'resuelta'),
             ),
-            const Icon(Icons.chat_bubble_outline, size: 18),
+            const Icon(Icons.chat_bubble_outline, size: 18, color: AdminColors.muted),
           ],
         ),
         // Abrir el chat para hablar con el cliente hasta cerrar la avería.
@@ -268,28 +279,17 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   // ── Resumen (KPIs) ─────────────────────────────────────────────────────
   Widget _summaryCards(AppLocalizations l) {
     num n(String k) => (_summary[k] as num?) ?? 0;
-    return Wrap(spacing: 12, runSpacing: 12, children: [
-      _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'), '${n('total_completed')}', Colors.amber.shade800),
-      _kpi(Icons.groups, l.t('adm_ch_kpi_drivers'), '${n('drivers_with_challenge')}%', Colors.blue),
-      _kpi(Icons.trending_up, l.t('adm_ch_kpi_avglevel'), '${n('avg_level')}', Colors.teal),
-      _kpi(Icons.card_giftcard, l.t('adm_ch_kpi_days'), '${n('days_awarded')}', Colors.green),
-      _kpi(Icons.hourglass_bottom, l.t('adm_ch_kpi_pending'), '${n('pending_approvals')}', Colors.deepOrange),
+    return Wrap(spacing: 8, runSpacing: 8, children: [
+      _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'), '${n('total_completed')}', AdminColors.amber),
+      _kpi(Icons.groups, l.t('adm_ch_kpi_drivers'), '${n('drivers_with_challenge')}%', AdminColors.blue),
+      _kpi(Icons.trending_up, l.t('adm_ch_kpi_avglevel'), '${n('avg_level')}', AdminColors.purple),
+      _kpi(Icons.card_giftcard, l.t('adm_ch_kpi_days'), '${n('days_awarded')}', AdminColors.teal),
+      _kpi(Icons.hourglass_bottom, l.t('adm_ch_kpi_pending'), '${n('pending_approvals')}', AdminColors.coral),
     ]);
   }
 
-  Widget _kpi(IconData icon, String label, String value, Color color) => Container(
-        width: 150, padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ]),
-      );
+  Widget _kpi(IconData icon, String label, String value, Color color) =>
+      AdminKpiTile(width: 150, icon: icon, label: label, value: value, color: color);
 
   // ── Gráficos (sin dependencias: barras con Containers) ─────────────────────
   Widget _charts(AppLocalizations l) {
@@ -328,25 +328,26 @@ class _ChallengesTabState extends State<_ChallengesTab> {
       _chartCard(l.t('adm_ch_chart_levels'), [
         for (int lvl = 1; lvl <= 5; lvl++)
           _bar(l.t('ch_level', {'n': lvl == 5 ? '5+' : '$lvl'}), byLevel[lvl] ?? 0,
-              _maxVal(byLevel.values), Colors.indigo),
+              _maxVal(byLevel.values), AdminColors.purple),
       ]),
       const SizedBox(height: 12),
       _chartCard(l.t('adm_ch_chart_monthly'), [
         for (final e in byMonth.entries)
-          _bar(e.key.substring(2), e.value, _maxVal(byMonth.values), Colors.teal),
+          _bar(e.key.substring(2), e.value, _maxVal(byMonth.values), AdminColors.teal),
       ]),
       const SizedBox(height: 12),
       _chartCard(l.t('adm_ch_chart_top'), [
-        if (top.isEmpty) Text(l.t('admin_no_challenges'), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        if (top.isEmpty) Text(l.t('admin_no_challenges'), style: const TextStyle(color: AdminColors.muted, fontSize: 12)),
         for (final e in top.take(10))
-          _bar(e.key, e.value, top.first.value, Colors.amber.shade800),
+          _bar(e.key, e.value, top.first.value, AdminColors.amber),
       ]),
     ]);
   }
 
   int _maxVal(Iterable<int> v) => v.isEmpty ? 1 : v.reduce((a, b) => a > b ? a : b);
 
-  Widget _chartCard(String title, List<Widget> bars) => Card(
+  Widget _chartCard(String title, List<Widget> bars) => Container(
+        decoration: adminCardBox(),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -427,32 +428,33 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     // Loop #4: ya no hay aprobación manual (los retos se auto-registran y la
     // recompensa es trimestral por flota). El admin solo puede RECHAZAR por
     // fraude un logro, lo que lo excluye de la métrica trimestral.
-    return Card(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: adminCardBox(
+          borderColor: suspicious ? AdminColors.red : null),
       child: ListTile(
         onTap: () => _openDetail(c['id'] as String),
-        leading: Icon(icon, color: Colors.amber.shade800),
-        title: Text('$title · ${l.t('ch_level', {'n': '$level'})} · $driver'),
+        leading: Icon(icon, color: AdminColors.amber),
+        title: Text('$title · ${l.t('ch_level', {'n': '$level'})} · $driver',
+            style: const TextStyle(fontSize: 13)),
         subtitle: Text('$company\n'
             '${l.t('admin_ch_goal')}: ${target.toStringAsFixed(0)} $unit · ${l.t('ch_days_progress', {'n': '$days', 'min': '300'})}'
-            '${suspicious ? '\n⚠️ ${l.t('admin_ch_suspicious')}' : ''}'),
+            '${suspicious ? '\n⚠️ ${l.t('admin_ch_suspicious')}' : ''}',
+            style: TextStyle(
+                fontSize: 11,
+                color: suspicious ? AdminColors.red : AdminColors.muted)),
         isThreeLine: true,
         trailing: rejected
-            ? Chip(
-                label: Text(l.t('admin_ch_rejected'), style: const TextStyle(fontSize: 11)),
-                backgroundColor: AdminColors.hairline,
-              )
+            ? AdminTag(l.t('admin_ch_rejected'),
+                fg: AdminColors.muted, bg: AdminColors.hairline)
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Chip(
-                    label: Text(l.t('admin_ch_achieved'),
-                        style: const TextStyle(fontSize: 11, color: AdminColors.teal)),
-                    backgroundColor: AdminColors.tealBg,
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  AdminTag(l.t('admin_ch_achieved'),
+                      fg: AdminColors.teal, bg: AdminColors.tealBg),
                   IconButton(
                     tooltip: l.t('admin_ch_fraud'),
-                    icon: const Icon(Icons.block, color: Colors.red),
+                    icon: const Icon(Icons.block, color: AdminColors.red),
                     onPressed: () => _review(c['id'] as String, 'reject'),
                   ),
                 ],
@@ -588,10 +590,10 @@ class _ErrorReportsTabState extends State<_ErrorReportsTab> {
       };
 
   Color _statusColor(String s) => switch (s) {
-        'resolved' => Colors.green,
-        'in_progress' => Colors.blue,
-        'viewed' => Colors.blueGrey,
-        _ => Colors.deepOrange, // new
+        'resolved' => AdminColors.teal,
+        'in_progress' => AdminColors.blue,
+        'viewed' => AdminColors.gray,
+        _ => AdminColors.coral, // new
       };
 
   @override
@@ -600,26 +602,29 @@ class _ErrorReportsTabState extends State<_ErrorReportsTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
           child: SizedBox(
-            width: 220,
-            child: InputDecorator(
-              decoration: InputDecoration(
-                  isDense: true, labelText: l.t('adm_ref_status'), border: const OutlineInputBorder()),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _status,
-                  isExpanded: true,
-                  items: [
-                    DropdownMenuItem(value: '', child: Text(l.t('adm_ref_all'))),
-                    DropdownMenuItem(value: 'new', child: Text(l.t('adm_err_new'))),
-                    DropdownMenuItem(value: 'viewed', child: Text(l.t('adm_err_viewed'))),
-                    DropdownMenuItem(value: 'in_progress', child: Text(l.t('adm_err_in_progress'))),
-                    DropdownMenuItem(value: 'resolved', child: Text(l.t('adm_err_resolved'))),
-                  ],
-                  onChanged: (v) { _status = v ?? ''; _reload(); },
-                ),
-              ),
+            height: 30,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final (s, label) in [
+                  ('', l.t('adm_ref_all')),
+                  ('new', l.t('adm_err_new')),
+                  ('viewed', l.t('adm_err_viewed')),
+                  ('in_progress', l.t('adm_err_in_progress')),
+                  ('resolved', l.t('adm_err_resolved')),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: AdminPill(
+                      label: label,
+                      selected: _status == s,
+                      color: s.isEmpty ? AdminColors.coral : _statusColor(s),
+                      onTap: () { _status = s; _reload(); },
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -661,24 +666,26 @@ class _ErrorReportsTabState extends State<_ErrorReportsTab> {
     final device = (r['device_info'] as String?) ?? '';
     final created = DateTime.tryParse((r['created_at'] as String?) ?? '');
     final df = DateFormat('dd/MM/yyyy HH:mm');
-    return Card(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: adminCardBox(),
       child: ListTile(
         leading: Icon(Icons.bug_report, color: _statusColor(status)),
-        title: Text(desc, maxLines: 4, overflow: TextOverflow.ellipsis),
+        title: Text(desc, maxLines: 4, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13)),
         subtitle: Text([
           '$company · $author',
           if (device.isNotEmpty) device,
           if (created != null) df.format(created),
-        ].join('\n')),
+        ].join('\n'),
+            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
         isThreeLine: true,
         trailing: PopupMenuButton<String>(
           tooltip: l.t('adm_err_change_status'),
           onSelected: (s) => _setStatus(r['id'] as String, s),
-          child: Chip(
-            label: Text(_statusLabel(l, status), style: const TextStyle(fontSize: 11)),
-            backgroundColor: _statusColor(status).withValues(alpha: 0.15),
-            visualDensity: VisualDensity.compact,
-          ),
+          child: AdminTag(_statusLabel(l, status),
+              fg: _statusColor(status),
+              bg: _statusColor(status).withValues(alpha: .16)),
           itemBuilder: (ctx) => [
             for (final s in ['new', 'viewed', 'in_progress', 'resolved'])
               PopupMenuItem(value: s, child: Text(_statusLabel(l, s))),

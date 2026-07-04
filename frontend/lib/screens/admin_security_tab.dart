@@ -115,24 +115,24 @@ class _SecurityTabState extends State<SecurityTab> {
     final source = (a['source'] as String?) ?? '';
     final created = DateTime.tryParse((a['created_at'] as String?) ?? '');
     final sevColor = switch (severity) {
-      'high' => Colors.red, 'medium' => Colors.orange, _ => Colors.blueGrey,
+      'high' => AdminColors.red, 'medium' => AdminColors.amber, _ => AdminColors.gray,
     };
     final resolved = status == 'resolved';
-    return Card(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: adminCardBox(
+          borderColor: severity == 'high' && !resolved ? AdminColors.red : null),
       child: ListTile(
         onTap: () => _openAlert(l, a),
         leading: Icon(Icons.flag, color: sevColor),
-        title: Text('$type · ${l.t('adm_sec_$severity')}'),
+        title: Text('$type · ${l.t('adm_sec_$severity')}',
+            style: const TextStyle(fontSize: 13)),
         subtitle: Text('${l.t('adm_sec_src_$source')} · '
-            '${created != null ? df.format(created) : ''}'),
-        trailing: Chip(
-          label: Text(l.t('adm_sec_$status'),
-              style: TextStyle(
-                  fontSize: 11,
-                  color: resolved ? AdminColors.teal : AdminColors.amber)),
-          backgroundColor: resolved ? AdminColors.tealBg : AdminColors.amberBg,
-          visualDensity: VisualDensity.compact,
-        ),
+            '${created != null ? df.format(created) : ''}',
+            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+        trailing: AdminTag(l.t('adm_sec_$status'),
+            fg: resolved ? AdminColors.teal : AdminColors.amber,
+            bg: resolved ? AdminColors.tealBg : AdminColors.amberBg),
       ),
     );
   }
