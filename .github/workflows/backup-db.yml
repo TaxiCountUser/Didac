@@ -69,3 +69,18 @@ jobs:
           path: ${{ env.DUMP_FILE }}
           retention-days: 90
           if-no-files-found: error
+
+      # Avisa al backend de que el backup terminó bien, para el semáforo "Backup"
+      # del panel de admin (registra cron_last_backup). Best-effort: si el backend
+      # está dormido (Render free) o faltan secrets, no falla el backup.
+      # Reutiliza los mismos secrets que cron-rewards.yml (PROD_BACKEND_URL + CRON_SECRET).
+      - name: Registrar backup OK en el panel de admin
+        continue-on-error: true
+        run: |
+          if [ -z "${{ secrets.PROD_BACKEND_URL }}" ] || [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "Sin PROD_BACKEND_URL o CRON_SECRET — omito el aviso al panel."
+            exit 0
+          fi
+          curl --fail-with-body -sS --max-time 30 -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.PROD_BACKEND_URL }}/api/v1/admin/cron/backup-done"

@@ -1589,6 +1589,18 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, ...res });
   });
 
+  // Marca que la copia de seguridad diaria de la BD se realizó correctamente.
+  // Lo llama el workflow "Backup diario de la BD" (backup-db.yml) al terminar el
+  // pg_dump con éxito, con la cabecera x-cron-secret. Solo registra el sello de
+  // tiempo (cron_last_backup) para que el semáforo del panel de admin lo muestre;
+  // no toca datos. Idempotente.
+  app.post('/api/v1/admin/cron/backup-done', async (request, reply) => {
+    const g = await cronOrAdmin(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    await markCronRun('backup');
+    return reply.send({ ok: true, at: new Date().toISOString() });
+  });
+
   // Modificar un usuario de cualquier empresa (activar, rol, nombre, admin).
   app.patch('/api/v1/admin/user/:id', async (request, reply) => {
     const g = await adminGuard(request);

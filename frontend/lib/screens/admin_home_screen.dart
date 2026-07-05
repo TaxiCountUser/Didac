@@ -166,6 +166,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         const SizedBox(width: 12),
         dot(l.t('adm_home_crons').toUpperCase(),
             fresh('challenge_credits') && fresh('referral_validations')),
+        const SizedBox(width: 12),
+        dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
       ],
     );
   }
