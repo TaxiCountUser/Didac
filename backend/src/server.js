@@ -768,6 +768,21 @@ export async function buildApp(options = {}) {
     }, (e) => app.log.warn(`[svc] svc_${name}: ${e.message}`));
   }
 
+  // Sonda de salud de la BD (Supabase): mide una lectura trivial. Observa la
+  // degradación (lenta) aunque acabe respondiendo. ok si <800ms, slow si más,
+  // error si falla. Se usa en /overview y /semaphores para el semáforo "BD".
+  async function probeDb() {
+    const t0 = Date.now();
+    try {
+      const { error } = await supabase.from('system_config').select('key').limit(1);
+      const ms = Date.now() - t0;
+      if (error) return { ok: false, status: 'error', latency_ms: ms, at: new Date().toISOString() };
+      return { ok: true, status: ms < 800 ? 'ok' : 'slow', latency_ms: ms, at: new Date().toISOString() };
+    } catch (e) {
+      return { ok: false, status: 'error', latency_ms: Date.now() - t0, at: new Date().toISOString() };
+    }
+  }
+
   // ¿Viene de un scheduler externo con el secreto de cron correcto?
   function cronAuthorized(request) {
     return !!CRON_SECRET && request.headers['x-cron-secret'] === CRON_SECRET;
@@ -1075,6 +1090,7 @@ export async function buildApp(options = {}) {
       inbox: inbox.slice(0, 12),
       crons,
       services,
+      database: await probeDb(),
       health,
     });
   });
@@ -2422,11 +2438,20 @@ export async function buildApp(options = {}) {
       return { key, kind: 'service', ok: !err, at: at || null, status: err ? 'error' : 'ok' };
     };
 
+    // La purga de retención NO es un cron periódico (se ejecuta a lo sumo una vez
+    // al año); mostramos su última ejecución sin marcarla en rojo por antigüedad.
+    const purgeAt = cfg['cron_last_purge_retention'] || null;
+    const purgeSema = { key: 'purge_retention', kind: 'cron_rare', ok: true,
+      at: purgeAt, status: purgeAt ? 'ok' : 'never' };
+
+    const db = await probeDb();
     const semaphores = [
       { key: 'api', kind: 'live', ok: true, at: new Date().toISOString(), status: 'live' },
+      { key: 'database', kind: 'db', ok: db.ok, at: db.at, status: db.status, latency_ms: db.latency_ms },
       cronSema('challenge_credits'),
       cronSema('referral_validations'),
       cronSema('backup'),
+      purgeSema,
       svcSema('stripe'),
       svcSema('whisper'),
       svcSema('openai'),

@@ -307,9 +307,11 @@ class _SecurityTabState extends State<SecurityTab> {
   // Etiqueta legible de cada semáforo por su clave.
   String _semaLabel(AppLocalizations l, String key) => switch (key) {
         'api' => 'API',
+        'database' => l.t('adm_sema_db'),
         'challenge_credits' => l.t('adm_sema_credits'),
         'referral_validations' => l.t('adm_sema_referrals'),
         'backup' => l.t('adm_sema_backup'),
+        'purge_retention' => l.t('adm_sema_purge'),
         'stripe' => 'Stripe',
         'whisper' => 'Whisper',
         'openai' => 'OpenAI',
@@ -317,9 +319,10 @@ class _SecurityTabState extends State<SecurityTab> {
         _ => key,
       };
 
-  // Color por estado: ok/live verde, stale/error rojo, never gris.
+  // Color por estado: ok/live verde, slow ámbar, stale/error rojo, never gris.
   Color _semaColor(String status) => switch (status) {
         'ok' || 'live' => AdminColors.teal,
+        'slow' => AdminColors.amber,
         'stale' || 'error' => AdminColors.red,
         _ => AdminColors.gray,
       };
@@ -359,7 +362,12 @@ class _SecurityTabState extends State<SecurityTab> {
     final key = (s['key'] as String?) ?? '—';
     final status = (s['status'] as String?) ?? 'never';
     final at = DateTime.tryParse((s['at'] as String?) ?? '');
+    final latency = (s['latency_ms'] as num?)?.toInt();
     final color = _semaColor(status);
+    final sub = at != null
+        ? l.t('adm_sema_last', {'d': df.format(at)})
+            + (latency != null ? ' · ${latency}ms' : '')
+        : l.t('adm_sema_nodata');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       child: Row(
@@ -374,10 +382,7 @@ class _SecurityTabState extends State<SecurityTab> {
               children: [
                 Text(_semaLabel(l, key),
                     style: const TextStyle(fontSize: 13, color: AdminColors.text)),
-                Text(
-                  at != null
-                      ? l.t('adm_sema_last', {'d': df.format(at)})
-                      : l.t('adm_sema_nodata'),
+                Text(sub,
                   style: const TextStyle(fontSize: 10.5, color: AdminColors.muted),
                 ),
               ],

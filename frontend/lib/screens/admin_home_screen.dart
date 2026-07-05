@@ -151,6 +151,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       return !(s is Map && s['ok'] == false);
     }
 
+    // BD (Supabase): rojo solo si la sonda falló; "slow" sigue en verde aquí
+    // (el detalle de latencia se ve en el log de Auditoría).
+    final db = (d['database'] as Map?) ?? const {};
+    final dbOk = (db['status'] ?? 'ok') != 'error';
+
     // Cada semáforo es una "píldora" con punto + etiqueta, para que a igual
     // tamaño se lean como una fila ordenada aunque sean muchos.
     Widget dot(String label, bool ok) => Container(
@@ -188,6 +193,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           runSpacing: 8,
           children: [
             dot('API', true),
+            dot(l.t('adm_home_db').toUpperCase(), dbOk),
             dot(l.t('adm_home_crons').toUpperCase(),
                 fresh('challenge_credits') && fresh('referral_validations')),
             dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
