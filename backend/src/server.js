@@ -223,7 +223,7 @@ function zeroIfNoAmount(parsed) {
   return parsed;
 }
 
-async function parseSmart(text, { language, log } = {}) {
+async function parseSmart(text, { language, log, markService } = {}) {
   const deterministic = parseTransactionText(text);
   if (!LLM_PARSE_MODEL || !OPENAI_API_KEY) return zeroIfNoAmount(deterministic);
   try {
@@ -236,8 +236,10 @@ async function parseSmart(text, { language, log } = {}) {
       }),
       LLM_PARSE_TIMEOUT_MS,
     );
+    markService?.('openai', true);
     return zeroIfNoAmount(mergeParsed(llm, deterministic));
   } catch (e) {
+    markService?.('openai', false);
     log?.warn?.(`LLM parse falló (${e.message}); uso parser determinista`);
     return zeroIfNoAmount(deterministic);
   }
@@ -444,7 +446,7 @@ export async function buildApp(options = {}) {
 
     if (transcriptionCache.has(cacheKey)) {
       const cached = transcriptionCache.get(cacheKey);
-      const parsed = await parseSmart(cached.text, { language, log: request.log });
+      const parsed = await parseSmart(cached.text, { language, log: request.log, markService });
       return reply.send({ ...cached, parsed, cached: true });
     }
 
@@ -455,6 +457,7 @@ export async function buildApp(options = {}) {
     }
 
     // Transcribir (mock o real) con timeout + un reintento
+    const realWhisper = !(ALLOW_MOCK && mockText); // los mocks no cuentan para el semáforo
     let result;
     try {
       const run = () =>
@@ -467,7 +470,9 @@ export async function buildApp(options = {}) {
         request.log.warn(`Whisper falló (${e.message}); reintentando…`);
         result = await withTimeout(run(), WHISPER_TIMEOUT_MS);
       }
+      if (realWhisper) markService('whisper', true);
     } catch (e) {
+      if (realWhisper) markService('whisper', false);
       request.log.error(`Transcripción falló: ${e.message}`);
       // Fallback de DESARROLLO: si Whisper no está disponible (p. ej. sin una
       // OPENAI_API_KEY válida) y se permite el modo mock, devolvemos una
@@ -491,7 +496,7 @@ export async function buildApp(options = {}) {
     // Dalí") antes de interpretar y de mostrar la descripción.
     result.text = correctTranscript(result.text);
     transcriptionCache.set(cacheKey, result);
-    const parsed = await parseSmart(result.text, { language, log: request.log });
+    const parsed = await parseSmart(result.text, { language, log: request.log, markService });
     return reply.send({ ...result, parsed, cached: false });
   });
 
@@ -506,7 +511,7 @@ export async function buildApp(options = {}) {
       const langRaw = (body.language || request.query?.language || '').toLowerCase();
       const language = TRANSCRIBE_LANGS.has(langRaw) ? langRaw : null;
       const corrected = correctTranscript(text);
-      const parsed = await parseSmart(corrected, { language, log: request.log });
+      const parsed = await parseSmart(corrected, { language, log: request.log, markService });
       return reply.send({ text: corrected, language, parsed });
     });
 
@@ -748,6 +753,19 @@ export async function buildApp(options = {}) {
     } catch (e) {
       app.log.warn(`[cron] no se pudo registrar cron_last_${name}: ${e.message}`);
     }
+  }
+
+  // Registra el resultado (ok/err) de la última llamada a un servicio externo
+  // —whisper (transcripción) u openai (parser LLM)— para los semáforos del panel
+  // de admin. Guarda "ok|<iso>" o "err|<iso>". Best-effort y sin await en el hot
+  // path (fire-and-forget): nunca ralentiza ni rompe la transcripción.
+  function markService(name, ok) {
+    supabase.from('system_config').upsert(
+      { key: `svc_${name}`, value: `${ok ? 'ok' : 'err'}|${new Date().toISOString()}` },
+      { onConflict: 'key' },
+    ).then(({ error }) => {
+      if (error) app.log.warn(`[svc] no se pudo registrar svc_${name}: ${error.message}`);
+    }, (e) => app.log.warn(`[svc] svc_${name}: ${e.message}`));
   }
 
   // ¿Viene de un scheduler externo con el secreto de cron correcto?
@@ -1005,6 +1023,17 @@ export async function buildApp(options = {}) {
       .select('key, value').like('key', 'cron_last_%');
     const crons = {};
     for (const r of cronRows ?? []) crons[r.key.replace('cron_last_', '')] = r.value;
+
+    // Estado de los servicios externos (whisper/openai) para sus semáforos.
+    // Valor guardado: "ok|<iso>" o "err|<iso>". ok=false solo si el último
+    // intento falló (así la inactividad no da falsos rojos).
+    const { data: svcRows } = await supabase.from('system_config')
+      .select('key, value').like('key', 'svc_%');
+    const services = {};
+    for (const r of svcRows ?? []) {
+      const [status, at] = String(r.value || '').split('|');
+      services[r.key.replace('svc_', '')] = { ok: status !== 'err', at: at || null };
+    }
     const cronStale = ['challenge_credits', 'referral_validations'].some((k) => {
       const v = crons[k];
       return !v || now - new Date(v).getTime() > 2 * dayMs;
@@ -1045,6 +1074,7 @@ export async function buildApp(options = {}) {
       },
       inbox: inbox.slice(0, 12),
       crons,
+      services,
       health,
     });
   });

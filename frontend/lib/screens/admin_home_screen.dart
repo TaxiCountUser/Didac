@@ -133,7 +133,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // --- Semáforos: API (si hay datos, está viva) + crons de recompensas. ---
+  // --- Semáforos: API (si hay datos, está viva) + crons + servicios externos. ---
   Widget _statusRow(AppLocalizations l, Map<String, dynamic> d) {
     final crons = (d['crons'] as Map?) ?? const {};
     bool fresh(String k) {
@@ -141,6 +141,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       if (v == null) return false;
       final t = DateTime.tryParse(v);
       return t != null && DateTime.now().difference(t).inHours < 48;
+    }
+
+    // Servicios externos (whisper/openai): verde salvo que la ÚLTIMA llamada
+    // fallara. La inactividad NO da rojo (a diferencia de los crons).
+    final services = (d['services'] as Map?) ?? const {};
+    bool svcOk(String k) {
+      final s = services[k];
+      return !(s is Map && s['ok'] == false);
     }
 
     Widget dot(String label, bool ok) => Row(
@@ -158,16 +166,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         );
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(_todayLabel(),
             style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
-        const Spacer(),
-        dot('API', true),
         const SizedBox(width: 12),
-        dot(l.t('adm_home_crons').toUpperCase(),
-            fresh('challenge_credits') && fresh('referral_validations')),
-        const SizedBox(width: 12),
-        dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
+        Expanded(
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              dot('API', true),
+              dot(l.t('adm_home_crons').toUpperCase(),
+                  fresh('challenge_credits') && fresh('referral_validations')),
+              dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
+              dot('WHISPER', svcOk('whisper')),
+              dot('OPENAI', svcOk('openai')),
+            ],
+          ),
+        ),
       ],
     );
   }
