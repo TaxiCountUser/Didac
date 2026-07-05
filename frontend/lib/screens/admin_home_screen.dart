@@ -151,40 +151,49 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       return !(s is Map && s['ok'] == false);
     }
 
-    Widget dot(String label, bool ok) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-                width: 7, height: 7,
-                decoration: BoxDecoration(
-                    color: ok ? AdminColors.teal : AdminColors.red, shape: BoxShape.circle)),
-            const SizedBox(width: 5),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 10, letterSpacing: 1, color: AdminColors.secondary)),
-          ],
+    // Cada semáforo es una "píldora" con punto + etiqueta, para que a igual
+    // tamaño se lean como una fila ordenada aunque sean muchos.
+    Widget dot(String label, bool ok) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: AdminColors.card,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                  width: 7, height: 7,
+                  decoration: BoxDecoration(
+                      color: ok ? AdminColors.teal : AdminColors.red,
+                      shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 10, letterSpacing: .8, color: AdminColors.secondary)),
+            ],
+          ),
         );
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    // Fecha en su propia línea y, debajo, los semáforos en una fila que se
+    // reparte (o hace salto de línea limpio si no caben todos).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(_todayLabel(),
             style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 12,
-            runSpacing: 6,
-            children: [
-              dot('API', true),
-              dot(l.t('adm_home_crons').toUpperCase(),
-                  fresh('challenge_credits') && fresh('referral_validations')),
-              dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
-              dot('WHISPER', svcOk('whisper')),
-              dot('OPENAI', svcOk('openai')),
-            ],
-          ),
+        const SizedBox(height: 9),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            dot('API', true),
+            dot(l.t('adm_home_crons').toUpperCase(),
+                fresh('challenge_credits') && fresh('referral_validations')),
+            dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
+            dot('WHISPER', svcOk('whisper')),
+            dot('OPENAI', svcOk('openai')),
+          ],
         ),
       ],
     );
@@ -252,29 +261,46 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 7,
-                mainAxisSpacing: 7,
-                childAspectRatio: 2.5,
-                children: [
-                  _kpiTile(l.t('adm_kpi_mrr'), '${mrr.toStringAsFixed(0)}€',
-                      l.t('adm_kpi_paying', {'n': '${k['paying'] ?? 0}'}), AdminColors.teal),
-                  _kpiTile(l.t('adm_kpi_companies'), '${k['tenants'] ?? 0}',
-                      l.t('adm_kpi_active', {'n': '${k['paying'] ?? 0}'}), AdminColors.purple),
-                  _kpiTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal',
-                      l.t('adm_kpi_active', {'n': '$driversActive'}), AdminColors.blue),
-                  _kpiTile(l.t('adm_kpi_trials'), '$trialing',
-                      soon > 0
-                          ? l.t('adm_kpi_soon', {'n': '$soon'})
-                          : l.t('adm_kpi_none_soon'), AdminColors.amber),
-                ],
-              ),
+              // 2×2 de altura FIJA: así en pantallas anchas (web/PC) las tarjetas
+              // no se estiran ni dejan el texto flotando en el centro.
+              _kpiGridFixed([
+                _kpiTile(l.t('adm_kpi_mrr'), '${mrr.toStringAsFixed(0)}€',
+                    l.t('adm_kpi_paying', {'n': '${k['paying'] ?? 0}'}), AdminColors.teal),
+                _kpiTile(l.t('adm_kpi_companies'), '${k['tenants'] ?? 0}',
+                    l.t('adm_kpi_active', {'n': '${k['paying'] ?? 0}'}), AdminColors.purple),
+                _kpiTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal',
+                    l.t('adm_kpi_active', {'n': '$driversActive'}), AdminColors.blue),
+                _kpiTile(l.t('adm_kpi_trials'), '$trialing',
+                    soon > 0
+                        ? l.t('adm_kpi_soon', {'n': '$soon'})
+                        : l.t('adm_kpi_none_soon'), AdminColors.amber),
+              ]),
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  // 2×2 de altura fija (54 px por fila): las tarjetas mantienen su tamaño en
+  // móvil y en web/PC (no se estiran con el ancho como haría un aspectRatio).
+  Widget _kpiGridFixed(List<Widget> tiles) {
+    Widget row(Widget a, Widget b) => SizedBox(
+          height: 54,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: a),
+              const SizedBox(width: 7),
+              Expanded(child: b),
+            ],
+          ),
+        );
+    return Column(
+      children: [
+        row(tiles[0], tiles[1]),
+        const SizedBox(height: 7),
+        row(tiles[2], tiles[3]),
       ],
     );
   }
@@ -484,16 +510,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   children: [
                     Icon(m.icon, size: 20,
                         color: enabled ? m.color : m.color.withValues(alpha: .4)),
-                    const SizedBox(height: 6),
+                    const Spacer(),
                     Text(m.title,
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w500,
                             color: enabled ? AdminColors.text : AdminColors.muted)),
-                    if (m.subtitle.isNotEmpty)
+                    if (m.subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
                       Text(m.subtitle,
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+                    ],
                   ],
                 ),
                 if (m.badge > 0)
