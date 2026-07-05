@@ -14,6 +14,7 @@ const ANON =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLWRlbW8iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0.ZxBhVEYye2lqm5NDdkey-JP6uTHcqvZriXUoBtyQniY';
 
 const { buildApp } = await import('../../src/server.js');
+const { stackReachable, skipNoStack } = await import('./_stack.js');
 
 let failures = 0;
 const check = (name, fn) =>
@@ -28,6 +29,7 @@ async function run() {
   const app = await buildApp();
   const sb = app.supabase;
   assert.ok(sb, 'service_role configurado (stack local arriba)');
+  if (!(await stackReachable(sb))) return skipNoStack('excel.test.js', app);
 
   const anon = createClient(process.env.SUPABASE_URL, ANON, {
     auth: { autoRefreshToken: false, persistSession: false },

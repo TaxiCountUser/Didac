@@ -16,6 +16,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UtZGVtbyIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoyMDAwMDAwMDAwfQ.8T3kmJ5SaqY3bVmU02ZJ4MIoHe5z7R4qQ4T9VqJA8hk';
 
 const { buildApp } = await import('../../src/server.js');
+const { stackReachable, skipNoStack } = await import('./_stack.js');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const WHSEC = process.env.STRIPE_WEBHOOK_SECRET;
@@ -50,6 +51,7 @@ async function run() {
   const app = await buildApp();
   const sb = app.supabase;
   assert.ok(sb, 'el cliente service_role debe estar configurado (stack local arriba)');
+  if (!(await stackReachable(sb))) return skipNoStack('webhook.test.js', app);
 
   const tenantId = randomUUID();
   const customerId = `cus_test_${Date.now()}`;

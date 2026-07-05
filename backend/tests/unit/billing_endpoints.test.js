@@ -14,6 +14,7 @@ const ANON =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLWRlbW8iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0.ZxBhVEYye2lqm5NDdkey-JP6uTHcqvZriXUoBtyQniY';
 
 const { buildApp } = await import('../../src/server.js');
+const { stackReachable, skipNoStack } = await import('./_stack.js');
 
 // Stripe mock: registra las llamadas y devuelve URLs sintéticas.
 const calls = [];
@@ -49,6 +50,7 @@ async function run() {
   const app = await buildApp({ stripe: stripeMock });
   const sb = app.supabase;
   assert.ok(sb, 'service_role configurado (stack local arriba)');
+  if (!(await stackReachable(sb))) return skipNoStack('billing_endpoints.test.js', app);
 
   // Crea un Owner real (el trigger crea tenant + perfil owner).
   const anon = createClient(process.env.SUPABASE_URL, ANON, {
