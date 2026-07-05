@@ -6,13 +6,23 @@ import '../services/data_service.dart';
 import '../util/format.dart';
 
 /// Informe de cierre de jornada (punto 4) y desglose al pulsar el total (punto 5).
-/// Muestra km, horas, ingresos por método de pago y €/km de un día concreto.
-Future<void> showDailyReport(BuildContext context, {String? userId, required DateTime date}) {
+/// Muestra km, horas, ingresos por método de pago y €/km.
+/// - Modo DÍA (por defecto): pasar solo [date].
+/// - Modo PERIODO (semana/mes/año): pasar [from], [to] y [title]; agrega el rango.
+Future<void> showDailyReport(
+  BuildContext context, {
+  String? userId,
+  required DateTime date,
+  DateTime? from,
+  DateTime? to,
+  String? title,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (ctx) => _DailyReportBody(userId: userId, date: date),
+    builder: (ctx) => _DailyReportBody(
+        userId: userId, date: date, from: from, to: to, title: title),
   );
 }
 
@@ -37,7 +47,11 @@ IconData _payIcon(String pm) => switch (pm) {
 class _DailyReportBody extends StatefulWidget {
   final String? userId;
   final DateTime date;
-  const _DailyReportBody({this.userId, required this.date});
+  final DateTime? from;
+  final DateTime? to;
+  final String? title;
+  const _DailyReportBody(
+      {this.userId, required this.date, this.from, this.to, this.title});
 
   @override
   State<_DailyReportBody> createState() => _DailyReportBodyState();
@@ -49,7 +63,11 @@ class _DailyReportBodyState extends State<_DailyReportBody> {
   @override
   void initState() {
     super.initState();
-    _future = DataService().dailyReport(userId: widget.userId, date: widget.date);
+    // Modo periodo si se pasa un rango; si no, informe del día.
+    _future = (widget.from != null && widget.to != null)
+        ? DataService().periodReport(
+            userId: widget.userId, from: widget.from!, to: widget.to!)
+        : DataService().dailyReport(userId: widget.userId, date: widget.date);
   }
 
   @override
@@ -76,8 +94,12 @@ class _DailyReportBodyState extends State<_DailyReportBody> {
               Row(children: [
                 const Icon(Icons.summarize, color: Colors.indigo),
                 const SizedBox(width: 8),
-                Text('${l.t('dr_title')} · ${DateFormat('dd/MM/yyyy').format(r.date)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Expanded(
+                  child: Text(
+                      widget.title ??
+                          '${l.t('dr_title')} · ${DateFormat('dd/MM/yyyy').format(r.date)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
               ]),
               const SizedBox(height: 16),
               // Métricas principales.

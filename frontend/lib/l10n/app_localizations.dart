@@ -284,7 +284,7 @@ const Map<String, Map<String, String>> _values = {
     // Historial chofer
     'dt_title': 'Mis transacciones', 'dt_empty': 'No hay transacciones en este periodo.',
     // Informe de cierre de jornada
-    'dr_title': 'Cierre de jornada', 'dr_km': 'Kilómetros', 'dr_hours': 'Horas trabajadas',
+    'dr_title': 'Cierre de jornada', 'dr_summary': 'Resumen', 'dr_km': 'Kilómetros', 'dr_hours': 'Horas trabajadas',
     'dr_income': 'Ingresos', 'dr_expense': 'Gastos', 'dr_balance': 'Balance',
     'dr_by_method': 'Ingresos por método de pago', 'dr_price_km': 'Precio por km',
     'dr_km_pending': 'Pendiente (sin km de cierre)',
@@ -818,7 +818,7 @@ const Map<String, Map<String, String>> _values = {
     'ar_review': 'Review the data and save',
     'dt_title': 'My transactions', 'dt_empty': 'No transactions in this period.',
     // Daily closing report
-    'dr_title': 'Daily closing', 'dr_km': 'Kilometres', 'dr_hours': 'Hours worked',
+    'dr_title': 'Daily closing', 'dr_summary': 'Summary', 'dr_km': 'Kilometres', 'dr_hours': 'Hours worked',
     'dr_income': 'Income', 'dr_expense': 'Expenses', 'dr_balance': 'Balance',
     'dr_by_method': 'Income by payment method', 'dr_price_km': 'Price per km',
     'dr_km_pending': 'Pending (no closing km)',
@@ -1337,7 +1337,7 @@ const Map<String, Map<String, String>> _values = {
     'ar_review': 'Revisa les dades i desa',
     'dt_title': 'Les meves transaccions', 'dt_empty': 'No hi ha transaccions en aquest període.',
     // Informe de tancament de jornada
-    'dr_title': 'Tancament de jornada', 'dr_km': 'Quilòmetres', 'dr_hours': 'Hores treballades',
+    'dr_title': 'Tancament de jornada', 'dr_summary': 'Resum', 'dr_km': 'Quilòmetres', 'dr_hours': 'Hores treballades',
     'dr_income': 'Ingressos', 'dr_expense': 'Despeses', 'dr_balance': 'Balanç',
     'dr_by_method': 'Ingressos per mètode de pagament', 'dr_price_km': 'Preu per km',
     'dr_km_pending': 'Pendent (sense km de tancament)',

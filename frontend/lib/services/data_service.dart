@@ -1076,35 +1076,48 @@ class DataService {
     return TxSummary(income: income, expense: expense, expenseByCategory: byCat);
   }
 
-  /// Informe de cierre de jornada para un día concreto (punto 4 + desglose del
-  /// punto 5). Si [userId] es null, agrega toda la empresa (la RLS limita).
-  /// Los km se calculan como (lectura fin - lectura inicio) por conductor+vehículo;
-  /// si un día solo tiene la lectura de inicio, se usa la PRIMERA lectura posterior
-  /// (la del día siguiente) como fin -> relleno retroactivo automático.
-  Future<DailyReport> dailyReport({String? userId, required DateTime date}) async {
+  /// Informe de cierre de jornada de un día concreto (punto 4 + desglose del
+  /// punto 5). Delega en [periodReport] con el rango [día, día+1).
+  Future<DailyReport> dailyReport({String? userId, required DateTime date}) {
     final start = DateTime(date.year, date.month, date.day);
-    final end = start.add(const Duration(days: 1));
+    return periodReport(userId: userId, from: start, to: start.add(const Duration(days: 1)));
+  }
 
-    // --- Transacciones del día: ingresos por método, gasto, horas ---
+  /// Informe económico para un rango [from, to) arbitrario (día / semana / mes /
+  /// año). Si [userId] es null, agrega toda la empresa (la RLS limita).
+  /// - Ingresos por método, gasto y balance del periodo.
+  /// - Km: suma por conductor+vehículo de (última lectura del rango - primera);
+  ///   si en el rango solo hay lectura de inicio, se usa la PRIMERA posterior
+  ///   como fin (relleno retroactivo).
+  /// - Horas: suma de las jornadas de cada día con actividad (no un único tramo,
+  ///   que en semana/mes/año abarcaría noches y sería erróneo).
+  Future<DailyReport> periodReport({
+    String? userId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    // --- Transacciones del rango: ingresos por método, gasto, actividad ---
     var tq = _c.from('transactions').select('amount, type, payment_method, created_at');
     if (userId != null) tq = tq.eq('user_id', userId);
     final txRows = (await tq
-            .gte('created_at', start.toIso8601String())
-            .lt('created_at', end.toIso8601String()) as List)
+            .gte('created_at', from.toIso8601String())
+            .lt('created_at', to.toIso8601String()) as List)
         .cast<Map<String, dynamic>>();
 
     double income = 0, expense = 0;
     final byMethod = <String, double>{};
-    DateTime? firstTs, lastTs;
+    // Primer/último instante de actividad POR DÍA, para sumar horas por jornada.
+    final dayFirst = <String, DateTime>{};
+    final dayLast = <String, DateTime>{};
     void mark(DateTime? ts) {
       if (ts == null) return;
-      if (firstTs == null || ts.isBefore(firstTs!)) firstTs = ts;
-      if (lastTs == null || ts.isAfter(lastTs!)) lastTs = ts;
+      final k = '${ts.year}-${ts.month}-${ts.day}';
+      if (!dayFirst.containsKey(k) || ts.isBefore(dayFirst[k]!)) dayFirst[k] = ts;
+      if (!dayLast.containsKey(k) || ts.isAfter(dayLast[k]!)) dayLast[k] = ts;
     }
     for (final r in txRows) {
       final amount = (r['amount'] as num?)?.toDouble() ?? 0;
-      final ts = DateTime.tryParse((r['created_at'] as String?) ?? '');
-      mark(ts);
+      mark(DateTime.tryParse((r['created_at'] as String?) ?? ''));
       if (r['type'] == 'income') {
         income += amount;
         final m = (r['payment_method'] as String?) ?? 'otros';
@@ -1114,12 +1127,12 @@ class DataService {
       }
     }
 
-    // --- Km del día: lecturas de odómetro (con relleno retroactivo) ---
+    // --- Km del rango: lecturas de odómetro (con relleno retroactivo) ---
     var oq = _c.from('odometer_readings').select('user_id, vehicle_id, reading_km, taken_at');
     if (userId != null) oq = oq.eq('user_id', userId);
     final odoRows = (await oq
-            .gte('taken_at', start.toIso8601String())
-            .lt('taken_at', end.add(const Duration(days: 30)).toIso8601String())
+            .gte('taken_at', from.toIso8601String())
+            .lt('taken_at', to.add(const Duration(days: 30)).toIso8601String())
             .order('taken_at', ascending: true) as List)
         .cast<Map<String, dynamic>>();
 
@@ -1130,25 +1143,25 @@ class DataService {
       (groups[key] ??= []).add(r);
     }
     double totalKm = 0;
-    bool anyKnown = false, anyPending = false;
+    bool anyKnown = false;
     double? singleStart, singleEnd;
     for (final readings in groups.values) {
-      final inDay = readings.where((r) {
+      final inRange = readings.where((r) {
         final t = DateTime.tryParse((r['taken_at'] as String?) ?? '');
-        return t != null && !t.isBefore(start) && t.isBefore(end);
+        return t != null && !t.isBefore(from) && t.isBefore(to);
       }).toList();
-      if (inDay.isEmpty) continue;
-      mark(DateTime.tryParse((inDay.first['taken_at'] as String?) ?? ''));
-      mark(DateTime.tryParse((inDay.last['taken_at'] as String?) ?? ''));
-      final kmStart = (inDay.first['reading_km'] as num?)?.toDouble();
+      if (inRange.isEmpty) continue;
+      mark(DateTime.tryParse((inRange.first['taken_at'] as String?) ?? ''));
+      mark(DateTime.tryParse((inRange.last['taken_at'] as String?) ?? ''));
+      final kmStart = (inRange.first['reading_km'] as num?)?.toDouble();
       double? kmEnd;
-      if (inDay.length >= 2) {
-        kmEnd = (inDay.last['reading_km'] as num?)?.toDouble();
+      if (inRange.length >= 2) {
+        kmEnd = (inRange.last['reading_km'] as num?)?.toDouble();
       } else {
-        // Solo lectura de inicio: usa la primera lectura posterior (día siguiente).
+        // Solo lectura de inicio: usa la primera lectura posterior al rango.
         final next = readings.firstWhere((r) {
           final t = DateTime.tryParse((r['taken_at'] as String?) ?? '');
-          return t != null && !t.isBefore(end);
+          return t != null && !t.isBefore(to);
         }, orElse: () => const {});
         if (next.isNotEmpty) kmEnd = (next['reading_km'] as num?)?.toDouble();
       }
@@ -1159,26 +1172,32 @@ class DataService {
         singleStart ??= kmStart;
         singleEnd ??= kmEnd;
       } else if (kmStart != null) {
-        anyPending = true;
         singleStart ??= kmStart;
       }
     }
-    final double? km = anyKnown ? totalKm : (anyPending ? null : null);
+    final double? km = anyKnown ? totalKm : null;
 
-    double? hours;
-    if (firstTs != null && lastTs != null && lastTs!.isAfter(firstTs!)) {
-      hours = lastTs!.difference(firstTs!).inMinutes / 60.0;
+    // Horas: suma de (último - primero) de cada día con actividad.
+    double hoursSum = 0;
+    bool anyHours = false;
+    for (final k in dayFirst.keys) {
+      final f = dayFirst[k]!;
+      final l = dayLast[k]!;
+      if (l.isAfter(f)) {
+        hoursSum += l.difference(f).inMinutes / 60.0;
+        anyHours = true;
+      }
     }
 
     return DailyReport(
-      date: start,
+      date: from,
       income: income,
       expense: expense,
       incomeByMethod: byMethod,
       km: km,
       kmStart: singleStart,
       kmEnd: singleEnd,
-      hours: hours,
+      hours: anyHours ? hoursSum : null,
     );
   }
 

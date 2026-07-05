@@ -241,7 +241,12 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => showDailyReport(context, userId: widget.profile.id, date: _anchor),
+          onTap: () => showDailyReport(context,
+              userId: widget.profile.id,
+              date: _anchor,
+              from: _from,
+              to: _to,
+              title: _periodTitle(l)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -272,6 +277,24 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
         ),
       ),
     );
+  }
+
+  // Título del informe según el periodo seleccionado (día/semana/mes/año).
+  String _periodTitle(AppLocalizations l) {
+    String dm(DateTime x) =>
+        '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}';
+    final base = l.t('dr_summary');
+    switch (_period) {
+      case DriverPeriod.day:
+        return '$base · ${dm(_from)}/${_from.year}';
+      case DriverPeriod.week:
+        final end = _to.subtract(const Duration(days: 1));
+        return '$base · ${dm(_from)} – ${dm(end)}';
+      case DriverPeriod.month:
+        return '$base · ${_from.month.toString().padLeft(2, '0')}/${_from.year}';
+      case DriverPeriod.year:
+        return '$base · ${_from.year}';
+    }
   }
 
   Widget _chip(String label, DriverPeriod p) {
