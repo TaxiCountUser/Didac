@@ -19,10 +19,11 @@ class SecurityTab extends StatefulWidget {
 
 class _SecurityTabState extends State<SecurityTab> {
   final _service = DataService();
-  int _view = 0; // 0 = alertas, 1 = auditoría
+  int _view = 0; // 0 = alertas, 1 = auditoría, 2 = semáforos
 
   List<Map<String, dynamic>> _alerts = [];
   List<Map<String, dynamic>> _logs = [];
+  List<Map<String, dynamic>> _semaphores = [];
   bool _loading = true;
   String? _error;
   String _severity = '';
@@ -41,9 +42,11 @@ class _SecurityTabState extends State<SecurityTab> {
       if (_view == 0) {
         final r = await _service.adminFraudAlerts(severity: _severity, status: _status);
         _alerts = ((r['alerts'] as List?) ?? []).cast<Map<String, dynamic>>();
-      } else {
+      } else if (_view == 1) {
         final r = await _service.adminAuditLogs();
         _logs = ((r['logs'] as List?) ?? []).cast<Map<String, dynamic>>();
+      } else {
+        _semaphores = await _service.adminSemaphores();
       }
       if (!mounted) return;
       setState(() => _loading = false);
@@ -70,6 +73,11 @@ class _SecurityTabState extends State<SecurityTab> {
                 label: l.t('adm_sec_audit'), selected: _view == 1,
                 color: AdminColors.gray,
                 onTap: () { setState(() => _view = 1); _reload(); }),
+            const SizedBox(width: 6),
+            AdminPill(
+                label: l.t('adm_sec_sema'), selected: _view == 2,
+                color: AdminColors.teal,
+                onTap: () { setState(() => _view = 2); _reload(); }),
           ]),
         ),
         Expanded(
@@ -78,7 +86,11 @@ class _SecurityTabState extends State<SecurityTab> {
                   child: Text('${l.t('error')}: $_error', style: const TextStyle(color: Colors.red))))
               : _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : (_view == 0 ? _alertsView(l) : _auditView(l)),
+                  : (_view == 0
+                      ? _alertsView(l)
+                      : _view == 1
+                          ? _auditView(l)
+                          : _semaphoresView(l)),
         ),
       ],
     );
@@ -286,6 +298,91 @@ class _SecurityTabState extends State<SecurityTab> {
                 ],
               ]),
             ),
+        ],
+      ),
+    );
+  }
+
+  // ── Semáforos: log del estado de crons + servicios externos + API ─────────
+  // Etiqueta legible de cada semáforo por su clave.
+  String _semaLabel(AppLocalizations l, String key) => switch (key) {
+        'api' => 'API',
+        'challenge_credits' => l.t('adm_sema_credits'),
+        'referral_validations' => l.t('adm_sema_referrals'),
+        'backup' => l.t('adm_sema_backup'),
+        'whisper' => 'Whisper',
+        'openai' => 'OpenAI',
+        _ => key,
+      };
+
+  // Color por estado: ok/live verde, stale/error rojo, never gris.
+  Color _semaColor(String status) => switch (status) {
+        'ok' || 'live' => AdminColors.teal,
+        'stale' || 'error' => AdminColors.red,
+        _ => AdminColors.gray,
+      };
+
+  Widget _semaphoresView(AppLocalizations l) {
+    final df = DateFormat('dd/MM/yyyy HH:mm');
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, left: 4),
+            child: Text(l.t('adm_sema_intro'),
+                style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+          ),
+          if (_semaphores.isEmpty)
+            Padding(padding: const EdgeInsets.all(24),
+                child: Center(child: Text(l.t('adm_audit_none'))))
+          else
+            Container(
+              decoration: adminCardBox(),
+              child: Column(children: [
+                for (var i = 0; i < _semaphores.length; i++) ...[
+                  if (i > 0)
+                    const Divider(height: 1, color: AdminColors.hairline),
+                  _semaRow(l, _semaphores[i], df),
+                ],
+              ]),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _semaRow(AppLocalizations l, Map<String, dynamic> s, DateFormat df) {
+    final key = (s['key'] as String?) ?? '—';
+    final status = (s['status'] as String?) ?? 'never';
+    final at = DateTime.tryParse((s['at'] as String?) ?? '');
+    final color = _semaColor(status);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      child: Row(
+        children: [
+          Container(
+              width: 9, height: 9,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_semaLabel(l, key),
+                    style: const TextStyle(fontSize: 13, color: AdminColors.text)),
+                Text(
+                  at != null
+                      ? l.t('adm_sema_last', {'d': df.format(at)})
+                      : l.t('adm_sema_nodata'),
+                  style: const TextStyle(fontSize: 10.5, color: AdminColors.muted),
+                ),
+              ],
+            ),
+          ),
+          AdminTag(l.t('adm_sema_st_$status'),
+              fg: color, bg: color.withValues(alpha: .16)),
         ],
       ),
     );

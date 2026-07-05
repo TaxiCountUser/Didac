@@ -535,6 +535,15 @@ class DataService {
     return body;
   }
 
+  /// Estado (log) de todos los semáforos de la plataforma (solo admin).
+  Future<List<Map<String, dynamic>>> adminSemaphores() async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/semaphores'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['semaphores'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
   /// Resumen de todas las empresas (solo admin).
   Future<Map<String, dynamic>> adminOverview() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/overview'), headers: _bearer);

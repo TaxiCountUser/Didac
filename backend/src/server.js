@@ -2387,6 +2387,51 @@ export async function buildApp(options = {}) {
     return reply.send({ logs: data ?? [], total: count ?? (data ?? []).length, limit, offset });
   });
 
+  // Estado (log) de TODOS los semáforos de la plataforma, para el apartado de
+  // Auditoría del panel de admin. Lee system_config (cron_last_* y svc_*) y
+  // devuelve, por cada semáforo, su último resultado y cuándo fue. Estados:
+  //   ok     verde (cron reciente <48h, o servicio cuya última llamada fue OK)
+  //   stale  rojo  (cron sin ejecutarse hace >=48h)
+  //   error  rojo  (servicio cuya última llamada falló)
+  //   never  gris  (aún sin datos)
+  //   live   verde (API: si respondemos, está viva)
+  app.get('/api/v1/admin/semaphores', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const cfg = {};
+    for (const pat of ['cron_last_%', 'svc_%']) {
+      const { data: rows } = await supabase.from('system_config')
+        .select('key, value').like('key', pat);
+      for (const r of rows ?? []) cfg[r.key] = r.value;
+    }
+    const now = Date.now();
+    const FRESH_MS = 48 * 60 * 60 * 1000;
+
+    const cronSema = (key) => {
+      const at = cfg[`cron_last_${key}`] || null;
+      if (!at) return { key, kind: 'cron', ok: false, at: null, status: 'never' };
+      const stale = now - new Date(at).getTime() > FRESH_MS;
+      return { key, kind: 'cron', ok: !stale, at, status: stale ? 'stale' : 'ok' };
+    };
+    const svcSema = (key) => {
+      const raw = cfg[`svc_${key}`];
+      if (!raw) return { key, kind: 'service', ok: true, at: null, status: 'never' };
+      const [st, at] = String(raw).split('|');
+      const err = st === 'err';
+      return { key, kind: 'service', ok: !err, at: at || null, status: err ? 'error' : 'ok' };
+    };
+
+    const semaphores = [
+      { key: 'api', kind: 'live', ok: true, at: new Date().toISOString(), status: 'live' },
+      cronSema('challenge_credits'),
+      cronSema('referral_validations'),
+      cronSema('backup'),
+      svcSema('whisper'),
+      svcSema('openai'),
+    ];
+    return reply.send({ semaphores });
+  });
+
   // Admin: revisar un reto. Loop #4: la recompensa individual (mes gratis por
   // claim) está DESACTIVADA — los días gratis se reparten trimestralmente por %
   // de flota (cron). 'reject' sigue activo como control de FRAUDE: un claim
