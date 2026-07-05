@@ -216,6 +216,70 @@ diari 01:00 UTC + ping al backend), `deploy-web.yml` (GitHub Pages a cada push),
   Actions; avís d'actualització in-app via GitHub Releases (`update_service.dart`).
 - **Cost estimat:** ~88 €/mes.
 
+## 14. Base de dades: configuració i esquema
+
+### 14.1 Configuració (stack Supabase)
+Definida a `docker-compose.yml` (dev) i replicada a **Supabase Cloud** (prod) via les 60 migracions.
+
+| Component | Imatge / detall | Port | Funció |
+|---|---|---|---|
+| **Postgres** | `supabase/postgres:15.1.0.147` | 5432 (127.0.0.1) | motor + RLS + RPCs |
+| **GoTrue (Auth)** | `v2.151.0` | 9999 (intern) | JWT HS256, exp 3600s, autoconfirm en dev; `service_role` = rol admin |
+| **PostgREST** | — | intern | API REST sobre Postgres, respecta RLS amb el JWT |
+| **Kong (Gateway)** | `2.8.1` | 54321 | exposa `/auth/v1` i `/rest/v1`; plugins cors/key-auth/acl |
+| **Realtime** | `v2.30.34` (perfil opcional) | — | publica `transactions` a `supabase_realtime` |
+
+**Xifres de l'esquema:** 60 migracions · **27 taules** · **~24 RPC** `public.*` · **53 polítiques RLS** · 2 triggers.
+
+**Disseny de claus foranes:** totes les taules de negoci porten `tenant_id` amb
+`ON DELETE CASCADE` (o `SET NULL` per a l'admin i per a `user_id`/`vehicle_id` en
+`transactions`, per conservar l'històric) i `ON UPDATE CASCADE` (permet re-mapejar
+l'id del perfil a l'id real d'`auth.users`).
+
+### 14.2 Model de dades (27 taules per domini)
+
+**Núcleo multi-tenant:**
+- `tenants` — empresa. Base: `id, name`. Estès: `subscription_status, trial_ends_at,
+  plan_id, drivers_limit, stripe_customer_id, stripe_subscription_id, solo, join_code, closed_at`.
+- `users` — perfil (mirall d'`auth.users`). `tenant_id` (FK, **`ON DELETE SET NULL`**
+  des de mig. 053 perquè l'admin sobrevisqui a l'esborrat de la seva empresa), `email,
+  role (owner/driver), name, username, is_admin, active, has_completed_onboarding,
+  must_change_password, legal_accepted_version, referral_code, avatar_url`.
+- `vehicles` (`license_plate, model`, soft-delete) · `vehicle_licenses` (llicència
+  separada, visible només per l'owner) · `driver_vehicles` (assignació conductor↔vehicle).
+- `transactions` — el registre econòmic: `tenant_id, user_id, vehicle_id, amount,
+  type (income/expense), category, payment_method, description, origin, destination,
+  odometer_km, client_name, hidden`.
+
+**Jornada i lectures:** `odometer_readings` · `driver_locations` · `app_usage_days` (dies actius per a reptes).
+
+**Facturació i gamificació:** `subscription_extensions` (dies/mes gratis atorgats) ·
+`challenge_claims` (reptes assolits) · `monthly_savings` i `fleet_quarterly_metrics` (històric/obsolet Loop#4).
+
+**Referits:** `referrals` · `referral_codes` · `referral_shares` ·
+`referral_milestone_rewards` · `referral_validation_queue` (cua dels 15 dies) · `referral_fraud_alerts`.
+
+**Suport i moderació:** `incidents` · `incident_messages` · `error_reports` · `fraud_alerts`.
+
+**Plataforma / infra:** `system_config` (config en calent + estat dels semàfors
+`cron_last_*` i `svc_*`) · `admin_actions_log` (auditoria) · `cron_execution_logs` · `device_tokens` (FCM).
+
+### 14.3 Seguretat a la BD (RLS + RPCs)
+- **53 polítiques RLS:** aïllament estricte per `tenant_id`; el driver només veu les
+  seves `transactions`, l'owner tota la flota; els drivers **no** llegeixen `vehicles`;
+  l'escriptura de `transactions` exigeix subscripció activa.
+- **Helpers `SECURITY DEFINER`** (eviten la recursió a les polítiques):
+  `current_tenant_id()`, `current_role_name()`, `is_platform_admin()`, `current_subscription_active()`.
+- **RPCs de negoci** (24): `create_owner_company`, `create_solo_company`,
+  `join_fleet_with_code`, `set_solo_mode`, `accept_legal`, `mark_password_changed`,
+  `owner_set_driver_name`, `set_vehicle_license`, `generate_referral_code` /
+  `set_referral_code` / `set_my_referrer`, `challenge_stats` / `challenge_stats_tenant`,
+  `email_for_username` (login per nom d'usuari), `purge_expired_retention` (purga fiscal),
+  `cleanup_old_incidents`.
+- **Trigger clau:** `handle_new_auth_user` sobre `auth.users` — un owner nou crea el seu
+  tenant; un driver amb `tenant_id` a la metadata s'uneix a la flota. És el pont entre
+  l'autenticació (GoTrue) i el model de dades (`public.users`).
+
 ---
 
 ## Resum en una línia
