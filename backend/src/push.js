@@ -59,15 +59,18 @@ async function getMessaging() {
  */
 export async function sendToTokens(tokens, { title, body, data } = {}, log) {
   const list = [...new Set((tokens || []).filter(Boolean))];
-  if (list.length === 0) return { sent: 0, failed: 0, invalidTokens: [] };
+  // attempted: hubo un envío real a FCM (para el semáforo de admin).
+  // ok: la llamada a FCM funcionó (credenciales/red bien), al margen de que
+  // algún token concreto sea inválido.
+  if (list.length === 0) return { sent: 0, failed: 0, invalidTokens: [], attempted: false, ok: true };
   let messaging;
   try {
     messaging = await getMessaging();
   } catch (e) {
     log?.warn?.(`[push] no se pudo inicializar FCM: ${e.message}`);
-    return { sent: 0, failed: 0, invalidTokens: [] };
+    return { sent: 0, failed: 0, invalidTokens: [], attempted: true, ok: false };
   }
-  if (!messaging) return { sent: 0, failed: 0, invalidTokens: [] };
+  if (!messaging) return { sent: 0, failed: 0, invalidTokens: [], attempted: false, ok: true };
 
   const message = {
     notification: { title: title || 'TaxiCount', body: body || '' },
@@ -86,9 +89,9 @@ export async function sendToTokens(tokens, { title, body, data } = {}, log) {
         invalidTokens.push(list[i]);
       }
     });
-    return { sent: res.successCount, failed: res.failureCount, invalidTokens };
+    return { sent: res.successCount, failed: res.failureCount, invalidTokens, attempted: true, ok: true };
   } catch (e) {
     log?.error?.(`[push] envío FCM falló: ${e.message}`);
-    return { sent: 0, failed: 0, invalidTokens: [] };
+    return { sent: 0, failed: 0, invalidTokens: [], attempted: true, ok: false };
   }
 }

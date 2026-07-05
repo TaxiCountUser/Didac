@@ -310,8 +310,10 @@ class _SecurityTabState extends State<SecurityTab> {
         'challenge_credits' => l.t('adm_sema_credits'),
         'referral_validations' => l.t('adm_sema_referrals'),
         'backup' => l.t('adm_sema_backup'),
+        'stripe' => 'Stripe',
         'whisper' => 'Whisper',
         'openai' => 'OpenAI',
+        'push' => l.t('adm_sema_push'),
         _ => key,
       };
 

@@ -1745,6 +1745,7 @@ export async function buildApp(options = {}) {
       { title, body: text, data: { type: 'incident', incidentId: inc.id } },
       request.log,
     );
+    if (result.attempted) markService('push', result.ok);
 
     if (result.invalidTokens.length > 0) {
       await supabase.from('device_tokens').delete().in('token', result.invalidTokens);
@@ -2426,8 +2427,10 @@ export async function buildApp(options = {}) {
       cronSema('challenge_credits'),
       cronSema('referral_validations'),
       cronSema('backup'),
+      svcSema('stripe'),
       svcSema('whisper'),
       svcSema('openai'),
+      svcSema('push'),
     ];
     return reply.send({ semaphores });
   });
@@ -3093,6 +3096,7 @@ export async function buildApp(options = {}) {
     const tokens = (toks || []).map((t) => t.token);
     if (!tokens.length) return;
     const result = await sendToTokens(tokens, { title, body, data }, app.log);
+    if (result.attempted) markService('push', result.ok);
     if (result.invalidTokens.length) {
       await supabase.from('device_tokens').delete().in('token', result.invalidTokens);
     }
@@ -3313,7 +3317,9 @@ export async function buildApp(options = {}) {
     let event;
     try {
       event = stripe.webhooks.constructEvent(request.rawBody, sig, STRIPE_WEBHOOK_SECRET);
+      markService('stripe', true); // firma verificada: la integración recibe eventos
     } catch (e) {
+      markService('stripe', false); // secret incorrecto o payload manipulado
       return reply.code(400).send({ error: `Firma de webhook inválida: ${e.message}` });
     }
 
