@@ -1,7 +1,9 @@
 # TaxiCount — Informe técnico consolidado
 
-> Análisis de arquitectura de software. Fecha: 2026-07-05. Ámbito: monorepo completo
-> (frontend Flutter, backend Fastify, base de datos Supabase, CI/CD).
+> **Documento vivo y único** de arquitectura del proyecto (unifica el antiguo
+> `ARQUITECTURA.md`). Debe actualizarse con cada cambio relevante en el código.
+> Última actualización: 2026-07-05. Ámbito: monorepo completo (frontend Flutter,
+> backend Fastify, base de datos Supabase, CI/CD).
 
 ---
 
@@ -234,6 +236,65 @@ crons externos se autentican con `x-cron-secret`.
 - **Observabilidad real** (9 semáforos) poco habitual en un SaaS de este tamaño.
 - CI/CD reproducible con versionado automático de APK y auto-update in-app.
 - Cumplimiento legal integrado (retención fiscal, RGPD, aceptación de términos).
+
+---
+
+## Anexo A — Configuración y esquema de base de datos (detalle)
+
+### A.1 Configuración (stack Supabase)
+Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) vía las 60 migraciones.
+
+| Componente | Imagen / detalle | Puerto | Función |
+|---|---|---|---|
+| **Postgres** | `supabase/postgres:15.1.0.147` | 5432 (127.0.0.1) | motor + RLS + RPCs |
+| **GoTrue (Auth)** | `v2.151.0` | 9999 (interno) | JWT HS256, exp 3600s, autoconfirm en dev; `service_role` = rol admin |
+| **PostgREST** | — | interno | API REST sobre Postgres, respeta RLS con el JWT |
+| **Kong (Gateway)** | `2.8.1` | 54321 | expone `/auth/v1` y `/rest/v1`; plugins cors/key-auth/acl |
+| **Realtime** | `v2.30.34` (perfil opcional) | — | publica `transactions` en `supabase_realtime` |
+
+**Cifras del esquema:** 60 migraciones · **27 tablas** · **~24 RPCs** `public.*` · **53 políticas RLS** · 2 triggers.
+
+**Diseño de claves foráneas:** todas las tablas de negocio llevan `tenant_id` con
+`ON DELETE CASCADE` (o `SET NULL` para el admin y para `user_id`/`vehicle_id` en
+`transactions`, para conservar el histórico) y `ON UPDATE CASCADE` (permite remapear el
+id del perfil al id real de `auth.users`).
+
+### A.2 Modelo de datos (27 tablas por dominio)
+- **Núcleo multi-tenant:**
+  - `tenants` — empresa. Base: `id, name`. Extendida: `subscription_status, trial_ends_at,
+    plan_id, drivers_limit, stripe_customer_id, stripe_subscription_id, solo, join_code, closed_at`.
+  - `users` — perfil (espejo de `auth.users`). `tenant_id` (FK **`ON DELETE SET NULL`** desde
+    mig. 053 para que el admin sobreviva al borrado de su empresa), `email, role (owner/driver),
+    name, username, is_admin, active, has_completed_onboarding, must_change_password,
+    legal_accepted_version, referral_code, avatar_url`.
+  - `vehicles` (`license_plate, model`, soft-delete) · `vehicle_licenses` (licencia separada,
+    visible solo para el owner) · `driver_vehicles` (asignación conductor↔vehículo).
+  - `transactions` — el registro económico: `tenant_id, user_id, vehicle_id, amount,
+    type (income/expense), category, payment_method, description, origin, destination,
+    odometer_km, client_name, hidden`.
+- **Jornada y lecturas:** `odometer_readings` · `driver_locations` · `app_usage_days` (días activos para retos).
+- **Facturación/gamificación:** `subscription_extensions` (días/mes gratis) · `challenge_claims` ·
+  `monthly_savings` y `fleet_quarterly_metrics` (histórico/obsoleto Loop#4).
+- **Referidos:** `referrals` · `referral_codes` · `referral_shares` · `referral_milestone_rewards` ·
+  `referral_validation_queue` (cola de los 15 días) · `referral_fraud_alerts`.
+- **Soporte y moderación:** `incidents` · `incident_messages` · `error_reports` · `fraud_alerts`.
+- **Plataforma / infra:** `system_config` (config en caliente + estado de semáforos
+  `cron_last_*` y `svc_*`) · `admin_actions_log` (auditoría) · `cron_execution_logs` · `device_tokens` (FCM).
+
+### A.3 Seguridad en la BD (RLS + RPCs)
+- **53 políticas RLS:** aislamiento estricto por `tenant_id`; el driver solo ve sus
+  `transactions`, el owner toda la flota; los drivers **no** leen `vehicles`; la escritura
+  de `transactions` exige suscripción activa.
+- **Helpers `SECURITY DEFINER`** (evitan la recursión en las políticas):
+  `current_tenant_id()`, `current_role_name()`, `is_platform_admin()`, `current_subscription_active()`.
+- **RPCs de negocio** (24): `create_owner_company`, `create_solo_company`, `join_fleet_with_code`,
+  `set_solo_mode`, `accept_legal`, `mark_password_changed`, `owner_set_driver_name`,
+  `set_vehicle_license`, `generate_referral_code`/`set_referral_code`/`set_my_referrer`,
+  `challenge_stats`/`challenge_stats_tenant`, `email_for_username` (login por nombre de usuario),
+  `purge_expired_retention` (purga fiscal), `cleanup_old_incidents`.
+- **Trigger clave:** `handle_new_auth_user` sobre `auth.users` — un owner nuevo crea su tenant;
+  un driver con `tenant_id` en la metadata se une a la flota. Es el puente entre la
+  autenticación (GoTrue) y el modelo de datos (`public.users`).
 
 ---
 
