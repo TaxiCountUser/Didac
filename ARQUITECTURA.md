@@ -12,11 +12,11 @@ vehicles, i tot això sota un model de **subscripció Stripe** amb període de p
 gamificació (reptes) i programa de referits.
 
 - **Frontend:** Flutter (web sobre GitHub Pages + Android APK/Play Store).
-- **Backend:** Node.js + **Fastify** (un únic `server.js` de ~3.435 línies) + mòduls auxiliars.
+- **Backend:** Node.js + **Fastify** (un únic `server.js` de ~3.500 línies) + mòduls auxiliars.
 - **Base de dades / Auth:** Supabase (Postgres amb **RLS**, GoTrue JWT, funcions
   `SECURITY DEFINER`), 60 migracions SQL.
 - **Pagaments:** Stripe (subscripcions, webhooks, portal de facturació).
-- **IA:** OpenAI Whisper (transcripció de veu) + parser determinista.
+- **IA:** OpenAI/Groq Whisper (transcripció de veu) + parser LLM opcional + parser determinista.
 - **Infra prod:** backend a **Render**, base de dades a **Supabase Cloud**, web a **GitHub Pages**.
 
 ---
@@ -33,67 +33,60 @@ L'`auth_gate.dart` és el porter que decideix quina pantalla veu cada usuari.
 | **Solo (autònom)** | `SoloHomeScreen` | Owner + driver a la vegada: un sol usuari gestiona el seu propi taxi. |
 
 **Portes intermèdies** que l'`auth_gate` intercala abans d'arribar a la home:
-- `LoginScreen` si no hi ha sessió.
-- `ChangePasswordScreen` si `must_change_password` (conductor acabat de crear).
-- `LegalAcceptScreen` per acceptar termes/privacitat (retenció legal).
-- `TutorialScreen` (tutorial inicial).
-- `ChoosePathScreen` (triar si ets flota o autònom).
-- `NoFleetScreen` si l'usuari va quedar sense empresa.
-- `SubscriptionGateScreen` si cal contractar/renovar.
+`LoginScreen` (sense sessió) · `ChangePasswordScreen` (`must_change_password`) ·
+`LegalAcceptScreen` (termes/privacitat) · `TutorialScreen` · `ChoosePathScreen`
+(flota o autònom) · `NoFleetScreen` (sense empresa) · `SubscriptionGateScreen`
+(contractar/renovar) · `MaintenanceBanner` (mode manteniment global).
 
 ---
 
 ## 3. Funcionalitats del CONDUCTOR (Driver)
 
-1. **Registre de transaccions** (`transaction_input_screen.dart`): import gran, chips
-   de categoria, toggle ingrés/despesa, mètode de pagament, descripció.
+1. **Registre de transaccions** (`transaction_input_screen.dart`): import gran,
+   chips de categoria, toggle ingrés/despesa, mètode de pagament, descripció.
 2. **Entrada per veu** (`voice_input_screen.dart`): grava àudio → backend
-   `POST /api/v1/transcribe` (Whisper) → **parser determinista** (`parser.js`,
-   precisió 55/55 = 100%) → pantalla de preview editable → confirma. Amb caché per
-   usuari, límit diari (150) i timeout amb reintent.
-3. **Historial** (`driver_transactions_screen.dart`): llista paginada (scroll
-   infinit, selector mes/any), detall/edició/esborrat de les pròpies (protegit per RLS).
-4. **Reptes propis** (`driver_challenges_screen.dart`): veu els seus reptes de
-   km/ingressos i el progrés.
+   `POST /api/v1/transcribe` (Whisper) → parser determinista (`parser.js`, 55/55 =
+   100%) + parser LLM opcional (`llm_parser.js`, millor en català) → preview editable
+   → confirma. Caché per usuari, límit diari (150) i timeout amb reintent.
+3. **Historial** (`driver_transactions_screen.dart`): llista paginada, selector
+   mes/any, detall/edició/esborrat de les pròpies (protegit per RLS).
+4. **Reptes propis** (`driver_challenges_screen.dart`): reptes de km/ingressos i progrés.
 5. **Suport / incidències** (`incidents_screen.dart` + `incident_chat_screen.dart`):
    xat amb l'admin de plataforma.
 6. **Informar d'un error** (`error-reports`): report tècnic a l'equip.
-7. **Configuració** (`settings_screen.dart`): canvi de nom d'usuari visible, canvi de
-   contrasenya, idioma.
+7. **Configuració** (`settings_screen.dart`): nom d'usuari visible, contrasenya, idioma.
 
 ## 4. Funcionalitats del OWNER (jefe de flota)
 
 1. **Dashboard de flota** (`owner_dashboard_screen.dart`): KPIs
    (ingressos/despeses/balanç), gràfic de despeses per categoria (`fl_chart`), llista
-   de tota la flota, filtres combinables (període Hoy/Semana/Mes/Personalitzat,
-   conductor, vehicle) i **sincronització en temps real** (`supabase.channel`, un
-   INSERT apareix a l'instant amb SnackBar).
+   de tota la flota, filtres combinables (període, conductor, vehicle) i **temps real**
+   (`supabase.channel`, un INSERT apareix a l'instant amb SnackBar).
 2. **Gestió de conductors** (`drivers_screen.dart`): invitar (`POST /api/v1/drivers`,
    verifica el límit del pla), editar, eliminar.
 3. **Gestió de vehicles** (`vehicles_screen.dart` + `vehicle_detail_screen.dart`):
    alta/edició/baixa (soft-delete), matrícula (taula separada, visible només per
    l'owner), quilometratge inicial, ITV/taxímetre.
-4. **Exportació d'informes** (`reports.js`): Excel (`exceljs`, una pestanya per
-   conductor + consolidat) i PDF (`pdfmake`), respectant els filtres del dashboard.
-5. **Subscripció** (`subscription_screen.dart`): pla actual, canvi de pla, portal de
-   facturació Stripe, i **targetes de dies gratis** (reptes + referits).
-6. **Reptes** i **Referits** (veure secció 6).
+4. **Exportació d'informes** (`reports.js`): Excel (`exceljs`, pestanya per conductor +
+   consolidat) i PDF (`pdfmake`), respectant els filtres.
+5. **Subscripció** (`subscription_screen.dart`): pla actual, canvi de pla, portal
+   Stripe, i **targetes de dies gratis** (reptes + referits).
+6. **Reptes** i **Referits** (secció 6).
 7. **Suport** i **configuració** com el conductor.
 
 ## 5. Model de negoci: Subscripció Stripe
 
-- **Plans** (Price IDs per entorn): Starter (≤2 conductors), Pro (≤10), Business (il·limitat).
+- **Plans** (Price IDs per entorn): Starter (≤2 conductors), Pro (≤10), Business
+  (il·limitat); model per **seient** (seat).
 - **Checkout:** `POST /api/v1/create-checkout-session`. **Portal:** `POST /api/v1/create-portal-session`.
 - **Webhook** `POST /webhooks/stripe`: verifica la firma sobre el `rawBody`, processa
   `checkout.session.completed`, `customer.subscription.updated|deleted`,
-  `invoice.paid|payment_failed`.
-- **Període de prova:** els tenants neixen en `trialing`; `trial_ends_at` controla els
-  dies restants.
+  `invoice.paid|payment_failed` (`billing.js` → `applyStripeEvent`).
+- **Període de prova:** els tenants neixen en `trialing`; `trial_ends_at` controla els dies.
 - **Bloqueig per impagament:** les polítiques RLS d'escriptura de `transactions`
-  exigeixen subscripció activa. Si no, el conductor veu "Operació bloquejada" i l'owner
-  un banner. La **lectura** mai es bloqueja.
-- **Sincronització d'asients:** el nombre d'items de la subscripció Stripe es
-  sincronitza amb el nombre de conductors.
+  exigeixen subscripció activa. La **lectura** mai es bloqueja.
+- **Sincronització d'asients:** els items de la subscripció Stripe se sincronitzen amb
+  el nombre de conductors.
 
 ## 6. Gamificació i creixement
 
@@ -101,73 +94,121 @@ L'`auth_gate.dart` és el porter que decideix quina pantalla veu cada usuari.
 - Reptes de **km**, **dies actius** i **ingressos**, configurables des del panell
   d'admin (base + nivells + multiplicador + cicle).
 - **Recompensa = mes gratis** (extensió de la subscripció, +30 dies via
-  `extendTenantTrial`), **NO crèdit de Stripe**.
-- **Regla clau:** la recompensa **NO s'atorga durant el període de prova** — queda
-  diferida (`deferred`) fins que el tenant paga; el cron la reintenta. Gestionat per
-  `applyPendingChallengeCredits()` amb la garantia `tenantIsPaying()`.
+  `extendTenantTrial`), **per al conductor que assoleix el repte** (el seu seient).
+  NO és crèdit de Stripe.
+- **Regla:** la recompensa **NO s'atorga durant el període de prova** — queda diferida
+  (`deferred`) fins que el tenant paga; el cron la reintenta
+  (`applyPendingChallengeCredits()` + `tenantIsPaying()`).
 
 ### Referits ("Invita y Gana", `referral_screen.dart`)
 - Programa per **hitos/milestones**: segons el nombre d'empreses/autònoms convidats,
-  l'owner referenciador guanya **dies gratis** a la seva subscripció activa.
-- **Porta de validació de 15 dies:** el convidat ha de fer el pagament i mantenir la
-  subscripció 15 dies; si no la cancel·la, aleshores el referenciador rep els dies.
-  Gestionat per `processReferralValidationQueue()` (cron) +
-  `recomputeReferrerMilestones()` (només si el referenciador paga).
+  el referenciador guanya **dies gratis** a la subscripció de **tota la seva empresa**.
+- **Porta de validació de 15 dies:** el convidat ha de pagar i mantenir la subscripció
+  15 dies; si no la cancel·la, aleshores el referenciador rep els dies
+  (`processReferralValidationQueue()` cron + `recomputeReferrerMilestones()`, només si paga).
 - Endpoints: `/referrals/code`, `/share`, `/validate`, `/progress`, `/history`.
 
 ## 7. Panell d'ADMIN de plataforma (redisseny "N" — dark/elèctric)
 
-Redisseny complet (2026-07-04) amb tema fosc `AdminColors`, `adminDarkTheme()`,
-diàlegs forçats a fosc (`showAdminDialog`), i wrapper d'amplada màxima
-`adminConstrained` (720px, centrat) per a PC/web.
+Tema fosc `AdminColors` + `adminDarkTheme()`, diàlegs forçats a fosc
+(`showAdminDialog`), i wrapper d'amplada màxima `adminConstrained` (720px, centrat)
+per a PC/web. Portada amb amplada limitada, semàfors en píndoles, targetes de mòdul
+equilibrades (icona a dalt, text a baix) i KPIs 2×2 d'alçada fixa.
 
 Mòduls:
-- **Portada** (`admin_home_screen.dart`): centre de control amb KPIs, safata de feina
-  (incidències obertes, errors) i mòduls en targetes; semàfors de salut de crons.
+- **Portada** (`admin_home_screen.dart`): centre de control (anell de salut + 4 KPIs),
+  safata de feina (pendents de tots els mòduls amb acció directa), mòduls en targetes,
+  i la **fila de semàfors** (secció 8).
 - **Empreses** (`admin_companies_screen.dart` + `admin_company_detail_screen.dart`):
-  llista amb **buscador global** (empresa/email/matrícula, resolt al backend) i filtres
-  (totes/pagant/prova/risc); fitxa per editar període de prova, conductors i vehicles.
+  llista amb **buscador global** (empresa/email/matrícula) i filtres
+  (totes/pagant/prova/risc); fitxa per editar prova, conductors i vehicles.
 - **Facturació** (`admin_billing_screen.dart`): MRR, ARPU, churn, cancel·lats,
   impagats, proves, i **dies gratis repartits** (reptes + referits).
-- **Reptes** (mòdul dins `admin_screen.dart`): config editable de tots els reptes i
-  nivells, KPIs (completats aquest mes, tasa de frau), **evolució diària** (gràfic de 30 barres).
-- **Referits** (`admin_referrals_tab.dart`): funnel (pendents/vàlids/rebutjats),
-  referenciadors diferents, gestió/bloqueig.
-- **Seguretat/Auditoria** (`admin_security_tab.dart`): registre d'accions amb noms
-  clars (`aud_*`); es registren updates de company/vehicle/user, deletes, etc.
-- **Suport** (`tickets_screen.dart` + `admin_incident_chat_screen.dart`): xat de tickets redissenyat.
+- **Reptes**: config editable de tots els reptes/nivells, KPIs (completats aquest mes,
+  tasa de frau), **evolució diària** (gràfic de 30 barres).
+- **Referits** (`admin_referrals_tab.dart`): funnel (pendents/vàlids/rebutjats).
+- **Seguretat/Auditoria** (`admin_security_tab.dart`): 3 pestanyes — **Alertes de frau**,
+  **Auditoria** (log d'accions admin amb noms clars `aud_*`) i **Semàfors** (secció 8).
+- **Suport** (`tickets_screen.dart` + `admin_incident_chat_screen.dart`): xat de tickets.
 - **Errors** (`admin/error-reports`): reports tècnics dels usuaris.
-- **Config** (`admin_config_tab.dart`): editar tots els reptes/nivells + configuracions
-  generals + **mode de manteniment** (banner amber a tota l'app via
-  `maintenance_banner.dart`). Els canvis s'apliquen **en calent** (llegits a
-  `system_config` a cada operació).
+- **Config** (`admin_config_tab.dart`): editar reptes/nivells + config general +
+  **mode de manteniment** (banner a tota l'app). Els canvis s'apliquen **en calent**
+  (llegits a `system_config` a cada operació).
 
-## 8. Crons (schedulers externs, autenticats amb `x-cron-secret`)
+## 8. Monitorització i semàfors del dashboard
+
+El panell d'admin vigila **9 senyals** de salut, tots derivats de `system_config` o de
+sondes en viu. Es mostren a la **portada** (fila de píndoles: punt de color + etiqueta)
+i, amb detall i marca de temps, a la pestanya **Semàfors** d'Auditoria
+(`GET /api/v1/admin/semaphores`).
+
+| Semàfor | Font | 🟢 Verd | 🟡 Àmbar | 🔴 Vermell |
+|---|---|---|---|---|
+| **API** | backend viu | sempre (si carrega) | — | — |
+| **BD (Supabase)** | `probeDb()` latència | <800 ms | ≥800 ms (lent) | la sonda falla |
+| **CRONS** | `cron_last_*` | executats <48h | — | >48h |
+| **BACKUP** | `cron_last_backup` | backup <48h | — | >48h / mai |
+| **STRIPE** | webhook `/webhooks/stripe` | firma verificada | — | firma invàlida (secret dolent) |
+| **WHISPER** | `/transcribe` | última crida OK | — | última crida va fallar |
+| **OPENAI** | `parseSmart`→`llmParse` | última crida OK | — | última crida va fallar |
+| **PUSH (FCM)** | `sendToTokens` | última crida OK | — | credencials/FCM fallen |
+| **Purga retenció** | `cron_last_purge_retention` | informatiu (log) | — | — |
+
+**Mecanismes:**
+- `markCronRun(name)` → escriu `cron_last_<name>` (crons + backup). Semàntica de
+  **frescor**: vermell si fa >48h (o mai). El backup avisa via
+  `POST /api/v1/admin/cron/backup-done` des del workflow.
+- `markService(name, ok)` → escriu `svc_<name>` = `ok|<iso>` o `err|<iso>`
+  (whisper/openai/stripe/push). *Fire-and-forget*. Semàntica de **darrer resultat**:
+  verd per defecte, vermell **només si l'última crida real va fallar** (la inactivitat
+  no dona fals vermell).
+- `probeDb()` → sonda de latència de Supabase en viu (a `/overview` i `/semaphores`);
+  detecta **degradació** abans de la caiguda total.
+
+## 9. Crons (schedulers externs, autenticats amb `x-cron-secret`)
 - `POST /api/v1/admin/cron/apply-challenge-credits` — aplica recompenses de reptes diferides.
 - `POST /api/v1/admin/cron/process-referral-validations` — processa la cua de validació
   de referits (15 dies).
-- `POST /api/v1/admin/cron/purge-retention` — purga dades segons retenció fiscal (5 anys).
+- `POST /api/v1/admin/cron/backup-done` — marca el backup diari com a fet (el crida el workflow).
+- `POST /api/v1/admin/cron/purge-retention` — purga fiscal: elimina definitivament les
+  empreses **tancades fa >5 anys** (RPC `purge_expired_retention`, mig. 044). Compleix el
+  dret a l'oblit del RGPD sense infringir la retenció fiscal. No està programat (anual).
 
-## 9. Seguretat i compliment
+Workflows: `cron-rewards.yml` (recompenses, diari 03:00 UTC), `backup-db.yml` (backup
+diari 01:00 UTC + ping al backend), `deploy-web.yml` (GitHub Pages a cada push),
+`build-apk.yml` (APK/AAB manual, versió automàtica + Release + `version.json`),
+`ci.yml` (lint/test).
+
+## 10. Seguretat i compliment
 - **RLS estricta** per `tenant_id`; helpers `SECURITY DEFINER` (`current_tenant_id()`,
   `current_role_name()`) per evitar recursió.
-- **service_role mai al codi d'app** (només backend).
+- **service_role mai al codi d'app** (només backend); mai claus secretes de Stripe al codi.
+- Defensa en profunditat: hook `preHandler` que exigeix admin a TOTA ruta `/admin/*`.
 - Auditoria OWASP sense HIGH/CRITICAL (Fastify 5); Sentry guardat per DSN.
-- **Retenció fiscal de 5 anys** (mig. 044), acceptació legal (043), lockdown de
-  columnes de `users` (040 — fix d'escalada de privilegis).
+- **Retenció fiscal 5 anys** (mig. 044), acceptació legal (043), lockdown de columnes de
+  `users` (040 — fix d'escalada de privilegis), `admin_actions_log` per a auditoria.
 - Admin de plataforma **independent de l'empresa** (esborrar la teva empresa no esborra
   el teu compte admin).
 
-## 10. Stack tècnic (dependències clau)
+## 11. Stack tècnic (dependències clau)
 - **Backend:** `fastify`, `@supabase/supabase-js`, `stripe`, `openai`, `exceljs`,
   `pdfmake`, `firebase-admin` (push FCM), `@sentry/node`.
-- **Frontend:** `supabase_flutter`, `http`, `record` (veu), `fl_chart`, `geolocator`
-  (localitzar vehicle), `image_picker`/`file_picker`, `firebase_messaging`,
-  `google_sign_in`, `share_plus`, `url_launcher`.
+- **Frontend:** `supabase_flutter`, `http`, `record` (veu), `fl_chart`, `geolocator`,
+  `image_picker`/`file_picker`, `firebase_messaging`, `google_sign_in`, `share_plus`,
+  `url_launcher`, `package_info_plus` (avís d'actualització).
 - **i18n:** sistema propi (`app_localizations.dart`) amb es/en/ca via
-  `context.l10n.t('key', {args})`.
+  `context.l10n.t('key', {args})` (fallback a la clau si falta).
 
-## 11. Infraestructura i desplegament
+## 12. Tests
+- **CI (`npm run test:ci`):** unitaris purs sense Docker — `health`, parser (76/76 =
+  100%), `importer`, `billing_logic` (lògica de webhook sense BD). Sempre verd al CI.
+- **Integració (`npm test`):** requereix el stack local (Docker: db + kong :54321) —
+  `webhook`, `billing_endpoints`, `excel`, `pdf`. Sense Docker **s'ometen netament**
+  (helper `tests/unit/_stack.js`, sonda + skip amb exit 0) en comptes de fallar.
+- **Flutter:** widget tests + integració (Dart pur headless per seguretat RLS, voz,
+  dashboard, subscripció, reports, e2e).
+
+## 13. Infraestructura i desplegament
 - **Web:** GitHub Actions → GitHub Pages (amb reintent per l'error transitori de Pages).
 - **Backend:** Render (`taxicount-backend.onrender.com`).
 - **BD:** Supabase Cloud + scripts de backup (`backup-db.ps1`) i disaster recovery.
@@ -178,8 +219,8 @@ Mòduls:
 ---
 
 ## Resum en una línia
-TaxiCount és un SaaS multi-tenant complet per a flotes de taxi: registre econòmic
-manual i per veu, dashboards en temps real, informes fiscals, subscripció Stripe amb
-prova, gamificació (reptes → mes gratis) i referits (→ dies gratis, amb validació de
-15 dies), tot sobre Flutter + Fastify + Supabase, amb un panell d'admin de plataforma
-redissenyat i separat.
+TaxiCount és un SaaS multi-tenant complet per a flotes de taxi: registre econòmic manual
+i per veu, dashboards en temps real, informes fiscals, subscripció Stripe amb prova,
+gamificació (reptes → mes gratis per conductor) i referits (→ dies gratis per a tota
+l'empresa, amb validació de 15 dies), tot sobre Flutter + Fastify + Supabase, amb un
+panell d'admin de plataforma redissenyat, separat i amb 9 semàfors de monitorització.
