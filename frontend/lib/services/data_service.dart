@@ -994,8 +994,8 @@ class DataService {
         '*, users:user_id(name, email), vehicles:vehicle_id(license_plate, model)');
     if (userId != null) query = query.eq('user_id', userId);
     if (vehicleId != null) query = query.eq('vehicle_id', vehicleId);
-    if (from != null) query = query.gte('created_at', from.toIso8601String());
-    if (to != null) query = query.lt('created_at', to.toIso8601String());
+    if (from != null) query = query.gte('created_at', from.toUtc().toIso8601String());
+    if (to != null) query = query.lt('created_at', to.toUtc().toIso8601String());
     if (client != null && client.isNotEmpty) {
       query = query.ilike('client_name', '%$client%');
     }
@@ -1054,8 +1054,8 @@ class DataService {
     var query = _c.from('transactions').select('amount, type, category');
     if (userId != null) query = query.eq('user_id', userId);
     if (vehicleId != null) query = query.eq('vehicle_id', vehicleId);
-    if (from != null) query = query.gte('created_at', from.toIso8601String());
-    if (to != null) query = query.lt('created_at', to.toIso8601String());
+    if (from != null) query = query.gte('created_at', from.toUtc().toIso8601String());
+    if (to != null) query = query.lt('created_at', to.toUtc().toIso8601String());
     if (client != null && client.isNotEmpty) {
       query = query.ilike('client_name', '%$client%');
     }
@@ -1100,8 +1100,8 @@ class DataService {
     var tq = _c.from('transactions').select('amount, type, payment_method, created_at');
     if (userId != null) tq = tq.eq('user_id', userId);
     final txRows = (await tq
-            .gte('created_at', from.toIso8601String())
-            .lt('created_at', to.toIso8601String()) as List)
+            .gte('created_at', from.toUtc().toIso8601String())
+            .lt('created_at', to.toUtc().toIso8601String()) as List)
         .cast<Map<String, dynamic>>();
 
     double income = 0, expense = 0;
@@ -1111,7 +1111,8 @@ class DataService {
     final dayLast = <String, DateTime>{};
     void mark(DateTime? ts) {
       if (ts == null) return;
-      final k = '${ts.year}-${ts.month}-${ts.day}';
+      final lt = ts.toLocal(); // agrupa por día natural LOCAL, no UTC
+      final k = '${lt.year}-${lt.month}-${lt.day}';
       if (!dayFirst.containsKey(k) || ts.isBefore(dayFirst[k]!)) dayFirst[k] = ts;
       if (!dayLast.containsKey(k) || ts.isAfter(dayLast[k]!)) dayLast[k] = ts;
     }
@@ -1131,8 +1132,8 @@ class DataService {
     var oq = _c.from('odometer_readings').select('user_id, vehicle_id, reading_km, taken_at');
     if (userId != null) oq = oq.eq('user_id', userId);
     final odoRows = (await oq
-            .gte('taken_at', from.toIso8601String())
-            .lt('taken_at', to.add(const Duration(days: 30)).toIso8601String())
+            .gte('taken_at', from.toUtc().toIso8601String())
+            .lt('taken_at', to.add(const Duration(days: 30)).toUtc().toIso8601String())
             .order('taken_at', ascending: true) as List)
         .cast<Map<String, dynamic>>();
 
@@ -1348,8 +1349,8 @@ class DataService {
       Uri.parse('$backendUrl/api/v1/reports/$format'),
       headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
       body: jsonEncode({
-        'startDate': from?.toIso8601String(),
-        'endDate': to?.toIso8601String(),
+        'startDate': from?.toUtc().toIso8601String(),
+        'endDate': to?.toUtc().toIso8601String(),
         'driverId': driverId,
         'vehicleId': vehicleId,
         if (clients != null && clients.isNotEmpty) 'clients': clients,
@@ -1380,8 +1381,8 @@ class DataService {
     var q = _c.from('transactions').select('amount, type, created_at');
     if (driverId != null) q = q.eq('user_id', driverId);
     if (vehicleId != null) q = q.eq('vehicle_id', vehicleId);
-    if (from != null) q = q.gte('created_at', from.toIso8601String());
-    if (to != null) q = q.lt('created_at', to.toIso8601String());
+    if (from != null) q = q.gte('created_at', from.toUtc().toIso8601String());
+    if (to != null) q = q.lt('created_at', to.toUtc().toIso8601String());
     final data = await q.order('created_at').limit(10000);
     return (data as List).cast<Map<String, dynamic>>();
   }
@@ -1398,14 +1399,14 @@ class DataService {
     var q1 = _c.from('odometer_readings').select('vehicle_id, reading_km, taken_at');
     if (driverId != null) q1 = q1.eq('user_id', driverId);
     if (vehicleId != null) q1 = q1.eq('vehicle_id', vehicleId);
-    if (to != null) q1 = q1.lt('taken_at', to.toIso8601String());
+    if (to != null) q1 = q1.lt('taken_at', to.toUtc().toIso8601String());
     final r1 = await q1.limit(20000);
 
     var q2 = _c.from('transactions').select('vehicle_id, odometer_km, created_at')
         .not('odometer_km', 'is', null);
     if (driverId != null) q2 = q2.eq('user_id', driverId);
     if (vehicleId != null) q2 = q2.eq('vehicle_id', vehicleId);
-    if (to != null) q2 = q2.lt('created_at', to.toIso8601String());
+    if (to != null) q2 = q2.lt('created_at', to.toUtc().toIso8601String());
     final r2 = await q2.limit(20000);
 
     final out = <Map<String, dynamic>>[];
