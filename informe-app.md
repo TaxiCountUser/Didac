@@ -205,10 +205,16 @@ crons externos se autentican con `x-cron-secret`.
    (`routes/admin.js`, `routes/billing.js`, `routes/transcribe.js`, `routes/referrals.js`)
    y una capa de servicios. El monolito funciona, pero el coste de cambio y el riesgo de
    regresión crecen con cada feature. Es la deuda técnica más rentable de pagar.
-2. **Cobertura de tests de la lógica crítica de webhooks.** Hoy los tests de integración
-   (webhook/billing_endpoints/excel/pdf) dependen de Docker y se omiten sin él; solo
-   `billing_logic.test.js` (unit puro) cubre el webhook. Conviene un *mock* del cliente
-   Supabase para probar el handler `/webhooks/stripe` sin stack, en CI.
+2. ✅ **Cobertura de tests de la lógica crítica de webhooks — RESUELTO (2026-07-08).**
+   Nuevo job de CI `test-backend-integration` (ci.yml) que levanta el stack Supabase con
+   docker compose y ejecuta de verdad webhook/billing_endpoints/excel/pdf. Con
+   `CI_REQUIRE_STACK=1`, un stack caído es fallo, no skip.
+
+> **Plan de transición MVP → producción (2026-07-08):** hoja de ruta de 3 meses aprobada
+> (Mes 1 estabilización/observabilidad · Mes 2 Strangler-Fig de billing · Mes 3 BD/caché).
+> Tickets accionables del Mes 1 en [docs/plan-produccion/mes-1-tickets.md](docs/plan-produccion/mes-1-tickets.md).
+> Índices de escala en migración 061 (pendiente de ejecutar en Supabase Cloud).
+> Decisión: NO migrar a AWS por ahora (managed hasta ~100k conductores).
 
 ### 6.2 Prioridad media
 3. **Reconsiderar la i18n propia.** El mapa único en `app_localizations.dart` es pragmático

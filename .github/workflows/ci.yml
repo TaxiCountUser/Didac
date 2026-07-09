@@ -35,9 +35,47 @@ jobs:
           node-version: 20
       - run: npm install
       # CI sin infraestructura: health + parser. Los tests que requieren el
-      # stack Supabase vivo (webhook, billing, excel, pdf) y los de integración
-      # Dart se ejecutan en local con `docker compose up` (ver docs/README.md).
+      # stack Supabase vivo (webhook, billing, excel, pdf) corren en el job
+      # test-backend-integration (con docker compose).
       - run: npm run test:ci
+
+  # Tests de INTEGRACIÓN con el stack Supabase real (docker compose): el camino
+  # del dinero (webhook de Stripe + endpoints de billing) y los informes.
+  # CI_REQUIRE_STACK=1 hace que un stack caído sea FALLO, no skip: este job
+  # nunca puede "pasar" sin haber testeado de verdad.
+  test-backend-integration:
+    runs-on: ubuntu-latest
+    needs: lint-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Levantar stack Supabase (db + auth + rest + kong + migraciones)
+        run: |
+          docker compose up -d db auth rest kong db-init
+          # Espera a que db-init termine de aplicar migraciones + seed.
+          docker compose wait db-init
+          # Espera a que kong responda (cualquier HTTP != 000 vale).
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:54321/rest/v1/ || true)
+            [ "$code" != "000" ] && echo "kong responde ($code)" && break
+            sleep 2
+          done
+      - run: npm install
+        working-directory: backend
+      - name: Tests de integración (webhook + billing + excel + pdf)
+        working-directory: backend
+        env:
+          CI_REQUIRE_STACK: "1"
+        run: |
+          node tests/unit/webhook.test.js
+          node tests/unit/billing_endpoints.test.js
+          node tests/unit/excel.test.js
+          node tests/unit/pdf.test.js
+      - name: Logs del stack si algo falló
+        if: failure()
+        run: docker compose logs --tail 80 db auth rest kong db-init
 
   # --- Seguridad: secretos, SAST y dependencias (OSV) ---
   secrets-scan:

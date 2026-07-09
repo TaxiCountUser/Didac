@@ -27,12 +27,21 @@ export async function stackReachable(sb) {
 
 // Omite el test con un mensaje claro y termina con éxito (0). Cierra la app si
 // se pasa (para no dejar el puerto/handles abiertos).
+// EXCEPCIÓN: con CI_REQUIRE_STACK=1 (job de integración en CI), un stack caído
+// es un FALLO, no un skip — así el CI nunca "pasa" sin haber testeado el dinero.
 export async function skipNoStack(name, app) {
+  try { if (app) await app.close(); } catch { /* best-effort */ }
+  if (process.env.CI_REQUIRE_STACK === '1') {
+    console.error(
+      `✗ ${name}: el stack de Supabase no responde y CI_REQUIRE_STACK=1 — ` +
+      `este job exige ejecutar los tests de integración de verdad.`,
+    );
+    process.exit(1);
+  }
   console.log(
     `⚠ ${name}: OMITIDO — el stack local de Supabase (db/kong en :54321) no ` +
     `responde. Levántalo con "docker compose up -d" para ejecutar este test de ` +
     `integración. (El CI usa test:ci y no lo necesita.)`,
   );
-  try { if (app) await app.close(); } catch { /* best-effort */ }
   process.exit(0);
 }
