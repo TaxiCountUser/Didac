@@ -10,7 +10,7 @@
 ## Semana 1 — Salir de Free + ver lo que pasa
 
 - [x] **T1. Supabase → plan Pro** — *HECHO (2026-07-10)*.
-- [ ] **T2. Pooler de conexiones (Supavisor)** *(~20 min)* — **re-alcance
+- [x] **T2. Pooler de conexiones (Supavisor)** — *HECHO (2026-07-10)* *(~20 min)* — **re-alcance
   (2026-07-10)**: auditado el código, el backend solo usa supabase-js (REST,
   pool interno de Supabase) → **no hay nada que cambiar en Render**. Lo que sí:
   apuntar el secret `SUPABASE_DB_URL` (backup diario) al **Session pooler** y
@@ -20,7 +20,7 @@
   `render.yaml` tiene `plan: starter`, `healthCheckPath: /health` y
   `autoDeploy: true`. Render solo enruta tráfico a instancias sanas → deploy
   roto no recibe tráfico (cero-downtime básico).
-- [ ] **T4. Alertas de Sentry** *(~1 h)*
+- [x] **T4. Alertas de Sentry** — *HECHO (2026-07-10: sentry:true + 2 alertas)* *(~1 h)*
   Sentry ya está integrado (guardado por DSN). Configurar en el panel de Sentry:
   alerta por **pico de error-rate** (backend y Flutter web) y por **primer error
   nuevo** → email/Slack. Sin alertas, Sentry es un cementerio de errores.
@@ -70,7 +70,7 @@
 - [ ] **T12. Runbook de incidentes** *(~2 h)*
   docs/runbook.md: por cada semáforo, qué significa el rojo, primer comando a
   ejecutar, cómo escalar. 1 página. Se escribe una vez, se agradece siempre.
-- [ ] **T13. UptimeRobot (o Better Stack) sobre /health** *(~15 min, gratis)*
+- [x] **T13. UptimeRobot (o Better Stack) sobre /health** *(~15 min, gratis)*
   Chequeo externo cada 1-5 min + página de estado. Si Render entero se cae,
   ningún cron interno te va a avisar.
 

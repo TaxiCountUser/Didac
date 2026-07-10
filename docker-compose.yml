@@ -40,6 +40,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+      # Primer arranque (initdb + scripts de la imagen supabase, que REINICIAN
+      # postgres a mitad): en runners fríos de CI puede tardar; los fallos del
+      # healthcheck durante este periodo no cuentan para "unhealthy".
+      start_period: 60s
 
   auth:
     image: supabase/gotrue:v2.151.0

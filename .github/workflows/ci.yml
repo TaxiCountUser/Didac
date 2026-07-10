@@ -53,7 +53,19 @@ jobs:
           node-version: 20
       - name: Levantar stack Supabase (db + auth + rest + kong + migraciones)
         run: |
-          docker compose up -d db auth rest kong db-init
+          # El compose necesita las claves demo (kong key-auth, gotrue, rest):
+          # mismo primer paso que documenta el README para el arranque local.
+          cp .env.example .env
+          # Arranque escalonado con diagnóstico: primero la BD sola (su primer
+          # arranque reinicia postgres a mitad de la init y es lo más lento).
+          docker compose up -d db
+          for i in $(seq 1 60); do
+            docker compose exec -T db pg_isready -U postgres -d postgres && break
+            [ "$i" = "60" ] && echo "::error::La BD no llegó a estar lista" \
+              && docker compose logs --tail 120 db && exit 1
+            sleep 3
+          done
+          docker compose up -d auth rest kong db-init
           # Espera a que db-init termine de aplicar migraciones + seed.
           docker compose wait db-init
           # Espera a que kong responda (cualquier HTTP != 000 vale).
