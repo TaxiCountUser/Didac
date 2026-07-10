@@ -59,6 +59,7 @@ La arquitectura es sólida y está bien alineada con su stack.
   - `openai` — Whisper (transcripción) y parser LLM (compatible OpenAI/Groq).
   - `exceljs` / `pdfmake` — generación de informes.
   - `firebase-admin` — envío de push FCM.
+  - `@logtail/pino` — transporte de logs a Better Stack (activo solo con `LOGTAIL_SOURCE_TOKEN`; los Log Streams nativos de Render requieren plan Professional).
   - `@sentry/node` — monitorización de errores (activada por DSN).
   - `@fastify/cors`, `@fastify/multipart`.
 

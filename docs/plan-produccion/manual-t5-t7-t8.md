@@ -5,29 +5,35 @@
 
 ---
 
-## T5 — Logs con retención (Render → Better Stack) · ~30 min
+## T5 — Logs con retención (app → Better Stack) · ~15 min
 
 ### Para qué
 Poder responder "¿qué pasó ayer a las 8:03?" sin estar mirando la consola en
-ese momento. Render solo retiene los logs recientes; un *log stream* los manda
-a Better Stack (Logtail), que los guarda y los hace buscables.
+ese momento.
 
-### Pasos
+### ⚠️ Cambio de plan (2026-07-11)
+Los **Log Streams nativos de Render exigen workspace Professional** (19 $/us/mes);
+el workspace es Hobby y no aparece el menú. Solución implementada en código:
+el backend envía los logs **directamente** a Better Stack con un transporte de
+pino (`@logtail/pino`). Se activa solo si existe la env var
+`LOGTAIL_SOURCE_TOKEN`; sin ella, todo sigue como siempre (stdout). Los logs
+siguen viéndose también en la consola de Render.
 
-1. Cuenta gratis en [betterstack.com](https://betterstack.com) (vale el mismo
-   equipo/email compartido que Sentry). Producto: **Telemetry → Logs**.
-2. **Sources → Connect source** → busca **Render** (o "syslog") → te da un
-   **host** (p. ej. `in.logs.betterstack.com`), un **puerto** (6514, TLS) y un
-   **source token**. Déjalo abierto.
-3. **Render** → (menú de tu workspace, no del servicio) → **Settings →
-   Log Streams → Add log stream**:
-   - Endpoint: `host:puerto` del paso 2.
-   - Token: el source token.
-   - Save.
-4. **Verifica**: abre la app web (genera tráfico) → en Better Stack → **Live tail**
-   deben aparecer las líneas JSON de Fastify (pino) en menos de 1 min.
-5. (Opcional, 10 min) En Better Stack crea una **alerta** sobre el patrón
-   `"level":50` (errores de pino) → email. Complementa a Sentry.
+### Pasos (solo panel, sin código)
+
+1. Cuenta gratis en [betterstack.com](https://betterstack.com) (mismo email
+   compartido que Sentry). Producto: **Telemetry → Logs**.
+2. **Sources → Connect source** → plataforma **"Node.js / Pino"** (o JavaScript)
+   → te da un **source token** y un **ingesting host**
+   (p. ej. `sXXXX.eu-nbg-2.betterstackdata.com`).
+3. **Render** → servicio `taxicount-backend` → **Environment** → añade:
+   - `LOGTAIL_SOURCE_TOKEN` = el source token.
+   - `LOGTAIL_INGESTING_HOST` = el ingesting host (sin `https://`).
+   - Save → redeploy automático (~2 min).
+4. **Verifica**: abre la app web (genera tráfico) → Better Stack → **Live tail**
+   → deben aparecer las líneas JSON de Fastify en <1 min.
+5. (Opcional, 10 min) Alerta en Better Stack sobre `"level":50` (errores de
+   pino) → email. Complementa a Sentry.
 
 **Hecho cuando:** ves logs del backend en Live tail y sabes buscar por texto/fecha.
 

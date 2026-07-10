@@ -250,8 +250,31 @@ async function parseSmart(text, { language, log, markService } = {}) {
  * @param {(input:{buffer?:Buffer,filename?:string,mockText?:string})=>Promise<{text:string,confidence:number}>} [options.transcribe]
  *        Permite inyectar un transcriptor (mock) en tests.
  */
+// Logger (T5): en tests, silencio. Si hay LOGTAIL_SOURCE_TOKEN (Better Stack),
+// los logs van a stdout (consola de Render, como siempre) Y a Better Stack
+// (retención + búsqueda). Sin token, stdout y ya está. Nota: los Log Streams
+// nativos de Render exigen workspace Professional; este transporte de pino
+// hace lo mismo gratis desde la app.
+function loggerConfig() {
+  if (process.env.NODE_ENV === 'test') return false;
+  const token = (process.env.LOGTAIL_SOURCE_TOKEN || '').trim();
+  if (!token) return true;
+  const host = (process.env.LOGTAIL_INGESTING_HOST || 'in.logs.betterstack.com').trim();
+  return {
+    transport: {
+      targets: [
+        { target: 'pino/file', options: { destination: 1 } }, // stdout (Render)
+        {
+          target: '@logtail/pino',
+          options: { sourceToken: token, options: { endpoint: `https://${host}` } },
+        },
+      ],
+    },
+  };
+}
+
 export async function buildApp(options = {}) {
-  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
+  const app = Fastify({ logger: loggerConfig() });
 
   // Sentry (Fase 6): solo si hay DSN configurado. En tests no se carga.
   if (SENTRY_DSN) {
