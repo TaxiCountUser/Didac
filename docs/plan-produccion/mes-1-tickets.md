@@ -38,7 +38,7 @@
   `app_usage_days(tenant_id, day)` (cron de retos) y
   `odometer_readings(user_id, taken_at)` (cierre de jornada del conductor).
   **Ejecutada en Supabase Cloud el 2026-07-10.** ✅
-- [ ] **T7. Simulacro de restauración** *(~2 h, el ticket más importante del mes)*
+- [x] **T7. Simulacro de restauración** — *HECHO y AUTOMATIZADO (2026-07-11)*: workflow "Simulacro de restauración" (mensual + manual) que restaura el último backup en un Postgres limpio y verifica los datos. Primer run en verde: 28 tablas, 13 tenants, 17 users, 365 transactions restauradas en 1 s. Manual del ensayo trimestral sobre Supabase real en [manual-t5-t7-t8.md](manual-t5-t7-t8.md).
   Un backup sin restore probado NO es un backup. Con el workflow diario
   (backup-db.yml) ya en marcha: descargar el último dump → restaurarlo en un
   proyecto Supabase vacío (o docker local) → smoke test contra él. Documentar
