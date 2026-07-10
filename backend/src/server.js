@@ -1052,6 +1052,8 @@ export async function buildApp(options = {}) {
       const [status, at] = String(r.value || '').split('|');
       services[r.key.replace('svc_', '')] = { ok: status !== 'err', at: at || null };
     }
+    // Push sin configurar = apagado a propósito, no avería (ignora errores viejos).
+    if (!pushEnabled()) services.push = { ok: true, at: null, off: true };
     const cronStale = ['challenge_credits', 'referral_validations'].some((k) => {
       const v = crons[k];
       return !v || now - new Date(v).getTime() > 2 * dayMs;
@@ -2447,6 +2449,13 @@ export async function buildApp(options = {}) {
     const purgeSema = { key: 'purge_retention', kind: 'cron_rare', ok: true,
       at: purgeAt, status: purgeAt ? 'ok' : 'never' };
 
+    // Push: si FCM NO está configurado (sin service account), el semáforo es
+    // "off" (gris, sin alerta): apagado a propósito no es una avería. Un error
+    // antiguo registrado en svc_push tampoco debe alertar en ese caso.
+    const pushSema = pushEnabled()
+      ? svcSema('push')
+      : { key: 'push', kind: 'service', ok: true, at: null, status: 'off' };
+
     const db = await probeDb();
     return [
       { key: 'api', kind: 'live', ok: true, at: new Date().toISOString(), status: 'live' },
@@ -2458,7 +2467,7 @@ export async function buildApp(options = {}) {
       svcSema('stripe'),
       svcSema('whisper'),
       svcSema('openai'),
-      svcSema('push'),
+      pushSema,
     ];
   }
 

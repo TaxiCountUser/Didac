@@ -319,7 +319,8 @@ class _SecurityTabState extends State<SecurityTab> {
         _ => key,
       };
 
-  // Color por estado: ok/live verde, slow ámbar, stale/error rojo, never gris.
+  // Color por estado: ok/live verde, slow ámbar, stale/error rojo,
+  // never/off gris (sin datos / apagado a propósito).
   Color _semaColor(String status) => switch (status) {
         'ok' || 'live' => AdminColors.teal,
         'slow' => AdminColors.amber,
