@@ -46,7 +46,7 @@
 
 ## Semana 3 — Load test: encontrar el límite ANTES que los clientes
 
-- [ ] **T8. Load test con k6** *(~4 h)*
+- [ ] **T8. Load test con k6** *(~2 h, PREPARADO)* — guía con los 3 perfiles listos y tabla de resultados en [load-test-t8.md](load-test-t8.md); solo falta ejecutarlos (staging desechable, NO prod).
   Ya existen escenarios en `tests/load/test_scenarios.js`. Ejecutarlos contra
   **staging/producción actual** con perfiles de 100 / 500 / 1.000 conductores
   virtuales (login + insert + dashboard). Anotar: p95 por endpoint, CPU de la
@@ -62,12 +62,12 @@
 - [x] **T10. Semáforos de plataforma** — *ya existente*: 9 semáforos (API, BD
   con latencia, crons, backup, Stripe, Whisper, OpenAI, Push) en el panel de
   admin + log en Auditoría.
-- [ ] **T11. Notificación externa cuando un semáforo pase a rojo** *(~3 h)*
+- [x] **T11. Notificación externa cuando un semáforo pase a rojo** — *entregado (2026-07-10)*: endpoint GET /admin/cron/semaphores (x-cron-secret) + workflow "Vigía de semáforos" cada 15 min; si algo está stale/error el run FALLA y GitHub avisa por email.
   Los semáforos hoy hay que MIRARLOS. Añadir al backend un chequeo (cron cada
   15 min vía GitHub Actions, mismo patrón que cron-rewards.yml) que llame a
   `/api/v1/admin/semaphores` con el cron-secret y mande email/Telegram si algo
   está `stale`/`error`. Un semáforo rojo a las 3:00 debe despertar a alguien.
-- [ ] **T12. Runbook de incidentes** *(~2 h)*
+- [x] **T12. Runbook de incidentes** — *entregado (2026-07-10)*: [docs/runbook.md](../runbook.md), 1 página por semáforo con primeros pasos y escalada.
   docs/runbook.md: por cada semáforo, qué significa el rojo, primer comando a
   ejecutar, cómo escalar. 1 página. Se escribe una vez, se agradece siempre.
 - [x] **T13. UptimeRobot (o Better Stack) sobre /health** *(~15 min, gratis)*

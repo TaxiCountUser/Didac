@@ -2415,9 +2415,9 @@ export async function buildApp(options = {}) {
   //   error  rojo  (servicio cuya última llamada falló)
   //   never  gris  (aún sin datos)
   //   live   verde (API: si respondemos, está viva)
-  app.get('/api/v1/admin/semaphores', async (request, reply) => {
-    const g = await adminGuard(request);
-    if (g.error) return reply.code(g.code).send({ error: g.error });
+  // Calcula el estado de todos los semáforos (compartido por el endpoint de
+  // admin y el del vigía externo).
+  async function computeSemaphores() {
     const cfg = {};
     for (const pat of ['cron_last_%', 'svc_%']) {
       const { data: rows } = await supabase.from('system_config')
@@ -2448,7 +2448,7 @@ export async function buildApp(options = {}) {
       at: purgeAt, status: purgeAt ? 'ok' : 'never' };
 
     const db = await probeDb();
-    const semaphores = [
+    return [
       { key: 'api', kind: 'live', ok: true, at: new Date().toISOString(), status: 'live' },
       { key: 'database', kind: 'db', ok: db.ok, at: db.at, status: db.status, latency_ms: db.latency_ms },
       cronSema('challenge_credits'),
@@ -2460,7 +2460,27 @@ export async function buildApp(options = {}) {
       svcSema('openai'),
       svcSema('push'),
     ];
-    return reply.send({ semaphores });
+  }
+
+  app.get('/api/v1/admin/semaphores', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    return reply.send({ semaphores: await computeSemaphores() });
+  });
+
+  // Vigía externo (T11): igual que el anterior pero accesible con x-cron-secret
+  // (va bajo /admin/cron/ para la excepción del preHandler). Lo consulta el
+  // workflow "Vigía de semáforos" cada 15 min; si algo está stale/error, el
+  // workflow FALLA y GitHub avisa por email. Solo estado de plataforma, sin
+  // datos de clientes.
+  app.get('/api/v1/admin/cron/semaphores', async (request, reply) => {
+    const g = await cronOrAdmin(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const semaphores = await computeSemaphores();
+    // "never" no alerta: es un semáforo aún sin datos (p. ej. recién desplegado),
+    // no una avería. stale/error sí.
+    const red = semaphores.filter((s) => s.status === 'stale' || s.status === 'error');
+    return reply.send({ ok: red.length === 0, red: red.map((s) => s.key), semaphores });
   });
 
   // Admin: revisar un reto. Loop #4: la recompensa individual (mes gratis por

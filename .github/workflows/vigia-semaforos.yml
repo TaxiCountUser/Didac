@@ -1,0 +1,46 @@
+name: Vigía de semáforos
+
+# T11 (Mes 1): vigila los semáforos de la plataforma desde FUERA cada 15 min.
+# Llama a GET /api/v1/admin/cron/semaphores con x-cron-secret; si algún
+# semáforo está en rojo (stale/error), el job FALLA a propósito -> GitHub
+# envía email de "workflow failed". Sin servicios nuevos ni más secretos.
+#
+# - "never" (sin datos aún) NO alerta: es un semáforo recién estrenado.
+# - Si el backend no responde, también falla (aunque eso ya lo cubre
+#   UptimeRobot, aquí es defensa en profundidad).
+# - Secrets (ya existen de cron-rewards.yml): PROD_BACKEND_URL, CRON_SECRET.
+#
+# Silencio = todo verde. Un email = algo que mirar (ver docs/runbook.md).
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *' # cada 15 min (desfasado de :00/:30)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  vigia:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar semáforos
+        run: |
+          if [ -z "${{ secrets.PROD_BACKEND_URL }}" ] || [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::Faltan los secrets PROD_BACKEND_URL o CRON_SECRET."
+            exit 1
+          fi
+          body=$(curl -sS --max-time 60 \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.PROD_BACKEND_URL }}/api/v1/admin/cron/semaphores") || {
+              echo "::error::El backend no responde (¿Render caído?)."
+              exit 1
+            }
+          echo "$body" | jq .
+          ok=$(echo "$body" | jq -r '.ok // false')
+          if [ "$ok" != "true" ]; then
+            red=$(echo "$body" | jq -r '.red | join(", ")')
+            echo "::error::SEMÁFOROS EN ROJO: ${red}. Consulta docs/runbook.md."
+            exit 1
+          fi
+          echo "Todos los semáforos en verde."
