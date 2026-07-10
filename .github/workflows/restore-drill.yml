@@ -1,0 +1,113 @@
+name: Simulacro de restauración
+
+# T7 (Mes 1): demuestra que el backup diario SE PUEDE RESTAURAR de verdad.
+# Un backup sin restore probado no es un backup. Este workflow:
+#   1. Descarga el último artefacto del workflow "Backup diario de la BD".
+#   2. Levanta un Postgres 17 limpio y restaura el dump (pg_restore).
+#   3. Smoke test: cuenta tablas y filas de tenants/users/transactions.
+#      Falla si faltan datos -> el vigía humano se entera por email.
+#
+# Se ejecuta a mano (Run workflow) y solo el día 1 de cada mes (simulacro
+# mensual). El resumen queda en la pestaña Summary del run.
+#
+# Nota: el dump es SOLO del esquema public (como el backup real). Las
+# políticas RLS referencian auth.* y roles de Supabase; aquí se crean stubs
+# mínimos para que restauren. En una restauración real sobre un proyecto
+# Supabase nuevo, ese esquema ya existe (ver docs/disaster-recovery.md).
+
+on:
+  schedule:
+    - cron: '43 2 1 * *' # día 1 de cada mes, 02:43 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: read # para descargar el artefacto del workflow de backup
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Descargar el último backup
+        run: |
+          run_id=$(gh run list --workflow=backup-db.yml --status success --limit 1 \
+            --json databaseId -q '.[0].databaseId')
+          [ -n "$run_id" ] || { echo "::error::No hay ningún backup con éxito."; exit 1; }
+          echo "Backup del run $run_id"
+          gh run download "$run_id" --dir backup
+          dump=$(find backup -name '*.dump' | head -1)
+          [ -n "$dump" ] || { echo "::error::El artefacto no contiene ningún .dump"; exit 1; }
+          ls -lh "$dump"
+          echo "DUMP=$dump" >> "$GITHUB_ENV"
+
+      - name: Levantar Postgres 17 limpio
+        run: |
+          docker run -d --name pg -e POSTGRES_PASSWORD=postgres postgres:17
+          for i in $(seq 1 30); do
+            docker exec pg pg_isready -U postgres >/dev/null 2>&1 && break
+            [ "$i" = "30" ] && { echo "::error::Postgres no arranca"; exit 1; }
+            sleep 2
+          done
+
+      - name: Restaurar el dump
+        run: |
+          start=$(date +%s)
+          # Stubs mínimos de Supabase (schema auth + roles) para que las
+          # políticas RLS del dump restauren sin el stack completo.
+          docker exec pg psql -U postgres -v ON_ERROR_STOP=0 -c "
+            CREATE SCHEMA IF NOT EXISTS auth;
+            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+              LANGUAGE sql STABLE AS 'SELECT NULL::uuid';
+            CREATE OR REPLACE FUNCTION auth.role() RETURNS text
+              LANGUAGE sql STABLE AS 'SELECT NULL::text';
+            CREATE ROLE anon NOLOGIN;
+            CREATE ROLE authenticated NOLOGIN;
+            CREATE ROLE service_role NOLOGIN;"
+          docker cp "$DUMP" pg:/tmp/backup.dump
+          # Tolerante a avisos (grants/comentarios): el veredicto lo dan los
+          # recuentos del paso siguiente, no el exit code de pg_restore.
+          docker exec pg pg_restore -U postgres -d postgres \
+            --no-owner --no-privileges /tmp/backup.dump 2>&1 | tail -20 || true
+          echo "RESTORE_SECS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+
+      - name: Verificar datos restaurados (smoke test)
+        run: |
+          q() { docker exec pg psql -U postgres -tAc "$1" 2>/dev/null || echo "ERR"; }
+          tables=$(q "select count(*) from information_schema.tables where table_schema='public'")
+          tenants=$(q "select count(*) from public.tenants")
+          users=$(q "select count(*) from public.users")
+          tx=$(q "select count(*) from public.transactions")
+          rpcs=$(q "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'")
+
+          {
+            echo "## 🧯 Simulacro de restauración"
+            echo ""
+            echo "| Métrica | Valor |"
+            echo "|---|---|"
+            echo "| Duración del restore | ${RESTORE_SECS}s |"
+            echo "| Tablas en public | $tables |"
+            echo "| Filas en tenants | $tenants |"
+            echo "| Filas en users | $users |"
+            echo "| Filas en transactions | $tx |"
+            echo "| Funciones/RPCs | $rpcs |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "tablas=$tables tenants=$tenants users=$users transactions=$tx rpcs=$rpcs (en ${RESTORE_SECS}s)"
+
+          fail=0
+          if [ "$tables" = "ERR" ] || [ "$tables" -lt 20 ]; then
+            echo "::error::Muy pocas tablas restauradas ($tables)"; fail=1
+          fi
+          if [ "$tenants" = "ERR" ] || [ "$tenants" -lt 1 ]; then
+            echo "::error::tenants vacío ($tenants)"; fail=1
+          fi
+          if [ "$users" = "ERR" ] || [ "$users" -lt 1 ]; then
+            echo "::error::users vacío ($users)"; fail=1
+          fi
+          if [ "$tx" = "ERR" ]; then
+            echo "::error::transactions no existe"; fail=1
+          fi
+          exit $fail
