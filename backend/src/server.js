@@ -336,6 +336,9 @@ export async function buildApp(options = {}) {
     } catch (e) {
       // URL o clave inválidas: no tumbamos el servidor, solo deshabilitamos
       // Supabase (los endpoints que lo necesiten responderán 500 claro).
+      // console además del logger: en tests el logger está desactivado y este
+      // fallo quedaba invisible (app.supabase null sin explicación).
+      console.error(`[supabase] createClient falló: ${e.message}`);
       app.log.error(`Supabase deshabilitado (config inválida): ${e.message}`);
     }
   }

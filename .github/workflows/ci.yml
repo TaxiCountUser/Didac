@@ -76,6 +76,22 @@ jobs:
           done
       - run: npm install
         working-directory: backend
+      - name: Diagnóstico del entorno de test
+        working-directory: backend
+        run: |
+          echo "node: $(node --version)"
+          npm ls @supabase/supabase-js || true
+          # ¿Las vars llegan vacías al proceso? ¿createClient funciona aquí?
+          node --input-type=module -e "
+            console.log('SUPABASE_URL en env:', JSON.stringify(process.env.SUPABASE_URL ?? null));
+            console.log('SERVICE_ROLE_KEY len:', (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').length);
+            const { createClient } = await import('@supabase/supabase-js');
+            try {
+              const c = createClient('http://localhost:54321', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UtZGVtbyIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoyMDAwMDAwMDAwfQ.8T3kmJ5SaqY3bVmU02ZJ4MIoHe5z7R4qQ4T9VqJA8hk');
+              const { error } = await c.from('tenants').select('id').limit(1);
+              console.log('createClient OK; consulta:', error ? ('ERROR ' + error.message) : 'OK');
+            } catch (e) { console.log('createClient LANZÓ:', e.message); }
+          "
       - name: Tests de integración (webhook + billing + excel + pdf)
         working-directory: backend
         env:
