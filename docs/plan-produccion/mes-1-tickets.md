@@ -24,7 +24,7 @@
   Sentry ya está integrado (guardado por DSN). Configurar en el panel de Sentry:
   alerta por **pico de error-rate** (backend y Flutter web) y por **primer error
   nuevo** → email/Slack. Sin alertas, Sentry es un cementerio de errores.
-- [ ] **T5. Logs estructurados con retención** *(~2 h)*
+- [x] **T5. Logs estructurados con retención** — *HECHO (2026-07-11)*: transporte pino → Better Stack (@logtail/pino, activo con LOGTAIL_SOURCE_TOKEN en Render); verificado en Live tail con logs JSON reales. Los Log Streams nativos de Render exigían plan Professional; esta vía es gratis.
   Fastify ya usa pino. Añadir **log drain** de Render a Better Stack (Logtail,
   tier gratis) para retener y buscar logs. Regla mínima: poder responder "¿qué
   pasó ayer a las 8:03?" sin SSH.
