@@ -101,7 +101,7 @@ jobs:
             --dart-define=BACKEND_URL=${{ secrets.PROD_BACKEND_URL }} \
             --dart-define=STRIPE_PRICE_SEAT_MONTHLY=${{ secrets.PROD_STRIPE_PRICE_SEAT_MONTHLY }} \
             --dart-define=STRIPE_PRICE_SEAT_YEARLY=${{ secrets.PROD_STRIPE_PRICE_SEAT_YEARLY }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: taxicount-apk-${{ github.ref_name }}
           path: frontend/build/app/outputs/flutter-apk/app-release.apk

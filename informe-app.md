@@ -187,7 +187,7 @@ Alimentados por `system_config` y sondas en vivo; visibles en portada y en la pe
 | **Stripe** | Suscripciones, portal, webhooks | backend (`billing.js`, `/webhooks/stripe`) | semáforo **STRIPE** (firma) |
 | **OpenAI / Groq** | Whisper (voz) + parser LLM | backend (`/transcribe`, `llm_parser.js`) | semáforos **WHISPER** / **OPENAI** |
 | **Firebase (FCM)** | Notificaciones push | backend (`push.js`, `firebase-admin`) | semáforo **PUSH** |
-| **Sentry** | Errores backend/frontend | activado por DSN | — |
+| **Sentry** | Errores (solo backend; el frontend no lo lleva) | activado por `SENTRY_DSN` — verificado 2026-07-10: **aún sin configurar en prod** (`/health` → `sentry:false`); alta pendiente en T4 | — |
 | **GitHub Actions** | CI/CD, crons, backup diario | workflows | semáforos **CRONS** / **BACKUP** |
 | **Render** | Hosting del backend | despliegue | semáforo **API** |
 | **GitHub Pages / Releases** | Web + distribución APK + auto-update | `deploy-web.yml`, `build-apk.yml` | — |

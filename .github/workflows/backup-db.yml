@@ -63,7 +63,7 @@ jobs:
           echo "DUMP_FILE=$OUT" >> "$GITHUB_ENV"
 
       - name: Subir artefacto (retención 90 días)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: db-backup-${{ github.run_number }}
           path: ${{ env.DUMP_FILE }}

@@ -44,21 +44,26 @@ Mes 3 añadamos algo con conexión directa (colas, rollups).
 
 ## T4 — Alertas de Sentry · ~1 h
 
-### Contexto
+### Contexto — VERIFICADO el 2026-07-10
 
-Sentry ya está integrado en el backend (`@sentry/node`, activado por DSN).
-Sin alertas configuradas, los errores se acumulan sin que nadie los vea.
-Vamos a crear 2 alertas mínimas y útiles (sin ruido).
+`GET /health` de producción devuelve **`"sentry": false`** → **Sentry NO está
+configurado** (no hay cuenta conectada, o nunca se puso el DSN en Render).
+El código del backend ya está listo (`@sentry/node`, se activa solo con poner
+`SENTRY_DSN`). El frontend NO lleva Sentry (no pasa nada por ahora).
+Así que T4 empieza por crear la cuenta:
 
-### Prerrequisito: comprobar que el DSN está activo
+### Paso 0: crear cuenta y proyecto (¡desde cero!)
 
-1. [sentry.io](https://sentry.io) → tu organización → **Projects**.
-   Debe existir el proyecto del backend y recibir eventos.
-2. Si NO hay proyecto o no llegan eventos: crea proyecto (Platform: Node.js),
-   copia el **DSN** y añádelo en **Render → tu servicio → Environment →
-   `SENTRY_DSN`** → Save (redeploy automático). Fuerza un error de prueba
-   (p. ej. una URL inexistente `/api/v1/no-existe` no genera error 500; mejor:
-   espera al primer error real o usa el snippet de verificación de Sentry).
+1. [sentry.io/signup](https://sentry.io/signup) → **usa un email compartido del
+   equipo** (no personal), p. ej. el de la empresa — así nadie "pierde" la
+   cuenta otra vez. Plan **Developer (gratis)**: 5k errores/mes, suficiente.
+2. Create Project → Platform: **Node.js** → nombre `taxicount-backend`.
+3. Copia el **DSN** que te muestra (formato `https://xxxx@o1234.ingest.us.sentry.io/567`).
+4. **Render** → servicio `taxicount-backend` → **Environment** → Add:
+   `SENTRY_DSN` = el DSN → **Save** (redeploy automático, ~2 min).
+5. **Verifica**: abre `https://taxicount-backend.onrender.com/health` →
+   debe decir **`"sentry": true`**. Ese campo es la prueba definitiva.
+6. Apunta la cuenta/email usado en vuestro gestor de contraseñas.
 
 ### Alerta 1 — Nuevo tipo de error (Issue Alert)
 
