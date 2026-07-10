@@ -89,6 +89,10 @@
 - Read replicas, Redis/caché, colas → Mes 3, solo si el load test lo justifica.
 - Strangler-Fig de billing → Mes 2 (con el CI de integración ya en verde).
 - Migrar a AWS → no. Revisar recién hacia 100k+ conductores.
+- **Push en primer plano** (banner con la app abierta, tipo WhatsApp): listener
+  de `onMessage` + `flutter_local_notifications` en push_service.dart. Hoy la
+  notificación solo se muestra con la app en segundo plano/cerrada (verificado
+  2026-07-11 al probar el arreglo de FCM). Pequeño y útil; para después del Mes 1.
 
 ## Criterio de salida del Mes 1 (definition of done)
 
