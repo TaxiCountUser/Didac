@@ -81,6 +81,8 @@
   compose y ejecuta **de verdad** webhook + billing + excel + pdf.
   Con `CI_REQUIRE_STACK=1`: si el stack no arranca, el job **falla** (no se
   omite). El dinero ya no se refactoriza a ciegas.
+  **Verificado en verde el 2026-07-10** (run 29125574982): 6 tests de webhook +
+  4 de billing + 5 de excel + 3 de pdf ejecutados contra el stack real.
 
 ## Fuera de alcance del Mes 1 (no lo hagas todavía)
 
