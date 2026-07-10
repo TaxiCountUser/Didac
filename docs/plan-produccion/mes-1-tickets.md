@@ -9,14 +9,13 @@
 
 ## Semana 1 — Salir de Free + ver lo que pasa
 
-- [ ] **T1. Supabase → plan Pro** *(manual, ~15 min, 25 €/mes)*
-  Dashboard de Supabase → Billing → Pro. Activa también **PITR** (point-in-time
-  recovery) si el add-on entra en presupuesto. Free se acaba aquí: límites de
-  tamaño/CPU/conexiones no sirven para 1.000 conductores.
-- [ ] **T2. Pooler de conexiones (Supavisor, modo transaction)** *(~30 min)*
-  Supabase → Settings → Database → Connection pooling. Cambiar la
-  `SUPABASE_DB_URL`/conexiones del backend en Render a la URL del **pooler
-  (puerto 6543)**. El backend de Fastify no debe agotar el pool de Postgres.
+- [x] **T1. Supabase → plan Pro** — *HECHO (2026-07-10)*.
+- [ ] **T2. Pooler de conexiones (Supavisor)** *(~20 min)* — **re-alcance
+  (2026-07-10)**: auditado el código, el backend solo usa supabase-js (REST,
+  pool interno de Supabase) → **no hay nada que cambiar en Render**. Lo que sí:
+  apuntar el secret `SUPABASE_DB_URL` (backup diario) al **Session pooler** y
+  verificar con un backup manual. Manual paso a paso en
+  [manual-t2-t4-t13.md](manual-t2-t4-t13.md).
 - [x] **T3. Render always-on con health check** — *ya existente, verificado*:
   `render.yaml` tiene `plan: starter`, `healthCheckPath: /health` y
   `autoDeploy: true`. Render solo enruta tráfico a instancias sanas → deploy
@@ -38,7 +37,7 @@
   tenant+created, user+created, created). La 061 añade los 2 que faltaban:
   `app_usage_days(tenant_id, day)` (cron de retos) y
   `odometer_readings(user_id, taken_at)` (cierre de jornada del conductor).
-  **Ejecutar en Supabase Cloud** (SQL editor) tras backup.
+  **Ejecutada en Supabase Cloud el 2026-07-10.** ✅
 - [ ] **T7. Simulacro de restauración** *(~2 h, el ticket más importante del mes)*
   Un backup sin restore probado NO es un backup. Con el workflow diario
   (backup-db.yml) ya en marcha: descargar el último dump → restaurarlo en un
