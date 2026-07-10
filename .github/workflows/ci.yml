@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm install
       - name: Check sintaxis (node --check)
         run: |
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm install
       # CI sin infraestructura: health + parser. Los tests que requieren el
       # stack Supabase vivo (webhook, billing, excel, pdf) corren en el job
@@ -50,7 +50,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Levantar stack Supabase (db + auth + rest + kong + migraciones)
         run: |
           # El compose necesita las claves demo (kong key-auth, gotrue, rest):

@@ -24,8 +24,9 @@
     "stripe": "^17.7.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
+  "//engines": "supabase-js >=2.108 exige WebSocket nativo (Node 22+): con Node 20 createClient LANZA y el cliente queda deshabilitado. El Dockerfile (node:22-alpine) ya cumple.",
   "//overrides": "Forzamos uuid>=11.1.1 (GHSA-w5hq-g745-h8pq) en deps transitivas de exceljs/firebase-admin. La API v4/v5 que usan sigue siendo compatible.",
   "overrides": {
     "uuid": "^11.1.1"
