@@ -8,7 +8,7 @@ import assert from 'node:assert';
 process.env.STRIPE_PRICE_SEAT_MONTHLY = 'price_seat_m_test';
 process.env.STRIPE_PRICE_SEAT_YEARLY = 'price_seat_y_test';
 
-const { applyStripeEvent, planForPrice, planForPlanId, mapStripeStatus } =
+const { applyStripeEvent, handleStripeEvent, planForPrice, planForPlanId, mapStripeStatus } =
   await import('../../src/billing.js');
 
 // Supabase falso: registra los update() y resuelve tenant por customer en
@@ -166,6 +166,70 @@ async function run() {
     const r = await applyStripeEvent(sb, { type: 'foo.bar', data: { object: {} } });
     assert.strictEqual(r.handled, false);
     assert.strictEqual(sb.updates.length, 0);
+  });
+
+  // -------- handleStripeEvent: orquestación (aplica evento + efectos referidos) --------
+  // Fake que soporta el update() de applyStripeEvent y el owner lookup encadenado
+  // select().eq().eq().maybeSingle().
+  function makeOrchestraSupabase(ownerId) {
+    return {
+      from() {
+        return {
+          update() { return { eq: () => Promise.resolve({ data: null, error: null }) }; },
+          select() {
+            const chain = { eq: () => chain, maybeSingle: () =>
+              Promise.resolve({ data: ownerId ? { id: ownerId } : null, error: null }) };
+            return chain;
+          },
+        };
+      },
+    };
+  }
+
+  await check('handleStripeEvent: al pagar encola validación y recalcula hitos del owner', async () => {
+    const calls = [];
+    const deps = {
+      enqueueReferralValidation: (t) => { calls.push(['enqueue', t]); },
+      recomputeReferrerMilestones: (u) => { calls.push(['recompute', u]); },
+      rejectPendingReferralValidation: (t) => { calls.push(['reject', t]); },
+      revertReferralForTenant: (t) => { calls.push(['revert', t]); },
+    };
+    const event = {
+      type: 'checkout.session.completed',
+      data: { object: { customer: 'cus_x', subscription: 'sub_x',
+        metadata: { tenant_id: 'T1', plan_id: 'seat', drivers_limit: 'null' } } },
+    };
+    const r = await handleStripeEvent(makeOrchestraSupabase('OWNER1'), event, deps);
+    assert.strictEqual(r.handled, true);
+    assert.strictEqual(r.tenant_id, 'T1');
+    assert.deepStrictEqual(calls, [['enqueue', 'T1'], ['recompute', 'OWNER1']]);
+  });
+
+  await check('handleStripeEvent: al cancelar rechaza validación y hace clawback', async () => {
+    const calls = [];
+    const deps = {
+      enqueueReferralValidation: (t) => { calls.push(['enqueue', t]); },
+      rejectPendingReferralValidation: (t) => { calls.push(['reject', t]); },
+      revertReferralForTenant: (t) => { calls.push(['revert', t]); },
+    };
+    const event = { type: 'customer.subscription.deleted',
+      data: { object: { customer: 'cus_x', metadata: { tenant_id: 'T2' } } } };
+    const r = await handleStripeEvent(makeOrchestraSupabase(), event, deps);
+    assert.strictEqual(r.handled, true);
+    assert.deepStrictEqual(calls, [['reject', 'T2'], ['revert', 'T2']]);
+  });
+
+  await check('handleStripeEvent: un fallo en los efectos de referidos NO tumba el resultado', async () => {
+    const event = {
+      type: 'invoice.paid',
+      data: { object: { customer: 'cus_x' } },
+    };
+    // resolveTenantId usa select().eq().maybeSingle(); el owner lookup, dos eq().
+    const r = await handleStripeEvent(makeOrchestraSupabase('OWNER1'), event, {
+      enqueueReferralValidation: () => { throw new Error('boom'); },
+      log: { error() {} },
+    });
+    assert.strictEqual(r.handled, true); // el cobro se aplicó pese al fallo del efecto
   });
 
   if (failures > 0) {

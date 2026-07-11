@@ -151,3 +151,50 @@ function parseLimit(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
+
+/**
+ * Efectos de referidos de un evento ya aplicado. Las funciones que tocan datos
+ * (colas, hitos) se INYECTAN vía `deps` porque en server.js son closures sobre
+ * supabase; así esta lógica queda testeable de forma aislada.
+ * - al PAGAR (checkout/invoice.paid): encola validación a +15 días y, si el
+ *   tenant es un referidor con hitos diferidos, se los recalcula.
+ * - al CANCELAR (subscription.deleted): rechaza la validación pendiente y
+ *   revierte (clawback) los días ya concedidos.
+ */
+async function applyReferralSideEffects(supabase, result, deps = {}) {
+  const {
+    enqueueReferralValidation, recomputeReferrerMilestones,
+    rejectPendingReferralValidation, revertReferralForTenant,
+  } = deps;
+  const tenantId = result.tenant_id;
+  if (!tenantId) return;
+
+  if (result.type === 'checkout.session.completed' || result.type === 'invoice.paid') {
+    if (enqueueReferralValidation) await enqueueReferralValidation(tenantId);
+    const { data: owner } = await supabase.from('users')
+      .select('id').eq('tenant_id', tenantId).eq('role', 'owner').maybeSingle();
+    if (owner?.id && recomputeReferrerMilestones) await recomputeReferrerMilestones(owner.id);
+  } else if (result.type === 'customer.subscription.deleted') {
+    if (rejectPendingReferralValidation) await rejectPendingReferralValidation(tenantId);
+    if (revertReferralForTenant) await revertReferralForTenant(tenantId);
+  }
+}
+
+/**
+ * Orquesta un evento de Stripe: aplica el cambio en `tenants` (applyStripeEvent)
+ * y ejecuta los efectos de referidos. Es el punto de entrada ÚNICO del dominio
+ * de billing; el handler HTTP solo se ocupa de firma, idempotencia y ACK.
+ * Los efectos de referidos NUNCA tumban el resultado (best-effort con log).
+ * @returns {Promise<{handled:boolean, type:string, tenant_id?:string|null}>}
+ */
+export async function handleStripeEvent(supabase, event, deps = {}) {
+  const result = await applyStripeEvent(supabase, event);
+  if (result.handled && result.tenant_id) {
+    try {
+      await applyReferralSideEffects(supabase, result, deps);
+    } catch (e) {
+      deps.log?.error?.(`[referral] ${e.message}`);
+    }
+  }
+  return result;
+}

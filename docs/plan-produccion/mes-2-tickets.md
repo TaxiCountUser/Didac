@@ -26,7 +26,7 @@
 
 ## Fase 2 — Extracción del módulo (Strangler-Fig)
 
-- [ ] **M2-4. Interfaz limpia de billing.** Definir el contrato del módulo
+- [x] **M2-4. Interfaz limpia de billing** — *HECHO (2026-07-11)*: `handleStripeEvent(supabase, event, deps)` en billing.js orquesta applyStripeEvent + efectos de referidos (inyectados). El handler HTTP solo hace firma/idempotencia/ACK. 3 tests de orquestación en billing_logic.test.js (CI). Sustituye a la lógica antes incrustada en server.js. Definir el contrato del módulo
   (entradas/salidas) y mover a `billing.js` todo lo que hoy vive en el handler
   de server.js (side-effects de referidos incluidos) detrás de una función
   única `handleStripeEvent(supabase, event, deps)`.

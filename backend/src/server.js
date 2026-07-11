@@ -12,7 +12,7 @@ import { llmMapColumns } from './llm_parser.js';
 import { correctTranscript } from './corrections.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
-import { applyStripeEvent, planForPrice } from './billing.js';
+import { handleStripeEvent, planForPrice } from './billing.js';
 import {
   fetchReportData,
   buildExcel,
@@ -3428,29 +3428,17 @@ export async function buildApp(options = {}) {
     }
 
     try {
-      const result = await applyStripeEvent(supabase, event);
+      // Dominio de billing (billing.js): aplica el evento a `tenants` y ejecuta
+      // los efectos de referidos (encolar validación 15d / clawback al cancelar).
+      // Las funciones de referidos son closures sobre supabase → se inyectan.
+      const result = await handleStripeEvent(supabase, event, {
+        enqueueReferralValidation,
+        recomputeReferrerMilestones,
+        rejectPendingReferralValidation,
+        revertReferralForTenant,
+        log: request.log,
+      });
       app.log.info(`[stripe-webhook] ${result.type} handled=${result.handled} tenant=${result.tenant_id ?? '-'}`);
-      // Programa de referidos: al PAGAR el invitado NO se premia aún; se encola
-      // la validación a +15 días (si sigue de alta, gana los días por hitos).
-      // Al CANCELAR: se rechaza la validación pendiente y se revierten (clawback)
-      // los días si ya se habían concedido.
-      if (result.handled && result.tenant_id) {
-        try {
-          if (result.type === 'checkout.session.completed' || result.type === 'invoice.paid') {
-            await enqueueReferralValidation(result.tenant_id);
-            // Si este tenant es un REFERIDOR que tenía hitos diferidos (estaba
-            // en prueba), ahora que paga se le conceden los días pendientes.
-            const { data: owner } = await supabase.from('users')
-              .select('id').eq('tenant_id', result.tenant_id).eq('role', 'owner').maybeSingle();
-            if (owner?.id) await recomputeReferrerMilestones(owner.id);
-          } else if (result.type === 'customer.subscription.deleted') {
-            await rejectPendingReferralValidation(result.tenant_id);
-            await revertReferralForTenant(result.tenant_id); // clawback de días si ya validado
-          }
-        } catch (e) {
-          request.log.error(`[referral] ${e.message}`);
-        }
-      }
       // Marca el evento como procesado (best-effort).
       try {
         await supabase.from('webhook_events')
