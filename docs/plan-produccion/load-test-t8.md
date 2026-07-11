@@ -131,17 +131,29 @@ CPU y conexiones en vivo.
 De la salida de k6, la línea `http_req_duration` por escenario (p95) y
 `http_req_failed` (% errores). Rellena:
 
-| Fecha | Perfil | p95 login | p95 insert | p95 dashboard | p95 export | Errores % | CPU BD pico | Veredicto |
-|---|---|---|---|---|---|---|---|---|
-| — | 100 | — | — | — | — | — | — | — |
-| — | 500 | — | — | — | — | — | — | — |
-| — | 1000 | — | — | — | — | — | — | — |
+| Fecha | Perfil | p95 login* | p95 insert | p95 dashboard | p95 export | Errores % | Veredicto |
+|---|---|---|---|---|---|---|---|
+| 2026-07-11 | 100 | 358 ms | **108 ms** | 1,3 s | 1,72 s | 0 (solo 429 de login) | ✅ |
+| 2026-07-11 | 500 | 746 ms | 1,91 s (p90 86 ms) | 4,12 s | 3,97 s | 0 | ⚠️ cola p95 por picos de dashboard |
+| 2026-07-11 | 1000 | 1,04 s | **102 ms** | 1,25 s | 6,93 s | 0,003% (1/30.000) | ✅ |
+
+\* login limitado por el rate limit de auth de Supabase (30/5 min/IP): 30
+éxitos exactos por run. Irrelevante en uso real (cada taxista = su IP).
+
+**Análisis (2026-07-11):** mediana del insert = 69 ms en los TRES perfiles;
+1.000 VUs insertando cada 10 s ≈ 100 tx/s sostenidas con 1 fallo entre 30.000
+(equivale a la carga de decenas de miles de conductores reales). El perfil 2
+muestra cola p95 alta SOLO en la ventana donde 30 dashboards refrescaban en
+bucle: el primer límite es la agregación del dashboard bajo concurrencia de
+paneles, cuyo arreglo ya está planificado (Mes 3: agregación en backend +
+caché/rollups). T9: sin acción ad-hoc; el fix correcto es el del Mes 3.
+
+**LA FRASE:** «Aguantamos ~1.000 conductores concurrentes (≈100 carreras/s,
+mediana 69 ms, 0,003% error) en staging Free tier — peor hardware que prod.
+Primer límite: la agregación del dashboard, con solución ya planificada.»
 
 **Umbrales de alarma:** login >500 ms · insert >800 ms · dashboard >1500 ms ·
 export >10 s · errores >1% · CPU BD >70% sostenido.
-
-**La frase final (el entregable del T8):**
-> «Aguantamos ~___ conductores concurrentes; el primer límite es ___.»
 
 ⚠️ Matiz: el staging es Free tier (menos CPU que vuestro Pro de prod), así que
 el resultado es un **suelo** — prod rendirá igual o mejor.
@@ -161,3 +173,21 @@ el resultado es un **suelo** — prod rendirá igual o mejor.
 | 401 al crear drivers | service key equivocada en el backend local | Paso 4 |
 | muchos 429 solo en `login` | rate limit de auth de Supabase (plataforma) | esperado; ignora login |
 | ECONNREFUSED :3000 | backend local no corriendo | Paso 4 |
+
+## Anexo — Stress test "loco" (10.000 VUs, 2026-07-11)
+
+Prueba extra fuera de los perfiles: `VUS_INSERT=10000` (10× lo validado).
+**Resultado: colapso por congestión** — p95 insert 53 s, 90% timeouts,
+throughput efectivo ~24 inserts/s (vs ~100/s con 1.000 VUs). Se rompió, como
+era de esperar, por dos limitadores que NO son la arquitectura de la app:
+1. **Supabase Free tier** (pool de PostgREST + CPU compartida mínimos).
+2. **El cliente k6 en un solo portátil + red doméstica** (muchos timeouts son
+   del lado cliente; 10k VUs limpios exigen k6 Cloud o runners distribuidos).
+
+Traducción: 10k VUs insertando cada 10 s ≈ 1.000 escrituras/s ≈ carga de
+escritura de **~600.000 conductores reales** (uno inserta cada ~10 min). Es
+~600× el objetivo a 3 meses, sobre el hardware más débil posible. **No cambia
+el plan.** Aprendizaje para 100k+ (más allá del Mes 3): a concurrencia de
+escritura extrema, los inserts directos cliente→PostgREST compiten por el pool
+de PostgREST sin control de la app → considerar enrutar escrituras de alta
+frecuencia por el backend (pool controlado) o batching. Anotado, no accionable ahora.

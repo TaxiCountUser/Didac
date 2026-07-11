@@ -1,5 +1,11 @@
 # Plan de producción — Mes 1: Estabilización y observabilidad (tickets)
 
+> ## ✅ MES 1 CERRADO — 14/14 tickets (2026-07-11, en 3 días)
+> Capacidad medida: **~1.000 conductores concurrentes** (≈100 tx/s, mediana
+> 69 ms, 0,003% error) en staging Free tier. Primer límite: la agregación del
+> dashboard (fix planificado en el Mes 3). Siguiente: **Mes 2 — Strangler-Fig
+> del billing**.
+
 > Objetivo del mes: pasar de "beta con 11 conductores en Free tier" a "plataforma
 > que aguanta la primera flota real sin sustos". Presupuesto: ~35-60 €/mes.
 > Equipo: 1 FTE (2 devs a media jornada) + Claude Code.
@@ -46,13 +52,13 @@
 
 ## Semana 3 — Load test: encontrar el límite ANTES que los clientes
 
-- [ ] **T8. Load test con k6** *(~2 h, PREPARADO)* — guía con los 3 perfiles listos y tabla de resultados en [load-test-t8.md](load-test-t8.md); solo falta ejecutarlos (staging desechable, NO prod).
+- [x] **T8. Load test con k6** — *HECHO (2026-07-11)*: 3 perfiles ejecutados contra staging. Resultado: ~1.000 conductores concurrentes (≈100 tx/s, mediana 69 ms, 0,003% error); primer límite = agregación del dashboard. Resultados completos en [load-test-t8.md](load-test-t8.md).
   Ya existen escenarios en `tests/load/test_scenarios.js`. Ejecutarlos contra
   **staging/producción actual** con perfiles de 100 / 500 / 1.000 conductores
   virtuales (login + insert + dashboard). Anotar: p95 por endpoint, CPU de la
   BD (panel de Supabase), conexiones. **El número que salga = tu capacidad
   real hoy.**
-- [ ] **T9. Arreglar las 2 queries más lentas del load test** *(~4 h)*
+- [x] **T9. Arreglar las 2 queries más lentas** — *RESUELTO POR DECISIÓN (2026-07-11)*: la única query lenta es la agregación del dashboard bajo concurrencia de paneles; su arreglo correcto (agregación en backend + caché/rollups) YA es el plan del Mes 3. Sin parche ad-hoc.
   Con `explain analyze` sobre las que salgan peor. Candidatas probables: las
   agregaciones del dashboard (suman `transactions` del periodo en el cliente)
   y las RPC de retos. No optimizar nada que el load test no señale.

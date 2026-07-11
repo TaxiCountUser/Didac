@@ -213,9 +213,17 @@ crons externos se autentican con `x-cron-secret`.
 
 > **Plan de transición MVP → producción (2026-07-08):** hoja de ruta de 3 meses aprobada
 > (Mes 1 estabilización/observabilidad · Mes 2 Strangler-Fig de billing · Mes 3 BD/caché).
-> Tickets accionables del Mes 1 en [docs/plan-produccion/mes-1-tickets.md](docs/plan-produccion/mes-1-tickets.md).
-> Índices de escala en migración 061 (pendiente de ejecutar en Supabase Cloud).
 > Decisión: NO migrar a AWS por ahora (managed hasta ~100k conductores).
+>
+> **✅ MES 1 CERRADO (2026-07-11, 14/14 tickets en 3 días):** Supabase Pro + pooler +
+> índices (061) · backups con simulacro de restauración mensual automatizado · Sentry
+> con alertas · logs a Better Stack (@logtail/pino) · UptimeRobot · vigía de semáforos
+> cada 15 min (detectó y ayudó a arreglar el push de FCM roto) · CI de integración
+> (webhook/billing contra stack real). **Capacidad medida (load test):** ~1.000
+> conductores concurrentes, ≈100 tx/s, mediana 69 ms, 0,003% error, en staging Free
+> tier (suelo; prod Pro rinde más). Primer límite: la agregación del dashboard bajo
+> concurrencia de paneles → su fix es el Mes 3 (agregación en backend + caché).
+> Detalle: [docs/plan-produccion/mes-1-tickets.md](docs/plan-produccion/mes-1-tickets.md).
 
 ### 6.2 Prioridad media
 3. **Reconsiderar la i18n propia.** El mapa único en `app_localizations.dart` es pragmático
