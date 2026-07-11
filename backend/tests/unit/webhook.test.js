@@ -55,12 +55,15 @@ async function run() {
 
   const tenantId = randomUUID();
   const customerId = `cus_test_${Date.now()}`;
+  // Prefijo único por ejecución para los event_id: hace el test repetible aunque
+  // la tabla webhook_events (idempotencia) persista entre runs en un stack local.
+  const EV = `evt_${Date.now()}_`;
   await sb.from('tenants').insert({ id: tenantId, name: 'Webhook Test Tenant' });
 
   // 1) checkout.session.completed -> active + plan seat (ilimitado) + customer
   await check('checkout.session.completed activa la suscripción por asiento', async () => {
     const event = {
-      id: 'evt_1',
+      id: EV + '1',
       type: 'checkout.session.completed',
       data: {
         object: {
@@ -82,10 +85,33 @@ async function run() {
     assert.strictEqual(data.stripe_subscription_id, 'sub_test_1');
   });
 
+  // 1-bis) IDEMPOTENCIA: reenviar el MISMO evento (mismo event_id) no reprocesa.
+  await check('evento duplicado se ignora (idempotencia)', async () => {
+    // Ensuciamos el tenant a mano; si el duplicado se procesara, lo "arreglaría".
+    await sb.from('tenants').update({ subscription_status: 'canceled' }).eq('id', tenantId);
+    const event = {
+      id: EV + '1', // mismo id que el test 1 (ya 'processed')
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_1', customer: customerId, subscription: 'sub_test_1',
+          metadata: { tenant_id: tenantId, plan_id: 'seat', drivers_limit: 'null' },
+        },
+      },
+    };
+    const res = await post(app, event);
+    assert.strictEqual(res.statusCode, 200, `status ${res.statusCode}: ${res.body}`);
+    assert.strictEqual(res.json().duplicate, true, 'debe marcarse como duplicado');
+    const { data } = await sb.from('tenants').select('subscription_status').eq('id', tenantId).single();
+    assert.strictEqual(data.subscription_status, 'canceled', 'el duplicado NO debe reprocesar');
+    // Restaura el estado para no afectar a otros asertos.
+    await sb.from('tenants').update({ subscription_status: 'active' }).eq('id', tenantId);
+  });
+
   // 2) invoice.payment_failed -> past_due (resuelve tenant por customer)
   await check('invoice.payment_failed marca past_due', async () => {
     const event = {
-      id: 'evt_2',
+      id: EV + '2',
       type: 'invoice.payment_failed',
       data: { object: { id: 'in_1', customer: customerId } },
     };
@@ -97,7 +123,7 @@ async function run() {
 
   // 3) invoice.paid -> active de nuevo
   await check('invoice.paid reactiva la suscripción', async () => {
-    const event = { id: 'evt_3', type: 'invoice.paid', data: { object: { id: 'in_2', customer: customerId } } };
+    const event = { id: EV + '3', type: 'invoice.paid', data: { object: { id: 'in_2', customer: customerId } } };
     const res = await post(app, event);
     assert.strictEqual(res.statusCode, 200);
     const { data } = await sb.from('tenants').select('subscription_status').eq('id', tenantId).single();
@@ -107,7 +133,7 @@ async function run() {
   // 4) customer.subscription.updated con price de asiento -> plan seat (ilimitado)
   await check('customer.subscription.updated mantiene el plan por asiento', async () => {
     const event = {
-      id: 'evt_4',
+      id: EV + '4',
       type: 'customer.subscription.updated',
       data: {
         object: {
@@ -128,7 +154,7 @@ async function run() {
   // 5) customer.subscription.deleted -> canceled
   await check('customer.subscription.deleted cancela', async () => {
     const event = {
-      id: 'evt_5',
+      id: EV + '5',
       type: 'customer.subscription.deleted',
       data: { object: { id: 'sub_test_1', customer: customerId } },
     };
@@ -140,7 +166,7 @@ async function run() {
 
   // 6) Firma inválida -> 400
   await check('firma inválida devuelve 400', async () => {
-    const event = { id: 'evt_6', type: 'invoice.paid', data: { object: { customer: customerId } } };
+    const event = { id: EV + '6', type: 'invoice.paid', data: { object: { customer: customerId } } };
     const res = await post(app, event, 't=1,v1=deadbeef');
     assert.strictEqual(res.statusCode, 400, `status ${res.statusCode}`);
   });

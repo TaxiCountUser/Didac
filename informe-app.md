@@ -185,7 +185,7 @@ Alimentados por `system_config` y sondas en vivo; visibles en portada y en la pe
 | Servicio | Uso | Integración | Vigilancia |
 |---|---|---|---|
 | **Supabase** | Postgres + Auth (JWT) + realtime | cliente directo (RLS) y backend (`service_role`) | semáforo **BD** (latencia) |
-| **Stripe** | Suscripciones, portal, webhooks | backend (`billing.js`, `/webhooks/stripe`) | semáforo **STRIPE** (firma) |
+| **Stripe** | Suscripciones, portal, webhooks (idempotentes + persistidos en `webhook_events`) | backend (`billing.js`, `/webhooks/stripe`) | semáforo **STRIPE** (firma) |
 | **OpenAI / Groq** | Whisper (voz) + parser LLM | backend (`/transcribe`, `llm_parser.js`) | semáforos **WHISPER** / **OPENAI** |
 | **Firebase (FCM)** | Notificaciones push | backend (`push.js`, `firebase-admin`) | semáforo **PUSH** |
 | **Sentry** | Errores (solo backend; el frontend no lo lleva) | activado por `SENTRY_DSN` — verificado 2026-07-10: **aún sin configurar en prod** (`/health` → `sentry:false`); alta pendiente en T4 | — |
@@ -224,6 +224,13 @@ crons externos se autentican con `x-cron-secret`.
 > tier (suelo; prod Pro rinde más). Primer límite: la agregación del dashboard bajo
 > concurrencia de paneles → su fix es el Mes 3 (agregación en backend + caché).
 > Detalle: [docs/plan-produccion/mes-1-tickets.md](docs/plan-produccion/mes-1-tickets.md).
+>
+> **▶ MES 2 EN CURSO — Strangler-Fig del billing.** Fase 1 hecha (2026-07-11):
+> tabla `webhook_events` (migración 062, **pendiente de ejecutar en Supabase Cloud**)
+> + webhook idempotente y durable (registra cada evento por `event_id`; un reintento
+> de Stripe ya procesado se ignora; best-effort, no rompe si la tabla no existe).
+> Siguiente: extraer la lógica a un módulo con interfaz limpia + reproceso de la
+> bandeja. Detalle: [docs/plan-produccion/mes-2-tickets.md](docs/plan-produccion/mes-2-tickets.md).
 
 ### 6.2 Prioridad media
 3. **Reconsiderar la i18n propia.** El mapa único en `app_localizations.dart` es pragmático

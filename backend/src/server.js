@@ -3403,6 +3403,30 @@ export async function buildApp(options = {}) {
       return reply.code(400).send({ error: `Firma de webhook inválida: ${e.message}` });
     }
 
+    // Idempotencia + durabilidad (Mes 2): registra el evento por su id ANTES de
+    // procesarlo. Un reintento de Stripe ya 'processed' se ignora (no duplica);
+    // un evento nuevo se persiste con su payload por si hay que reprocesarlo.
+    // TODO best-effort: si la tabla webhook_events aún no existe en prod, el
+    // webhook funciona igual que antes (nunca rompemos el camino del dinero).
+    const eventId = event.id;
+    let alreadyProcessed = false;
+    try {
+      const { data: ex } = await supabase.from('webhook_events')
+        .select('status').eq('event_id', eventId).maybeSingle();
+      if (ex?.status === 'processed') {
+        alreadyProcessed = true;
+      } else if (!ex) {
+        await supabase.from('webhook_events')
+          .insert({ event_id: eventId, type: event.type, status: 'received', payload: event });
+      }
+    } catch (e) {
+      app.log.warn(`[webhook_events] capa de durabilidad no disponible: ${e.message}`);
+    }
+    if (alreadyProcessed) {
+      app.log.info(`[stripe-webhook] ${eventId} duplicado ignorado`);
+      return reply.send({ received: true, duplicate: true });
+    }
+
     try {
       const result = await applyStripeEvent(supabase, event);
       app.log.info(`[stripe-webhook] ${result.type} handled=${result.handled} tenant=${result.tenant_id ?? '-'}`);
@@ -3427,9 +3451,23 @@ export async function buildApp(options = {}) {
           request.log.error(`[referral] ${e.message}`);
         }
       }
+      // Marca el evento como procesado (best-effort).
+      try {
+        await supabase.from('webhook_events')
+          .update({ status: 'processed', processed_at: new Date().toISOString(),
+            tenant_id: result.tenant_id ?? null })
+          .eq('event_id', eventId);
+      } catch (e) { app.log.warn(`[webhook_events] no se pudo marcar processed: ${e.message}`); }
       return reply.send({ received: true, ...result });
     } catch (e) {
       request.log.error(e);
+      // Deja rastro del fallo para reproceso/diagnóstico (best-effort). Devolver
+      // 500 hace que Stripe reintente; el evento sigue en 'received'/'error'.
+      try {
+        await supabase.from('webhook_events')
+          .update({ status: 'error', last_error: String(e.message).slice(0, 500) })
+          .eq('event_id', eventId);
+      } catch { /* la tabla puede no existir aún */ }
       return reply.code(500).send({ error: 'Error procesando el evento' });
     }
   });
