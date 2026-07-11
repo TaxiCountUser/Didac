@@ -101,12 +101,28 @@ export function setup() {
   );
   const ownerToken = su.json('access_token');
   const ownerId = su.json('user.id');
+  // Fail-fast: sin sesión del owner, TODO el test sería basura (Bearer
+  // undefined en cada request). Causas típicas: "Confirm email" activado
+  // (el signup no devuelve access_token) o ANON_KEY incorrecta.
+  if (!ownerToken) {
+    throw new Error(
+      `setup: el signup no devolvió access_token (HTTP ${su.status}). ` +
+      '¿"Confirm email" desactivado (Authentication → Providers → Email)? ' +
+      `¿ANON_KEY correcta? Respuesta: ${String(su.body).slice(0, 200)}`,
+    );
+  }
 
   // 2) tenant_id del owner
   const prof = http.get(`${BASE}/rest/v1/users?select=tenant_id&id=eq.${ownerId}`, {
     headers: jsonHeaders(ownerToken),
   });
   const tenantId = prof.json('0.tenant_id');
+  if (!tenantId) {
+    throw new Error(
+      'setup: el owner no tiene tenant_id. Falta el trigger on_auth_user_created ' +
+      'en el proyecto (paso 3c del manual load-test-t8.md).',
+    );
+  }
 
   // 3) Pool de conductores vía backend, luego login para obtener tokens
   const creds = [{ email: ownerEmail, pwd }];
@@ -132,6 +148,13 @@ export function setup() {
     if (t) driverTokens.push({ token: t, id: inv.json('id') });
   }
 
+  if (driverTokens.length === 0) {
+    throw new Error(
+      'setup: no se pudo crear/loguear ningún conductor. ¿Backend local ' +
+      `corriendo y apuntando al MISMO proyecto? (BACKEND=${BACKEND})`,
+    );
+  }
+
   return { ownerToken, ownerId, tenantId, creds, driverTokens, driverIds };
 }
 
@@ -149,7 +172,9 @@ export function loginScenario(data) {
 
 // b) inserción de transacciones (cada conductor ~cada 10s)
 export function insertScenario(data) {
-  if (data.driverTokens.length === 0) return;
+  // Defensa: sin tokens no hay nada que medir; duerme para no girar en vacío
+  // a cientos de miles de iteraciones/segundo (el setup ya aborta antes).
+  if (data.driverTokens.length === 0) { sleep(1); return; }
   const d = data.driverTokens[Math.floor(Math.random() * data.driverTokens.length)];
   const res = http.post(
     `${BASE}/rest/v1/transactions`,
