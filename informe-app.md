@@ -30,7 +30,7 @@ La arquitectura es sólida y está bien alineada con su stack.
 |---|---|
 | Backend | Fastify, `server.js` ~3.500 líneas + 6 módulos · 69 rutas HTTP |
 | Frontend | Flutter, ~45 pantallas, i18n propia (es/en/ca) |
-| Base de datos | 60 migraciones · 27 tablas · ~24 RPCs · 53 políticas RLS |
+| Base de datos | 63 migraciones · 28 tablas · ~25 RPCs · 53 políticas RLS |
 | Idiomas de la app | Español, inglés, catalán |
 | Coste operativo | ~88 €/mes |
 
@@ -177,7 +177,7 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 - **Plataforma:** `system_config`, `admin_actions_log`, `cron_execution_logs`, `device_tokens`.
 - **Seguridad en el motor:** 53 políticas RLS + helpers `SECURITY DEFINER`
   (`current_tenant_id`, `current_role_name`, `is_platform_admin`, `current_subscription_active`)
-  y ~24 RPCs de negocio.
+  y ~25 RPCs de negocio.
 
 ---
 
@@ -241,6 +241,16 @@ crons externos se autentican con `x-cron-secret`.
 > [manual-m2-cutover.md](docs/plan-produccion/manual-m2-cutover.md). Siguiente:
 > Mes 3 (agregación del dashboard al backend + caché).
 > Detalle: [docs/plan-produccion/mes-2-tickets.md](docs/plan-produccion/mes-2-tickets.md).
+>
+> **▶ MES 3 EN CURSO — agregación del dashboard + caché/rollups.** Ataca el primer
+> límite del load test (agregación bajo concurrencia de paneles). M3-1
+> (2026-07-13): **RPC `report_summary`** (mig. 063) agrega el resumen del
+> dashboard en Postgres (`SUM ... FILTER` + `GROUP BY`) en vez de traer todas las
+> filas al cliente; `transactionsSummary` la usa con **fallback** a la agregación
+> antigua si la RPC no está (despliegue desacoplado). INVOKER + RLS (aislamiento
+> por tenant/rol) verificado contra el stack real. Siguiente: M3-2 (RPC del cierre
+> de jornada), rollups diarios cuando el volumen lo pida, y re-medición con k6.
+> Detalle: [docs/plan-produccion/mes-3-tickets.md](docs/plan-produccion/mes-3-tickets.md).
 
 ### 6.2 Prioridad media
 3. **Reconsiderar la i18n propia.** El mapa único en `app_localizations.dart` es pragmático
@@ -259,7 +269,7 @@ crons externos se autentican con `x-cron-secret`.
    de estar fijo a verde; añadir métricas de latencia p95 por endpoint.
 8. **Índices y rendimiento:** revisar índices en las tablas de mayor volumen
    (`transactions`, `app_usage_days`) conforme crezcan los datos.
-9. **Gestión de esquema:** con 60 migraciones lineales, considerar *squashing* de las
+9. **Gestión de esquema:** con 63 migraciones lineales, considerar *squashing* de las
    iniciales en un baseline para acelerar el arranque limpio en dev/CI.
 
 ### 6.4 Fortalezas a preservar
@@ -274,7 +284,7 @@ crons externos se autentican con `x-cron-secret`.
 ## Anexo A — Configuración y esquema de base de datos (detalle)
 
 ### A.1 Configuración (stack Supabase)
-Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) vía las 60 migraciones.
+Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) vía las 63 migraciones.
 
 | Componente | Imagen / detalle | Puerto | Función |
 |---|---|---|---|
@@ -284,7 +294,7 @@ Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) 
 | **Kong (Gateway)** | `2.8.1` | 54321 | expone `/auth/v1` y `/rest/v1`; plugins cors/key-auth/acl |
 | **Realtime** | `v2.30.34` (perfil opcional) | — | publica `transactions` en `supabase_realtime` |
 
-**Cifras del esquema:** 60 migraciones · **27 tablas** · **~24 RPCs** `public.*` · **53 políticas RLS** · 2 triggers.
+**Cifras del esquema:** 63 migraciones · **28 tablas** · **~25 RPCs** `public.*` · **53 políticas RLS** · 2 triggers.
 
 **Diseño de claves foráneas:** todas las tablas de negocio llevan `tenant_id` con
 `ON DELETE CASCADE` (o `SET NULL` para el admin y para `user_id`/`vehicle_id` en
@@ -321,10 +331,11 @@ id del perfil al id real de `auth.users`).
   de `transactions` exige suscripción activa.
 - **Helpers `SECURITY DEFINER`** (evitan la recursión en las políticas):
   `current_tenant_id()`, `current_role_name()`, `is_platform_admin()`, `current_subscription_active()`.
-- **RPCs de negocio** (24): `create_owner_company`, `create_solo_company`, `join_fleet_with_code`,
+- **RPCs de negocio** (25): `create_owner_company`, `create_solo_company`, `join_fleet_with_code`,
   `set_solo_mode`, `accept_legal`, `mark_password_changed`, `owner_set_driver_name`,
   `set_vehicle_license`, `generate_referral_code`/`set_referral_code`/`set_my_referrer`,
   `challenge_stats`/`challenge_stats_tenant`, `email_for_username` (login por nombre de usuario),
+  `report_summary` (agregación del dashboard, Mes 3),
   `purge_expired_retention` (purga fiscal), `cleanup_old_incidents`.
 - **Trigger clave:** `handle_new_auth_user` sobre `auth.users` — un owner nuevo crea su tenant;
   un driver con `tenant_id` en la metadata se une a la flota. Es el puente entre la

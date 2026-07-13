@@ -92,13 +92,14 @@ jobs:
               console.log('createClient OK; consulta:', error ? ('ERROR ' + error.message) : 'OK');
             } catch (e) { console.log('createClient LANZÓ:', e.message); }
           "
-      - name: Tests de integración (webhook + billing + excel + pdf)
+      - name: Tests de integración (webhook + billing + report + excel + pdf)
         working-directory: backend
         env:
           CI_REQUIRE_STACK: "1"
         run: |
           node tests/unit/webhook.test.js
           node tests/unit/billing_endpoints.test.js
+          node tests/unit/report_summary.test.js
           node tests/unit/excel.test.js
           node tests/unit/pdf.test.js
       - name: Logs del stack si algo falló

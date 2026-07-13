@@ -1064,7 +1064,43 @@ class DataService {
 
   /// Calcula KPIs (ingresos, gastos, balance, gasto por categoría) sobre el
   /// conjunto filtrado completo (no paginado). La RLS limita el alcance.
+  /// Resumen económico del dashboard (ingresos, gasto, gasto por categoría).
+  /// Mes 3 (M3-1): agrega en la BD vía RPC `report_summary` (SUM/GROUP BY) en vez
+  /// de traer todas las filas y sumar en el cliente. Si la RPC no está disponible
+  /// (migración 063 aún no aplicada), cae a la agregación antigua: así el orden de
+  /// despliegue web/migración no puede dejar el dashboard en blanco.
   Future<TxSummary> transactionsSummary({
+    String? userId,
+    String? vehicleId,
+    DateTime? from,
+    DateTime? to,
+    String? client,
+  }) async {
+    try {
+      final res = await _c.rpc('report_summary', params: {
+        'p_user': userId,
+        'p_vehicle': vehicleId,
+        'p_from': from?.toUtc().toIso8601String(),
+        'p_to': to?.toUtc().toIso8601String(),
+        'p_client': (client != null && client.isNotEmpty) ? client : null,
+      });
+      final m = (res as Map).cast<String, dynamic>();
+      final byCat = <String, double>{};
+      ((m['expense_by_category'] as Map?) ?? const {}).forEach(
+          (k, v) => byCat['$k'] = (v as num).toDouble());
+      return TxSummary(
+        income: (m['income'] as num?)?.toDouble() ?? 0,
+        expense: (m['expense'] as num?)?.toDouble() ?? 0,
+        expenseByCategory: byCat,
+      );
+    } catch (_) {
+      return _transactionsSummaryLegacy(
+          userId: userId, vehicleId: vehicleId, from: from, to: to, client: client);
+    }
+  }
+
+  /// Agregación en cliente (fallback de [transactionsSummary] si la RPC no está).
+  Future<TxSummary> _transactionsSummaryLegacy({
     String? userId,
     String? vehicleId,
     DateTime? from,
