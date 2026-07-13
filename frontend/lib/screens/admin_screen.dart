@@ -289,10 +289,9 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final l = context.l10n;
     if (_error != null) return _ErrorRetry(error: _error!, onRetry: _reload);
     if (_loading) return const Center(child: CircularProgressIndicator());
-    // Sospechosos pendientes de decisión: es lo accionable, ahora en su submenú.
-    final review = _claims
-        .where((c) => c['suspicious'] == true && (c['status_label'] as String?) != 'rejected')
-        .toList();
+    // Sospechosos = TODOS los marcados por fraude (pendientes Y rechazados): así
+    // un rechazado sale aquí y NO en Logros.
+    final suspicious = _claims.where((c) => c['suspicious'] == true).toList();
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
@@ -302,22 +301,27 @@ class _ChallengesTabState extends State<_ChallengesTab> {
               onTap: () => setState(() => _tab = 0)),
           const SizedBox(width: 6),
           AdminPill(
-              label: review.isNotEmpty
-                  ? '${l.t('adm_ch_tab_suspicious')} (${review.length})'
-                  : l.t('adm_ch_tab_suspicious'),
-              selected: _tab == 1, color: AdminColors.red,
+              label: l.t('adm_ch_achievements'), selected: _tab == 1, color: AdminColors.teal,
               onTap: () => setState(() => _tab = 1)),
+          const SizedBox(width: 6),
+          AdminPill(
+              label: suspicious.isNotEmpty
+                  ? '${l.t('adm_ch_tab_suspicious')} (${suspicious.length})'
+                  : l.t('adm_ch_tab_suspicious'),
+              selected: _tab == 2, color: AdminColors.red,
+              onTap: () => setState(() => _tab = 2)),
         ]),
       ),
-      Expanded(child: _tab == 1 ? _suspiciousView(l, review) : _summaryView(l)),
+      Expanded(child: switch (_tab) {
+        1 => _achievementsView(l),
+        2 => _suspiciousView(l, suspicious),
+        _ => _summaryView(l),
+      }),
     ]);
   }
 
-  // Tab 0: KPIs + gráficos (km/día primero, luego evolución) + logros.
+  // Tab 0: KPIs + gráficos (km/día primero, luego evolución).
   Widget _summaryView(AppLocalizations l) {
-    final rest = _filtered
-        .where((c) => !(c['suspicious'] == true && (c['status_label'] as String?) != 'rejected'))
-        .toList();
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
@@ -326,25 +330,36 @@ class _ChallengesTabState extends State<_ChallengesTab> {
           _summaryCards(l),
           const SizedBox(height: 16),
           _charts(l),
-          const SizedBox(height: 16),
-          Text(l.t('adm_ch_achievements').toUpperCase(),
-              style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5, color: AdminColors.text)),
-          const SizedBox(height: 8),
-          _filtersBar(l),
-          const SizedBox(height: 8),
-          if (rest.isEmpty)
-            Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('admin_no_challenges'))))
-          else
-            for (final c in rest) _claimTile(l, c),
         ],
       ),
     );
   }
 
-  // Tab 1: solo los conductores marcados como sospechosos (salto de fraude).
-  Widget _suspiciousView(AppLocalizations l, List<Map<String, dynamic>> review) {
+  // Tab 1: LOGROS = solo retos COMPLETADOS (rewarded/approved). Un rechazado no
+  // aparece aquí (sale en Sospechosos).
+  Widget _achievementsView(AppLocalizations l) {
+    final approved = _filtered
+        .where((c) => (c['status_label'] as String?) == 'approved')
+        .toList();
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          _filtersBar(l),
+          const SizedBox(height: 8),
+          if (approved.isEmpty)
+            Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('admin_no_challenges'))))
+          else
+            for (final c in approved) _claimTile(l, c),
+        ],
+      ),
+    );
+  }
+
+  // Tab 2: conductores marcados como sospechosos (salto de fraude): pendientes
+  // (para aceptar/rechazar) y también los ya rechazados.
+  Widget _suspiciousView(AppLocalizations l, List<Map<String, dynamic>> suspicious) {
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
@@ -355,11 +370,11 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             child: Text(l.t('adm_ch_suspicious_intro'),
                 style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
           ),
-          if (review.isEmpty)
+          if (suspicious.isEmpty)
             Padding(padding: const EdgeInsets.all(24),
                 child: Center(child: Text(l.t('adm_ch_no_suspicious'))))
           else
-            for (final c in review) _claimTile(l, c),
+            for (final c in suspicious) _claimTile(l, c),
         ],
       ),
     );
@@ -513,10 +528,11 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             Padding(padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(l.t('admin_no_challenges'),
                     style: const TextStyle(fontSize: 12, color: AdminColors.muted)))
-          else if (_evoPeriod == 'days')
-            // Vista compacta de barras verticales para 30 días.
+          else
+            // Mismo estilo para TODOS los periodos: barras verticales. Con pocas
+            // barras (meses/años/total) se muestra la etiqueta debajo; en días no.
             SizedBox(
-              height: 60,
+              height: labels.length <= 12 ? 78 : 60,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -524,21 +540,32 @@ class _ChallengesTabState extends State<_ChallengesTab> {
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 1),
-                        child: Container(
-                          height: maxV == 0 ? 2 : (2 + 56 * counts[k]! / maxV),
-                          decoration: BoxDecoration(
-                            color: counts[k]! > 0 ? AdminColors.teal : AdminColors.hairline,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (counts[k]! > 0 && labels.length <= 12)
+                              Text('${counts[k]}',
+                                  style: const TextStyle(fontSize: 9, color: AdminColors.muted)),
+                            Container(
+                              height: maxV == 0 ? 2 : (2 + 46 * counts[k]! / maxV),
+                              decoration: BoxDecoration(
+                                color: counts[k]! > 0 ? AdminColors.teal : AdminColors.hairline,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            if (labels.length <= 12) ...[
+                              const SizedBox(height: 3),
+                              Text(short(k),
+                                  maxLines: 1, overflow: TextOverflow.clip,
+                                  style: const TextStyle(fontSize: 8, color: AdminColors.muted)),
+                            ],
+                          ],
                         ),
                       ),
                     ),
                 ],
               ),
-            )
-          else
-            for (final k in labels)
-              _bar(short(k), counts[k]!, maxV, AdminColors.teal),
+            ),
         ]),
       ),
     );

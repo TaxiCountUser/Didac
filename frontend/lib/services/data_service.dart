@@ -620,6 +620,15 @@ class DataService {
     return body;
   }
 
+  /// Cupón activo para el owner (aviso con "copiar" en Suscripción). Devuelve
+  /// {show, code, pct}: show=true si hay cupón y este tenant no lo ha canjeado.
+  Future<Map<String, dynamic>> tenantActiveCoupon() async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/tenant/active-coupon'), headers: _bearer);
+    if (res.statusCode != 200) return {'show': false};
+    return (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+  }
+
   /// Purga DEFINITIVA de una empresa YA dada de baja (irreversible, cascada a
   /// todos sus datos). Solo admin; el backend rechaza empresas activas.
   Future<void> adminPurgeCompany(String id) async {

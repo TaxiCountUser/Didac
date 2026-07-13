@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
@@ -64,6 +65,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   bool _busy = false;
   bool _yearly = false; // periodo elegido para suscribirse
   String? _error;
+  bool _couponShown = false; // el aviso del cupón se muestra una vez por entrada
 
   @override
   void initState() {
@@ -93,6 +95,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _loading = false;
         _error = null;
       });
+      // Aviso del cupón activo (con "copiar"), una sola vez por entrada.
+      if (!_couponShown) {
+        _couponShown = true;
+        try {
+          final c = await _service.tenantActiveCoupon();
+          if (mounted && c['show'] == true && (c['code'] as String?)?.isNotEmpty == true) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _showCouponDialog(c['code'] as String, (c['pct'] as num?)?.toInt() ?? 0);
+            });
+          }
+        } catch (_) {/* sin aviso de cupón */}
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -147,6 +161,68 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  // Aviso del cupón activo: código grande + botón de copiar. Anual únicamente.
+  Future<void> _showCouponDialog(String code, int pct) async {
+    final l = context.l10n;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.local_offer, color: Colors.green),
+          const SizedBox(width: 8),
+          Expanded(child: Text(l.t('sub_coupon_popup_title', {'pct': '$pct'}))),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.t('sub_coupon_popup_body'), style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: .08),
+                border: Border.all(color: Colors.green.withValues(alpha: .4)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(children: [
+                Expanded(
+                  child: SelectableText(code,
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, color: Colors.green),
+                  tooltip: l.t('sub_coupon_copy'),
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: code));
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l.t('sub_coupon_copied'))));
+                  },
+                ),
+              ]),
+            ),
+            const SizedBox(height: 8),
+            Text(l.t('sub_coupon_popup_note'),
+                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
+          FilledButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: code));
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: Text(l.t('sub_coupon_copy')),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -417,36 +493,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             const SizedBox(height: 8),
             _row(Icons.person, l.t('sub_seat_per_driver', {'price': _eur(perDriver), 'period': period})),
             _row(Icons.info_outline, l.t('sub_seat_max', {'max': '$kMaxDrivers'})),
-            // Cupones SOLO en el plan anual (el mensual es precio fijo).
-            if (_yearly) ...[
-              const Divider(height: 20),
-              Row(children: [
-                const Icon(Icons.local_offer, size: 16, color: Colors.green),
-                const SizedBox(width: 6),
-                Expanded(child: Text(l.t('sub_coupons_title'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 13))),
-              ]),
-              const SizedBox(height: 4),
-              _row(Icons.card_giftcard, l.t('sub_coupon_welcome', {
-                'pct': '$kWelcomeCouponPct',
-                'cost': _eur(annualWithCoupon(_activeDrivers, kWelcomeCouponPct)),
-              })),
-              _row(Icons.loyalty, l.t('sub_coupon_loyalty', {
-                'pct': '$kLoyaltyCouponPct',
-                'cost': _eur(annualWithCoupon(_activeDrivers, kLoyaltyCouponPct)),
-              })),
-              const SizedBox(height: 4),
-              Text(l.t('sub_coupon_note'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
             const Divider(height: 20),
             if (over)
               Text(l.t('sub_over_max', {'n': '$_activeDrivers', 'max': '$kMaxDrivers'}),
                   style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFC62828)))
-            else if (_yearly)
-              // Anual: precio de referencia (ancla, en gris) → invita a usar cupón.
-              Text('${l.t('sub_anchor')} ${_eur(est)}$period',
-                  style: const TextStyle(fontSize: 13, color: Colors.grey,
-                      decoration: TextDecoration.lineThrough))
             else
               Text(l.t('sub_seat_estimate',
                   {'n': '$_activeDrivers', 'cost': _eur(est), 'period': period}),

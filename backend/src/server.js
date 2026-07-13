@@ -2112,7 +2112,12 @@ export async function buildApp(options = {}) {
     try {
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
-        line_items: [{ price: priceId, quantity }],
+        // adjustable_quantity: el cliente puede ajustar el nº de conductores
+        // (asientos) en el propio Checkout, entre 1 y MAX_SEATS.
+        line_items: [{
+          price: priceId, quantity,
+          adjustable_quantity: { enabled: true, minimum: 1, maximum: MAX_SEATS },
+        }],
         success_url: STRIPE_SUCCESS_URL,
         cancel_url: STRIPE_CANCEL_URL,
         ...(tenant?.stripe_customer_id ? { customer: tenant.stripe_customer_id } : {}),
@@ -2126,6 +2131,42 @@ export async function buildApp(options = {}) {
       request.log.error(e);
       return reply.code(502).send({ error: 'No se pudo crear la sesión de Checkout' });
     }
+  });
+
+  // Cupón activo para el owner: devuelve {code, pct, show}. `show` = true si hay
+  // un cupón activo y este tenant NO lo ha canjeado todavía (para el aviso con
+  // "copiar código" al entrar en Suscripción). Best-effort.
+  async function readActiveCoupon() {
+    try {
+      const { data } = await supabase.from('system_config')
+        .select('value').eq('key', 'active_coupon').maybeSingle();
+      if (!data?.value) return null;
+      const c = JSON.parse(data.value);
+      return (c && c.code) ? { code: String(c.code), pct: Number(c.pct) || 0 } : null;
+    } catch { return null; }
+  }
+
+  app.get('/api/v1/tenant/active-coupon', async (request, reply) => {
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    const coupon = await readActiveCoupon();
+    if (!coupon) return reply.send({ show: false });
+    const { data: t } = await supabase.from('tenants')
+      .select('coupon_redeemed_code').eq('id', caller.tenant_id).maybeSingle();
+    const redeemed = t?.coupon_redeemed_code || '';
+    return reply.send({ code: coupon.code, pct: coupon.pct, show: redeemed !== coupon.code });
+  });
+
+  // Admin: cambia el cupón activo (código + % anual). Cambiar el código hace que
+  // el aviso reaparezca para todos (aún no han canjeado el NUEVO código).
+  app.post('/api/v1/admin/active-coupon', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { code, pct } = request.body ?? {};
+    const value = JSON.stringify({ code: String(code || '').trim(), pct: Number(pct) || 0 });
+    await supabase.from('system_config').upsert({ key: 'active_coupon', value }, { onConflict: 'key' });
+    await logAdminAction(request, g.caller?.id ?? null, 'active_coupon_set', 'system_config', null, { code, pct });
+    return reply.send({ ok: true });
   });
 
   // --- Stripe Customer Portal (Fase 4) ---

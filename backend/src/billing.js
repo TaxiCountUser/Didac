@@ -98,6 +98,19 @@ export async function applyStripeEvent(supabase, event) {
         update.plan_id = plan.plan_id;
         update.drivers_limit = plan.drivers_limit;
       }
+      // ¿Pagó usando un cupón? (total_details.amount_discount > 0). Si es así,
+      // marca el cupón ACTIVO como canjeado por este tenant para que la app deje
+      // de mostrar el aviso (hasta que se cambie el cupón activo).
+      const discounted = Number(obj.total_details?.amount_discount ?? 0) > 0
+        || (Array.isArray(obj.discounts) && obj.discounts.length > 0);
+      if (discounted) {
+        try {
+          const { data: cfg } = await supabase.from('system_config')
+            .select('value').eq('key', 'active_coupon').maybeSingle();
+          const code = cfg?.value ? (JSON.parse(cfg.value).code || '') : '';
+          if (code) update.coupon_redeemed_code = code;
+        } catch { /* sin cupón activo: nada que marcar */ }
+      }
       await supabase.from('tenants').update(update).eq('id', tenantId);
       return { handled: true, type, tenant_id: tenantId };
     }
