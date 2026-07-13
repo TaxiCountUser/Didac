@@ -488,7 +488,7 @@ class _SecurityTabState extends State<SecurityTab> {
     final db = (supa['db'] as Map?)?.cast<String, dynamic>() ?? {};
 
     final groqAvail = groq['available'] == true;
-    final groqPct = (groq['remaining_pct'] as num?)?.toInt();
+    final groqModels = ((groq['models'] as List?) ?? []).cast<Map<String, dynamic>>();
     final sysAvail = sys['available'] == true;
 
     return RefreshIndicator(
@@ -501,17 +501,18 @@ class _SecurityTabState extends State<SecurityTab> {
             child: Text(l.t('adm_metrics_intro'),
                 style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
           ),
-          // Groq: % disponible según rate-limit (bajo = cerca del límite).
+          // Groq/IA: % disponible por MODELO (parser + Whisper tienen su propio
+          // rate-limit). Bajo = cerca del límite.
           _metricsCard(l.t('adm_metrics_groq_title'), [
-            if (!groqAvail)
+            if (!groqAvail || groqModels.isEmpty)
               _nodataRow(l, l.t('adm_metrics_groq_hint'))
-            else ...[
-              _bar(l, '${l.t('adm_metrics_groq_avail')}'
-                  '${groq['model'] != null ? ' · ${groq['model']}' : ''}',
-                  groqPct, invert: true),
-              _kvRow(l.t('adm_metrics_reqs'), _fmtPair(groq['requests'])),
-              _kvRow(l.t('adm_metrics_tokens'), _fmtPair(groq['tokens'])),
-            ],
+            else
+              for (final m in groqModels) ...[
+                _bar(l, '${l.t('adm_metrics_groq_avail')} · ${m['model'] ?? '?'}',
+                    (m['remaining_pct'] as num?)?.toInt(), invert: true),
+                _kvRow(l.t('adm_metrics_reqs'), _fmtPair(m['requests'])),
+                _kvRow(l.t('adm_metrics_tokens'), _fmtPair(m['tokens'])),
+              ],
           ]),
           const SizedBox(height: 12),
           // Supabase: BD (RPC, siempre) + CPU/RAM/disco (scrape, best-effort).

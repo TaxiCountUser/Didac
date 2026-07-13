@@ -805,13 +805,13 @@ export async function buildApp(options = {}) {
   // de la respuesta (x-ratelimit-*). Permite el monitor de uso en el panel: el %
   // restante en vivo del recurso más ajustado (peticiones o tokens). Best-effort.
   function markGroqRateLimit(headers, model) {
-    if (!headers) return;
+    if (!headers || !model) return;
     const get = (k) => {
       try { return headers.get ? headers.get(k) : headers[k]; } catch { return null; }
     };
     const num = (k) => { const v = Number(get(k)); return Number.isFinite(v) ? v : null; };
     const snap = {
-      model: model || null,
+      model,
       rem_req: num('x-ratelimit-remaining-requests'),
       lim_req: num('x-ratelimit-limit-requests'),
       rem_tok: num('x-ratelimit-remaining-tokens'),
@@ -819,8 +819,11 @@ export async function buildApp(options = {}) {
       at: new Date().toISOString(),
     };
     if (snap.rem_req == null && snap.rem_tok == null) return; // no vienen cabeceras
+    // Una foto POR MODELO: el parser (llama) y Whisper (transcripción) tienen su
+    // propio rate-limit, así que se guardan en claves separadas (svc_groq_rl:<modelo>)
+    // para que NO se pisen entre sí y ambos aparezcan en el panel.
     supabase.from('system_config').upsert(
-      { key: 'svc_groq_rl', value: JSON.stringify(snap) }, { onConflict: 'key' },
+      { key: `svc_groq_rl:${model}`, value: JSON.stringify(snap) }, { onConflict: 'key' },
     ).then(({ error }) => {
       if (error) app.log.warn(`[groq-rl] ${error.message}`);
     }, (e) => app.log.warn(`[groq-rl] ${e.message}`));
@@ -829,27 +832,41 @@ export async function buildApp(options = {}) {
   // ── Monitor de uso: Groq (rate-limit en vivo) + recursos de Supabase ───────
   // Uso de Groq: % RESTANTE del recurso más ajustado (peticiones o tokens) según
   // la última foto de cabeceras (svc_groq_rl). <20% restante => alerta.
+  // % restante por modelo (el recurso más ajustado: peticiones o tokens).
+  function groqModelPct(s) {
+    const pcts = [];
+    if (s.lim_req > 0 && s.rem_req != null) pcts.push(s.rem_req / s.lim_req);
+    if (s.lim_tok > 0 && s.rem_tok != null) pcts.push(s.rem_tok / s.lim_tok);
+    return pcts.length ? Math.round(Math.min(...pcts) * 100) : null;
+  }
+
   async function groqUsage() {
     try {
       const { data } = await supabase.from('system_config')
-        .select('value').eq('key', 'svc_groq_rl').maybeSingle();
-      if (!data?.value) return { available: false };
-      const s = JSON.parse(data.value);
-      const pcts = [];
-      if (s.lim_req > 0 && s.rem_req != null) pcts.push(s.rem_req / s.lim_req);
-      if (s.lim_tok > 0 && s.rem_tok != null) pcts.push(s.rem_tok / s.lim_tok);
-      const minRem = pcts.length ? Math.min(...pcts) : null;
-      return {
-        available: minRem != null, model: s.model, at: s.at,
-        remaining_pct: minRem != null ? Math.round(minRem * 100) : null,
+        .select('key, value').like('key', 'svc_groq_rl%');
+      // Dedup por modelo (quedándonos con la foto más reciente); incluye la clave
+      // antigua 'svc_groq_rl' (foto única) por compatibilidad.
+      const byModel = {};
+      for (const r of data ?? []) {
+        let s; try { s = JSON.parse(r.value); } catch { continue; }
+        const model = s.model || r.key.replace('svc_groq_rl:', '') || '?';
+        if (!byModel[model] || new Date(s.at) > new Date(byModel[model].at)) byModel[model] = s;
+      }
+      const models = Object.entries(byModel).map(([model, s]) => ({
+        model, at: s.at, remaining_pct: groqModelPct(s),
         requests: { remaining: s.rem_req, limit: s.lim_req },
         tokens: { remaining: s.rem_tok, limit: s.lim_tok },
-      };
+      })).filter((m) => m.remaining_pct != null)
+        .sort((a, b) => a.remaining_pct - b.remaining_pct);
+      if (!models.length) return { available: false };
+      // remaining_pct global = el modelo más ajustado (para el resumen/semáforo).
+      return { available: true, remaining_pct: models[0].remaining_pct, models };
     } catch { return { available: false }; }
   }
 
-  // Extrae RAM%, disco% y CPU% de un texto Prometheus (node_exporter de Supabase).
-  let _cpuPrev = null; // último contador de CPU para el delta entre scrapes
+  // Extrae RAM%, disco% y los contadores de CPU de un texto Prometheus
+  // (node_exporter de Supabase). El %CPU se calcula fuera, por delta entre dos
+  // fotos (ver supabaseMetrics), no aquí: una sola foto no da uso de CPU.
   function parsePromMetrics(text) {
     const lines = text.split('\n');
     const sumMetric = (prefix, labelFilter) => {
@@ -882,18 +899,19 @@ export async function buildApp(options = {}) {
         biggest = f.size; disk_pct = Math.round((1 - f.avail / f.size) * 100);
       }
     }
-    // CPU: delta del contador idle entre scrapes.
-    const idle = sumMetric('node_cpu_seconds_total', (ln) => ln.includes('mode="idle"'));
-    const totalCpu = sumMetric('node_cpu_seconds_total');
-    let cpu_pct = null;
-    if (idle != null && totalCpu != null) {
-      if (_cpuPrev && totalCpu > _cpuPrev.total) {
-        const dIdle = idle - _cpuPrev.idle, dTot = totalCpu - _cpuPrev.total;
-        if (dTot > 0) cpu_pct = Math.max(0, Math.min(100, Math.round((1 - dIdle / dTot) * 100)));
-      }
-      _cpuPrev = { idle, total: totalCpu };
-    }
-    return { available: true, ram_pct, disk_pct, cpu_pct };
+    // CPU: contadores acumulados (segundos). El % se saca por delta entre fotos.
+    const cpu_idle = sumMetric('node_cpu_seconds_total', (ln) => ln.includes('mode="idle"'));
+    const cpu_total = sumMetric('node_cpu_seconds_total');
+    return { available: true, ram_pct, disk_pct, cpu_idle, cpu_total };
+  }
+
+  // %CPU a partir de dos fotos de contadores (idle/total en segundos).
+  function cpuPctFromCounters(base, cur) {
+    if (!base || cur.cpu_total == null || base.cpu_total == null) return null;
+    const dIdle = cur.cpu_idle - base.cpu_idle;
+    const dTot = cur.cpu_total - base.cpu_total;
+    if (!(dTot > 0)) return null;
+    return Math.max(0, Math.min(100, Math.round((1 - dIdle / dTot) * 100)));
   }
 
   // Métricas de Supabase: RPC de BD (tamaño/conexiones, siempre) + scrape del
@@ -906,19 +924,40 @@ export async function buildApp(options = {}) {
       const { data } = await supabase.rpc('db_resource_stats');
       if (data) out.db = data;
     } catch (e) { app.log.warn(`[metrics] db_resource_stats: ${e.message}`); }
-    try {
-      const auth = Buffer.from(`service_role:${SUPABASE_SERVICE_ROLE_KEY}`).toString('base64');
+    const auth = Buffer.from(`service_role:${SUPABASE_SERVICE_ROLE_KEY}`).toString('base64');
+    const scrape = async () => {
       const r = await fetch(`${SUPABASE_URL}/customer/v1/privileged/metrics`, {
         headers: { Authorization: `Basic ${auth}` },
         signal: AbortSignal.timeout(6000),
       });
-      out.system = r.ok
-        ? parsePromMetrics(await r.text())
-        : { available: false, status: r.status };
+      return r.ok ? parsePromMetrics(await r.text()) : { available: false, status: r.status };
+    };
+    // Foto anterior de contadores de CPU (persistida) para el delta.
+    let prev = null;
+    try {
+      const { data } = await supabase.from('system_config')
+        .select('value').eq('key', 'svc_supabase_res').maybeSingle();
+      if (data?.value) prev = JSON.parse(data.value);
+    } catch { /* sin foto previa */ }
+    try {
+      let sys = await scrape();
+      if (sys.available) {
+        // %CPU vs la foto anterior; si no sirve (primer arranque o contador
+        // reiniciado), toma una 2ª muestra ~1,2 s después para un delta inmediato.
+        let cpu = cpuPctFromCounters(prev, sys);
+        if (cpu == null) {
+          const base = sys;
+          await new Promise((res) => setTimeout(res, 1200));
+          const sys2 = await scrape();
+          if (sys2.available) { cpu = cpuPctFromCounters(base, sys2); sys = sys2; }
+        }
+        sys.cpu_pct = cpu;
+      }
+      out.system = sys;
     } catch (e) {
       out.system = { available: false, error: e.message };
     }
-    // Guarda la foto del sistema (best-effort) para los semáforos.
+    // Guarda la foto del sistema (best-effort) para los semáforos y el próximo delta.
     if (out.system?.available) {
       supabase.from('system_config').upsert(
         { key: 'svc_supabase_res', value: JSON.stringify({ ...out.system, at: out.at }) },
@@ -2377,8 +2416,11 @@ export async function buildApp(options = {}) {
     const driversWithClaim = new Set();
     const maxLevelByUser = {};        // nivel máximo aprobado por conductor
     for (const c of claims ?? []) {
-      driversWithClaim.add(c.user_id);
       if (c.status === 'rewarded') {
+        // Solo cuenta como "conductor con reto" quien tiene un logro COMPLETADO
+        // (rewarded); los pendientes/rechazados no cuentan (si no, un fraude
+        // rechazado seguiría inflando el %).
+        driversWithClaim.add(c.user_id);
         totalCompleted += 1;
         const lvl = c.level ?? 1;
         if (!maxLevelByUser[c.user_id] || lvl > maxLevelByUser[c.user_id]) maxLevelByUser[c.user_id] = lvl;
@@ -2502,20 +2544,38 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
-  // Admin: lecturas de cuentakilómetros de un conductor (inicio/cierre de jornada),
-  // para CORREGIR un km mal introducido. Solo lecturas de odometer_readings (las
-  // del odómetro de cada carrera se corrigen editando la transacción).
+  // Admin: km de un conductor para CORREGIR un valor mal introducido. Devuelve
+  // AMBOS orígenes que alimentan los retos y el km/día: (1) lecturas de jornada
+  // (odometer_readings) y (2) el odómetro apuntado en cada carrera (transactions
+  // .odometer_km). Cada uno se corrige/elimina con su propio endpoint. Se unifican
+  // en una lista `entries` (source: 'reading' | 'transaction'), más recientes primero.
   app.get('/api/v1/admin/drivers/:userId/odometer', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const limit = Math.min(Number(request.query?.limit) || 60, 300);
-    const { data, error } = await supabase.from('odometer_readings')
-      .select('id, vehicle_id, reading_km, taken_at, vehicles:vehicle_id(license_plate, model)')
-      .eq('user_id', request.params.userId)
-      .order('taken_at', { ascending: false })
-      .limit(limit);
-    if (error) return reply.code(500).send({ error: error.message });
-    return reply.send({ readings: data ?? [] });
+    const [rd, tx] = await Promise.all([
+      supabase.from('odometer_readings')
+        .select('id, vehicle_id, reading_km, taken_at, vehicles:vehicle_id(license_plate, model)')
+        .eq('user_id', request.params.userId)
+        .order('taken_at', { ascending: false }).limit(limit),
+      supabase.from('transactions')
+        .select('id, vehicle_id, odometer_km, created_at, vehicles:vehicle_id(license_plate, model)')
+        .eq('user_id', request.params.userId).not('odometer_km', 'is', null)
+        .order('created_at', { ascending: false }).limit(limit),
+    ]);
+    if (rd.error) return reply.code(500).send({ error: rd.error.message });
+    const entries = [
+      ...(rd.data ?? []).map((r) => ({
+        source: 'reading', id: r.id, km: r.reading_km, at: r.taken_at,
+        plate: (r.vehicles || {}).license_plate ?? null,
+      })),
+      ...(tx.data ?? []).map((t) => ({
+        source: 'transaction', id: t.id, km: t.odometer_km, at: t.created_at,
+        plate: (t.vehicles || {}).license_plate ?? null,
+      })),
+    ].sort((a, b) => new Date(b.at) - new Date(a.at));
+    // `readings` se mantiene por compatibilidad con clientes antiguos.
+    return reply.send({ entries, readings: rd.data ?? [] });
   });
 
   // Admin: corrige el km de una lectura (reading_km). Queda auditado con el valor
@@ -2550,6 +2610,31 @@ export async function buildApp(options = {}) {
     await logAdminAction(request, g.caller?.id ?? null, 'odometer_delete', 'odometer_readings', row.id,
       { user_id: row.user_id, reading_km: row.reading_km, taken_at: row.taken_at });
     return reply.send({ ok: true });
+  });
+
+  // Admin: corrige (o borra, con null) el odómetro apuntado en una CARRERA
+  // (transactions.odometer_km) — la otra fuente del km de los retos. Solo toca ese
+  // campo; el importe/fecha de la carrera no se alteran. Queda auditado.
+  app.patch('/api/v1/admin/transactions/:id/odometer', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const body = request.body ?? {};
+    let newKm = null;
+    if (body.odometer_km !== null && body.odometer_km !== undefined && body.odometer_km !== '') {
+      const km = Number(body.odometer_km);
+      if (!Number.isFinite(km) || km < 0 || km > 100000000) {
+        return reply.code(400).send({ error: 'km no válido' });
+      }
+      newKm = Math.round(km);
+    }
+    const { data: row } = await supabase.from('transactions')
+      .select('id, user_id, odometer_km').eq('id', request.params.id).maybeSingle();
+    if (!row) return reply.code(404).send({ error: 'Carrera no encontrada' });
+    await supabase.from('transactions')
+      .update({ odometer_km: newKm }).eq('id', row.id);
+    await logAdminAction(request, g.caller?.id ?? null, 'odometer_correct', 'transactions', row.id,
+      { user_id: row.user_id, from: row.odometer_km, to: newKm });
+    return reply.send({ ok: true, odometer_km: newKm });
   });
 
   // ============================================================
@@ -2757,22 +2842,26 @@ export async function buildApp(options = {}) {
         count: n, broken, stuck };
     } catch { /* tabla webhook_events puede no existir aún en prod */ }
 
-    // Groq: % restante en vivo (svc_groq_rl). < 20% restante -> rojo.
+    // Groq: % restante en vivo por modelo (svc_groq_rl:*). El semáforo toma el
+    // modelo más ajustado; < 20% restante -> rojo.
     let groqSema = { key: 'groq', kind: 'usage', ok: true, at: null, status: 'off' };
     try {
-      const raw = cfg['svc_groq_rl'];
-      if (raw) {
-        const s = JSON.parse(raw);
+      let minRem = null; let atMin = null;
+      for (const k of Object.keys(cfg)) {
+        if (!k.startsWith('svc_groq_rl')) continue;
+        let s; try { s = JSON.parse(cfg[k]); } catch { continue; }
         const pcts = [];
         if (s.lim_req > 0 && s.rem_req != null) pcts.push(s.rem_req / s.lim_req);
         if (s.lim_tok > 0 && s.rem_tok != null) pcts.push(s.rem_tok / s.lim_tok);
-        if (pcts.length) {
-          const rem = Math.round(Math.min(...pcts) * 100);
-          groqSema = { key: 'groq', kind: 'usage', ok: rem >= 20, at: s.at,
-            status: rem >= 20 ? 'ok' : 'error', remaining_pct: rem };
-        }
+        if (!pcts.length) continue;
+        const rem = Math.round(Math.min(...pcts) * 100);
+        if (minRem == null || rem < minRem) { minRem = rem; atMin = s.at; }
       }
-    } catch { /* svc_groq_rl ausente o no parseable */ }
+      if (minRem != null) {
+        groqSema = { key: 'groq', kind: 'usage', ok: minRem >= 20, at: atMin,
+          status: minRem >= 20 ? 'ok' : 'error', remaining_pct: minRem };
+      }
+    } catch { /* svc_groq_rl* ausente o no parseable */ }
 
     // Recursos de Supabase (svc_supabase_res): CPU/RAM/disco > 80% -> rojo.
     let supaResSema = { key: 'supabase_res', kind: 'usage', ok: true, at: null, status: 'off' };

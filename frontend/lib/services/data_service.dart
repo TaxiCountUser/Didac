@@ -422,17 +422,18 @@ class DataService {
     }
   }
 
-  /// Lecturas de cuentakilómetros de un conductor (inicio/cierre de jornada),
-  /// para corregir un km mal introducido (solo admin).
+  /// Km de un conductor para corregir (solo admin). Devuelve entradas unificadas
+  /// {source: 'reading'|'transaction', id, km, at, plate}: lecturas de jornada
+  /// (odometer_readings) + odómetro apuntado en cada carrera (transactions).
   Future<List<Map<String, dynamic>>> adminDriverOdometer(String userId) async {
     final res = await http.get(
         Uri.parse('$backendUrl/api/v1/admin/drivers/$userId/odometer'), headers: _bearer);
     final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
-    return ((body['readings'] as List?) ?? []).cast<Map<String, dynamic>>();
+    return ((body['entries'] as List?) ?? []).cast<Map<String, dynamic>>();
   }
 
-  /// Corrige el km de una lectura de cuentakilómetros (solo admin).
+  /// Corrige el km de una lectura de jornada (odometer_readings, solo admin).
   Future<void> adminCorrectOdometer(String id, int km) async {
     final res = await http.patch(Uri.parse('$backendUrl/api/v1/admin/odometer/$id'),
         headers: {..._bearer, 'Content-Type': 'application/json'},
@@ -443,13 +444,26 @@ class DataService {
     }
   }
 
-  /// Elimina una lectura de cuentakilómetros errónea (solo admin).
+  /// Elimina una lectura de jornada errónea (odometer_readings, solo admin).
   Future<void> adminDeleteOdometer(String id) async {
     final res = await http.delete(Uri.parse('$backendUrl/api/v1/admin/odometer/$id'),
         headers: _bearer);
     if (res.statusCode != 200) {
       final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
       throw Exception(body['error'] ?? 'No se pudo eliminar');
+    }
+  }
+
+  /// Corrige el odómetro apuntado en una carrera (transactions.odometer_km).
+  /// km=null borra ese valor de la carrera (sin tocar importe/fecha). Solo admin.
+  Future<void> adminCorrectTransactionOdometer(String id, int? km) async {
+    final res = await http.patch(
+        Uri.parse('$backendUrl/api/v1/admin/transactions/$id/odometer'),
+        headers: {..._bearer, 'Content-Type': 'application/json'},
+        body: jsonEncode({'odometer_km': km}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo corregir');
     }
   }
 

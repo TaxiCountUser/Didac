@@ -598,7 +598,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: adminCardBox(
-            borderColor: suspicious ? AdminColors.red : null),
+            borderColor: suspicious && !rejected ? AdminColors.red : null),
         child: Row(
           children: [
             Container(
@@ -631,7 +631,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 10, color: AdminColors.muted),
                   ),
-                  if (suspicious)
+                  if (suspicious && !rejected)
                     Text('⚠ ${l.t('admin_ch_suspicious')}',
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -776,20 +776,29 @@ class _ChallengesTabState extends State<_ChallengesTab> {
 
   Widget _kmReadingRow(
       AppLocalizations l, BuildContext ctx, StateSetter setLocal,
-      List<Map<String, dynamic>> readings, Map<String, dynamic> r,
+      List<Map<String, dynamic>> entries, Map<String, dynamic> r,
       DateFormat df, NumberFormat fmt) {
     final id = r['id'] as String;
-    final km = (r['reading_km'] as num?)?.toInt() ?? 0;
-    final taken = DateTime.tryParse((r['taken_at'] as String?) ?? '');
-    final plate = (r['vehicles'] as Map?)?['license_plate'] as String? ?? '—';
+    final isTrip = r['source'] == 'transaction';
+    final km = (r['km'] as num?)?.toInt() ?? 0;
+    final at = DateTime.tryParse((r['at'] as String?) ?? '');
+    final plate = (r['plate'] as String?) ?? '—';
+    final srcLabel = isTrip ? l.t('adm_km_src_trip') : l.t('adm_km_src_reading');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${fmt.format(km)} km · $plate',
-                style: const TextStyle(fontSize: 13, color: AdminColors.text)),
-            Text(taken != null ? df.format(taken) : '—',
+            Row(children: [
+              Flexible(child: Text('${fmt.format(km)} km · $plate',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: AdminColors.text))),
+              const SizedBox(width: 6),
+              AdminTag(srcLabel,
+                  fg: isTrip ? AdminColors.amber : AdminColors.blue,
+                  bg: isTrip ? AdminColors.amberBg : AdminColors.blueBg),
+            ]),
+            Text(at != null ? df.format(at) : '—',
                 style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
           ]),
         ),
@@ -800,8 +809,12 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             final newKm = await _askKm(km);
             if (newKm == null || newKm == km) return;
             try {
-              await _service.adminCorrectOdometer(id, newKm);
-              r['reading_km'] = newKm;
+              if (isTrip) {
+                await _service.adminCorrectTransactionOdometer(id, newKm);
+              } else {
+                await _service.adminCorrectOdometer(id, newKm);
+              }
+              r['km'] = newKm;
               setLocal(() {});
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_km_saved'))));
@@ -820,7 +833,8 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             final ok = await showAdminDialog<bool>(
               context: context,
               builder: (c) => AlertDialog(
-                content: Text(l.t('adm_km_del_confirm')),
+                // En una carrera solo se borra el km (no la carrera entera).
+                content: Text(isTrip ? l.t('adm_km_clear_confirm') : l.t('adm_km_del_confirm')),
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.t('cancel'))),
                   FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.t('delete'))),
@@ -829,8 +843,12 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             );
             if (ok != true) return;
             try {
-              await _service.adminDeleteOdometer(id);
-              readings.remove(r);
+              if (isTrip) {
+                await _service.adminCorrectTransactionOdometer(id, null);
+              } else {
+                await _service.adminDeleteOdometer(id);
+              }
+              entries.remove(r);
               setLocal(() {});
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_km_deleted'))));
