@@ -30,7 +30,7 @@ La arquitectura es sólida y está bien alineada con su stack.
 |---|---|
 | Backend | Fastify, `server.js` ~3.500 líneas + 6 módulos · 69 rutas HTTP |
 | Frontend | Flutter, ~45 pantallas, i18n propia (es/en/ca) |
-| Base de datos | 64 migraciones · 28 tablas · ~26 RPCs · 53 políticas RLS |
+| Base de datos | 65 migraciones · 29 tablas · ~28 RPCs · 53 políticas RLS |
 | Idiomas de la app | Español, inglés, catalán |
 | Coste operativo | ~88 €/mes |
 
@@ -168,7 +168,7 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 - `markCronRun` → frescura (rojo si >48h). `markService` → último resultado (rojo solo si
   la última llamada falló; la inactividad no da falso rojo). `probeDb` → latencia en vivo.
 
-### 4.5 Base de datos (`supabase/migrations/`, 27 tablas)
+### 4.5 Base de datos (`supabase/migrations/`, 29 tablas)
 - **Núcleo:** `tenants` → `users` / `vehicles` / `transactions` (+ `vehicle_licenses`, `driver_vehicles`).
 - **Jornada:** `odometer_readings`, `driver_locations`, `app_usage_days`.
 - **Negocio/gamificación:** `subscription_extensions`, `challenge_claims`, `monthly_savings`, `fleet_quarterly_metrics` (obsoleta).
@@ -177,7 +177,7 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 - **Plataforma:** `system_config`, `admin_actions_log`, `cron_execution_logs`, `device_tokens`.
 - **Seguridad en el motor:** 53 políticas RLS + helpers `SECURITY DEFINER`
   (`current_tenant_id`, `current_role_name`, `is_platform_admin`, `current_subscription_active`)
-  y ~26 RPCs de negocio.
+  y ~28 RPCs de negocio.
 
 ---
 
@@ -254,9 +254,13 @@ crons externos se autentican con `x-cron-secret`.
 > en cliente sin cambios (no se regresiona el cierre). Fallback igual. M3-5
 > (2026-07-13): **re-medido con k6** (A/B rpc vs pull antiguo) — a 50k tx / 30
 > paneles la RPC es 3,4× mejor en p95 (0,95 s vs 3,23 s) y mueve ~20× menos datos
-> (48 MB vs 979 MB); el modo antiguo cruza la SLA de 1500 ms, la RPC no. **Núcleo
-> del Mes 3 cerrado**; rollups diarios (M3-3/4) quedan gated hasta que el volumen
-> los justifique. Detalle: [docs/plan-produccion/mes-3-tickets.md](docs/plan-produccion/mes-3-tickets.md).
+> (48 MB vs 979 MB); el modo antiguo cruza la SLA de 1500 ms, la RPC no. M3-3/4
+> (2026-07-13): **rollups diarios** (mig. 065, tabla `tenant_daily_rollup`
+> mantenida exacta por trigger `tx_rollup_aiud` sobre `transactions`; RPCs
+> `report_summary_rollup`/`period_report_rollup`) — el cliente los usa en rangos
+> mes/año sin filtro, con fallback a las RPCs crudas; verificado **rollup == crudo**
+> contra el stack real. **MES 3 CERRADO** — los tres meses del plan completos.
+> Detalle: [docs/plan-produccion/mes-3-tickets.md](docs/plan-produccion/mes-3-tickets.md).
 
 ### 6.2 Prioridad media
 3. **Reconsiderar la i18n propia.** El mapa único en `app_localizations.dart` es pragmático
@@ -275,7 +279,7 @@ crons externos se autentican con `x-cron-secret`.
    de estar fijo a verde; añadir métricas de latencia p95 por endpoint.
 8. **Índices y rendimiento:** revisar índices en las tablas de mayor volumen
    (`transactions`, `app_usage_days`) conforme crezcan los datos.
-9. **Gestión de esquema:** con 64 migraciones lineales, considerar *squashing* de las
+9. **Gestión de esquema:** con 65 migraciones lineales, considerar *squashing* de las
    iniciales en un baseline para acelerar el arranque limpio en dev/CI.
 
 ### 6.4 Fortalezas a preservar
@@ -290,7 +294,7 @@ crons externos se autentican con `x-cron-secret`.
 ## Anexo A — Configuración y esquema de base de datos (detalle)
 
 ### A.1 Configuración (stack Supabase)
-Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) vía las 64 migraciones.
+Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) vía las 65 migraciones.
 
 | Componente | Imagen / detalle | Puerto | Función |
 |---|---|---|---|
@@ -300,14 +304,14 @@ Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) 
 | **Kong (Gateway)** | `2.8.1` | 54321 | expone `/auth/v1` y `/rest/v1`; plugins cors/key-auth/acl |
 | **Realtime** | `v2.30.34` (perfil opcional) | — | publica `transactions` en `supabase_realtime` |
 
-**Cifras del esquema:** 64 migraciones · **28 tablas** · **~26 RPCs** `public.*` · **53 políticas RLS** · 2 triggers.
+**Cifras del esquema:** 65 migraciones · **29 tablas** · **~28 RPCs** `public.*` · **53 políticas RLS** · 3 triggers.
 
 **Diseño de claves foráneas:** todas las tablas de negocio llevan `tenant_id` con
 `ON DELETE CASCADE` (o `SET NULL` para el admin y para `user_id`/`vehicle_id` en
 `transactions`, para conservar el histórico) y `ON UPDATE CASCADE` (permite remapear el
 id del perfil al id real de `auth.users`).
 
-### A.2 Modelo de datos (27 tablas por dominio)
+### A.2 Modelo de datos (29 tablas por dominio)
 - **Núcleo multi-tenant:**
   - `tenants` — empresa. Base: `id, name`. Extendida: `subscription_status, trial_ends_at,
     plan_id, drivers_limit, stripe_customer_id, stripe_subscription_id, solo, join_code, closed_at`.
@@ -328,7 +332,8 @@ id del perfil al id real de `auth.users`).
 - **Soporte y moderación:** `incidents` · `incident_messages` · `error_reports` · `fraud_alerts`.
 - **Plataforma / infra:** `system_config` (config en caliente + estado de semáforos
   `cron_last_*`/`svc_*` + **feature flags** `flag_*`, p. ej. `flag_webhook_async`) ·
-  `webhook_events` (bandeja idempotente/durable de Stripe) · `admin_actions_log`
+  `webhook_events` (bandeja idempotente/durable de Stripe) · `tenant_daily_rollup`
+  (rollups diarios del dashboard, mantenidos por trigger) · `admin_actions_log`
   (auditoría) · `cron_execution_logs` · `device_tokens` (FCM).
 
 ### A.3 Seguridad en la BD (RLS + RPCs)
@@ -337,11 +342,12 @@ id del perfil al id real de `auth.users`).
   de `transactions` exige suscripción activa.
 - **Helpers `SECURITY DEFINER`** (evitan la recursión en las políticas):
   `current_tenant_id()`, `current_role_name()`, `is_platform_admin()`, `current_subscription_active()`.
-- **RPCs de negocio** (26): `create_owner_company`, `create_solo_company`, `join_fleet_with_code`,
+- **RPCs de negocio** (28): `create_owner_company`, `create_solo_company`, `join_fleet_with_code`,
   `set_solo_mode`, `accept_legal`, `mark_password_changed`, `owner_set_driver_name`,
   `set_vehicle_license`, `generate_referral_code`/`set_referral_code`/`set_my_referrer`,
   `challenge_stats`/`challenge_stats_tenant`, `email_for_username` (login por nombre de usuario),
-  `report_summary` (agregación del dashboard, Mes 3),
+  `report_summary`/`period_report` (agregación del dashboard en BD, Mes 3) +
+  `report_summary_rollup`/`period_report_rollup` (sobre `tenant_daily_rollup`),
   `purge_expired_retention` (purga fiscal), `cleanup_old_incidents`.
 - **Trigger clave:** `handle_new_auth_user` sobre `auth.users` — un owner nuevo crea su tenant;
   un driver con `tenant_id` en la metadata se une a la flota. Es el puente entre la

@@ -47,16 +47,34 @@ bucle: es la agregación, no la escritura (insert p95 102 ms a 1.000 VUs).
   actividad, aislamiento entre tenants y rango de fechas. **PENDIENTE aplicar mig.
   064 en Supabase Cloud** (hasta entonces, el fallback cubre).
 
-## Fase 2 — Rollups diarios (cuando el volumen lo pida)
+## Fase 2 — Rollups diarios ✅ (2026-07-13)
 
-- [ ] **M3-3. Tabla `tenant_daily_rollup`** (tenant_id, day, user_id, income,
-  expense, tx_count) mantenida de forma incremental (trigger en `transactions` o
-  cron nocturno) + backfill. Mes/año pasan a sumar ~30-365 filas de rollup en vez
-  de miles de tx crudas. **Gatillo de activación:** cuando una flota supere
-  ~50k tx/mes o el p95 del resumen anual > 800 ms. Hasta entonces, M3-1 basta.
-- [ ] **M3-4. Caché corta de agregados (opcional).** Si se enruta el resumen por
-  el backend Fastify, TTL 15-30 s por (tenant, filtros, rango) para colapsar
-  refrescos repetidos. Se evalúa tras medir; los rollups pueden hacerla innecesaria.
+- [x] **M3-3. Tabla `tenant_daily_rollup`** — *HECHO*: migración 065.
+  `(tenant_id, user_id, day, income, expense, tx_count, income_by_method,
+  expense_by_category, first_at, last_at)`, PK (tenant,user,day), RLS igual que
+  `transactions`. Mantenida **incremental y exacta** por trigger
+  `tx_rollup_aiud` sobre `transactions` (insert/update/delete → recompute del
+  bucket afectado, acotado por rango de `created_at` para no escanear el histórico;
+  buckets vacíos se borran). Día natural LOCAL vía `report_tz()` ('Europe/Madrid')
+  para casar con los rangos del cliente. Backfill de los datos existentes al final.
+  RPCs de lectura `report_summary_rollup` / `period_report_rollup` (mismo shape que
+  063/064). El cliente las usa para rangos ≥60 días sin filtro por vehículo/cliente,
+  con fallback en cadena a las RPCs crudas y a la agregación en cliente. Verificado
+  contra el stack real (rollups.test.js): **rollup == crudo** (exactitud), trigger
+  en insert/update/delete, borrado de bucket vacío y aislamiento por tenant.
+- [x] **M3-4. Caché de agregados** — *RESUELTO por los rollups*: los rollups hacen
+  cada resumen O(días) en vez de O(tx), así que una caché con TTL sería redundante
+  y añadiría staleness sobre el camino del dinero. No se implementa; si en el
+  futuro hiciera falta, el sitio sería un TTL corto en el backend Fastify.
+
+> **Gatillo de uso del cliente:** las RPCs de rollup solo se invocan en rangos
+> grandes (mes/año). Día/semana y vistas filtradas siguen por la RPC cruda (ya
+> rápida). Así el rollup añade valor donde importa sin cambiar el resto.
+
+> **Nota de coste de escritura:** el trigger recalcula un bucket pequeño (las tx de
+> ese conductor ese día, por índice user+created) en cada insert. Insignificante al
+> volumen actual y muy por encima. A escritura extrema (100k+) se puede desacoplar
+> a mantenimiento asíncrono por cron (dirty buckets); anotado, no accionable hoy.
 
 ## Fase 3 — Verificación
 

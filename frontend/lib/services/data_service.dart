@@ -1076,27 +1076,45 @@ class DataService {
     DateTime? to,
     String? client,
   }) async {
+    // Para rangos grandes (mes/año) sin filtro por vehículo/cliente, usa los
+    // rollups diarios (mig. 065): suma decenas de filas en vez de miles de tx.
+    // Para rangos cortos o filtrados, la RPC cruda. Fallback en cadena: rollup →
+    // cruda → agregación en cliente (ninguna caída deja el dashboard en blanco).
+    final noExtraFilter = vehicleId == null && (client == null || client.isEmpty);
+    final bigRange = from != null && to != null && to.difference(from).inDays >= 60;
+    if (noExtraFilter && bigRange) {
+      try {
+        return _parseSummary((await _c.rpc('report_summary_rollup', params: {
+          'p_user': userId,
+          'p_from': from.toUtc().toIso8601String(),
+          'p_to': to.toUtc().toIso8601String(),
+        })) as Map);
+      } catch (_) {/* cae a la RPC cruda */}
+    }
     try {
-      final res = await _c.rpc('report_summary', params: {
+      return _parseSummary((await _c.rpc('report_summary', params: {
         'p_user': userId,
         'p_vehicle': vehicleId,
         'p_from': from?.toUtc().toIso8601String(),
         'p_to': to?.toUtc().toIso8601String(),
         'p_client': (client != null && client.isNotEmpty) ? client : null,
-      });
-      final m = (res as Map).cast<String, dynamic>();
-      final byCat = <String, double>{};
-      ((m['expense_by_category'] as Map?) ?? const {}).forEach(
-          (k, v) => byCat['$k'] = (v as num).toDouble());
-      return TxSummary(
-        income: (m['income'] as num?)?.toDouble() ?? 0,
-        expense: (m['expense'] as num?)?.toDouble() ?? 0,
-        expenseByCategory: byCat,
-      );
+      })) as Map);
     } catch (_) {
       return _transactionsSummaryLegacy(
           userId: userId, vehicleId: vehicleId, from: from, to: to, client: client);
     }
+  }
+
+  TxSummary _parseSummary(Map res) {
+    final m = res.cast<String, dynamic>();
+    final byCat = <String, double>{};
+    ((m['expense_by_category'] as Map?) ?? const {})
+        .forEach((k, v) => byCat['$k'] = (v as num).toDouble());
+    return TxSummary(
+      income: (m['income'] as num?)?.toDouble() ?? 0,
+      expense: (m['expense'] as num?)?.toDouble() ?? 0,
+      expenseByCategory: byCat,
+    );
   }
 
   /// Agregación en cliente (fallback de [transactionsSummary] si la RPC no está).
@@ -1165,31 +1183,39 @@ class DataService {
       if (!dayLast.containsKey(k) || ts.isAfter(dayLast[k]!)) dayLast[k] = ts;
     }
 
-    // --- Dinero + actividad: RPC (agrega en la BD, M3-2) con fallback a filas ---
-    // La RPC devuelve income/expense/income_by_method y las ventanas [first,last]
-    // por día; alimentamos mark() con ellas (equivale a marcar todas las tx, pues
-    // solo cuentan el min/max del día). Si la RPC no está, cae a traer las filas.
+    // --- Dinero + actividad: RPC (agrega en la BD) con fallback a filas ---
+    // Devuelve income/expense/income_by_method y las ventanas [first,last] por
+    // día; alimentamos mark() con ellas (equivale a marcar todas las tx, pues solo
+    // cuentan el min/max del día). Para rangos grandes (mes/año) usa los rollups
+    // (mig. 065); si no, la RPC cruda (M3-2). Fallback a traer filas si ninguna va.
     var rpcOk = false;
-    try {
-      final res = await _c.rpc('period_report', params: {
-        'p_user': userId,
-        'p_from': from.toUtc().toIso8601String(),
-        'p_to': to.toUtc().toIso8601String(),
-        'p_offset': DateTime.now().timeZoneOffset.inMinutes,
-      });
-      final m = (res as Map).cast<String, dynamic>();
-      income = (m['income'] as num?)?.toDouble() ?? 0;
-      expense = (m['expense'] as num?)?.toDouble() ?? 0;
-      ((m['income_by_method'] as Map?) ?? const {})
-          .forEach((k, v) => byMethod['$k'] = (v as num).toDouble());
-      for (final a in (m['tx_activity'] as List?) ?? const []) {
-        final pair = a as List;
-        mark(DateTime.tryParse('${pair[0]}'));
-        mark(DateTime.tryParse('${pair[1]}'));
-      }
-      rpcOk = true;
-    } catch (_) {
-      rpcOk = false;
+    final bigRange = to.difference(from).inDays >= 60;
+    final rpcNames = bigRange
+        ? const ['period_report_rollup', 'period_report']
+        : const ['period_report'];
+    for (final rpcName in rpcNames) {
+      try {
+        final res = await _c.rpc(rpcName, params: {
+          'p_user': userId,
+          'p_from': from.toUtc().toIso8601String(),
+          'p_to': to.toUtc().toIso8601String(),
+          // Solo la RPC cruda agrupa por offset del cliente; la de rollup usa
+          // report_tz() en la BD.
+          if (rpcName == 'period_report') 'p_offset': DateTime.now().timeZoneOffset.inMinutes,
+        });
+        final m = (res as Map).cast<String, dynamic>();
+        income = (m['income'] as num?)?.toDouble() ?? 0;
+        expense = (m['expense'] as num?)?.toDouble() ?? 0;
+        ((m['income_by_method'] as Map?) ?? const {})
+            .forEach((k, v) => byMethod['$k'] = (v as num).toDouble());
+        for (final a in (m['tx_activity'] as List?) ?? const []) {
+          final pair = a as List;
+          mark(DateTime.tryParse('${pair[0]}'));
+          mark(DateTime.tryParse('${pair[1]}'));
+        }
+        rpcOk = true;
+        break;
+      } catch (_) {/* prueba la siguiente / cae a filas */}
     }
 
     if (!rpcOk) {
