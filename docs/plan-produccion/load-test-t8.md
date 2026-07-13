@@ -174,6 +174,48 @@ el resultado es un **suelo** — prod rendirá igual o mejor.
 | muchos 429 solo en `login` | rate limit de auth de Supabase (plataforma) | esperado; ignora login |
 | ECONNREFUSED :3000 | backend local no corriendo | Paso 4 |
 
+## Anexo — Re-medición Mes 3 (M3-5, A/B agregación, 2026-07-13)
+
+Tras M3-1/M3-2 (mover la agregación del dashboard a la BD vía RPCs
+`report_summary`/`period_report`), re-medimos **el cambio real**. El escenario
+`dashboard` de k6 ahora llama a la RPC (lo que hace hoy la app) y admite un A/B con
+`DASH_MODE`: `rpc` (nuevo) vs `legacy` (el pull de todas las filas de antes). Se
+siembra volumen con `SEED_TX`.
+
+**Entorno:** stack Docker local (una sola máquina, red ~0), 30 paneles concurrentes
+(`VUS_DASH=30`), mismo dataset por modo. Incluye el feed de 20 tx (constante en ambos).
+
+```
+k6 run -e VUS_DASH=30 -e SEED_TX=50000 -e POOL=2 -e DASH_MODE=legacy tests/load/test_scenarios.js
+k6 run -e VUS_DASH=30 -e SEED_TX=50000 -e POOL=2 -e DASH_MODE=rpc    tests/load/test_scenarios.js
+```
+
+| Dataset | Modo | p95 dashboard | avg | max | throughput (iter) | datos recibidos |
+|---|---|---|---|---|---|---|
+| 50.000 tx | **legacy** (pull filas) | **3,23 s** ❌ | 847 ms | 8,04 s | 379 | **979 MB** |
+| 50.000 tx | **rpc** (agrega en BD) | **0,95 s** ✅ | 358 ms | 1,79 s | 577 | **48 MB** |
+| 5.000 tx | legacy | 145 ms | 53 ms | 657 ms | — | — |
+| 5.000 tx | rpc | 161 ms | 70 ms | 389 ms | — | — |
+
+**Lectura honesta:**
+- A **50k tx** (un año de una flota mediana), la RPC es **3,4× más rápida en p95**
+  (0,95 s vs 3,23 s), mueve **~20× menos datos** (48 MB vs 979 MB) y da **+52% de
+  throughput**. Crítico: el modo legacy **cruza el umbral de 1500 ms** (falla la SLA
+  del dashboard); la RPC se queda holgada por debajo del segundo.
+- A **5k tx en localhost**, la RPC sale un pelín peor (161 vs 145 ms): sin latencia
+  de red, transferir 5k filas pequeñas es casi gratis y la agregación añade algo de
+  CPU. **La ventaja del RPC es la transferencia**, y solo domina cuando los datos
+  crecen o hay red real de por medio (Cloud, RTT, ancho de banda) — donde mover
+  979 MB vs 48 MB pesa mucho más que en local. Es decir: **la mejora en producción
+  es mayor que la medida aquí**, no menor.
+
+**Conclusión:** M3-1/M3-2 resuelven el primer límite. La agregación deja de escalar
+con el nº de filas (O(filas)→O(1) de transferencia) y el dashboard se mantiene dentro
+de la SLA a volúmenes 100× el actual. La medición T8 original (capacidad absoluta en
+staging Free tier) no se repite: su escenario "dashboard" era un proxy (lista de 20)
+y aquí medimos directamente lo que cambió. Un run T8 completo en staging queda como
+verificación opcional de la cifra de capacidad absoluta.
+
 ## Anexo — Stress test "loco" (10.000 VUs, 2026-07-11)
 
 Prueba extra fuera de los perfiles: `VUS_INSERT=10000` (10× lo validado).

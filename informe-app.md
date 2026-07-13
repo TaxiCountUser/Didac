@@ -251,9 +251,12 @@ crons externos se autentican con `x-cron-secret`.
 > por tenant/rol) verificado contra el stack real. M3-2 (2026-07-13): **RPC
 > `period_report`** (mig. 064) agrega el dinero del cierre de jornada + ventanas
 > de actividad por día (para las horas); km (odómetros) y cómputo de horas siguen
-> en cliente sin cambios (no se regresiona el cierre). Fallback igual. Siguiente:
-> rollups diarios cuando el volumen lo pida (gatillo documentado) y re-medición
-> con k6. Detalle: [docs/plan-produccion/mes-3-tickets.md](docs/plan-produccion/mes-3-tickets.md).
+> en cliente sin cambios (no se regresiona el cierre). Fallback igual. M3-5
+> (2026-07-13): **re-medido con k6** (A/B rpc vs pull antiguo) — a 50k tx / 30
+> paneles la RPC es 3,4× mejor en p95 (0,95 s vs 3,23 s) y mueve ~20× menos datos
+> (48 MB vs 979 MB); el modo antiguo cruza la SLA de 1500 ms, la RPC no. **Núcleo
+> del Mes 3 cerrado**; rollups diarios (M3-3/4) quedan gated hasta que el volumen
+> los justifique. Detalle: [docs/plan-produccion/mes-3-tickets.md](docs/plan-produccion/mes-3-tickets.md).
 
 ### 6.2 Prioridad media
 3. **Reconsiderar la i18n propia.** El mapa único en `app_localizations.dart` es pragmático

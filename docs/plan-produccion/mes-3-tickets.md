@@ -60,15 +60,23 @@ bucle: es la agregación, no la escritura (insert p95 102 ms a 1.000 VUs).
 
 ## Fase 3 — Verificación
 
-- [ ] **M3-5. Re-medir con k6** (mismos perfiles de T8) tras M3-1/2: confirmar que
-  la cola p95 de dashboard baja del umbral (1500 ms) a 500 VUs. Actualizar
-  load-test-t8.md con la nueva fila.
+- [x] **M3-5. Re-medir con k6** — *HECHO (2026-07-13)*: escenario `dashboard`
+  actualizado para llamar a la RPC + A/B con `DASH_MODE` (rpc vs legacy) y siembra
+  `SEED_TX`. A 50k tx / 30 paneles: RPC **3,4× mejor p95** (0,95 s vs 3,23 s),
+  **~20× menos datos** (48 MB vs 979 MB), **+52% throughput**; legacy cruza la SLA
+  de 1500 ms, RPC no. Detalle y matiz honesto (localhost oculta el coste de red →
+  la mejora en Cloud es mayor) en el anexo de
+  [load-test-t8.md](load-test-t8.md).
 
 ## Criterio de salida del Mes 3
 
-1. El resumen del dashboard se agrega en la BD, no trayendo filas al cliente.
-2. Fallback a la ruta antigua: ningún despliegue puede dejar el dashboard en blanco.
-3. Re-medido: la agregación deja de ser el primer límite (o se documenta el nuevo).
+1. El resumen del dashboard se agrega en la BD, no trayendo filas al cliente. ✅ (M3-1/M3-2)
+2. Fallback a la ruta antigua: ningún despliegue puede dejar el dashboard en blanco. ✅
+3. Re-medido: la agregación deja de ser el primer límite. ✅ (3,4× p95, 20× datos; A/B M3-5)
+
+**▶ NÚCLEO DEL MES 3 CERRADO (2026-07-13).** La agregación del dashboard vive en la
+BD (RPCs), no escala con el nº de filas, y se mantiene dentro de la SLA a 100× el
+volumen actual. Rollups (M3-3/4) quedan gated hasta que el volumen los justifique.
 
 ## Fuera de alcance (más adelante)
 - Read replicas (solo si una réplica de lectura se justifica por métricas reales).

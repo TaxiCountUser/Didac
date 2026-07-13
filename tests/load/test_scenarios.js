@@ -36,6 +36,7 @@ const VUS_DASH = Number(__ENV.VUS_DASH || 20);
 const VUS_EXPORT = Number(__ENV.VUS_EXPORT || 5);
 const DUR_INSERT = __ENV.DUR_INSERT || '5m';
 const POOL = Number(__ENV.POOL || 8); // nº de conductores creados en setup
+const SEED_TX = Number(__ENV.SEED_TX || 0); // tx a sembrar en el tenant (A/B del dashboard)
 
 const jsonHeaders = (token) => ({
   apikey: ANON,
@@ -124,6 +125,29 @@ export function setup() {
     );
   }
 
+  // 2-bis) Siembra opcional de tx en el tenant, para que el resumen del dashboard
+  // agregue un volumen realista (A/B M3-5). Vía service_role (salta RLS), en lotes.
+  if (SEED_TX > 0) {
+    const svcHeaders = {
+      apikey: SERVICE, Authorization: `Bearer ${SERVICE}`,
+      'Content-Type': 'application/json', Prefer: 'return=minimal',
+    };
+    const batch = 500;
+    for (let done = 0; done < SEED_TX; done += batch) {
+      const n = Math.min(batch, SEED_TX - done);
+      const rows = [];
+      for (let i = 0; i < n; i++) {
+        rows.push({
+          tenant_id: tenantId, user_id: ownerId,
+          amount: Math.round(Math.random() * 5000) / 100,
+          type: Math.random() > 0.5 ? 'income' : 'expense',
+          category: 'otros', payment_method: 'tarjeta',
+        });
+      }
+      http.post(`${BASE}/rest/v1/transactions`, JSON.stringify(rows), { headers: svcHeaders });
+    }
+  }
+
   // 3) Pool de conductores vía backend, luego login para obtener tokens
   const creds = [{ email: ownerEmail, pwd }];
   const driverTokens = [];
@@ -192,13 +216,31 @@ export function insertScenario(data) {
   sleep(10);
 }
 
-// c) carga del dashboard con filtros (Owner)
+// c) carga del dashboard (Owner). El coste real del dashboard es el RESUMEN
+// económico (KPIs), que agrega sobre TODAS las tx del rango. Mes 3 lo movió a la
+// BD (RPC report_summary). Este escenario mide ese resumen y permite un A/B:
+//   DASH_MODE=rpc     (por defecto) → agregación en la BD (lo que hace hoy la app)
+//   DASH_MODE=legacy              → trae TODAS las filas (lo que hacía antes)
+// El feed (lista de 20 tx con joins) va aparte y no es el cuello (ya acotado).
 export function dashboardScenario(data) {
-  const url =
-    `${BASE}/rest/v1/transactions?select=*,users:user_id(name,email),vehicles:vehicle_id(license_plate,model)` +
-    `&tenant_id=eq.${data.tenantId}&order=created_at.desc&limit=20`;
-  const res = http.get(url, { headers: jsonHeaders(data.ownerToken) });
+  let res;
+  if ((__ENV.DASH_MODE || 'rpc') === 'legacy') {
+    // ANTES: el cliente traía todas las tx del tenant y sumaba en el navegador.
+    const url =
+      `${BASE}/rest/v1/transactions?select=amount,type,category&tenant_id=eq.${data.tenantId}`;
+    res = http.get(url, { headers: jsonHeaders(data.ownerToken) });
+  } else {
+    // AHORA: agregación en Postgres, devuelve un JSON pequeño.
+    res = http.post(`${BASE}/rest/v1/rpc/report_summary`, JSON.stringify({}),
+      { headers: jsonHeaders(data.ownerToken) });
+  }
   check(res, { 'dashboard 200': (r) => r.status === 200 });
+  // Feed de las últimas 20 tx (sin cambios; ya acotado): parte de la misma carga.
+  const feed = http.get(
+    `${BASE}/rest/v1/transactions?select=*,users:user_id(name,email),vehicles:vehicle_id(license_plate,model)` +
+    `&tenant_id=eq.${data.tenantId}&order=created_at.desc&limit=20`,
+    { headers: jsonHeaders(data.ownerToken) });
+  check(feed, { 'feed 200': (r) => r.status === 200 });
   sleep(1);
 }
 
