@@ -24,18 +24,20 @@ class AdminModuleScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final m = module.clamp(0, 5);
+    final m = module.clamp(0, 6);
     final titles = [
       l.t('adm_mod_support'),
       l.t('admin_challenges'),
       l.t('adm_ref_tab'),
-      l.t('adm_sec_tab'),
+      l.t('adm_mon_tab'),
       l.t('adm_err_tab'),
       l.t('adm_cfg_tab'),
+      l.t('adm_audit_tab'),
     ];
     const children = <Widget>[
       _IncidentsTab(), _ChallengesTab(), ReferralsTab(),
-      SecurityTab(), _ErrorReportsTab(), ConfigTab(),
+      SecurityTab(mode: 'monitoring'), _ErrorReportsTab(), ConfigTab(),
+      SecurityTab(mode: 'audit'),
     ];
     return Theme(
       data: adminDarkTheme(),
@@ -221,6 +223,8 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   String? _error;
   String _fLevel = '';
   String _fStatus = '';
+  int _tab = 0; // 0 = resumen (KPIs + gráficos + logros), 1 = sospechosos
+  String _evoPeriod = 'days'; // días | months | years | total
   Timer? _autoRefresh;
 
   @override
@@ -285,41 +289,77 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final l = context.l10n;
     if (_error != null) return _ErrorRetry(error: _error!, onRetry: _reload);
     if (_loading) return const Center(child: CircularProgressIndicator());
-    // Los sospechosos pendientes de decisión van ARRIBA: son lo accionable.
-    final review = _filtered
+    // Sospechosos pendientes de decisión: es lo accionable, ahora en su submenú.
+    final review = _claims
         .where((c) => c['suspicious'] == true && (c['status_label'] as String?) != 'rejected')
         .toList();
-    final rest = _filtered.where((c) => !review.contains(c)).toList();
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        child: Row(children: [
+          AdminPill(
+              label: l.t('adm_ch_tab_summary'), selected: _tab == 0, color: AdminColors.amber,
+              onTap: () => setState(() => _tab = 0)),
+          const SizedBox(width: 6),
+          AdminPill(
+              label: review.isNotEmpty
+                  ? '${l.t('adm_ch_tab_suspicious')} (${review.length})'
+                  : l.t('adm_ch_tab_suspicious'),
+              selected: _tab == 1, color: AdminColors.red,
+              onTap: () => setState(() => _tab = 1)),
+        ]),
+      ),
+      Expanded(child: _tab == 1 ? _suspiciousView(l, review) : _summaryView(l)),
+    ]);
+  }
+
+  // Tab 0: KPIs + gráficos (km/día primero, luego evolución) + logros.
+  Widget _summaryView(AppLocalizations l) {
+    final rest = _filtered
+        .where((c) => !(c['suspicious'] == true && (c['status_label'] as String?) != 'rejected'))
+        .toList();
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
           _summaryCards(l),
-          if (review.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Row(children: [
-              Container(width: 7, height: 7,
-                  decoration: const BoxDecoration(
-                      color: AdminColors.red, shape: BoxShape.circle)),
-              const SizedBox(width: 7),
-              Text(l.t('adm_ch_review_first').toUpperCase(),
-                  style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600,
-                      letterSpacing: 1.5, color: AdminColors.text)),
-            ]),
-            const SizedBox(height: 8),
-            for (final c in review) _claimTile(l, c),
-          ],
           const SizedBox(height: 16),
+          _charts(l),
+          const SizedBox(height: 16),
+          Text(l.t('adm_ch_achievements').toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5, color: AdminColors.text)),
+          const SizedBox(height: 8),
           _filtersBar(l),
           const SizedBox(height: 8),
-          if (rest.isEmpty && review.isEmpty)
+          if (rest.isEmpty)
             Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('admin_no_challenges'))))
           else
             for (final c in rest) _claimTile(l, c),
-          const SizedBox(height: 16),
-          _charts(l),
+        ],
+      ),
+    );
+  }
+
+  // Tab 1: solo los conductores marcados como sospechosos (salto de fraude).
+  Widget _suspiciousView(AppLocalizations l, List<Map<String, dynamic>> review) {
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, left: 4),
+            child: Text(l.t('adm_ch_suspicious_intro'),
+                style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+          ),
+          if (review.isEmpty)
+            Padding(padding: const EdgeInsets.all(24),
+                child: Center(child: Text(l.t('adm_ch_no_suspicious'))))
+          else
+            for (final c in review) _claimTile(l, c),
         ],
       ),
     );
@@ -353,19 +393,6 @@ class _ChallengesTabState extends State<_ChallengesTab> {
       if (lvl > 5) lvl = 5;
       byLevel[lvl] = (byLevel[lvl] ?? 0) + 1;
     }
-    // Evolución mensual (últimos 12 meses).
-    final byMonth = <String, int>{};
-    final now = DateTime.now();
-    for (int i = 11; i >= 0; i--) {
-      final d = DateTime(now.year, now.month - i);
-      byMonth['${d.year}-${d.month.toString().padLeft(2, '0')}'] = 0;
-    }
-    for (final c in approved) {
-      final dt = DateTime.tryParse((c['reviewed_at'] ?? c['created_at']) as String? ?? '');
-      if (dt == null) continue;
-      final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
-      if (byMonth.containsKey(key)) byMonth[key] = byMonth[key]! + 1;
-    }
     // Top 10 conductores por nº de retos aprobados.
     final byDriver = <String, int>{};
     for (final c in approved) {
@@ -376,19 +403,17 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final top = byDriver.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
     return Column(children: [
-      _dailyChart(l),
-      const SizedBox(height: 12),
+      // 1º: km recorridos por día (visión global del avance).
       _kmDailyChart(l),
+      const SizedBox(height: 12),
+      // 2º: evolución de retos completados, con selector de periodo
+      // (días/meses/años/total) que sustituye la antigua "Evolución mensual".
+      _evolutionChart(l, approved),
       const SizedBox(height: 12),
       _chartCard(l.t('adm_ch_chart_levels'), [
         for (int lvl = 1; lvl <= 5; lvl++)
           _bar(l.t('ch_level', {'n': lvl == 5 ? '5+' : '$lvl'}), byLevel[lvl] ?? 0,
               _maxVal(byLevel.values), AdminColors.purple),
-      ]),
-      const SizedBox(height: 12),
-      _chartCard(l.t('adm_ch_chart_monthly'), [
-        for (final e in byMonth.entries)
-          _bar(e.key.substring(2), e.value, _maxVal(byMonth.values), AdminColors.teal),
       ]),
       const SizedBox(height: 12),
       _chartCard(l.t('adm_ch_chart_top'), [
@@ -401,53 +426,120 @@ class _ChallengesTabState extends State<_ChallengesTab> {
 
   int _maxVal(Iterable<int> v) => v.isEmpty ? 1 : v.reduce((a, b) => a > b ? a : b);
 
-  // Evolución DIARIA (últimos 30 días): barras verticales compactas.
-  Widget _dailyChart(AppLocalizations l) {
-    final daily = ((_summary['daily'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final counts = daily.map((d) => (d['count'] as num?)?.toInt() ?? 0).toList();
-    final max = counts.isEmpty ? 1 : counts.reduce((a, b) => a > b ? a : b);
-    final total = counts.fold<int>(0, (s, v) => s + v);
+  // Evolución de retos completados con selector de periodo: días (30), meses
+  // (12), años, o total (todos los años). Sustituye a la "evolución mensual".
+  Widget _evolutionChart(AppLocalizations l, List<Map<String, dynamic>> approved) {
+    final now = DateTime.now();
+    // Fecha de cada logro (reviewed_at o created_at).
+    DateTime? at(Map<String, dynamic> c) =>
+        DateTime.tryParse((c['reviewed_at'] ?? c['created_at']) as String? ?? '');
+
+    // Construye las etiquetas ordenadas y cuenta por bucket según el periodo.
+    final labels = <String>[];
+    final counts = <String, int>{};
+    String? bucketOf(DateTime d) {
+      switch (_evoPeriod) {
+        case 'months':
+          return '${d.year}-${d.month.toString().padLeft(2, '0')}';
+        case 'years':
+        case 'total':
+          return '${d.year}';
+        default: // days
+          return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      }
+    }
+
+    if (_evoPeriod == 'days') {
+      for (int i = 29; i >= 0; i--) {
+        final d = now.subtract(Duration(days: i));
+        final k = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        labels.add(k); counts[k] = 0;
+      }
+    } else if (_evoPeriod == 'months') {
+      for (int i = 11; i >= 0; i--) {
+        final d = DateTime(now.year, now.month - i);
+        final k = '${d.year}-${d.month.toString().padLeft(2, '0')}';
+        labels.add(k); counts[k] = 0;
+      }
+    } else {
+      // años / total: un bucket por año presente en los datos.
+      final years = approved.map((c) => at(c)?.year).whereType<int>().toSet().toList()..sort();
+      for (final y in years) { labels.add('$y'); counts['$y'] = 0; }
+    }
+    for (final c in approved) {
+      final d = at(c);
+      if (d == null) continue;
+      final k = bucketOf(d);
+      if (k != null && counts.containsKey(k)) counts[k] = counts[k]! + 1;
+    }
+    final maxV = _maxVal(counts.values);
+    // Etiqueta corta del eje según periodo.
+    String short(String k) => switch (_evoPeriod) {
+          'days' => k.substring(5),      // MM-DD
+          'months' => k.substring(2),    // YY-MM
+          _ => k,                        // año
+        };
+
     return Container(
       decoration: adminCardBox(),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Text(l.t('adm_ch_chart_daily'),
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              const Spacer(),
-              Text(l.t('adm_ch_last30', {'n': '$total'}),
-                  style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Text(l.t('adm_ch_chart_evolution'),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const Spacer(),
+          ]),
+          const SizedBox(height: 8),
+          // Selector de periodo.
+          SizedBox(
+            height: 28,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final (v, lbl) in [
+                ('days', l.t('adm_ch_period_days')),
+                ('months', l.t('adm_ch_period_months')),
+                ('years', l.t('adm_ch_period_years')),
+                ('total', l.t('adm_ch_period_total')),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(label: lbl, selected: _evoPeriod == v, color: AdminColors.teal,
+                      onTap: () => setState(() => _evoPeriod = v)),
+                ),
             ]),
-            const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 12),
+          if (labels.isEmpty)
+            Padding(padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(l.t('admin_no_challenges'),
+                    style: const TextStyle(fontSize: 12, color: AdminColors.muted)))
+          else if (_evoPeriod == 'days')
+            // Vista compacta de barras verticales para 30 días.
             SizedBox(
               height: 60,
-              child: counts.isEmpty
-                  ? Center(child: Text(l.t('admin_no_challenges'),
-                      style: const TextStyle(fontSize: 12, color: AdminColors.muted)))
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        for (final c in counts)
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 1),
-                              child: Container(
-                                height: max == 0 ? 2 : (2 + 56 * c / max),
-                                decoration: BoxDecoration(
-                                  color: c > 0 ? AdminColors.amber : AdminColors.hairline,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final k in labels)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 1),
+                        child: Container(
+                          height: maxV == 0 ? 2 : (2 + 56 * counts[k]! / maxV),
+                          decoration: BoxDecoration(
+                            color: counts[k]! > 0 ? AdminColors.teal : AdminColors.hairline,
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                      ],
+                        ),
+                      ),
                     ),
-            ),
-          ],
-        ),
+                ],
+              ),
+            )
+          else
+            for (final k in labels)
+              _bar(short(k), counts[k]!, maxV, AdminColors.teal),
+        ]),
       ),
     );
   }

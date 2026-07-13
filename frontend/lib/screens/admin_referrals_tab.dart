@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -31,6 +33,12 @@ class _ReferralsTabState extends State<ReferralsTab> {
   bool _loading = true;
   String? _error;
 
+  // Sub-tab: 0 = referidos, 1 = fraude (alertas movidas desde "Seguridad").
+  int _tab = 0;
+  List<Map<String, dynamic>> _alerts = [];
+  String _fSeverity = '';
+  String _fStatus = '';
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +55,16 @@ class _ReferralsTabState extends State<ReferralsTab> {
     setState(() { _loading = true; _error = null; });
     try {
       final kpis = await _service.adminReferralKpis();
+      if (_tab == 1) {
+        final r = await _service.adminFraudAlerts(severity: _fSeverity, status: _fStatus);
+        if (!mounted) return;
+        setState(() {
+          _kpis = kpis;
+          _alerts = ((r['alerts'] as List?) ?? []).cast<Map<String, dynamic>>();
+          _loading = false;
+        });
+        return;
+      }
       final list = await _service.adminReferralList(
         status: _status, channel: _channel, search: _searchCtrl.text.trim(),
         limit: _pageSize, offset: _offset,
@@ -69,6 +87,33 @@ class _ReferralsTabState extends State<ReferralsTab> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final fraudN = ((_kpis ?? {})['fraud_alerts'] as num?)?.toInt() ?? 0;
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        child: Row(children: [
+          AdminPill(
+              label: l.t('adm_ref_tab'), selected: _tab == 0, color: AdminColors.pink,
+              onTap: () { setState(() => _tab = 0); _reload(); }),
+          const SizedBox(width: 6),
+          AdminPill(
+              label: fraudN > 0 ? '${l.t('adm_sec_alerts')} ($fraudN)' : l.t('adm_sec_alerts'),
+              selected: _tab == 1, color: AdminColors.red,
+              onTap: () { setState(() => _tab = 1); _reload(); }),
+        ]),
+      ),
+      Expanded(
+        child: _error != null
+            ? Center(child: Padding(padding: const EdgeInsets.all(16),
+                child: Text('${l.t('error')}: $_error', style: const TextStyle(color: Colors.red))))
+            : _loading
+                ? const Center(child: CircularProgressIndicator())
+                : (_tab == 1 ? _fraudView(l) : _referralsBody(l)),
+      ),
+    ]);
+  }
+
+  Widget _referralsBody(AppLocalizations l) {
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
@@ -78,16 +123,145 @@ class _ReferralsTabState extends State<ReferralsTab> {
           const SizedBox(height: 16),
           _filtersBar(l),
           const SizedBox(height: 12),
-          if (_error != null)
-            Padding(padding: const EdgeInsets.all(12),
-                child: Text('${l.t('error')}: $_error', style: const TextStyle(color: Colors.red)))
-          else if (_loading)
-            const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
-          else ...[
-            _table(l),
-            const SizedBox(height: 12),
-            _pagination(l),
-          ],
+          _table(l),
+          const SizedBox(height: 12),
+          _pagination(l),
+        ],
+      ),
+    );
+  }
+
+  // ── Fraude (alertas de referidos + genéricas): movido desde "Seguridad" ────
+  Widget _fraudView(AppLocalizations l) {
+    final df = DateFormat('dd/MM/yyyy HH:mm');
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          SizedBox(
+            height: 30,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final (v, label, c) in [
+                ('', l.t('adm_ref_all'), AdminColors.red),
+                ('high', l.t('adm_sec_high'), AdminColors.red),
+                ('medium', l.t('adm_sec_medium'), AdminColors.amber),
+                ('low', l.t('adm_sec_low'), AdminColors.gray),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(label: label, selected: _fSeverity == v, color: c,
+                      onTap: () { setState(() => _fSeverity = v); _reload(); }),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 30,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final (v, label, c) in [
+                ('', l.t('adm_ref_all'), AdminColors.amber),
+                ('open', l.t('adm_sec_open'), AdminColors.amber),
+                ('investigating', l.t('adm_sec_investigating'), AdminColors.blue),
+                ('resolved', l.t('adm_sec_resolved'), AdminColors.teal),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(label: label, selected: _fStatus == v, color: c,
+                      onTap: () { setState(() => _fStatus = v); _reload(); }),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          if (_alerts.isEmpty)
+            Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l.t('adm_sec_none'))))
+          else
+            for (final a in _alerts) _alertTile(l, a, df),
+        ],
+      ),
+    );
+  }
+
+  Widget _alertTile(AppLocalizations l, Map<String, dynamic> a, DateFormat df) {
+    final severity = (a['severity'] as String?) ?? 'medium';
+    final status = (a['status'] as String?) ?? 'open';
+    final type = (a['alert_type'] as String?) ?? '—';
+    final source = (a['source'] as String?) ?? '';
+    final created = DateTime.tryParse((a['created_at'] as String?) ?? '');
+    final sevColor = switch (severity) {
+      'high' => AdminColors.red, 'medium' => AdminColors.amber, _ => AdminColors.gray,
+    };
+    final resolved = status == 'resolved';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: adminCardBox(
+          borderColor: severity == 'high' && !resolved ? AdminColors.red : null),
+      child: ListTile(
+        onTap: () => _openAlert(l, a),
+        leading: Icon(Icons.flag, color: sevColor),
+        title: Text('$type · ${l.t('adm_sec_$severity')}',
+            style: const TextStyle(fontSize: 13)),
+        subtitle: Text('${l.t('adm_sec_src_$source')} · '
+            '${created != null ? df.format(created) : ''}',
+            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+        trailing: AdminTag(l.t('adm_sec_$status'),
+            fg: resolved ? AdminColors.teal : AdminColors.amber,
+            bg: resolved ? AdminColors.tealBg : AdminColors.amberBg),
+      ),
+    );
+  }
+
+  Future<void> _openAlert(AppLocalizations l, Map<String, dynamic> a) async {
+    final notesCtrl = TextEditingController();
+    final evidence = a['evidence'];
+    final status = (a['status'] as String?) ?? 'open';
+    final resolved = status == 'resolved';
+    await showAdminDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${a['alert_type']}'),
+        content: SizedBox(
+          width: 440,
+          child: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text('${l.t('adm_sec_severity')}: ${l.t('adm_sec_${a['severity'] ?? 'medium'}')}'),
+              Text('${l.t('adm_sec_status')}: ${l.t('adm_sec_$status')}'),
+              if (a['description'] != null) ...[const SizedBox(height: 6), Text('${a['description']}')],
+              const Divider(),
+              Text(l.t('adm_sec_evidence'), style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(evidence == null ? '—' : const JsonEncoder.withIndent('  ').convert(evidence),
+                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+              if (a['resolution_notes'] != null) ...[
+                const SizedBox(height: 6),
+                Text('${l.t('adm_sec_notes')}: ${a['resolution_notes']}', style: const TextStyle(fontSize: 12)),
+              ],
+              if (!resolved) ...[
+                const Divider(),
+                TextField(controller: notesCtrl,
+                    decoration: InputDecoration(labelText: l.t('adm_sec_notes'), border: const OutlineInputBorder())),
+              ],
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
+          if (!resolved)
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await _service.adminFraudResolve(a['alert_id'] as String, notesCtrl.text.trim());
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_sec_resolved_ok'))));
+                  _reload();
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+                }
+              },
+              child: Text(l.t('adm_sec_resolve')),
+            ),
         ],
       ),
     );

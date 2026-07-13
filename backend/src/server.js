@@ -1230,11 +1230,11 @@ export async function buildApp(options = {}) {
     const inbox = [];
     for (const a of refAlerts ?? []) {
       inbox.push({ type: 'fraud', id: a.id, title: a.detail || a.type || 'Alerta de referidos',
-        subtitle: `referidos · ${a.severity ?? ''}`.trim(), created_at: a.created_at, module: 'security' });
+        subtitle: `referidos · ${a.severity ?? ''}`.trim(), created_at: a.created_at, module: 'referrals' });
     }
     for (const a of genAlerts ?? []) {
       inbox.push({ type: 'fraud', id: a.id, title: a.description || a.alert_type || 'Alerta de fraude',
-        subtitle: a.severity ?? '', tenant_id: a.tenant_id, created_at: a.created_at, module: 'security' });
+        subtitle: a.severity ?? '', tenant_id: a.tenant_id, created_at: a.created_at, module: 'referrals' });
     }
     for (const c of suspicious ?? []) {
       inbox.push({ type: 'challenge', id: c.id,
@@ -1450,7 +1450,7 @@ export async function buildApp(options = {}) {
 
     const { data: tenant, error } = await supabase
       .from('tenants')
-      .select('id, name, solo, subscription_status, plan_id, drivers_limit, trial_ends_at, created_at, stripe_customer_id, stripe_subscription_id, join_code')
+      .select('id, name, solo, subscription_status, plan_id, drivers_limit, trial_ends_at, created_at, closed_at, stripe_customer_id, stripe_subscription_id, join_code')
       .eq('id', id)
       .single();
     if (error || !tenant) return reply.code(404).send({ error: 'Empresa no encontrada' });
@@ -1777,6 +1777,29 @@ export async function buildApp(options = {}) {
     await logAdminAction(request, g.caller.id, 'company_close', 'tenant', id,
       { removed_access: removed });
     return reply.send({ ok: true, closed: true, removed_access: removed });
+  });
+
+  // Purga DEFINITIVA de UNA empresa YA dada de baja: borra el tenant y, en
+  // cascada, todos sus datos (carreras, vehículos, retos, lecturas…). Irreversible.
+  // Guarda contra borrar una empresa activa: exige closed_at (dada de baja).
+  // Pensado para limpiar empresas de prueba sin esperar la retención de 5 años.
+  app.delete('/api/v1/admin/company/:id/purge', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+    const { data: t } = await supabase.from('tenants')
+      .select('id, name, closed_at').eq('id', id).maybeSingle();
+    if (!t) return reply.code(404).send({ error: 'Empresa no encontrada' });
+    if (!t.closed_at) {
+      return reply.code(400).send({ error: 'Solo se pueden purgar empresas dadas de baja' });
+    }
+    // Desvincula (por si acaso) cualquier admin de plataforma que siga apuntando
+    // a este tenant, para no borrar su cuenta con la cascada.
+    await supabase.from('users').update({ tenant_id: null }).eq('tenant_id', id).eq('is_admin', true);
+    const { error } = await supabase.from('tenants').delete().eq('id', id);
+    if (error) return reply.code(400).send({ error: error.message });
+    await logAdminAction(request, g.caller.id, 'company_purge', 'tenant', id, { name: t.name });
+    return reply.send({ ok: true, purged: true });
   });
 
   // Purga de retención: elimina definitivamente las empresas cerradas hace más

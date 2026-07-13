@@ -363,7 +363,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
           ],
         ),
         const SizedBox(height: 14),
-        _dangerZone(l, status),
+        _dangerZone(l, status, t['closed_at'] != null),
       ],
     );
   }
@@ -380,7 +380,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       );
 
   // ===================== Zona sensible =====================
-  Widget _dangerZone(AppLocalizations l, String status) {
+  Widget _dangerZone(AppLocalizations l, String status, bool closed) {
     final suspended = status == 'canceled';
     return Container(
       padding: const EdgeInsets.all(12),
@@ -438,9 +438,99 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               ),
             ],
           ),
+          // Purga DEFINITIVA: solo para empresas YA dadas de baja. Borra TODOS
+          // sus datos (irreversible), sin esperar la retención de 5 años.
+          if (closed) ...[
+            const SizedBox(height: 10),
+            const Divider(height: 1, color: AdminColors.hairline),
+            const SizedBox(height: 10),
+            Text(l.t('adm_dz_purge_sub'),
+                style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AdminColors.red,
+                side: BorderSide(color: AdminColors.redSolid.withValues(alpha: .7)),
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.delete_forever, size: 15),
+              onPressed: () => _purgeCompany(l),
+              label: Text(l.t('adm_dz_purge'), style: const TextStyle(fontSize: 11)),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  // Purga DEFINITIVA con DOBLE confirmación: 1) escribir el nombre exacto,
+  // 2) confirmación final irreversible.
+  Future<void> _purgeCompany(AppLocalizations l) async {
+    final ctrl = TextEditingController();
+    final step1 = await showAdminDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(l.t('adm_dz_purge')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l.t('adm_dz_purge_help'), style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 10),
+              Text(l.t('adm_dz_type_name'),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                onChanged: (_) => setLocal(() {}),
+                decoration: InputDecoration(
+                  hintText: widget.tenantName,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AdminColors.redSolid),
+              onPressed: ctrl.text.trim() == widget.tenantName.trim()
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: Text(l.t('continue_btn')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (step1 != true) return;
+    if (!mounted) return;
+    // Segunda confirmación: última oportunidad, es irreversible.
+    final step2 = await showAdminDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_dz_purge_final_title')),
+        content: Text(l.t('adm_dz_purge_final', {'name': widget.tenantName})),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AdminColors.redSolid),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.t('adm_dz_purge')),
+          ),
+        ],
+      ),
+    );
+    if (step2 != true) return;
+    try {
+      await _service.adminPurgeCompany(widget.tenantId);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      await _toast('Error: ${e.toString().replaceFirst('Exception: ', '')}');
+    }
   }
 
   Future<void> _toggleSuspend(AppLocalizations l, bool suspended) async {

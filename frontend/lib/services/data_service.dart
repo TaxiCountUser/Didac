@@ -620,6 +620,17 @@ class DataService {
     return body;
   }
 
+  /// Purga DEFINITIVA de una empresa YA dada de baja (irreversible, cascada a
+  /// todos sus datos). Solo admin; el backend rechaza empresas activas.
+  Future<void> adminPurgeCompany(String id) async {
+    final res = await http.delete(
+        Uri.parse('$backendUrl/api/v1/admin/company/$id/purge'), headers: _bearer);
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo purgar');
+    }
+  }
+
   /// Resumen de todas las empresas (solo admin).
   Future<Map<String, dynamic>> adminOverview() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/overview'), headers: _bearer);

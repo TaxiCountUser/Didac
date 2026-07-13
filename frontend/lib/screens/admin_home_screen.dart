@@ -40,11 +40,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _reload();
   }
 
-  // Índices tras la Fase 4 (la pestaña Empresas clásica ya no existe):
-  // 0 Soporte · 1 Retos · 2 Referidos · 3 Seguridad · 4 Errores · 5 Config.
+  // Reorganización del dashboard: "Seguridad" se dividió en Monitorización
+  // (métricas+semáforos+flags) y Auditoría; el fraude vive ahora en Referidos.
+  // 0 Soporte · 1 Retos · 2 Referidos · 3 Monitorización · 4 Errores · 5 Config
+  // · 6 Auditoría.
   static const _moduleTab = {
     'company': -2, 'incidents': 0, 'challenges': 1, 'referrals': 2,
-    'security': 3, 'errors': 4, 'config': 5,
+    'monitoring': 3, 'errors': 4, 'config': 5, 'audit': 6,
   };
 
   @override
@@ -483,9 +485,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           l.t('adm_pending_n', {'n': '${pi('tickets')}'}), pi('tickets'), 0),
       _Module(l.t('admin_challenges'), Icons.emoji_events, AdminColors.amber,
           l.t('adm_pending_n', {'n': '${pi('challenges')}'}), pi('challenges'), 1),
-      _Module(l.t('adm_ref_tab'), Icons.card_giftcard, AdminColors.pink, '', 0, 2),
-      _Module(l.t('adm_sec_tab'), Icons.lock, AdminColors.red,
-          l.t('adm_pending_n', {'n': '${pi('fraud')}'}), pi('fraud'), 3),
+      // Referidos incluye ahora el submenú de Fraude (badge = alertas de fraude).
+      _Module(l.t('adm_ref_tab'), Icons.card_giftcard, AdminColors.pink,
+          l.t('adm_pending_n', {'n': '${pi('fraud')}'}), pi('fraud'), 2),
+      _Module(l.t('adm_mon_tab'), Icons.monitor_heart, AdminColors.teal, '', 0, 3),
+      _Module(l.t('adm_audit_tab'), Icons.receipt_long, AdminColors.gray, '', 0, 6),
       _Module(l.t('adm_err_tab'), Icons.bug_report, AdminColors.coral,
           l.t('adm_pending_n', {'n': '${pi('errors')}'}), pi('errors'), 4),
       _Module(l.t('adm_mod_billing'), Icons.payments, AdminColors.teal,
