@@ -153,8 +153,9 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 
 ### 4.3 Panel de administración (tema oscuro "N")
 Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),
-Empresas (buscador global + fichas), Facturación (MRR/ARPU/churn), Retos (config + evolución
-diaria + auto-refresco cada 20 s), Referidos (funnel), Seguridad/Auditoría (fraude + log de
+Empresas (buscador global + fichas), Facturación (MRR/ARPU/churn), Retos (config + retos
+completados/día + **km recorridos/día** para ver el avance global + auto-refresco cada 20 s),
+Referidos (funnel), Seguridad/Auditoría (fraude + log de
 acciones + **log de semáforos** + **Métricas** en vivo), Soporte, Errores, Config (en caliente
 + mantenimiento).
 
@@ -357,7 +358,8 @@ id del perfil al id real de `auth.users`).
 - **RPCs de negocio** (28): `create_owner_company`, `create_solo_company`, `join_fleet_with_code`,
   `set_solo_mode`, `accept_legal`, `mark_password_changed`, `owner_set_driver_name`,
   `set_vehicle_license`, `generate_referral_code`/`set_referral_code`/`set_my_referrer`,
-  `challenge_stats`/`challenge_stats_tenant`, `email_for_username` (login por nombre de usuario),
+  `challenge_stats`/`challenge_stats_tenant`/`challenge_km_daily` (km recorridos/día global),
+  `email_for_username` (login por nombre de usuario),
   `report_summary`/`period_report` (agregación del dashboard en BD, Mes 3) +
   `report_summary_rollup`/`period_report_rollup` (sobre `tenant_daily_rollup`),
   `purge_expired_retention` (purga fiscal), `cleanup_old_incidents`.
