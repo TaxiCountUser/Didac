@@ -19,7 +19,7 @@ fiscales (Excel/PDF), gestión de conductores y vehículos, **monetización con 
 
 El sistema está **en producción**: web en GitHub Pages, backend en Render, base de datos
 en Supabase Cloud, app Android distribuida por APK/Play Store. Incluye observabilidad
-propia (9 semáforos de salud), auditoría, cumplimiento legal (retención fiscal 5 años,
+propia (10 semáforos de salud), auditoría, cumplimiento legal (retención fiscal 5 años,
 RGPD) y CI/CD automatizado.
 
 **Estado de madurez:** producto en producción, funcionalmente completo, con deuda técnica
@@ -152,17 +152,18 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 | `push.js` | Envío FCM (`sendToTokens`, con estado `attempted/ok` para el semáforo). |
 
 ### 4.3 Panel de administración (tema oscuro "N")
-Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **9 semáforos**),
+Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **10 semáforos**),
 Empresas (buscador global + fichas), Facturación (MRR/ARPU/churn), Retos (config + evolución
 diaria), Referidos (funnel), Seguridad/Auditoría (fraude + log de acciones + **log de
 semáforos**), Soporte, Errores, Config (en caliente + mantenimiento).
 
-### 4.4 Observabilidad — 9 semáforos de salud
-Alimentados por `system_config` y sondas en vivo; visibles en portada y en la pestaña
-*Semáforos* de Auditoría (`GET /admin/semaphores`):
+### 4.4 Observabilidad — 10 semáforos de salud
+Alimentados por `system_config`, la bandeja `webhook_events` y sondas en vivo;
+visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/semaphores`):
 
 `API` · `BD (Supabase, latencia)` · `CRONS` · `BACKUP` · `STRIPE (webhooks)` ·
-`WHISPER` · `OPENAI` · `PUSH (FCM)` · `Purga de retención`.
+`WEBHOOKS (bandeja error/dead)` · `WHISPER` · `OPENAI` · `PUSH (FCM)` ·
+`Purga de retención`.
 
 - `markCronRun` → frescura (rojo si >48h). `markService` → último resultado (rojo solo si
   la última llamada falló; la inactividad no da falso rojo). `probeDb` → latencia en vivo.
@@ -185,7 +186,7 @@ Alimentados por `system_config` y sondas en vivo; visibles en portada y en la pe
 | Servicio | Uso | Integración | Vigilancia |
 |---|---|---|---|
 | **Supabase** | Postgres + Auth (JWT) + realtime | cliente directo (RLS) y backend (`service_role`) | semáforo **BD** (latencia) |
-| **Stripe** | Suscripciones, portal, webhooks (idempotentes + persistidos en `webhook_events`) | backend (`billing.js`, `/webhooks/stripe`) | semáforo **STRIPE** (firma) |
+| **Stripe** | Suscripciones, portal, webhooks (idempotentes + persistidos en `webhook_events` + reproceso de la bandeja) | backend (`billing.js`, `/webhooks/stripe`, `retryFailedWebhooks`) | semáforos **STRIPE** (firma) / **WEBHOOKS** (bandeja) |
 | **OpenAI / Groq** | Whisper (voz) + parser LLM | backend (`/transcribe`, `llm_parser.js`) | semáforos **WHISPER** / **OPENAI** |
 | **Firebase (FCM)** | Notificaciones push | backend (`push.js`, `firebase-admin`) | semáforo **PUSH** |
 | **Sentry** | Errores (solo backend; el frontend no lo lleva) | activado por `SENTRY_DSN` — verificado 2026-07-10: **aún sin configurar en prod** (`/health` → `sentry:false`); alta pendiente en T4 | — |
@@ -225,12 +226,19 @@ crons externos se autentican con `x-cron-secret`.
 > concurrencia de paneles → su fix es el Mes 3 (agregación en backend + caché).
 > Detalle: [docs/plan-produccion/mes-1-tickets.md](docs/plan-produccion/mes-1-tickets.md).
 >
-> **▶ MES 2 EN CURSO — Strangler-Fig del billing.** Fase 1 hecha (2026-07-11):
-> tabla `webhook_events` (migración 062, **pendiente de ejecutar en Supabase Cloud**)
-> + webhook idempotente y durable (registra cada evento por `event_id`; un reintento
-> de Stripe ya procesado se ignora; best-effort, no rompe si la tabla no existe).
-> Siguiente: extraer la lógica a un módulo con interfaz limpia + reproceso de la
-> bandeja. Detalle: [docs/plan-produccion/mes-2-tickets.md](docs/plan-produccion/mes-2-tickets.md).
+> **▶ MES 2 EN CURSO — Strangler-Fig del billing.** Fase 1 (2026-07-11): tabla
+> `webhook_events` (migración 062, aplicada) + webhook idempotente y durable
+> (registra cada evento por `event_id`; un reintento ya procesado se ignora;
+> best-effort). Fase 2 (2026-07-11): lógica de dominio extraída a
+> `billing.js::handleStripeEvent(supabase, event, deps)` — el handler HTTP solo
+> hace firma/idempotencia/ACK. Fase 2 · M2-6 (2026-07-13): **reproceso de la
+> bandeja** — `POST /admin/cron/retry-webhooks` (`retryFailedWebhooks`) reintenta
+> los eventos en `error` reusando su `payload` (tope `WEBHOOK_MAX_ATTEMPTS=6` →
+> `dead`), disparado cada 15 min por el workflow `retry-webhooks.yml`; semáforo
+> nuevo **WEBHOOKS** (`webhook_errors`, cuenta `error`+`dead`) en panel, home y
+> vigía externo, y resta salud en el dashboard. Queda (opcional): procesamiento
+> async (M2-5) y cutover con feature flag (Fase 3), solo si un load test lo pide.
+> Detalle: [docs/plan-produccion/mes-2-tickets.md](docs/plan-produccion/mes-2-tickets.md).
 
 ### 6.2 Prioridad media
 3. **Reconsiderar la i18n propia.** El mapa único en `app_localizations.dart` es pragmático
@@ -255,7 +263,7 @@ crons externos se autentican con `x-cron-secret`.
 ### 6.4 Fortalezas a preservar
 - Separación de responsabilidades **por confianza** (RLS para CRUD, Fastify para lo privilegiado).
 - Multi-tenancy **defendido en el motor** (RLS + `SECURITY DEFINER`) con defensa en profundidad.
-- **Observabilidad real** (9 semáforos) poco habitual en un SaaS de este tamaño.
+- **Observabilidad real** (10 semáforos) poco habitual en un SaaS de este tamaño.
 - CI/CD reproducible con versionado automático de APK y auto-update in-app.
 - Cumplimiento legal integrado (retención fiscal, RGPD, aceptación de términos).
 

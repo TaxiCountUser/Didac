@@ -9,6 +9,7 @@ process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_dummy'
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_secret_for_signing_payloads';
 process.env.STRIPE_PRICE_SEAT_MONTHLY = 'price_seat_m_test';
 process.env.STRIPE_PRICE_SEAT_YEARLY = 'price_seat_y_test';
+process.env.CRON_SECRET = process.env.CRON_SECRET || 'cron_secret_test';
 // Backend contra el stack local (host -> kong en 54321).
 process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost:54321';
 process.env.SUPABASE_SERVICE_ROLE_KEY =
@@ -162,6 +163,29 @@ async function run() {
     assert.strictEqual(res.statusCode, 200);
     const { data } = await sb.from('tenants').select('subscription_status').eq('id', tenantId).single();
     assert.strictEqual(data.subscription_status, 'canceled');
+  });
+
+  // 5-bis) REPROCESO (M2-6): un evento que quedó en 'error' se reintenta desde la
+  // bandeja y, si aplica bien, pasa a 'processed' y actualiza el tenant.
+  await check('retry-webhooks reprocesa un evento en error', async () => {
+    // Tras el test 5 el tenant está 'canceled'. Sembramos un invoice.paid fallido:
+    // al reprocesarlo debe reactivar (active) y marcar el evento 'processed'.
+    const retryId = EV + 'retry';
+    await sb.from('webhook_events').insert({
+      event_id: retryId, type: 'invoice.paid', status: 'error', attempts: 1,
+      payload: { id: retryId, type: 'invoice.paid', data: { object: { id: 'in_retry', customer: customerId } } },
+    });
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/admin/cron/retry-webhooks',
+      headers: { 'x-cron-secret': process.env.CRON_SECRET },
+    });
+    assert.strictEqual(res.statusCode, 200, `status ${res.statusCode}: ${res.body}`);
+    assert.ok(res.json().recovered >= 1, 'debe recuperar al menos un evento');
+    const { data: ev } = await sb.from('webhook_events').select('status').eq('event_id', retryId).single();
+    assert.strictEqual(ev.status, 'processed', 'el evento reprocesado debe quedar processed');
+    const { data } = await sb.from('tenants').select('subscription_status').eq('id', tenantId).single();
+    assert.strictEqual(data.subscription_status, 'active', 'el reproceso debe reactivar el tenant');
+    await sb.from('webhook_events').delete().eq('event_id', retryId);
   });
 
   // 6) Firma inválida -> 400

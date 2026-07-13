@@ -1,0 +1,32 @@
+name: Reproceso de webhooks Stripe (M2-6)
+
+# Drena la bandeja `webhook_events`: reintenta los eventos de Stripe que quedaron
+# en 'error' (fallo al aplicar, no de firma). applyStripeEvent es idempotente, así
+# que reprocesar es seguro; el endpoint no hace nada si la bandeja está vacía
+# (retried:0). La cadencia de este cron ES el backoff; el backend aplica un tope
+# de intentos (WEBHOOK_MAX_ATTEMPTS) antes de marcar el evento 'dead'.
+#
+# Un evento sin aplicar = un cobro/cancelación sin reflejar (cliente sin acceso o
+# con acceso indebido). Por eso corre cada 15 min, no una vez al día.
+#
+# Secrets (los mismos que el resto de crons):
+#   PROD_BACKEND_URL  -> URL del backend en Render (sin barra final)
+#   CRON_SECRET       -> igual que la env var CRON_SECRET en Render
+#
+# El semáforo `webhook_errors` del panel (y el vigía externo) avisan si tras el
+# reproceso siguen quedando eventos en error/dead.
+
+on:
+  schedule:
+    - cron: '3,18,33,48 * * * *'   # cada 15 min, desfasado del vigía de semáforos
+  workflow_dispatch: {}
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reprocesar bandeja de webhooks
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.PROD_BACKEND_URL }}/api/v1/admin/cron/retry-webhooks"

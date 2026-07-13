@@ -156,6 +156,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final db = (d['database'] as Map?) ?? const {};
     final dbOk = (db['status'] ?? 'ok') != 'error';
 
+    // Bandeja de webhooks de Stripe: 0 eventos sin aplicar = verde.
+    final webhookOk = ((d['webhook_errors'] as num?)?.toInt() ?? 0) == 0;
+
     // Cada semáforo es una "píldora" con punto + etiqueta, para que a igual
     // tamaño se lean como una fila ordenada aunque sean muchos.
     Widget dot(String label, bool ok) => Container(
@@ -198,6 +201,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 fresh('challenge_credits') && fresh('referral_validations')),
             dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
             dot('STRIPE', svcOk('stripe')),
+            dot('WEBHOOKS', webhookOk),
             dot('WHISPER', svcOk('whisper')),
             dot('OPENAI', svcOk('openai')),
             dot('PUSH', svcOk('push')),

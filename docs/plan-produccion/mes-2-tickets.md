@@ -34,9 +34,15 @@
   Stripe al registrar el evento y procesar desde la bandeja (cron corto que
   drena `webhook_events` en estado `received`/`error`). Reduce timeouts y
   desacopla el ACK del trabajo. Evaluar si hace falta (hoy el proceso es rápido).
-- [ ] **M2-6. Reproceso de la bandeja.** Endpoint/cron
-  `/admin/cron/retry-webhooks` que reintenta los `error` con backoff y tope de
-  `attempts`. Semáforo nuevo: eventos en `error` > 0.
+- [x] **M2-6. Reproceso de la bandeja.** *HECHO (2026-07-13)*: endpoint/cron
+  `POST /api/v1/admin/cron/retry-webhooks` (`retryFailedWebhooks`) reintenta los
+  eventos en `error` reusando su `payload` vía `handleStripeEvent` (idempotente);
+  tope `WEBHOOK_MAX_ATTEMPTS=6` → al agotarse pasan a `dead`. La cadencia del cron
+  (workflow `retry-webhooks.yml`, cada 15 min) actúa de backoff. Semáforo nuevo
+  `webhook_errors` (cuenta `error`+`dead`; >0 → rojo) en `computeSemaphores`, en
+  el dashboard (`webhook_errors` + resta 10 de salud) y pill WEBHOOKS en el home;
+  el vigía externo ya lo alerta (status `error`). Test de integración en
+  webhook.test.js (siembra un evento `error` → retry → `processed` + tenant activo).
 
 ## Fase 3 — Cutover seguro
 
@@ -51,7 +57,7 @@
 1. Ningún evento de Stripe se pierde ante un crash/redeploy (persistido en `webhook_events`).
 2. Un reintento de Stripe nunca duplica efectos (idempotencia probada en CI). ✅
 3. La lógica de billing vive en un módulo testeado, no incrustada en el handler.
-4. Hay visibilidad de eventos fallidos (semáforo/bandeja) y forma de reprocesarlos.
+4. Hay visibilidad de eventos fallidos (semáforo/bandeja) y forma de reprocesarlos. ✅
 
 ## Fuera de alcance (más adelante)
 - Escrituras de alta frecuencia por backend con pool controlado → 100k+ (ver anexo de load-test-t8.md).

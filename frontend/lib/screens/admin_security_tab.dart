@@ -316,15 +316,16 @@ class _SecurityTabState extends State<SecurityTab> {
         'whisper' => 'Whisper',
         'openai' => 'OpenAI',
         'push' => l.t('adm_sema_push'),
+        'webhook_errors' => l.t('adm_sema_webhooks'),
         _ => key,
       };
 
-  // Color por estado: ok/live verde, slow ámbar, stale/error rojo,
+  // Color por estado: ok/live verde, slow ámbar, stale/error/dead rojo,
   // never/off gris (sin datos / apagado a propósito).
   Color _semaColor(String status) => switch (status) {
         'ok' || 'live' => AdminColors.teal,
         'slow' => AdminColors.amber,
-        'stale' || 'error' => AdminColors.red,
+        'stale' || 'error' || 'dead' => AdminColors.red,
         _ => AdminColors.gray,
       };
 
@@ -364,10 +365,14 @@ class _SecurityTabState extends State<SecurityTab> {
     final status = (s['status'] as String?) ?? 'never';
     final at = DateTime.tryParse((s['at'] as String?) ?? '');
     final latency = (s['latency_ms'] as num?)?.toInt();
+    final count = (s['count'] as num?)?.toInt();
     final color = _semaColor(status);
     final sub = at != null
         ? l.t('adm_sema_last', {'d': df.format(at)})
             + (latency != null ? ' · ${latency}ms' : '')
+            + (count != null && count > 0
+                ? ' · ${l.t('adm_sema_errcount', {'n': '$count'})}'
+                : '')
         : l.t('adm_sema_nodata');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),

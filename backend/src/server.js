@@ -1082,6 +1082,16 @@ export async function buildApp(options = {}) {
       return !v || now - new Date(v).getTime() > 2 * dayMs;
     });
 
+    // Eventos de Stripe sin aplicar (bandeja webhook_events): 0 = sano. Best-effort
+    // (la tabla puede no existir aún en prod → se trata como 0).
+    let webhookErrors = 0;
+    try {
+      const { count } = await supabase.from('webhook_events')
+        .select('event_id', { count: 'exact', head: true })
+        .in('status', ['error', 'dead']);
+      webhookErrors = count ?? 0;
+    } catch { /* tabla webhook_events aún no desplegada */ }
+
     // Salud 0-100: penaliza fraude abierto, tickets envejecidos, impagos,
     // crons parados y errores nuevos. Transparente y estable.
     let health = 100;
@@ -1090,6 +1100,7 @@ export async function buildApp(options = {}) {
     health -= pastDue.length > 0 ? 10 : 0;
     health -= cronStale ? 10 : 0;
     health -= Math.min(10, (errNew?.length ?? 0) * 2);
+    health -= webhookErrors > 0 ? 10 : 0; // cobros/cancelaciones sin reflejar
     health = Math.max(0, Math.round(health));
 
     return reply.send({
@@ -1118,6 +1129,7 @@ export async function buildApp(options = {}) {
       inbox: inbox.slice(0, 12),
       crons,
       services,
+      webhook_errors: webhookErrors,
       database: await probeDb(),
       health,
     });
@@ -2479,6 +2491,19 @@ export async function buildApp(options = {}) {
       ? svcSema('push')
       : { key: 'push', kind: 'service', ok: true, at: null, status: 'off' };
 
+    // Bandeja de webhooks (Mes 2, M2-6): nº de eventos de Stripe que no se
+    // pudieron aplicar ('error' reintentable + 'dead' agotado). > 0 → rojo: hay
+    // un cobro/cancelación sin reflejar. Si la tabla aún no existe, "off".
+    let webhookSema = { key: 'webhook_errors', kind: 'count', ok: true, at: null, status: 'off' };
+    try {
+      const { count } = await supabase.from('webhook_events')
+        .select('event_id', { count: 'exact', head: true })
+        .in('status', ['error', 'dead']);
+      const n = count ?? 0;
+      webhookSema = { key: 'webhook_errors', kind: 'count', ok: n === 0,
+        at: new Date().toISOString(), status: n === 0 ? 'ok' : 'error', count: n };
+    } catch { /* tabla webhook_events puede no existir aún en prod */ }
+
     const db = await probeDb();
     return [
       { key: 'api', kind: 'live', ok: true, at: new Date().toISOString(), status: 'live' },
@@ -2491,6 +2516,7 @@ export async function buildApp(options = {}) {
       svcSema('whisper'),
       svcSema('openai'),
       pushSema,
+      webhookSema,
     ];
   }
 
@@ -3386,6 +3412,65 @@ export async function buildApp(options = {}) {
     const res = await processReferralValidationQueue();
     await markCronRun('referral_validations');
     await logAdminAction(request, g.caller?.id ?? null, 'referral_validations_process', 'referral_validation_queue', null, res);
+    return reply.send({ ok: true, ...res });
+  });
+
+  // Reproceso de la bandeja (Mes 2, M2-6): reintenta los eventos que quedaron en
+  // 'error' (fallo al aplicar, no de firma). El cron corto lo dispara cada pocos
+  // minutos → su cadencia ES el backoff; aquí solo respetamos un tope de intentos
+  // para no reintentar eternamente un evento envenenado. applyStripeEvent es
+  // idempotente, así que reprocesar es seguro aunque el efecto ya se aplicara.
+  const WEBHOOK_MAX_ATTEMPTS = 6;
+  async function retryFailedWebhooks({ limit = 25 } = {}) {
+    let rows;
+    try {
+      const res = await supabase.from('webhook_events')
+        .select('event_id, type, attempts, payload')
+        .eq('status', 'error')
+        .lt('attempts', WEBHOOK_MAX_ATTEMPTS)
+        .order('received_at', { ascending: true })
+        .limit(limit);
+      rows = res.data;
+    } catch (e) {
+      app.log.warn(`[webhook-retry] bandeja no disponible: ${e.message}`);
+      return { retried: 0, recovered: 0, failed: 0, exhausted: 0 };
+    }
+    let recovered = 0, failed = 0, exhausted = 0;
+    for (const row of rows ?? []) {
+      const attempts = (row.attempts ?? 0) + 1;
+      try {
+        const result = await handleStripeEvent(supabase, row.payload, {
+          enqueueReferralValidation,
+          recomputeReferrerMilestones,
+          rejectPendingReferralValidation,
+          revertReferralForTenant,
+          log: app.log,
+        });
+        await supabase.from('webhook_events')
+          .update({ status: 'processed', processed_at: new Date().toISOString(),
+            attempts, tenant_id: result.tenant_id ?? null })
+          .eq('event_id', row.event_id);
+        recovered++;
+      } catch (e) {
+        const dead = attempts >= WEBHOOK_MAX_ATTEMPTS;
+        await supabase.from('webhook_events')
+          .update({ status: dead ? 'dead' : 'error', attempts,
+            last_error: String(e.message).slice(0, 500) })
+          .eq('event_id', row.event_id);
+        if (dead) exhausted++; else failed++;
+      }
+    }
+    return { retried: (rows ?? []).length, recovered, failed, exhausted };
+  }
+
+  app.post('/api/v1/admin/cron/retry-webhooks', async (request, reply) => {
+    const g = await cronOrAdmin(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const res = await retryFailedWebhooks();
+    await markCronRun('retry_webhooks');
+    if (res.retried > 0) {
+      await logAdminAction(request, g.caller?.id ?? null, 'retry_webhooks', 'webhook_events', null, res);
+    }
     return reply.send({ ok: true, ...res });
   });
 
