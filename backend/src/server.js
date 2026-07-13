@@ -2230,11 +2230,15 @@ export async function buildApp(options = {}) {
           if (reached && !st.pending && !st.rejected) {
             const suspicious = (type === 'km_100k' && maxJump > maxJumpCfg)
               || (type === 'money_100k' && maxIncome > maxIncomeCfg);
+            // Un logro SOSPECHOSO entra como 'pending' (lo revisa el admin): así
+            // NO cuenta como completado ni cobra recompensa hasta que se acepta.
+            // Los logros limpios siguen auto-aprobados ('rewarded'), sin fricción.
             const { error: insErr } = await supabase.from('challenge_claims').insert({
               tenant_id: caller.tenant_id, user_id: r.user_id, challenge: type,
               level: st.level, baseline: st.baseline, target,
               metric_value: metric, active_days: activeDays, suspicious,
-              status: 'rewarded', reviewed_at: new Date().toISOString(),
+              status: suspicious ? 'pending' : 'rewarded',
+              reviewed_at: suspicious ? null : new Date().toISOString(),
             });
             if (insErr && !/duplicate|unique|23505/i.test(insErr.message || '')) {
               app.log.warn(`[challenge] no se pudo crear claim: ${insErr.message}`);
@@ -2791,14 +2795,43 @@ export async function buildApp(options = {}) {
       return reply.code(400).send({ error: 'Acción no válida' });
     }
     const { data: claim, error: cErr } = await supabase
-      .from('challenge_claims').select('id, tenant_id, status').eq('id', request.params.id).maybeSingle();
+      .from('challenge_claims').select('id, tenant_id, status, reward_redeemed_at')
+      .eq('id', request.params.id).maybeSingle();
     if (cErr || !claim) return reply.code(404).send({ error: 'Reto no encontrado' });
 
-    // Sin extensión de suscripción aquí (deprecado en Loop #4).
+    if (action === 'reject') {
+      // Si el logro YA se había premiado (extensión de suscripción aplicada por
+      // el cron), se revierte: se borra la extensión y se descuentan los días
+      // del trial. Así el logro rechazado DESAPARECE de las estadísticas de
+      // "completados" y del ahorro (días gratis).
+      let clawedDays = 0;
+      if (claim.reward_redeemed_at) {
+        const { data: exts } = await supabase.from('subscription_extensions')
+          .select('id, days_extended')
+          .eq('source_id', claim.id).eq('extension_type', 'challenge');
+        clawedDays = (exts ?? []).reduce((s, e) => s + (e.days_extended ?? 0), 0);
+        if (clawedDays > 0) await extendTenantTrial(claim.tenant_id, -clawedDays);
+        if ((exts ?? []).length) {
+          await supabase.from('subscription_extensions')
+            .delete().eq('source_id', claim.id).eq('extension_type', 'challenge');
+        }
+      }
+      await supabase.from('challenge_claims')
+        .update({ status: 'rejected', reviewed_at: new Date().toISOString(), reward_redeemed_at: null })
+        .eq('id', claim.id);
+      await logAdminAction(request, g.caller?.id ?? null, 'challenge_reject',
+        'challenge_claims', claim.id, { clawed_back_days: clawedDays });
+      return reply.send({ ok: true, rejected: true, clawed_back_days: clawedDays });
+    }
+
+    // action === 'reward': aprueba un logro pendiente (sospechoso) -> pasa a
+    // contar como completado y el cron aplicará la recompensa (si es de pago).
     await supabase.from('challenge_claims')
-      .update({ status: action === 'reward' ? 'rewarded' : 'rejected', reviewed_at: new Date().toISOString() })
+      .update({ status: 'rewarded', reviewed_at: new Date().toISOString() })
       .eq('id', claim.id);
-    return reply.send({ ok: true, note: 'reward individual deprecado; recompensa trimestral por flota' });
+    await logAdminAction(request, g.caller?.id ?? null, 'challenge_reward',
+      'challenge_claims', claim.id, null);
+    return reply.send({ ok: true, rewarded: true });
   });
 
   // Rate limiter básico en memoria (sin dependencias): N peticiones por ventana

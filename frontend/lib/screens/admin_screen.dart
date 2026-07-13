@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -215,18 +217,34 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   List<Map<String, dynamic>> _claims = [];
   Map<String, dynamic> _summary = {};
   bool _loading = true;
+  bool _refreshing = false; // refresco silencioso en curso (auto o manual)
   String? _error;
   String _fLevel = '';
   String _fStatus = '';
+  Timer? _autoRefresh;
 
   @override
   void initState() {
     super.initState();
     _reload();
+    // "Tiempo real" pragmático: refresco silencioso cada 20 s para que los
+    // nuevos logros y las revisiones aparezcan sin recargar a mano.
+    _autoRefresh = Timer.periodic(const Duration(seconds: 20), (_) => _reload(silent: true));
   }
 
-  Future<void> _reload() async {
-    setState(() { _loading = true; _error = null; });
+  @override
+  void dispose() {
+    _autoRefresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _reload({bool silent = false}) async {
+    if (silent) {
+      if (_refreshing) return; // evita solaparse con otro refresco
+      _refreshing = true;
+    } else {
+      setState(() { _loading = true; _error = null; });
+    }
     try {
       final results = await Future.wait([_service.adminChallenges(), _service.adminChallengeSummary()]);
       if (!mounted) return;
@@ -237,7 +255,11 @@ class _ChallengesTabState extends State<_ChallengesTab> {
       });
     } catch (e) {
       if (!mounted) return;
+      // Un fallo del refresco silencioso no debe romper la pantalla ya cargada.
+      if (silent) return;
       setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    } finally {
+      if (silent) _refreshing = false;
     }
   }
 
