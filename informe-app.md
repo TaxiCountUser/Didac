@@ -154,8 +154,15 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 ### 4.3 Panel de administración (tema oscuro "N")
 Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),
 Empresas (buscador global + fichas), Facturación (MRR/ARPU/churn), Retos (config + evolución
-diaria), Referidos (funnel), Seguridad/Auditoría (fraude + log de acciones + **log de
-semáforos** + **Métricas** en vivo), Soporte, Errores, Config (en caliente + mantenimiento).
+diaria + auto-refresco cada 20 s), Referidos (funnel), Seguridad/Auditoría (fraude + log de
+acciones + **log de semáforos** + **Métricas** en vivo), Soporte, Errores, Config (en caliente
++ mantenimiento).
+
+> **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
+> desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa
+> hasta que el admin lo **acepta**; al **rechazarlo**, si ya se había premiado se revierte
+> la extensión de suscripción (se descuentan los días) para que desaparezca de las
+> estadísticas de completados y del ahorro. Los logros limpios siguen auto-aprobados.
 
 ### 4.4 Observabilidad — 12 semáforos de salud + panel de métricas
 Alimentados por `system_config`, la bandeja `webhook_events` y sondas en vivo;
