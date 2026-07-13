@@ -1152,14 +1152,6 @@ class DataService {
     required DateTime from,
     required DateTime to,
   }) async {
-    // --- Transacciones del rango: ingresos por método, gasto, actividad ---
-    var tq = _c.from('transactions').select('amount, type, payment_method, created_at');
-    if (userId != null) tq = tq.eq('user_id', userId);
-    final txRows = (await tq
-            .gte('created_at', from.toUtc().toIso8601String())
-            .lt('created_at', to.toUtc().toIso8601String()) as List)
-        .cast<Map<String, dynamic>>();
-
     double income = 0, expense = 0;
     final byMethod = <String, double>{};
     // Primer/último instante de actividad POR DÍA, para sumar horas por jornada.
@@ -1172,15 +1164,51 @@ class DataService {
       if (!dayFirst.containsKey(k) || ts.isBefore(dayFirst[k]!)) dayFirst[k] = ts;
       if (!dayLast.containsKey(k) || ts.isAfter(dayLast[k]!)) dayLast[k] = ts;
     }
-    for (final r in txRows) {
-      final amount = (r['amount'] as num?)?.toDouble() ?? 0;
-      mark(DateTime.tryParse((r['created_at'] as String?) ?? ''));
-      if (r['type'] == 'income') {
-        income += amount;
-        final m = (r['payment_method'] as String?) ?? 'otros';
-        byMethod[m] = (byMethod[m] ?? 0) + amount;
-      } else {
-        expense += amount;
+
+    // --- Dinero + actividad: RPC (agrega en la BD, M3-2) con fallback a filas ---
+    // La RPC devuelve income/expense/income_by_method y las ventanas [first,last]
+    // por día; alimentamos mark() con ellas (equivale a marcar todas las tx, pues
+    // solo cuentan el min/max del día). Si la RPC no está, cae a traer las filas.
+    var rpcOk = false;
+    try {
+      final res = await _c.rpc('period_report', params: {
+        'p_user': userId,
+        'p_from': from.toUtc().toIso8601String(),
+        'p_to': to.toUtc().toIso8601String(),
+        'p_offset': DateTime.now().timeZoneOffset.inMinutes,
+      });
+      final m = (res as Map).cast<String, dynamic>();
+      income = (m['income'] as num?)?.toDouble() ?? 0;
+      expense = (m['expense'] as num?)?.toDouble() ?? 0;
+      ((m['income_by_method'] as Map?) ?? const {})
+          .forEach((k, v) => byMethod['$k'] = (v as num).toDouble());
+      for (final a in (m['tx_activity'] as List?) ?? const []) {
+        final pair = a as List;
+        mark(DateTime.tryParse('${pair[0]}'));
+        mark(DateTime.tryParse('${pair[1]}'));
+      }
+      rpcOk = true;
+    } catch (_) {
+      rpcOk = false;
+    }
+
+    if (!rpcOk) {
+      var tq = _c.from('transactions').select('amount, type, payment_method, created_at');
+      if (userId != null) tq = tq.eq('user_id', userId);
+      final txRows = (await tq
+              .gte('created_at', from.toUtc().toIso8601String())
+              .lt('created_at', to.toUtc().toIso8601String()) as List)
+          .cast<Map<String, dynamic>>();
+      for (final r in txRows) {
+        final amount = (r['amount'] as num?)?.toDouble() ?? 0;
+        mark(DateTime.tryParse((r['created_at'] as String?) ?? ''));
+        if (r['type'] == 'income') {
+          income += amount;
+          final m = (r['payment_method'] as String?) ?? 'otros';
+          byMethod[m] = (byMethod[m] ?? 0) + amount;
+        } else {
+          expense += amount;
+        }
       }
     }
 

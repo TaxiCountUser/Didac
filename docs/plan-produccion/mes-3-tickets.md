@@ -34,11 +34,18 @@ bucle: es la agregación, no la escritura (insert p95 102 ms a 1.000 VUs).
   (report_summary.test.js, en el job de integración de CI): agregados correctos,
   aislamiento entre tenants (RLS) y filtro de fechas. **PENDIENTE aplicar mig. 063
   en Supabase Cloud** (hasta entonces, el fallback mantiene el dashboard vivo).
-- [ ] **M3-2. RPC `period_report`** — mismo patrón para el cierre de jornada:
-  ingresos por método + gasto + balance agregados en SQL. La parte de km/horas
-  (primera/última lectura por conductor+vehículo con relleno retroactivo) se
-  mantiene en cliente de momento (lógica compleja, pocas filas de odómetro), o
-  se pasa a SQL en una 2ª iteración. Fallback a la ruta antigua.
+- [x] **M3-2. RPC `period_report`** — *HECHO (2026-07-13)*: migración 064. Agrega
+  en SQL el dinero del cierre de jornada (income, expense, income_by_method) y las
+  **ventanas de actividad por día** (`tx_activity` = min/max de `created_at` por día
+  local, con `p_offset` del cliente) para el cálculo de horas. La parte de **km**
+  (odómetros con relleno retroactivo) y el cómputo final de **horas** se mantienen
+  IDÉNTICOS en cliente — no se regresiona el cierre de jornada (que ya se arregló
+  por el bug de timezone); solo se elimina el pull masivo de transacciones. El
+  cliente alimenta `mark()` con las ventanas (equivale a marcar todas las tx, solo
+  cuenta el min/max del día). Fallback a traer filas si la RPC no está. Verificado
+  contra el stack real (period_report.test.js): dinero, por-método, ventana de
+  actividad, aislamiento entre tenants y rango de fechas. **PENDIENTE aplicar mig.
+  064 en Supabase Cloud** (hasta entonces, el fallback cubre).
 
 ## Fase 2 — Rollups diarios (cuando el volumen lo pida)
 

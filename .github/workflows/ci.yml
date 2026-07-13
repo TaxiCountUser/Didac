@@ -100,6 +100,7 @@ jobs:
           node tests/unit/webhook.test.js
           node tests/unit/billing_endpoints.test.js
           node tests/unit/report_summary.test.js
+          node tests/unit/period_report.test.js
           node tests/unit/excel.test.js
           node tests/unit/pdf.test.js
       - name: Logs del stack si algo falló
