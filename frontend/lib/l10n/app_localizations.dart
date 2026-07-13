@@ -609,6 +609,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_backup': 'Backup diario de la BD', 'adm_sema_push': 'Push (FCM)',
     'adm_sema_db': 'Base de datos (Supabase)', 'adm_sema_purge': 'Purga de retención (5 años)',
     'adm_sema_webhooks': 'Webhooks de Stripe (bandeja)',
+    'adm_sema_groq': 'API de Groq (uso)', 'adm_sema_supares': 'Recursos de Supabase',
     'adm_flags_title': 'Interruptores de plataforma (rollback sin deploy)',
     'adm_flag_webhook_async_desc':
         'Procesa los webhooks de Stripe en asíncrono (ACK inmediato + drenaje por cron). '
@@ -1139,6 +1140,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_backup': 'Daily DB backup', 'adm_sema_push': 'Push (FCM)',
     'adm_sema_db': 'Database (Supabase)', 'adm_sema_purge': 'Retention purge (5 years)',
     'adm_sema_webhooks': 'Stripe webhooks (queue)',
+    'adm_sema_groq': 'Groq API (usage)', 'adm_sema_supares': 'Supabase resources',
     'adm_flags_title': 'Platform switches (rollback without deploy)',
     'adm_flag_webhook_async_desc':
         'Process Stripe webhooks asynchronously (immediate ACK + cron drain). '
@@ -1669,6 +1671,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_backup': 'Còpia de seguretat diària de la BD', 'adm_sema_push': 'Push (FCM)',
     'adm_sema_db': 'Base de dades (Supabase)', 'adm_sema_purge': 'Purga de retenció (5 anys)',
     'adm_sema_webhooks': 'Webhooks d\'Stripe (safata)',
+    'adm_sema_groq': 'API de Groq (ús)', 'adm_sema_supares': 'Recursos de Supabase',
     'adm_flags_title': 'Interruptors de plataforma (rollback sense desplegament)',
     'adm_flag_webhook_async_desc':
         'Processa els webhooks d\'Stripe en asíncron (ACK immediat + drenatge per cron). '

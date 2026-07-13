@@ -199,13 +199,14 @@ async function defaultTranscribe({ buffer, filename, language }) {
   // con TRANSCRIBE_PROMPT.
   const prompt = process.env.TRANSCRIBE_PROMPT
     || 'Carrera de taxi a Figueres. Llocs: Museu Dalí, Rambla de Figueres, Estació de Renfe, Estació Figueres-Vilafant AVE, Castell de Sant Ferran. Empreses: Gitaxi, Movitaxi, OneCab.';
-  const res = await client.audio.transcriptions.create({
+  const { data: res, response } = await client.audio.transcriptions.create({
     file,
     model: WHISPER_MODEL,
     prompt,
     ...(language ? { language } : {}),
-  });
-  return { text: res.text, confidence: 0.95 };
+  }).withResponse();
+  // _headers: cabeceras de rate-limit (x-ratelimit-*) para el monitor de uso de Groq.
+  return { text: res.text, confidence: 0.95, _headers: response?.headers, _model: WHISPER_MODEL };
 }
 
 // Idiomas soportados como pista para Whisper (ISO-639-1).
@@ -224,7 +225,7 @@ function zeroIfNoAmount(parsed) {
   return parsed;
 }
 
-async function parseSmart(text, { language, log, markService } = {}) {
+async function parseSmart(text, { language, log, markService, markGroqRateLimit } = {}) {
   const deterministic = parseTransactionText(text);
   if (!LLM_PARSE_MODEL || !OPENAI_API_KEY) return zeroIfNoAmount(deterministic);
   try {
@@ -234,6 +235,7 @@ async function parseSmart(text, { language, log, markService } = {}) {
         baseURL: OPENAI_BASE_URL,
         model: LLM_PARSE_MODEL,
         language,
+        onRateLimit: markGroqRateLimit,
       }),
       LLM_PARSE_TIMEOUT_MS,
     );
@@ -473,7 +475,7 @@ export async function buildApp(options = {}) {
 
     if (transcriptionCache.has(cacheKey)) {
       const cached = transcriptionCache.get(cacheKey);
-      const parsed = await parseSmart(cached.text, { language, log: request.log, markService });
+      const parsed = await parseSmart(cached.text, { language, log: request.log, markService, markGroqRateLimit });
       return reply.send({ ...cached, parsed, cached: true });
     }
 
@@ -497,7 +499,10 @@ export async function buildApp(options = {}) {
         request.log.warn(`Whisper falló (${e.message}); reintentando…`);
         result = await withTimeout(run(), WHISPER_TIMEOUT_MS);
       }
-      if (realWhisper) markService('whisper', true);
+      if (realWhisper) {
+        markService('whisper', true);
+        if (result?._headers) markGroqRateLimit(result._headers, result._model);
+      }
     } catch (e) {
       if (realWhisper) markService('whisper', false);
       request.log.error(`Transcripción falló: ${e.message}`);
@@ -522,8 +527,9 @@ export async function buildApp(options = {}) {
     // Corrige términos locales mal transcritos (p. ej. "museu de lí" -> "Museu
     // Dalí") antes de interpretar y de mostrar la descripción.
     result.text = correctTranscript(result.text);
+    delete result._headers; delete result._model; // internos: no van en la respuesta
     transcriptionCache.set(cacheKey, result);
-    const parsed = await parseSmart(result.text, { language, log: request.log, markService });
+    const parsed = await parseSmart(result.text, { language, log: request.log, markService, markGroqRateLimit });
     return reply.send({ ...result, parsed, cached: false });
   });
 
@@ -538,7 +544,7 @@ export async function buildApp(options = {}) {
       const langRaw = (body.language || request.query?.language || '').toLowerCase();
       const language = TRANSCRIBE_LANGS.has(langRaw) ? langRaw : null;
       const corrected = correctTranscript(text);
-      const parsed = await parseSmart(corrected, { language, log: request.log, markService });
+      const parsed = await parseSmart(corrected, { language, log: request.log, markService, markGroqRateLimit });
       return reply.send({ text: corrected, language, parsed });
     });
 
@@ -793,6 +799,133 @@ export async function buildApp(options = {}) {
     ).then(({ error }) => {
       if (error) app.log.warn(`[svc] no se pudo registrar svc_${name}: ${error.message}`);
     }, (e) => app.log.warn(`[svc] svc_${name}: ${e.message}`));
+  }
+
+  // Guarda la última "foto" de rate-limit de Groq/OpenAI a partir de las cabeceras
+  // de la respuesta (x-ratelimit-*). Permite el monitor de uso en el panel: el %
+  // restante en vivo del recurso más ajustado (peticiones o tokens). Best-effort.
+  function markGroqRateLimit(headers, model) {
+    if (!headers) return;
+    const get = (k) => {
+      try { return headers.get ? headers.get(k) : headers[k]; } catch { return null; }
+    };
+    const num = (k) => { const v = Number(get(k)); return Number.isFinite(v) ? v : null; };
+    const snap = {
+      model: model || null,
+      rem_req: num('x-ratelimit-remaining-requests'),
+      lim_req: num('x-ratelimit-limit-requests'),
+      rem_tok: num('x-ratelimit-remaining-tokens'),
+      lim_tok: num('x-ratelimit-limit-tokens'),
+      at: new Date().toISOString(),
+    };
+    if (snap.rem_req == null && snap.rem_tok == null) return; // no vienen cabeceras
+    supabase.from('system_config').upsert(
+      { key: 'svc_groq_rl', value: JSON.stringify(snap) }, { onConflict: 'key' },
+    ).then(({ error }) => {
+      if (error) app.log.warn(`[groq-rl] ${error.message}`);
+    }, (e) => app.log.warn(`[groq-rl] ${e.message}`));
+  }
+
+  // ── Monitor de uso: Groq (rate-limit en vivo) + recursos de Supabase ───────
+  // Uso de Groq: % RESTANTE del recurso más ajustado (peticiones o tokens) según
+  // la última foto de cabeceras (svc_groq_rl). <20% restante => alerta.
+  async function groqUsage() {
+    try {
+      const { data } = await supabase.from('system_config')
+        .select('value').eq('key', 'svc_groq_rl').maybeSingle();
+      if (!data?.value) return { available: false };
+      const s = JSON.parse(data.value);
+      const pcts = [];
+      if (s.lim_req > 0 && s.rem_req != null) pcts.push(s.rem_req / s.lim_req);
+      if (s.lim_tok > 0 && s.rem_tok != null) pcts.push(s.rem_tok / s.lim_tok);
+      const minRem = pcts.length ? Math.min(...pcts) : null;
+      return {
+        available: minRem != null, model: s.model, at: s.at,
+        remaining_pct: minRem != null ? Math.round(minRem * 100) : null,
+        requests: { remaining: s.rem_req, limit: s.lim_req },
+        tokens: { remaining: s.rem_tok, limit: s.lim_tok },
+      };
+    } catch { return { available: false }; }
+  }
+
+  // Extrae RAM%, disco% y CPU% de un texto Prometheus (node_exporter de Supabase).
+  let _cpuPrev = null; // último contador de CPU para el delta entre scrapes
+  function parsePromMetrics(text) {
+    const lines = text.split('\n');
+    const sumMetric = (prefix, labelFilter) => {
+      let total = 0, found = false;
+      for (const ln of lines) {
+        if (ln.startsWith('#') || !ln.startsWith(prefix)) continue;
+        if (labelFilter && !labelFilter(ln)) continue;
+        const v = Number(ln.slice(ln.lastIndexOf(' ') + 1));
+        if (Number.isFinite(v)) { total += v; found = true; }
+      }
+      return found ? total : null;
+    };
+    // RAM
+    const memTotal = sumMetric('node_memory_MemTotal_bytes');
+    const memAvail = sumMetric('node_memory_MemAvailable_bytes');
+    const ram_pct = (memTotal && memAvail != null)
+      ? Math.round((1 - memAvail / memTotal) * 100) : null;
+    // Disco: filesystem de mayor tamaño (el volumen de datos).
+    const fs = {};
+    for (const ln of lines) {
+      const m = ln.match(/^node_filesystem_(size|avail)_bytes\{([^}]*)\}\s+([\d.eE+-]+)/);
+      if (!m) continue;
+      const mp = (m[2].match(/mountpoint="([^"]*)"/) || [])[1] || '?';
+      (fs[mp] ??= {})[m[1]] = Number(m[3]);
+    }
+    let disk_pct = null, biggest = 0;
+    for (const mp of Object.keys(fs)) {
+      const f = fs[mp];
+      if (f.size > 0 && f.avail != null && f.size > biggest) {
+        biggest = f.size; disk_pct = Math.round((1 - f.avail / f.size) * 100);
+      }
+    }
+    // CPU: delta del contador idle entre scrapes.
+    const idle = sumMetric('node_cpu_seconds_total', (ln) => ln.includes('mode="idle"'));
+    const totalCpu = sumMetric('node_cpu_seconds_total');
+    let cpu_pct = null;
+    if (idle != null && totalCpu != null) {
+      if (_cpuPrev && totalCpu > _cpuPrev.total) {
+        const dIdle = idle - _cpuPrev.idle, dTot = totalCpu - _cpuPrev.total;
+        if (dTot > 0) cpu_pct = Math.max(0, Math.min(100, Math.round((1 - dIdle / dTot) * 100)));
+      }
+      _cpuPrev = { idle, total: totalCpu };
+    }
+    return { available: true, ram_pct, disk_pct, cpu_pct };
+  }
+
+  // Métricas de Supabase: RPC de BD (tamaño/conexiones, siempre) + scrape del
+  // endpoint privilegiado de métricas del proyecto (CPU/RAM/disco, best-effort).
+  // Guarda una foto del sistema en svc_supabase_res para los semáforos (sin
+  // rehacer el scrape en cada chequeo).
+  async function supabaseMetrics() {
+    const out = { db: null, system: null, at: new Date().toISOString() };
+    try {
+      const { data } = await supabase.rpc('db_resource_stats');
+      if (data) out.db = data;
+    } catch (e) { app.log.warn(`[metrics] db_resource_stats: ${e.message}`); }
+    try {
+      const auth = Buffer.from(`service_role:${SUPABASE_SERVICE_ROLE_KEY}`).toString('base64');
+      const r = await fetch(`${SUPABASE_URL}/customer/v1/privileged/metrics`, {
+        headers: { Authorization: `Basic ${auth}` },
+        signal: AbortSignal.timeout(6000),
+      });
+      out.system = r.ok
+        ? parsePromMetrics(await r.text())
+        : { available: false, status: r.status };
+    } catch (e) {
+      out.system = { available: false, error: e.message };
+    }
+    // Guarda la foto del sistema (best-effort) para los semáforos.
+    if (out.system?.available) {
+      supabase.from('system_config').upsert(
+        { key: 'svc_supabase_res', value: JSON.stringify({ ...out.system, at: out.at }) },
+        { onConflict: 'key' },
+      ).then(() => {}, () => {});
+    }
+    return out;
   }
 
   // ── Feature flags (Mes 2, M2-7) ───────────────────────────────────────────
@@ -2560,6 +2693,39 @@ export async function buildApp(options = {}) {
         count: n, broken, stuck };
     } catch { /* tabla webhook_events puede no existir aún en prod */ }
 
+    // Groq: % restante en vivo (svc_groq_rl). < 20% restante -> rojo.
+    let groqSema = { key: 'groq', kind: 'usage', ok: true, at: null, status: 'off' };
+    try {
+      const raw = cfg['svc_groq_rl'];
+      if (raw) {
+        const s = JSON.parse(raw);
+        const pcts = [];
+        if (s.lim_req > 0 && s.rem_req != null) pcts.push(s.rem_req / s.lim_req);
+        if (s.lim_tok > 0 && s.rem_tok != null) pcts.push(s.rem_tok / s.lim_tok);
+        if (pcts.length) {
+          const rem = Math.round(Math.min(...pcts) * 100);
+          groqSema = { key: 'groq', kind: 'usage', ok: rem >= 20, at: s.at,
+            status: rem >= 20 ? 'ok' : 'error', remaining_pct: rem };
+        }
+      }
+    } catch { /* svc_groq_rl ausente o no parseable */ }
+
+    // Recursos de Supabase (svc_supabase_res): CPU/RAM/disco > 80% -> rojo.
+    let supaResSema = { key: 'supabase_res', kind: 'usage', ok: true, at: null, status: 'off' };
+    try {
+      const raw = cfg['svc_supabase_res'];
+      if (raw) {
+        const s = JSON.parse(raw);
+        const vals = [s.ram_pct, s.disk_pct, s.cpu_pct].filter((x) => typeof x === 'number');
+        if (vals.length) {
+          const max = Math.max(...vals);
+          supaResSema = { key: 'supabase_res', kind: 'usage', ok: max < 80, at: s.at,
+            status: max < 80 ? 'ok' : 'error',
+            max_pct: max, ram_pct: s.ram_pct, disk_pct: s.disk_pct, cpu_pct: s.cpu_pct };
+        }
+      }
+    } catch { /* svc_supabase_res ausente */ }
+
     const db = await probeDb();
     return [
       { key: 'api', kind: 'live', ok: true, at: new Date().toISOString(), status: 'live' },
@@ -2571,8 +2737,10 @@ export async function buildApp(options = {}) {
       svcSema('stripe'),
       svcSema('whisper'),
       svcSema('openai'),
+      groqSema,
       pushSema,
       webhookSema,
+      supaResSema,
     ];
   }
 
@@ -2580,6 +2748,15 @@ export async function buildApp(options = {}) {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     return reply.send({ semaphores: await computeSemaphores() });
+  });
+
+  // Monitor de uso: Groq (rate-limit en vivo) + recursos de Supabase (CPU/RAM/
+  // disco + tamaño BD y conexiones). Refresca el scrape en cada consulta.
+  app.get('/api/v1/admin/metrics', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const [groq, supa] = await Promise.all([groqUsage(), supabaseMetrics()]);
+    return reply.send({ groq, supabase: supa });
   });
 
   // Vigía externo (T11): igual que el anterior pero accesible con x-cron-secret
@@ -2590,6 +2767,9 @@ export async function buildApp(options = {}) {
   app.get('/api/v1/admin/cron/semaphores', async (request, reply) => {
     const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
+    // Refresca la foto de recursos de Supabase (best-effort) para que el semáforo
+    // supabase_res del vigía no quede obsoleto si nadie abre el panel.
+    await supabaseMetrics().catch(() => {});
     const semaphores = await computeSemaphores();
     // "never" no alerta: es un semáforo aún sin datos (p. ej. recién desplegado),
     // no una avería. stale/error sí.

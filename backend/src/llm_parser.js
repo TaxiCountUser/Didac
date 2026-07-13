@@ -40,7 +40,7 @@ Regles: escriu els llocs i l'empresa amb majúscula inicial. Si un camp NO apare
  * Extrae los campos de la transcripción usando un LLM compatible con OpenAI.
  * Lanza si el LLM no responde JSON válido (el llamador hace fallback).
  */
-export async function llmParse(text, { apiKey, baseURL, model, language } = {}) {
+export async function llmParse(text, { apiKey, baseURL, model, language, onRateLimit } = {}) {
   if (!apiKey || !model) throw new Error('LLM no configurado');
   const { default: OpenAI } = await import('openai');
   const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
@@ -49,7 +49,8 @@ export async function llmParse(text, { apiKey, baseURL, model, language } = {}) 
     ? `Idioma probable: ${language}.\nFrase: ${text}`
     : `Frase: ${text}`;
 
-  const res = await client.chat.completions.create({
+  // withResponse() da acceso a las cabeceras (x-ratelimit-*) para el monitor de uso.
+  const { data: res, response } = await client.chat.completions.create({
     model,
     temperature: 0,
     response_format: { type: 'json_object' },
@@ -57,7 +58,8 @@ export async function llmParse(text, { apiKey, baseURL, model, language } = {}) 
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: userMsg },
     ],
-  });
+  }).withResponse();
+  if (onRateLimit && response?.headers) { try { onRateLimit(response.headers, model); } catch { /* no-op */ } }
   const raw = res.choices?.[0]?.message?.content || '{}';
   return sanitize(JSON.parse(raw));
 }

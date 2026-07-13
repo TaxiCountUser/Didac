@@ -337,6 +337,8 @@ class _SecurityTabState extends State<SecurityTab> {
         'openai' => 'OpenAI',
         'push' => l.t('adm_sema_push'),
         'webhook_errors' => l.t('adm_sema_webhooks'),
+        'groq' => l.t('adm_sema_groq'),
+        'supabase_res' => l.t('adm_sema_supares'),
         _ => key,
       };
 
