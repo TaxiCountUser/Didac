@@ -226,18 +226,20 @@ crons externos se autentican con `x-cron-secret`.
 > concurrencia de paneles → su fix es el Mes 3 (agregación en backend + caché).
 > Detalle: [docs/plan-produccion/mes-1-tickets.md](docs/plan-produccion/mes-1-tickets.md).
 >
-> **▶ MES 2 EN CURSO — Strangler-Fig del billing.** Fase 1 (2026-07-11): tabla
-> `webhook_events` (migración 062, aplicada) + webhook idempotente y durable
-> (registra cada evento por `event_id`; un reintento ya procesado se ignora;
-> best-effort). Fase 2 (2026-07-11): lógica de dominio extraída a
-> `billing.js::handleStripeEvent(supabase, event, deps)` — el handler HTTP solo
-> hace firma/idempotencia/ACK. Fase 2 · M2-6 (2026-07-13): **reproceso de la
-> bandeja** — `POST /admin/cron/retry-webhooks` (`retryFailedWebhooks`) reintenta
-> los eventos en `error` reusando su `payload` (tope `WEBHOOK_MAX_ATTEMPTS=6` →
-> `dead`), disparado cada 15 min por el workflow `retry-webhooks.yml`; semáforo
-> nuevo **WEBHOOKS** (`webhook_errors`, cuenta `error`+`dead`) en panel, home y
-> vigía externo, y resta salud en el dashboard. Queda (opcional): procesamiento
-> async (M2-5) y cutover con feature flag (Fase 3), solo si un load test lo pide.
+> **▶ MES 2 CERRADO (2026-07-13) — Strangler-Fig del billing.** Fase 1: tabla
+> `webhook_events` (mig. 062) + webhook idempotente y durable. Fase 2: dominio
+> extraído a `billing.js::handleStripeEvent(supabase, event, deps)` (el handler
+> HTTP solo hace firma/idempotencia/ACK). M2-6: **reproceso de la bandeja** —
+> `POST /admin/cron/retry-webhooks` (`drainWebhookQueue`) reintenta `error` (tope
+> `WEBHOOK_MAX_ATTEMPTS=6` → `dead`), cada 15 min vía `retry-webhooks.yml`.
+> M2-5/7: **procesamiento asíncrono conmutable** — feature flag `webhook_async`
+> (en `system_config`, `GET/POST /admin/flags` + toggle en el panel); con el flag
+> ON el webhook hace ACK inmediato (`queued`) y el cron drena `received`; si la
+> bandeja no está, cae a síncrono (nunca pierde el evento). **Arranca OFF** (no
+> hace falta aún). Semáforo **WEBHOOKS** vigila rotos (`error`/`dead`) y atascados
+> (`received` > 10 min). M2-9: runbook de cutover + rollback sin deploy en
+> [manual-m2-cutover.md](docs/plan-produccion/manual-m2-cutover.md). Siguiente:
+> Mes 3 (agregación del dashboard al backend + caché).
 > Detalle: [docs/plan-produccion/mes-2-tickets.md](docs/plan-produccion/mes-2-tickets.md).
 
 ### 6.2 Prioridad media
@@ -309,7 +311,9 @@ id del perfil al id real de `auth.users`).
   `referral_validation_queue` (cola de los 15 días) · `referral_fraud_alerts`.
 - **Soporte y moderación:** `incidents` · `incident_messages` · `error_reports` · `fraud_alerts`.
 - **Plataforma / infra:** `system_config` (config en caliente + estado de semáforos
-  `cron_last_*` y `svc_*`) · `admin_actions_log` (auditoría) · `cron_execution_logs` · `device_tokens` (FCM).
+  `cron_last_*`/`svc_*` + **feature flags** `flag_*`, p. ej. `flag_webhook_async`) ·
+  `webhook_events` (bandeja idempotente/durable de Stripe) · `admin_actions_log`
+  (auditoría) · `cron_execution_logs` · `device_tokens` (FCM).
 
 ### A.3 Seguridad en la BD (RLS + RPCs)
 - **53 políticas RLS:** aislamiento estricto por `tenant_id`; el driver solo ve sus

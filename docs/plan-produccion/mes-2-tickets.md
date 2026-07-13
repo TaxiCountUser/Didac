@@ -30,34 +30,51 @@
   (entradas/salidas) y mover a `billing.js` todo lo que hoy vive en el handler
   de server.js (side-effects de referidos incluidos) detrás de una función
   única `handleStripeEvent(supabase, event, deps)`.
-- [ ] **M2-5. Procesamiento asíncrono (opcional según carga).** Responder 200 a
-  Stripe al registrar el evento y procesar desde la bandeja (cron corto que
-  drena `webhook_events` en estado `received`/`error`). Reduce timeouts y
-  desacopla el ACK del trabajo. Evaluar si hace falta (hoy el proceso es rápido).
+- [x] **M2-5. Procesamiento asíncrono (tras feature flag).** *HECHO (2026-07-13)*:
+  con el flag `webhook_async` ON, el handler persiste el evento y responde 200 al
+  instante (`{queued:true}`); el cron `retry-webhooks` drena la bandeja
+  (`drainWebhookQueue` procesa `error` + `received` antiguos, con corte de edad
+  `WEBHOOK_RECEIVED_MIN_AGE_MS` para no pisar al handler síncrono). Si la bandeja
+  no está disponible, cae a síncrono (nunca pierde el evento). **Arranca OFF**: con
+  los números del load test no hace falta aún; queda montado y probado. Test de
+  integración en webhook.test.js (flag ON → `queued` sin aplicar inline → drenaje
+  aplica → `past_due`).
 - [x] **M2-6. Reproceso de la bandeja.** *HECHO (2026-07-13)*: endpoint/cron
-  `POST /api/v1/admin/cron/retry-webhooks` (`retryFailedWebhooks`) reintenta los
+  `POST /api/v1/admin/cron/retry-webhooks` (`drainWebhookQueue`) reintenta los
   eventos en `error` reusando su `payload` vía `handleStripeEvent` (idempotente);
   tope `WEBHOOK_MAX_ATTEMPTS=6` → al agotarse pasan a `dead`. La cadencia del cron
-  (workflow `retry-webhooks.yml`, cada 15 min) actúa de backoff. Semáforo nuevo
-  `webhook_errors` (cuenta `error`+`dead`; >0 → rojo) en `computeSemaphores`, en
-  el dashboard (`webhook_errors` + resta 10 de salud) y pill WEBHOOKS en el home;
-  el vigía externo ya lo alerta (status `error`). Test de integración en
+  (workflow `retry-webhooks.yml`, cada 15 min) actúa de backoff. Semáforo
+  `webhook_errors` (cuenta `error`+`dead` + `received` atascados; >0 → rojo) en
+  `computeSemaphores`, en el dashboard (`webhook_errors` + resta 10 de salud) y
+  pill WEBHOOKS en el home; el vigía externo ya lo alerta. Test de integración en
   webhook.test.js (siembra un evento `error` → retry → `processed` + tenant activo).
 
 ## Fase 3 — Cutover seguro
 
-- [ ] **M2-7. Feature flag** de la ruta nueva (tabla `feature_flags` o GrowthBook)
-  para poder volver atrás sin deploy.
-- [ ] **M2-8. Shadow run + comparación** (si se hace async): correr viejo y nuevo
-  en paralelo y comparar resultados antes de cortar.
-- [ ] **M2-9. Cutover + limpieza** del código viejo.
+- [x] **M2-7. Feature flag.** *HECHO (2026-07-13)*: interruptores de plataforma en
+  `system_config` (prefijo `flag_`), con caché corta y allowlist (`webhook_async`).
+  Endpoints `GET/POST /api/v1/admin/flags` (adminGuard + auditoría `flag_set`) y
+  **toggle en el panel** (Auditoría → Semáforos). Rollback sin deploy.
+- [x] **M2-8. Observabilidad del camino async (en vez de shadow run).**
+  *HECHO (2026-07-13)*: ambos modos ejecutan la MISMA función idempotente, así que
+  una comparación viejo/nuevo es redundante. La verificación real es operativa: el
+  semáforo WEBHOOKS marca *atascados* (`received` > 10 min = el drenaje no avanza)
+  además de *rotos*. Decisión razonada en el manual de cutover.
+- [x] **M2-9. Cutover + runbook.** *HECHO (2026-07-13)*: procedimiento de
+  activación, validación 24-48 h y **rollback** documentado en
+  [manual-m2-cutover.md](manual-m2-cutover.md). No se elimina la ruta síncrona: se
+  conserva a propósito como fallback bajo el flag (es lo que permite el rollback).
 
 ## Criterio de salida del Mes 2
 
-1. Ningún evento de Stripe se pierde ante un crash/redeploy (persistido en `webhook_events`).
+1. Ningún evento de Stripe se pierde ante un crash/redeploy (persistido en `webhook_events`). ✅
 2. Un reintento de Stripe nunca duplica efectos (idempotencia probada en CI). ✅
-3. La lógica de billing vive en un módulo testeado, no incrustada en el handler.
+3. La lógica de billing vive en un módulo testeado, no incrustada en el handler. ✅
 4. Hay visibilidad de eventos fallidos (semáforo/bandeja) y forma de reprocesarlos. ✅
+
+**▶ MES 2 CERRADO (2026-07-13).** Billing aislado, idempotente, durable, con
+procesamiento async conmutable y rollback sin deploy. Siguiente: Mes 3 (agregación
+del dashboard al backend + caché — el primer límite que midió el load test).
 
 ## Fuera de alcance (más adelante)
 - Escrituras de alta frecuencia por backend con pool controlado → 100k+ (ver anexo de load-test-t8.md).

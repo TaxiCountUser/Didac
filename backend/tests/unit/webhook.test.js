@@ -10,6 +10,10 @@ process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_secret_for_signing_payloads';
 process.env.STRIPE_PRICE_SEAT_MONTHLY = 'price_seat_m_test';
 process.env.STRIPE_PRICE_SEAT_YEARLY = 'price_seat_y_test';
 process.env.CRON_SECRET = process.env.CRON_SECRET || 'cron_secret_test';
+// Test del modo asíncrono (M2-5): sin caché de flags y sin espera de edad para
+// que el evento encolado sea drenable en el acto.
+process.env.WEBHOOK_FLAG_TTL_MS = '0';
+process.env.WEBHOOK_RECEIVED_MIN_AGE_MS = '0';
 // Backend contra el stack local (host -> kong en 54321).
 process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost:54321';
 process.env.SUPABASE_SERVICE_ROLE_KEY =
@@ -186,6 +190,35 @@ async function run() {
     const { data } = await sb.from('tenants').select('subscription_status').eq('id', tenantId).single();
     assert.strictEqual(data.subscription_status, 'active', 'el reproceso debe reactivar el tenant');
     await sb.from('webhook_events').delete().eq('event_id', retryId);
+  });
+
+  // 5-ter) MODO ASÍNCRONO (M2-5 + feature flag M2-7): con webhook_async=on el
+  // webhook hace ACK inmediato (queued) SIN aplicar; el cron de drenaje lo aplica.
+  await check('modo async: encola en el webhook y aplica en el drenaje', async () => {
+    await sb.from('system_config').upsert({ key: 'flag_webhook_async', value: 'on' }, { onConflict: 'key' });
+    // Estado de partida conocido: active (tras el test retry). payment_failed en
+    // async NO debe cambiarlo hasta drenar.
+    await sb.from('tenants').update({ subscription_status: 'active' }).eq('id', tenantId);
+    const event = { id: EV + 'async', type: 'invoice.payment_failed',
+      data: { object: { id: 'in_async', customer: customerId } } };
+    const res = await post(app, event);
+    assert.strictEqual(res.statusCode, 200, `status ${res.statusCode}: ${res.body}`);
+    assert.strictEqual(res.json().queued, true, 'debe encolar (queued)');
+    const mid = await sb.from('tenants').select('subscription_status').eq('id', tenantId).single();
+    assert.strictEqual(mid.data.subscription_status, 'active', 'async NO aplica inline');
+    const ev = await sb.from('webhook_events').select('status').eq('event_id', EV + 'async').single();
+    assert.strictEqual(ev.data.status, 'received', 'queda received en la bandeja');
+    // Drenaje: ahora sí se aplica.
+    const drain = await app.inject({ method: 'POST', url: '/api/v1/admin/cron/retry-webhooks',
+      headers: { 'x-cron-secret': process.env.CRON_SECRET } });
+    assert.strictEqual(drain.statusCode, 200);
+    assert.ok(drain.json().recovered >= 1, 'el drenaje debe aplicar el evento');
+    const after = await sb.from('tenants').select('subscription_status').eq('id', tenantId).single();
+    assert.strictEqual(after.data.subscription_status, 'past_due', 'tras drenar, past_due');
+    // Restaura: flag off (síncrono) y limpia el evento.
+    await sb.from('system_config').upsert({ key: 'flag_webhook_async', value: 'off' }, { onConflict: 'key' });
+    await sb.from('webhook_events').delete().eq('event_id', EV + 'async');
+    await sb.from('tenants').update({ subscription_status: 'active' }).eq('id', tenantId);
   });
 
   // 6) Firma inválida -> 400

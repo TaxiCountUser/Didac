@@ -24,6 +24,8 @@ class _SecurityTabState extends State<SecurityTab> {
   List<Map<String, dynamic>> _alerts = [];
   List<Map<String, dynamic>> _logs = [];
   List<Map<String, dynamic>> _semaphores = [];
+  Map<String, dynamic> _flags = {};
+  String? _flagBusy; // nombre del flag conmutándose (deshabilita el switch)
   bool _loading = true;
   String? _error;
   String _severity = '';
@@ -47,12 +49,30 @@ class _SecurityTabState extends State<SecurityTab> {
         _logs = ((r['logs'] as List?) ?? []).cast<Map<String, dynamic>>();
       } else {
         _semaphores = await _service.adminSemaphores();
+        _flags = await _service.adminFlags();
       }
       if (!mounted) return;
       setState(() => _loading = false);
     } catch (e) {
       if (!mounted) return;
       setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
+
+  Future<void> _toggleFlag(String name, bool on) async {
+    setState(() => _flagBusy = name);
+    try {
+      await _service.adminSetFlag(name, on);
+      final f = Map<String, dynamic>.from((_flags[name] as Map?) ?? {});
+      f['on'] = on;
+      _flags = {..._flags, name: f};
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      }
+    } finally {
+      if (mounted) setState(() => _flagBusy = null);
     }
   }
 
@@ -336,6 +356,20 @@ class _SecurityTabState extends State<SecurityTab> {
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          if (_flags.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, left: 4),
+              child: Text(l.t('adm_flags_title'),
+                  style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+            ),
+            Container(
+              decoration: adminCardBox(),
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Column(children: [
+                for (final e in _flags.entries) _flagRow(l, e.key, e.value as Map),
+              ]),
+            ),
+          ],
           Padding(
             padding: const EdgeInsets.only(bottom: 8, left: 4),
             child: Text(l.t('adm_sema_intro'),
@@ -354,6 +388,39 @@ class _SecurityTabState extends State<SecurityTab> {
                   _semaRow(l, _semaphores[i], df),
                 ],
               ]),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Fila de un feature flag con switch. Descripción legible por clave conocida.
+  Widget _flagRow(AppLocalizations l, String name, Map flag) {
+    final on = flag['on'] == true;
+    final busy = _flagBusy == name;
+    final label = (flag['label'] as String?) ?? name;
+    final desc = name == 'webhook_async' ? l.t('adm_flag_webhook_async_desc') : '';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 13, color: AdminColors.text)),
+                if (desc.isNotEmpty)
+                  Text(desc, style: const TextStyle(fontSize: 10.5, color: AdminColors.muted)),
+              ],
+            ),
+          ),
+          if (busy)
+            const SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+          else
+            Switch(
+              value: on,
+              onChanged: (v) => _toggleFlag(name, v),
             ),
         ],
       ),

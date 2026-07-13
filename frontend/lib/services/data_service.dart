@@ -544,6 +544,26 @@ class DataService {
     return ((body['semaphores'] as List?) ?? []).cast<Map<String, dynamic>>();
   }
 
+  /// Feature flags de plataforma (solo admin). Devuelve {name: {on, label}}.
+  Future<Map<String, dynamic>> adminFlags() async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/flags'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return (body['flags'] as Map?)?.cast<String, dynamic>() ?? {};
+  }
+
+  /// Conmuta un feature flag (solo admin). Rollback sin deploy.
+  Future<void> adminSetFlag(String name, bool on) async {
+    final res = await http.post(Uri.parse('$backendUrl/api/v1/admin/flags'),
+        headers: {..._bearer, 'Content-Type': 'application/json'},
+        body: jsonEncode({'name': name, 'on': on}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    }
+  }
+
   /// Resumen de todas las empresas (solo admin).
   Future<Map<String, dynamic>> adminOverview() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/overview'), headers: _bearer);

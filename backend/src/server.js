@@ -794,6 +794,32 @@ export async function buildApp(options = {}) {
     }, (e) => app.log.warn(`[svc] svc_${name}: ${e.message}`));
   }
 
+  // ── Feature flags (Mes 2, M2-7) ───────────────────────────────────────────
+  // Interruptores de plataforma en `system_config` con prefijo `flag_`. Permiten
+  // conmutar comportamiento SIN redeploy (p. ej. el procesamiento asíncrono del
+  // webhook) y volver atrás al instante. Se cachean unos segundos para no golpear
+  // la BD en cada webhook; el POST /admin/flags invalida la caché al escribir.
+  const FLAG_CACHE_MS = process.env.WEBHOOK_FLAG_TTL_MS !== undefined
+    ? Number(process.env.WEBHOOK_FLAG_TTL_MS) : 15000;
+  let _flagCache = { at: 0, val: {} };
+  async function loadFlags() {
+    if (Date.now() - _flagCache.at < FLAG_CACHE_MS) return _flagCache.val;
+    const val = {};
+    try {
+      const { data } = await supabase.from('system_config')
+        .select('key, value').like('key', 'flag_%');
+      for (const r of data ?? []) val[r.key.replace('flag_', '')] = r.value;
+    } catch { /* best-effort: sin flags => valores por defecto */ }
+    _flagCache = { at: Date.now(), val };
+    return val;
+  }
+  async function flagOn(name, def = false) {
+    const v = (await loadFlags())[name];
+    if (v === undefined || v === null || v === '') return def;
+    return v === 'on' || v === 'true' || v === '1';
+  }
+  function invalidateFlagCache() { _flagCache = { at: 0, val: {} }; }
+
   // Sonda de salud de la BD (Supabase): mide una lectura trivial. Observa la
   // degradación (lenta) aunque acabe respondiendo. ok si <800ms, slow si más,
   // error si falla. Se usa en /overview y /semaphores para el semáforo "BD".
@@ -1082,14 +1108,19 @@ export async function buildApp(options = {}) {
       return !v || now - new Date(v).getTime() > 2 * dayMs;
     });
 
-    // Eventos de Stripe sin aplicar (bandeja webhook_events): 0 = sano. Best-effort
-    // (la tabla puede no existir aún en prod → se trata como 0).
+    // Eventos de Stripe sin aplicar (bandeja webhook_events): 0 = sano. Cuenta los
+    // rotos ('error'/'dead') y los atascados ('received' > 10 min = backlog async).
+    // Best-effort (la tabla puede no existir aún en prod → se trata como 0).
     let webhookErrors = 0;
     try {
-      const { count } = await supabase.from('webhook_events')
-        .select('event_id', { count: 'exact', head: true })
-        .in('status', ['error', 'dead']);
-      webhookErrors = count ?? 0;
+      const stuckCutoff = new Date(now - 10 * 60 * 1000).toISOString();
+      const [brokenRes, stuckRes] = await Promise.all([
+        supabase.from('webhook_events').select('event_id', { count: 'exact', head: true })
+          .in('status', ['error', 'dead']),
+        supabase.from('webhook_events').select('event_id', { count: 'exact', head: true })
+          .eq('status', 'received').lt('received_at', stuckCutoff),
+      ]);
+      webhookErrors = (brokenRes.count ?? 0) + (stuckRes.count ?? 0);
     } catch { /* tabla webhook_events aún no desplegada */ }
 
     // Salud 0-100: penaliza fraude abierto, tickets envejecidos, impagos,
@@ -2491,17 +2522,25 @@ export async function buildApp(options = {}) {
       ? svcSema('push')
       : { key: 'push', kind: 'service', ok: true, at: null, status: 'off' };
 
-    // Bandeja de webhooks (Mes 2, M2-6): nº de eventos de Stripe que no se
-    // pudieron aplicar ('error' reintentable + 'dead' agotado). > 0 → rojo: hay
-    // un cobro/cancelación sin reflejar. Si la tabla aún no existe, "off".
+    // Bandeja de webhooks (Mes 2, M2-6/M2-8): eventos de Stripe sin aplicar.
+    //  - 'error'+'dead' = rotos (cobro/cancelación sin reflejar) → rojo;
+    //  - 'received' atascados (>10 min) = backlog: el drenaje async no avanza → rojo.
+    // Si la tabla aún no existe, "off".
     let webhookSema = { key: 'webhook_errors', kind: 'count', ok: true, at: null, status: 'off' };
     try {
-      const { count } = await supabase.from('webhook_events')
-        .select('event_id', { count: 'exact', head: true })
-        .in('status', ['error', 'dead']);
-      const n = count ?? 0;
+      const stuckCutoff = new Date(now - 10 * 60 * 1000).toISOString();
+      const [brokenRes, stuckRes] = await Promise.all([
+        supabase.from('webhook_events').select('event_id', { count: 'exact', head: true })
+          .in('status', ['error', 'dead']),
+        supabase.from('webhook_events').select('event_id', { count: 'exact', head: true })
+          .eq('status', 'received').lt('received_at', stuckCutoff),
+      ]);
+      const broken = brokenRes.count ?? 0;
+      const stuck = stuckRes.count ?? 0;
+      const n = broken + stuck;
       webhookSema = { key: 'webhook_errors', kind: 'count', ok: n === 0,
-        at: new Date().toISOString(), status: n === 0 ? 'ok' : 'error', count: n };
+        at: new Date().toISOString(), status: n === 0 ? 'ok' : 'error',
+        count: n, broken, stuck };
     } catch { /* tabla webhook_events puede no existir aún en prod */ }
 
     const db = await probeDb();
@@ -3415,63 +3454,118 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, ...res });
   });
 
-  // Reproceso de la bandeja (Mes 2, M2-6): reintenta los eventos que quedaron en
-  // 'error' (fallo al aplicar, no de firma). El cron corto lo dispara cada pocos
-  // minutos → su cadencia ES el backoff; aquí solo respetamos un tope de intentos
-  // para no reintentar eternamente un evento envenenado. applyStripeEvent es
-  // idempotente, así que reprocesar es seguro aunque el efecto ya se aplicara.
+  // Bandeja de webhooks (Mes 2, M2-5/M2-6): drena eventos pendientes de aplicar:
+  //  - 'error'    → reintento de un fallo previo (tope de intentos → 'dead');
+  //  - 'received' antiguos → eventos encolados en modo asíncrono (M2-5) o cuyo
+  //    procesamiento inline crasheó a medias. El corte de edad evita competir con
+  //    el handler síncrono que aún los está procesando en su propia request.
+  // applyStripeEvent es idempotente, así que reprocesar es seguro aunque el
+  // efecto ya se hubiera aplicado. El cron corto lo dispara cada pocos minutos →
+  // su cadencia ES el backoff.
   const WEBHOOK_MAX_ATTEMPTS = 6;
-  async function retryFailedWebhooks({ limit = 25 } = {}) {
-    let rows;
+  // Antigüedad mínima para drenar un 'received' (no pisar al handler síncrono).
+  const WEBHOOK_RECEIVED_MIN_AGE_MS = process.env.WEBHOOK_RECEIVED_MIN_AGE_MS !== undefined
+    ? Number(process.env.WEBHOOK_RECEIVED_MIN_AGE_MS) : 60000;
+
+  async function applyQueuedEvent(row) {
+    const attempts = (row.attempts ?? 0) + 1;
     try {
-      const res = await supabase.from('webhook_events')
-        .select('event_id, type, attempts, payload')
-        .eq('status', 'error')
-        .lt('attempts', WEBHOOK_MAX_ATTEMPTS)
-        .order('received_at', { ascending: true })
-        .limit(limit);
-      rows = res.data;
+      const result = await handleStripeEvent(supabase, row.payload, {
+        enqueueReferralValidation,
+        recomputeReferrerMilestones,
+        rejectPendingReferralValidation,
+        revertReferralForTenant,
+        log: app.log,
+      });
+      await supabase.from('webhook_events')
+        .update({ status: 'processed', processed_at: new Date().toISOString(),
+          attempts, tenant_id: result.tenant_id ?? null })
+        .eq('event_id', row.event_id);
+      return 'recovered';
     } catch (e) {
-      app.log.warn(`[webhook-retry] bandeja no disponible: ${e.message}`);
+      const dead = attempts >= WEBHOOK_MAX_ATTEMPTS;
+      await supabase.from('webhook_events')
+        .update({ status: dead ? 'dead' : 'error', attempts,
+          last_error: String(e.message).slice(0, 500) })
+        .eq('event_id', row.event_id);
+      return dead ? 'exhausted' : 'failed';
+    }
+  }
+
+  async function drainWebhookQueue({ limit = 50 } = {}) {
+    const cols = 'event_id, type, attempts, payload';
+    let rows = [];
+    try {
+      const cutoff = new Date(Date.now() - WEBHOOK_RECEIVED_MIN_AGE_MS).toISOString();
+      const [errRes, recRes] = await Promise.all([
+        supabase.from('webhook_events').select(cols)
+          .eq('status', 'error').lt('attempts', WEBHOOK_MAX_ATTEMPTS)
+          .order('received_at', { ascending: true }).limit(limit),
+        supabase.from('webhook_events').select(cols)
+          .eq('status', 'received').lt('received_at', cutoff)
+          .order('received_at', { ascending: true }).limit(limit),
+      ]);
+      rows = [...(errRes.data ?? []), ...(recRes.data ?? [])];
+    } catch (e) {
+      app.log.warn(`[webhook-drain] bandeja no disponible: ${e.message}`);
       return { retried: 0, recovered: 0, failed: 0, exhausted: 0 };
     }
     let recovered = 0, failed = 0, exhausted = 0;
-    for (const row of rows ?? []) {
-      const attempts = (row.attempts ?? 0) + 1;
-      try {
-        const result = await handleStripeEvent(supabase, row.payload, {
-          enqueueReferralValidation,
-          recomputeReferrerMilestones,
-          rejectPendingReferralValidation,
-          revertReferralForTenant,
-          log: app.log,
-        });
-        await supabase.from('webhook_events')
-          .update({ status: 'processed', processed_at: new Date().toISOString(),
-            attempts, tenant_id: result.tenant_id ?? null })
-          .eq('event_id', row.event_id);
-        recovered++;
-      } catch (e) {
-        const dead = attempts >= WEBHOOK_MAX_ATTEMPTS;
-        await supabase.from('webhook_events')
-          .update({ status: dead ? 'dead' : 'error', attempts,
-            last_error: String(e.message).slice(0, 500) })
-          .eq('event_id', row.event_id);
-        if (dead) exhausted++; else failed++;
-      }
+    for (const row of rows) {
+      const r = await applyQueuedEvent(row);
+      if (r === 'recovered') recovered++;
+      else if (r === 'exhausted') exhausted++;
+      else failed++;
     }
-    return { retried: (rows ?? []).length, recovered, failed, exhausted };
+    return { retried: rows.length, recovered, failed, exhausted };
   }
 
   app.post('/api/v1/admin/cron/retry-webhooks', async (request, reply) => {
     const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
-    const res = await retryFailedWebhooks();
+    const res = await drainWebhookQueue();
     await markCronRun('retry_webhooks');
     if (res.retried > 0) {
       await logAdminAction(request, g.caller?.id ?? null, 'retry_webhooks', 'webhook_events', null, res);
     }
     return reply.send({ ok: true, ...res });
+  });
+
+  // Feature flags (M2-7): allowlist de interruptores conmutables desde el panel.
+  // `webhook_async` = procesar el webhook de Stripe de forma asíncrona (ACK +
+  // drenaje por cron) en vez de inline. Default OFF (comportamiento síncrono).
+  const KNOWN_FLAGS = {
+    webhook_async: { def: false, label: 'Procesar webhooks de Stripe en asíncrono' },
+  };
+
+  app.get('/api/v1/admin/flags', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    invalidateFlagCache();
+    const flags = {};
+    for (const name of Object.keys(KNOWN_FLAGS)) {
+      flags[name] = { on: await flagOn(name, KNOWN_FLAGS[name].def), label: KNOWN_FLAGS[name].label };
+    }
+    return reply.send({ flags });
+  });
+
+  app.post('/api/v1/admin/flags', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { name, on } = request.body ?? {};
+    if (!Object.prototype.hasOwnProperty.call(KNOWN_FLAGS, name)) {
+      return reply.code(400).send({ error: 'Flag desconocido' });
+    }
+    const value = (on === true || on === 'true' || on === 'on' || on === '1') ? 'on' : 'off';
+    try {
+      await supabase.from('system_config').upsert(
+        { key: `flag_${name}`, value }, { onConflict: 'key' });
+    } catch (e) {
+      return reply.code(500).send({ error: `No se pudo guardar el flag: ${e.message}` });
+    }
+    invalidateFlagCache();
+    await logAdminAction(request, g.caller?.id ?? null, 'flag_set', 'feature_flag', name, { name, value });
+    return reply.send({ ok: true, name, on: value === 'on' });
   });
 
   app.post('/webhooks/stripe', async (request, reply) => {
@@ -3495,6 +3589,7 @@ export async function buildApp(options = {}) {
     // webhook funciona igual que antes (nunca rompemos el camino del dinero).
     const eventId = event.id;
     let alreadyProcessed = false;
+    let persisted = false; // ¿el evento está a salvo en la bandeja?
     try {
       const { data: ex } = await supabase.from('webhook_events')
         .select('status').eq('event_id', eventId).maybeSingle();
@@ -3503,6 +3598,9 @@ export async function buildApp(options = {}) {
       } else if (!ex) {
         await supabase.from('webhook_events')
           .insert({ event_id: eventId, type: event.type, status: 'received', payload: event });
+        persisted = true;
+      } else {
+        persisted = true; // ya existía en 'received'/'error' → persistido
       }
     } catch (e) {
       app.log.warn(`[webhook_events] capa de durabilidad no disponible: ${e.message}`);
@@ -3510,6 +3608,16 @@ export async function buildApp(options = {}) {
     if (alreadyProcessed) {
       app.log.info(`[stripe-webhook] ${eventId} duplicado ignorado`);
       return reply.send({ received: true, duplicate: true });
+    }
+
+    // Modo ASÍNCRONO (M2-5, tras el feature flag `webhook_async`): si el evento
+    // está a salvo en la bandeja, ACK inmediato a Stripe y lo aplica el cron de
+    // drenaje. Reduce el timeout del webhook y desacopla el ACK del trabajo. Si
+    // NO se pudo persistir (tabla ausente / BD caída), caemos a síncrono para no
+    // perder NUNCA el evento (el camino del dinero manda sobre la latencia).
+    if (persisted && await flagOn('webhook_async', false)) {
+      app.log.info(`[stripe-webhook] ${eventId} encolado (async)`);
+      return reply.send({ received: true, queued: true });
     }
 
     try {

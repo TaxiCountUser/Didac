@@ -604,6 +604,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_backup': 'Backup diario de la BD', 'adm_sema_push': 'Push (FCM)',
     'adm_sema_db': 'Base de datos (Supabase)', 'adm_sema_purge': 'Purga de retención (5 años)',
     'adm_sema_webhooks': 'Webhooks de Stripe (bandeja)',
+    'adm_flags_title': 'Interruptores de plataforma (rollback sin deploy)',
+    'adm_flag_webhook_async_desc':
+        'Procesa los webhooks de Stripe en asíncrono (ACK inmediato + drenaje por cron). '
+        'Si algo va mal, apágalo y vuelve al modo síncrono al instante.',
     'adm_sema_errcount': '{n} en error', 'adm_sema_st_dead': 'Agotado',
     'adm_sema_st_slow': 'Lento', 'adm_sema_st_off': 'No configurado',
     'adm_sema_last': 'Último: {d}', 'adm_sema_nodata': 'Sin datos todavía',
@@ -617,7 +621,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_sec_evidence': 'Evidencia', 'adm_sec_notes': 'Notas de resolución',
     'adm_sec_resolve': 'Resolver', 'adm_sec_resolved_ok': 'Alerta resuelta',
     'adm_audit_none': 'No hay acciones registradas.',
-    'aud_challenge_credits_apply': 'Aplicar recompensas de retos', 'aud_challenge_force_complete': 'Forzar reto completado', 'aud_company_close': 'Eliminar empresa', 'aud_company_update': 'Editar empresa', 'aud_vehicle_add': 'Añadir vehículo', 'aud_vehicle_update': 'Editar vehículo', 'aud_vehicle_delete': 'Eliminar vehículo', 'aud_user_update': 'Editar usuario', 'aud_user_delete': 'Eliminar usuario', 'aud_error_report_status': 'Cambiar estado de informe', 'aud_fraud_alert_resolve': 'Resolver alerta de fraude', 'aud_purge_retention': 'Purga de datos (GDPR)', 'aud_referral_block': 'Bloquear referido', 'aud_referral_unblock': 'Desbloquear referido', 'aud_referral_config_update': 'Editar configuración', 'aud_referral_validations_process': 'Validar referidos', 'aud_admin_grant': 'Nombrar administrador', 'aud_admin_revoke': 'Quitar administrador',
+    'aud_challenge_credits_apply': 'Aplicar recompensas de retos', 'aud_challenge_force_complete': 'Forzar reto completado', 'aud_company_close': 'Eliminar empresa', 'aud_company_update': 'Editar empresa', 'aud_vehicle_add': 'Añadir vehículo', 'aud_vehicle_update': 'Editar vehículo', 'aud_vehicle_delete': 'Eliminar vehículo', 'aud_user_update': 'Editar usuario', 'aud_user_delete': 'Eliminar usuario', 'aud_error_report_status': 'Cambiar estado de informe', 'aud_fraud_alert_resolve': 'Resolver alerta de fraude', 'aud_purge_retention': 'Purga de datos (GDPR)', 'aud_referral_block': 'Bloquear referido', 'aud_referral_unblock': 'Desbloquear referido', 'aud_referral_config_update': 'Editar configuración', 'aud_referral_validations_process': 'Validar referidos', 'aud_admin_grant': 'Nombrar administrador', 'aud_admin_revoke': 'Quitar administrador', 'aud_retry_webhooks': 'Reprocesar bandeja de webhooks', 'aud_flag_set': 'Conmutar interruptor de plataforma',
     'adm_audit_col_date': 'Fecha', 'adm_audit_col_admin': 'Admin',
     'adm_audit_col_action': 'Acción', 'adm_audit_col_target': 'Objetivo', 'adm_audit_col_details': 'Detalles',
     'ref_not_eligible': 'Necesitas una suscripción activa para invitar y ganar.',
@@ -1125,6 +1129,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_backup': 'Daily DB backup', 'adm_sema_push': 'Push (FCM)',
     'adm_sema_db': 'Database (Supabase)', 'adm_sema_purge': 'Retention purge (5 years)',
     'adm_sema_webhooks': 'Stripe webhooks (queue)',
+    'adm_flags_title': 'Platform switches (rollback without deploy)',
+    'adm_flag_webhook_async_desc':
+        'Process Stripe webhooks asynchronously (immediate ACK + cron drain). '
+        'If anything goes wrong, turn it off to fall back to sync mode instantly.',
     'adm_sema_errcount': '{n} in error', 'adm_sema_st_dead': 'Exhausted',
     'adm_sema_st_slow': 'Slow', 'adm_sema_st_off': 'Not configured',
     'adm_sema_last': 'Last: {d}', 'adm_sema_nodata': 'No data yet',
@@ -1138,7 +1146,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_sec_evidence': 'Evidence', 'adm_sec_notes': 'Resolution notes',
     'adm_sec_resolve': 'Resolve', 'adm_sec_resolved_ok': 'Alert resolved',
     'adm_audit_none': 'No actions logged.',
-    'aud_challenge_credits_apply': 'Apply challenge rewards', 'aud_challenge_force_complete': 'Force-complete challenge', 'aud_company_close': 'Delete company', 'aud_company_update': 'Edit company', 'aud_vehicle_add': 'Add vehicle', 'aud_vehicle_update': 'Edit vehicle', 'aud_vehicle_delete': 'Delete vehicle', 'aud_user_update': 'Edit user', 'aud_user_delete': 'Delete user', 'aud_error_report_status': 'Change report status', 'aud_fraud_alert_resolve': 'Resolve fraud alert', 'aud_purge_retention': 'Data purge (GDPR)', 'aud_referral_block': 'Block referral', 'aud_referral_unblock': 'Unblock referral', 'aud_referral_config_update': 'Edit settings', 'aud_referral_validations_process': 'Validate referrals', 'aud_admin_grant': 'Grant admin', 'aud_admin_revoke': 'Revoke admin',
+    'aud_challenge_credits_apply': 'Apply challenge rewards', 'aud_challenge_force_complete': 'Force-complete challenge', 'aud_company_close': 'Delete company', 'aud_company_update': 'Edit company', 'aud_vehicle_add': 'Add vehicle', 'aud_vehicle_update': 'Edit vehicle', 'aud_vehicle_delete': 'Delete vehicle', 'aud_user_update': 'Edit user', 'aud_user_delete': 'Delete user', 'aud_error_report_status': 'Change report status', 'aud_fraud_alert_resolve': 'Resolve fraud alert', 'aud_purge_retention': 'Data purge (GDPR)', 'aud_referral_block': 'Block referral', 'aud_referral_unblock': 'Unblock referral', 'aud_referral_config_update': 'Edit settings', 'aud_referral_validations_process': 'Validate referrals', 'aud_admin_grant': 'Grant admin', 'aud_admin_revoke': 'Revoke admin', 'aud_retry_webhooks': 'Reprocess webhook queue', 'aud_flag_set': 'Toggle platform switch',
     'adm_audit_col_date': 'Date', 'adm_audit_col_admin': 'Admin',
     'adm_audit_col_action': 'Action', 'adm_audit_col_target': 'Target', 'adm_audit_col_details': 'Details',
     'ref_not_eligible': 'You need an active subscription to invite and earn.',
@@ -1646,6 +1654,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_backup': 'Còpia de seguretat diària de la BD', 'adm_sema_push': 'Push (FCM)',
     'adm_sema_db': 'Base de dades (Supabase)', 'adm_sema_purge': 'Purga de retenció (5 anys)',
     'adm_sema_webhooks': 'Webhooks d\'Stripe (safata)',
+    'adm_flags_title': 'Interruptors de plataforma (rollback sense desplegament)',
+    'adm_flag_webhook_async_desc':
+        'Processa els webhooks d\'Stripe en asíncron (ACK immediat + drenatge per cron). '
+        'Si alguna cosa falla, apaga\'l i torna al mode síncron a l\'instant.',
     'adm_sema_errcount': '{n} en error', 'adm_sema_st_dead': 'Esgotat',
     'adm_sema_st_slow': 'Lent', 'adm_sema_st_off': 'No configurat',
     'adm_sema_last': 'Últim: {d}', 'adm_sema_nodata': 'Encara sense dades',
@@ -1659,7 +1671,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_sec_evidence': 'Evidència', 'adm_sec_notes': 'Notes de resolució',
     'adm_sec_resolve': 'Resol', 'adm_sec_resolved_ok': 'Alerta resolta',
     'adm_audit_none': 'No hi ha accions registrades.',
-    'aud_challenge_credits_apply': 'Aplicar recompenses de reptes', 'aud_challenge_force_complete': 'Forcar repte completat', 'aud_company_close': 'Eliminar empresa', 'aud_company_update': 'Editar empresa', 'aud_vehicle_add': 'Afegir vehicle', 'aud_vehicle_update': 'Editar vehicle', 'aud_vehicle_delete': 'Eliminar vehicle', 'aud_user_update': 'Editar usuari', 'aud_user_delete': 'Eliminar usuari', 'aud_error_report_status': 'Canviar estat informe', 'aud_fraud_alert_resolve': 'Resoldre alerta de frau', 'aud_purge_retention': 'Purga de dades (GDPR)', 'aud_referral_block': 'Bloquejar referit', 'aud_referral_unblock': 'Desbloquejar referit', 'aud_referral_config_update': 'Editar configuracio', 'aud_referral_validations_process': 'Validar referits', 'aud_admin_grant': 'Nomenar administrador', 'aud_admin_revoke': 'Treure administrador',
+    'aud_challenge_credits_apply': 'Aplicar recompenses de reptes', 'aud_challenge_force_complete': 'Forcar repte completat', 'aud_company_close': 'Eliminar empresa', 'aud_company_update': 'Editar empresa', 'aud_vehicle_add': 'Afegir vehicle', 'aud_vehicle_update': 'Editar vehicle', 'aud_vehicle_delete': 'Eliminar vehicle', 'aud_user_update': 'Editar usuari', 'aud_user_delete': 'Eliminar usuari', 'aud_error_report_status': 'Canviar estat informe', 'aud_fraud_alert_resolve': 'Resoldre alerta de frau', 'aud_purge_retention': 'Purga de dades (GDPR)', 'aud_referral_block': 'Bloquejar referit', 'aud_referral_unblock': 'Desbloquejar referit', 'aud_referral_config_update': 'Editar configuracio', 'aud_referral_validations_process': 'Validar referits', 'aud_admin_grant': 'Nomenar administrador', 'aud_admin_revoke': 'Treure administrador', 'aud_retry_webhooks': 'Reprocessar safata de webhooks', 'aud_flag_set': 'Commutar interruptor de plataforma',
     'adm_audit_col_date': 'Data', 'adm_audit_col_admin': 'Admin',
     'adm_audit_col_action': 'Acció', 'adm_audit_col_target': 'Objectiu', 'adm_audit_col_details': 'Detalls',
     'ref_not_eligible': 'Necessites una subscripció activa per convidar i guanyar.',
