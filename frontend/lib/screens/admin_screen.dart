@@ -716,9 +716,157 @@ class _ChallengesTabState extends State<_ChallengesTab> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
+          if (claim['user_id'] != null)
+            TextButton.icon(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _correctKm(claim['user_id'] as String);
+              },
+              icon: const Icon(Icons.edit_road, size: 18),
+              label: Text(l.t('adm_km_correct')),
+            ),
           FilledButton.tonal(
             onPressed: () async { Navigator.pop(ctx); await _forceComplete(id); },
             child: Text(l.t('adm_ch_force')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Corregir el km de un conductor: lista sus lecturas de cuentakilómetros
+  // (inicio/cierre de jornada) y permite editar o borrar la que esté mal.
+  Future<void> _correctKm(String userId) async {
+    final l = context.l10n;
+    List<Map<String, dynamic>> readings;
+    try {
+      readings = await _service.adminDriverOdometer(userId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      return;
+    }
+    if (!mounted) return;
+    final df = DateFormat('dd/MM/yyyy HH:mm');
+    final fmt = NumberFormat.decimalPattern();
+    await showAdminDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(l.t('adm_km_correct_title')),
+          content: SizedBox(
+            width: 460,
+            child: readings.isEmpty
+                ? Padding(padding: const EdgeInsets.all(16), child: Text(l.t('adm_km_none')))
+                : SingleChildScrollView(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      for (final r in readings)
+                        _kmReadingRow(l, ctx, setLocal, readings, r, df, fmt),
+                    ]),
+                  ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kmReadingRow(
+      AppLocalizations l, BuildContext ctx, StateSetter setLocal,
+      List<Map<String, dynamic>> readings, Map<String, dynamic> r,
+      DateFormat df, NumberFormat fmt) {
+    final id = r['id'] as String;
+    final km = (r['reading_km'] as num?)?.toInt() ?? 0;
+    final taken = DateTime.tryParse((r['taken_at'] as String?) ?? '');
+    final plate = (r['vehicles'] as Map?)?['license_plate'] as String? ?? '—';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${fmt.format(km)} km · $plate',
+                style: const TextStyle(fontSize: 13, color: AdminColors.text)),
+            Text(taken != null ? df.format(taken) : '—',
+                style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+          ]),
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit, size: 18, color: AdminColors.blue),
+          tooltip: l.t('adm_km_new'),
+          onPressed: () async {
+            final newKm = await _askKm(km);
+            if (newKm == null || newKm == km) return;
+            try {
+              await _service.adminCorrectOdometer(id, newKm);
+              r['reading_km'] = newKm;
+              setLocal(() {});
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_km_saved'))));
+              _reload(silent: true);
+            } catch (e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+            }
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline, size: 18, color: AdminColors.red),
+          tooltip: l.t('adm_km_del_confirm'),
+          onPressed: () async {
+            final ok = await showAdminDialog<bool>(
+              context: context,
+              builder: (c) => AlertDialog(
+                content: Text(l.t('adm_km_del_confirm')),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.t('cancel'))),
+                  FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.t('delete'))),
+                ],
+              ),
+            );
+            if (ok != true) return;
+            try {
+              await _service.adminDeleteOdometer(id);
+              readings.remove(r);
+              setLocal(() {});
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_km_deleted'))));
+              _reload(silent: true);
+            } catch (e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+            }
+          },
+        ),
+      ]),
+    );
+  }
+
+  // Pide un nuevo valor de km (entero).
+  Future<int?> _askKm(int current) async {
+    final l = context.l10n;
+    final ctrl = TextEditingController(text: '$current');
+    return showAdminDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_km_new')),
+        content: TextField(
+          controller: ctrl, autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(labelText: l.t('adm_km_new'), suffixText: 'km'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('cancel'))),
+          FilledButton(
+            onPressed: () {
+              final v = int.tryParse(ctrl.text.trim().replaceAll('.', '').replaceAll(',', ''));
+              Navigator.pop(ctx, v);
+            },
+            child: Text(l.t('save')),
           ),
         ],
       ),

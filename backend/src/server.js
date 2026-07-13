@@ -2502,6 +2502,56 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
+  // Admin: lecturas de cuentakilómetros de un conductor (inicio/cierre de jornada),
+  // para CORREGIR un km mal introducido. Solo lecturas de odometer_readings (las
+  // del odómetro de cada carrera se corrigen editando la transacción).
+  app.get('/api/v1/admin/drivers/:userId/odometer', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const limit = Math.min(Number(request.query?.limit) || 60, 300);
+    const { data, error } = await supabase.from('odometer_readings')
+      .select('id, vehicle_id, reading_km, taken_at, vehicles:vehicle_id(license_plate, model)')
+      .eq('user_id', request.params.userId)
+      .order('taken_at', { ascending: false })
+      .limit(limit);
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ readings: data ?? [] });
+  });
+
+  // Admin: corrige el km de una lectura (reading_km). Queda auditado con el valor
+  // anterior y el nuevo. Los retos se recalculan solos en la próxima lectura (leen
+  // el odómetro en vivo); no hay rollups de km que refrescar.
+  app.patch('/api/v1/admin/odometer/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const km = Number((request.body ?? {}).reading_km);
+    if (!Number.isFinite(km) || km < 0 || km > 100000000) {
+      return reply.code(400).send({ error: 'km no válido' });
+    }
+    const { data: row } = await supabase.from('odometer_readings')
+      .select('id, tenant_id, user_id, reading_km').eq('id', request.params.id).maybeSingle();
+    if (!row) return reply.code(404).send({ error: 'Lectura no encontrada' });
+    const newKm = Math.round(km);
+    await supabase.from('odometer_readings')
+      .update({ reading_km: newKm }).eq('id', row.id);
+    await logAdminAction(request, g.caller?.id ?? null, 'odometer_correct', 'odometer_readings', row.id,
+      { user_id: row.user_id, from: row.reading_km, to: newKm });
+    return reply.send({ ok: true, reading_km: newKm });
+  });
+
+  // Admin: elimina una lectura errónea (p. ej. un km de inicio duplicado o falso).
+  app.delete('/api/v1/admin/odometer/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data: row } = await supabase.from('odometer_readings')
+      .select('id, user_id, reading_km, taken_at').eq('id', request.params.id).maybeSingle();
+    if (!row) return reply.code(404).send({ error: 'Lectura no encontrada' });
+    await supabase.from('odometer_readings').delete().eq('id', row.id);
+    await logAdminAction(request, g.caller?.id ?? null, 'odometer_delete', 'odometer_readings', row.id,
+      { user_id: row.user_id, reading_km: row.reading_km, taken_at: row.taken_at });
+    return reply.send({ ok: true });
+  });
+
   // ============================================================
   // Loop #5 — Centro de fraude (unifica referral_fraud_alerts + fraud_alerts)
   // y logs de auditoría. Solo admin. El id unificado es "<source>:<uuid>".

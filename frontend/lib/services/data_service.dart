@@ -422,6 +422,37 @@ class DataService {
     }
   }
 
+  /// Lecturas de cuentakilómetros de un conductor (inicio/cierre de jornada),
+  /// para corregir un km mal introducido (solo admin).
+  Future<List<Map<String, dynamic>>> adminDriverOdometer(String userId) async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/drivers/$userId/odometer'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['readings'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// Corrige el km de una lectura de cuentakilómetros (solo admin).
+  Future<void> adminCorrectOdometer(String id, int km) async {
+    final res = await http.patch(Uri.parse('$backendUrl/api/v1/admin/odometer/$id'),
+        headers: {..._bearer, 'Content-Type': 'application/json'},
+        body: jsonEncode({'reading_km': km}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo corregir');
+    }
+  }
+
+  /// Elimina una lectura de cuentakilómetros errónea (solo admin).
+  Future<void> adminDeleteOdometer(String id) async {
+    final res = await http.delete(Uri.parse('$backendUrl/api/v1/admin/odometer/$id'),
+        headers: _bearer);
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo eliminar');
+    }
+  }
+
   // ── Loop #5: dashboard de super admin (referidos) ──────────────────────────
 
   /// KPIs globales de referidos (solo admin).
