@@ -164,6 +164,11 @@ acciones + **log de semáforos** + **Métricas** en vivo), Soporte, Errores, Con
 > hasta que el admin lo **acepta**; al **rechazarlo**, si ya se había premiado se revierte
 > la extensión de suscripción (se descuentan los días) para que desaparezca de las
 > estadísticas de completados y del ahorro. Los logros limpios siguen auto-aprobados.
+>
+> **Corregir km:** desde el detalle del reto, el admin puede editar o eliminar una lectura
+> de cuentakilómetros mal introducida por el conductor (inicio/cierre de jornada) —
+> `GET /admin/drivers/:id/odometer`, `PATCH`/`DELETE /admin/odometer/:id`, todo auditado.
+> Los retos se recalculan solos en la siguiente lectura (odómetro en vivo).
 
 ### 4.4 Observabilidad — 12 semáforos de salud + panel de métricas
 Alimentados por `system_config`, la bandeja `webhook_events` y sondas en vivo;
