@@ -13,7 +13,9 @@ frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
 frontend/build/
 frontend/.packages
-frontend/pubspec.lock
+# pubspec.lock SÍ se versiona (es una app): fija las versiones exactas para que
+# el build en CI use las mismas que funcionan en local y no derive a versiones
+# incompatibles (p. ej. firebase_messaging). No lo ignores.
 frontend/ios/Pods/
 frontend/android/.gradle/
 
