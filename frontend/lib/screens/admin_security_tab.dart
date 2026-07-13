@@ -19,12 +19,13 @@ class SecurityTab extends StatefulWidget {
 
 class _SecurityTabState extends State<SecurityTab> {
   final _service = DataService();
-  int _view = 0; // 0 = alertas, 1 = auditoría, 2 = semáforos
+  int _view = 0; // 0 = alertas, 1 = auditoría, 2 = semáforos, 3 = métricas
 
   List<Map<String, dynamic>> _alerts = [];
   List<Map<String, dynamic>> _logs = [];
   List<Map<String, dynamic>> _semaphores = [];
   Map<String, dynamic> _flags = {};
+  Map<String, dynamic> _metrics = {};
   String? _flagBusy; // nombre del flag conmutándose (deshabilita el switch)
   bool _loading = true;
   String? _error;
@@ -47,9 +48,11 @@ class _SecurityTabState extends State<SecurityTab> {
       } else if (_view == 1) {
         final r = await _service.adminAuditLogs();
         _logs = ((r['logs'] as List?) ?? []).cast<Map<String, dynamic>>();
-      } else {
+      } else if (_view == 2) {
         _semaphores = await _service.adminSemaphores();
         _flags = await _service.adminFlags();
+      } else {
+        _metrics = await _service.adminMetrics();
       }
       if (!mounted) return;
       setState(() => _loading = false);
@@ -98,6 +101,11 @@ class _SecurityTabState extends State<SecurityTab> {
                 label: l.t('adm_sec_sema'), selected: _view == 2,
                 color: AdminColors.teal,
                 onTap: () { setState(() => _view = 2); _reload(); }),
+            const SizedBox(width: 6),
+            AdminPill(
+                label: l.t('adm_metrics'), selected: _view == 3,
+                color: AdminColors.blue,
+                onTap: () { setState(() => _view = 3); _reload(); }),
           ]),
         ),
         Expanded(
@@ -110,7 +118,9 @@ class _SecurityTabState extends State<SecurityTab> {
                       ? _alertsView(l)
                       : _view == 1
                           ? _auditView(l)
-                          : _semaphoresView(l)),
+                          : _view == 2
+                              ? _semaphoresView(l)
+                              : _metricsView(l)),
         ),
       ],
     );
@@ -468,6 +478,147 @@ class _SecurityTabState extends State<SecurityTab> {
         ],
       ),
     );
+  }
+
+  // ── Métricas en vivo: uso de Groq (% disponible) + recursos de Supabase ────
+  Widget _metricsView(AppLocalizations l) {
+    final groq = (_metrics['groq'] as Map?)?.cast<String, dynamic>() ?? {};
+    final supa = (_metrics['supabase'] as Map?)?.cast<String, dynamic>() ?? {};
+    final sys = (supa['system'] as Map?)?.cast<String, dynamic>() ?? {};
+    final db = (supa['db'] as Map?)?.cast<String, dynamic>() ?? {};
+
+    final groqAvail = groq['available'] == true;
+    final groqPct = (groq['remaining_pct'] as num?)?.toInt();
+    final sysAvail = sys['available'] == true;
+
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, left: 4),
+            child: Text(l.t('adm_metrics_intro'),
+                style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+          ),
+          // Groq: % disponible según rate-limit (bajo = cerca del límite).
+          _metricsCard(l.t('adm_metrics_groq_title'), [
+            if (!groqAvail)
+              _nodataRow(l, l.t('adm_metrics_groq_hint'))
+            else ...[
+              _bar(l, '${l.t('adm_metrics_groq_avail')}'
+                  '${groq['model'] != null ? ' · ${groq['model']}' : ''}',
+                  groqPct, invert: true),
+              _kvRow(l.t('adm_metrics_reqs'), _fmtPair(groq['requests'])),
+              _kvRow(l.t('adm_metrics_tokens'), _fmtPair(groq['tokens'])),
+            ],
+          ]),
+          const SizedBox(height: 12),
+          // Supabase: BD (RPC, siempre) + CPU/RAM/disco (scrape, best-effort).
+          _metricsCard(l.t('adm_metrics_supa_title'), [
+            if (db.isNotEmpty) ...[
+              _kvRow(l.t('adm_metrics_db_size'),
+                  (db['db_size_pretty'] ?? '—').toString()),
+              _kvRow(l.t('adm_metrics_conns'),
+                  '${db['connections'] ?? '—'} / ${db['max_connections'] ?? '—'}'
+                  ' · ${db['connections_active'] ?? 0} ${l.t('adm_metrics_conns_active')}'),
+            ],
+            if (sysAvail) ...[
+              _bar(l, l.t('adm_metrics_cpu'), (sys['cpu_pct'] as num?)?.toInt()),
+              _bar(l, l.t('adm_metrics_ram'), (sys['ram_pct'] as num?)?.toInt()),
+              _bar(l, l.t('adm_metrics_disk'), (sys['disk_pct'] as num?)?.toInt()),
+            ] else
+              _nodataRow(l, l.t('adm_metrics_supa_hint')),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricsCard(String title, List<Widget> rows) => Container(
+        decoration: adminCardBox(),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+            child: Text(title,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: AdminColors.text)),
+          ),
+          ...rows,
+          const SizedBox(height: 6),
+        ]),
+      );
+
+  // Barra de uso con umbral. Uso (CPU/RAM/disco): >80% rojo, >60% ámbar.
+  // Disponible (Groq, invert=true): <20% rojo, <40% ámbar (bajo = malo).
+  Widget _bar(AppLocalizations l, String label, int? pct, {bool invert = false}) {
+    final v = pct?.clamp(0, 100);
+    Color c;
+    bool alert;
+    if (v == null) {
+      c = AdminColors.gray; alert = false;
+    } else if (invert) {
+      alert = v < 20;
+      c = v < 20 ? AdminColors.red : (v < 40 ? AdminColors.amber : AdminColors.teal);
+    } else {
+      alert = v > 80;
+      c = v > 80 ? AdminColors.red : (v > 60 ? AdminColors.amber : AdminColors.teal);
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(label,
+              style: const TextStyle(fontSize: 12.5, color: AdminColors.text))),
+          Text(v == null ? '—' : '$v%',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: c)),
+        ]),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: v == null ? 0 : v / 100,
+            minHeight: 7,
+            backgroundColor: AdminColors.hairline,
+            valueColor: AlwaysStoppedAnimation(c),
+          ),
+        ),
+        if (alert)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(l.t('adm_metrics_alert80'),
+                style: const TextStyle(
+                    fontSize: 10.5, fontWeight: FontWeight.w600, color: AdminColors.red)),
+          ),
+      ]),
+    );
+  }
+
+  Widget _kvRow(String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: Row(children: [
+          Expanded(child: Text(k,
+              style: const TextStyle(fontSize: 12, color: AdminColors.muted))),
+          Text(v, style: const TextStyle(fontSize: 12, color: AdminColors.text)),
+        ]),
+      );
+
+  Widget _nodataRow(AppLocalizations l, String hint) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(l.t('adm_metrics_nodata'),
+              style: const TextStyle(fontSize: 12.5, color: AdminColors.text)),
+          const SizedBox(height: 2),
+          Text(hint, style: const TextStyle(fontSize: 10.5, color: AdminColors.muted)),
+        ]),
+      );
+
+  // "restantes / límite" de un objeto {remaining, limit} del monitor de Groq.
+  String _fmtPair(dynamic m) {
+    if (m is! Map) return '—';
+    final rem = m['remaining'], lim = m['limit'];
+    if (rem == null && lim == null) return '—';
+    return '${rem ?? '—'} / ${lim ?? '—'}';
   }
 
   // Etiqueta legible de la acción (aud_<action>), con fallback al código crudo.

@@ -564,6 +564,17 @@ class DataService {
     }
   }
 
+  /// Métricas en vivo para el panel de admin: uso de la API de Groq
+  /// (% restante por rate-limit) y recursos de Supabase (CPU/RAM/disco/BD/
+  /// conexiones). Devuelve {groq: {...}, supabase: {...}}.
+  Future<Map<String, dynamic>> adminMetrics() async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/metrics'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
   /// Resumen de todas las empresas (solo admin).
   Future<Map<String, dynamic>> adminOverview() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/overview'), headers: _bearer);
