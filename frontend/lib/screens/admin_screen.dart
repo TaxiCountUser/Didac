@@ -378,6 +378,8 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     return Column(children: [
       _dailyChart(l),
       const SizedBox(height: 12),
+      _kmDailyChart(l),
+      const SizedBox(height: 12),
       _chartCard(l.t('adm_ch_chart_levels'), [
         for (int lvl = 1; lvl <= 5; lvl++)
           _bar(l.t('ch_level', {'n': lvl == 5 ? '5+' : '$lvl'}), byLevel[lvl] ?? 0,
@@ -436,6 +438,59 @@ class _ChallengesTabState extends State<_ChallengesTab> {
                                 height: max == 0 ? 2 : (2 + 56 * c / max),
                                 decoration: BoxDecoration(
                                   color: c > 0 ? AdminColors.amber : AdminColors.hairline,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Evolución de KM RECORRIDOS por día (últimos 30 días): visión global de cómo
+  // avanzan los conductores hacia los retos, no solo cuándo los completan.
+  Widget _kmDailyChart(AppLocalizations l) {
+    final km = ((_summary['km_daily'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final vals = km.map((d) => (d['km'] as num?)?.toInt() ?? 0).toList();
+    final max = vals.isEmpty ? 1 : vals.reduce((a, b) => a > b ? a : b);
+    final total = vals.fold<int>(0, (s, v) => s + v);
+    final fmt = NumberFormat.decimalPattern();
+    return Container(
+      decoration: adminCardBox(),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Text(l.t('adm_ch_chart_km_daily'),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Text(l.t('adm_ch_km_last30', {'n': fmt.format(total)}),
+                  style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+            ]),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 60,
+              child: (vals.isEmpty || total == 0)
+                  ? Center(child: Text(l.t('adm_ch_km_empty'),
+                      style: const TextStyle(fontSize: 12, color: AdminColors.muted)))
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        for (final v in vals)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 1),
+                              child: Container(
+                                height: max == 0 ? 2 : (2 + 56 * v / max),
+                                decoration: BoxDecoration(
+                                  color: v > 0 ? AdminColors.teal : AdminColors.hairline,
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),

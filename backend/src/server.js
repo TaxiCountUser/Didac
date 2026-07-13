@@ -2410,6 +2410,15 @@ export async function buildApp(options = {}) {
     const daysChallenges = (extRows ?? [])
       .reduce((s, r) => s + (r.days_extended ?? 0), 0);
 
+    // Evolución de km RECORRIDOS por día (global, últimos 30 días): muestra cómo
+    // AVANZAN los conductores hacia los retos, no solo cuándo los completan.
+    // Best-effort: si la RPC no está (migración 067 sin aplicar) devuelve [].
+    let kmDaily = [];
+    try {
+      const { data: km } = await supabase.rpc('challenge_km_daily', { p_days: 30 });
+      kmDaily = (km ?? []).map((r) => ({ date: r.day, km: Math.round(Number(r.km) || 0) }));
+    } catch { /* RPC ausente: sin serie de km */ }
+
     return reply.send({
       total_completed: totalCompleted,
       drivers_with_challenge: driversWithChallenge, // %
@@ -2420,6 +2429,7 @@ export async function buildApp(options = {}) {
       fraud_rate: fraudRate, // %
       completed_this_month: completedThisMonth,
       daily: Object.entries(daily).map(([date, count]) => ({ date, count })),
+      km_daily: kmDaily,
     });
   });
 
