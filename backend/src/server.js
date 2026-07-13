@@ -159,9 +159,10 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const CRON_SECRET = process.env.CRON_SECRET || '';
 const STRIPE_SUCCESS_URL = process.env.STRIPE_SUCCESS_URL || 'taxicount://subscription-success';
 const STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL || 'taxicount://subscription-cancel';
-// Loop #6: cupón PERMANENTE de lanzamiento (p. ej. TAXI2026, 38%) que se aplica
-// automáticamente en el checkout. Si está vacío, se permiten códigos manuales.
-const STRIPE_LAUNCH_COUPON = process.env.STRIPE_LAUNCH_COUPON || '';
+// Price ID anual (para saber si el checkout admite cupones: solo el anual).
+const STRIPE_PRICE_SEAT_YEARLY = process.env.STRIPE_PRICE_SEAT_YEARLY || '';
+// Tope del modelo por asiento: más conductores = plan a medida (contacto).
+const MAX_SEATS = Number(process.env.MAX_SEATS || 100);
 // Crédito (en céntimos) que se abona al jefe por cada reto completado por un
 // conductor: "1 mes-asiento gratis". Por defecto 250 = 2,50 €.
 
@@ -1099,7 +1100,10 @@ export async function buildApp(options = {}) {
     const services = {};
     for (const r of svcRows ?? []) {
       const [status, at] = String(r.value || '').split('|');
-      services[r.key.replace('svc_', '')] = { ok: status !== 'err', at: at || null };
+      // Error antiguo (>24 h) deja de alertar (mismo criterio que los semáforos).
+      const recentErr = status === 'err' && at
+        && (now - new Date(at).getTime() < 24 * 60 * 60 * 1000);
+      services[r.key.replace('svc_', '')] = { ok: !recentErr, at: at || null };
     }
     // Push sin configurar = apagado a propósito, no avería (ignora errores viejos).
     if (!pushEnabled()) services.push = { ok: true, at: null, off: true };
@@ -1896,8 +1900,19 @@ export async function buildApp(options = {}) {
       drivers_limit: plan.drivers_limit === null ? 'null' : String(plan.drivers_limit),
     };
 
-    // Cantidad = nº de conductores (asientos). Stripe aplica los tramos por volumen.
+    // Cantidad = nº de conductores (asientos). Máximo MAX_SEATS: por encima, plan
+    // a medida (que contacten). Modelo lineal por asiento, sin tramo plano.
     const quantity = await seatCount(caller.tenant_id);
+    if (quantity > MAX_SEATS) {
+      return reply.code(400).send({
+        error: `El máximo por app son ${MAX_SEATS} conductores. Para más, contacta con nosotros.`,
+        code: 'over_max_seats',
+      });
+    }
+
+    // El plan ANUAL admite cupones (bienvenida 50% 1 vez / fidelidad 20%); el
+    // cliente los introduce en el checkout. El MENSUAL es precio fijo, sin cupones.
+    const isYearly = !!STRIPE_PRICE_SEAT_YEARLY && priceId === STRIPE_PRICE_SEAT_YEARLY;
 
     try {
       const session = await stripe.checkout.sessions.create({
@@ -1906,12 +1921,7 @@ export async function buildApp(options = {}) {
         success_url: STRIPE_SUCCESS_URL,
         cancel_url: STRIPE_CANCEL_URL,
         ...(tenant?.stripe_customer_id ? { customer: tenant.stripe_customer_id } : {}),
-        // Oferta de lanzamiento: cupón permanente auto-aplicado. Si no hay cupón
-        // configurado, se permiten códigos promocionales manuales (campañas).
-        // (discounts y allow_promotion_codes son excluyentes en Stripe.)
-        ...(STRIPE_LAUNCH_COUPON
-          ? { discounts: [{ coupon: STRIPE_LAUNCH_COUPON }] }
-          : { allow_promotion_codes: true }),
+        ...(isYearly ? { allow_promotion_codes: true } : {}),
         metadata,
         subscription_data: { metadata },
         client_reference_id: caller.tenant_id,
@@ -2505,8 +2515,15 @@ export async function buildApp(options = {}) {
       const raw = cfg[`svc_${key}`];
       if (!raw) return { key, kind: 'service', ok: true, at: null, status: 'never' };
       const [st, at] = String(raw).split('|');
-      const err = st === 'err';
-      return { key, kind: 'service', ok: !err, at: at || null, status: err ? 'error' : 'ok' };
+      const isErr = st === 'err';
+      // Un error ANTIGUO (>24 h) deja de alertar: un fallo puntual (p. ej. un
+      // evento de prueba de Stripe con otro secreto, o una llamada suelta a
+      // Whisper) no debe dejar el semáforo en rojo para siempre. La próxima
+      // llamada correcta lo pone verde; mientras, no gritamos por algo viejo.
+      const recent = at && (now - new Date(at).getTime() < 24 * 60 * 60 * 1000);
+      const err = isErr && recent;
+      return { key, kind: 'service', ok: !err, at: at || null,
+        status: err ? 'error' : (isErr ? 'idle' : 'ok') };
     };
 
     // La purga de retención NO es un cron periódico (se ejecuta a lo sumo una vez

@@ -47,29 +47,32 @@ const stripePriceSeatYearly = String.fromEnvironment(
 );
 
 // Parámetros del modelo de precios (SOLO para mostrar/estimar en la UI; la
-// facturación real la calcula Stripe con los tramos por volumen del Price).
-const kSeatTierLimit = 75; // 1–75 por asiento; 76–100 tarifa plana
-const kMaxDrivers = 100; // tope del modelo; a partir de aquí, plan a medida
-const kSeatMonthly = 2.5; // €/mes por conductor
-const kSeatYearly = 24.0; // €/año por conductor (2 €/mes efectivo)
-const kFlatMonthly = 150.0; // €/mes tarifa plana (76+)
-const kFlatYearly = 1170.0; // €/año tarifa plana (76+)
+// facturación real la calcula Stripe). Modelo POR ASIENTO (por conductor), lineal,
+// SIN tramo plano. Máximo 100 conductores; a partir de ahí, plan a medida.
+const kMaxDrivers = 100; // tope del modelo; a partir de aquí, contactar
+const kSeatMonthly = 2.5; // €/mes por conductor (precio FIJO, sin cupones)
+const kSeatYearly = 30.0; // €/año por conductor (precio ANCLA; el cliente aplica cupón)
+
+// Cupones ANUALES (configurados en Stripe; el cliente los introduce en el
+// checkout). El mensual nunca lleva cupón.
+const kWelcomeCouponPct = 50; // bienvenida: 1 vez por cliente (p. ej. 1er año)
+const kLoyaltyCouponPct = 20; // fidelidad: siempre, sin límite de uso
+
+// Contacto para planes a medida (> kMaxDrivers conductores).
+const kSupportEmail = String.fromEnvironment(
+  'SUPPORT_EMAIL',
+  defaultValue: 'didakdp.5@gmail.com',
+);
 
 /// Price ID del asiento según el periodo elegido.
 String seatPriceFor(bool yearly) => yearly ? stripePriceSeatYearly : stripePriceSeatMonthly;
 
-/// Coste estimado (precio BASE, sin oferta) para un nº de conductores y periodo.
+/// Coste estimado (precio BASE, sin cupón) para un nº de conductores y periodo.
 double estimatedCost(int drivers, bool yearly) {
   final n = drivers < 1 ? 1 : drivers;
-  if (n > kSeatTierLimit) return yearly ? kFlatYearly : kFlatMonthly;
   return n * (yearly ? kSeatYearly : kSeatMonthly);
 }
 
-// Oferta de lanzamiento: cupón PERMANENTE en Stripe (p. ej. TAXI2026) que aplica
-// este % de descuento. Aquí SOLO para mostrar el precio con oferta; el descuento
-// real lo aplica Stripe con el cupón. 24 €/año -38% ≈ 14,88 €/año.
-const kLaunchDiscountPct = 38;
-
-/// Precio con la oferta de lanzamiento aplicada (para mostrar en la UI).
-double launchOfferCost(int drivers, bool yearly) =>
-    estimatedCost(drivers, yearly) * (100 - kLaunchDiscountPct) / 100;
+/// Precio anual con un cupón (%) aplicado, para mostrar cuánto pagaría el cliente.
+double annualWithCoupon(int drivers, int couponPct) =>
+    estimatedCost(drivers, true) * (100 - couponPct) / 100;

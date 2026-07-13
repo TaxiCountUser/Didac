@@ -395,12 +395,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  // Tarjeta única del modelo por asiento: explica los tramos y muestra la
-  // estimación para el nº actual de conductores.
+  Future<void> _contactUs() {
+    final subject = Uri.encodeComponent('TaxiCount — plan a medida (+$kMaxDrivers conductores)');
+    return _openExternal('mailto:$kSupportEmail?subject=$subject');
+  }
+
+  // Tarjeta del modelo por asiento (lineal, sin tramo plano): precio por
+  // conductor, cupones anuales y estimación para el nº actual de conductores.
   Widget _seatPlanCard(AppLocalizations l, String? status) {
+    final over = _activeDrivers > kMaxDrivers;
     final est = estimatedCost(_activeDrivers, _yearly);
     final perDriver = _yearly ? kSeatYearly : kSeatMonthly;
-    final flat = _yearly ? kFlatYearly : kFlatMonthly;
     final period = _yearly ? l.t('sub_per_year') : l.t('sub_per_month');
     return Card(
       child: Padding(
@@ -410,37 +415,57 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           children: [
             Text(l.t('sub_seat_plan_name'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
-            _row(Icons.person, l.t('sub_seat_per_driver',
-                {'price': _eur(perDriver), 'period': period, 'n': '$kSeatTierLimit'})),
-            _row(Icons.all_inclusive, l.t('sub_seat_flat',
-                {'price': _eur(flat), 'period': period, 'n': '$kSeatTierLimit'})),
+            _row(Icons.person, l.t('sub_seat_per_driver', {'price': _eur(perDriver), 'period': period})),
             _row(Icons.info_outline, l.t('sub_seat_max', {'max': '$kMaxDrivers'})),
+            // Cupones SOLO en el plan anual (el mensual es precio fijo).
+            if (_yearly) ...[
+              const Divider(height: 20),
+              Row(children: [
+                const Icon(Icons.local_offer, size: 16, color: Colors.green),
+                const SizedBox(width: 6),
+                Expanded(child: Text(l.t('sub_coupons_title'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 13))),
+              ]),
+              const SizedBox(height: 4),
+              _row(Icons.card_giftcard, l.t('sub_coupon_welcome', {
+                'pct': '$kWelcomeCouponPct',
+                'cost': _eur(annualWithCoupon(_activeDrivers, kWelcomeCouponPct)),
+              })),
+              _row(Icons.loyalty, l.t('sub_coupon_loyalty', {
+                'pct': '$kLoyaltyCouponPct',
+                'cost': _eur(annualWithCoupon(_activeDrivers, kLoyaltyCouponPct)),
+              })),
+              const SizedBox(height: 4),
+              Text(l.t('sub_coupon_note'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
             const Divider(height: 20),
-            Row(children: [
-              const Icon(Icons.local_offer, size: 16, color: Colors.green),
-              const SizedBox(width: 6),
-              Expanded(child: Text(l.t('sub_launch_offer', {'pct': '$kLaunchDiscountPct'}),
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 13))),
-            ]),
-            const SizedBox(height: 6),
-            Text(l.t('sub_seat_estimate', {
-              'n': '$_activeDrivers',
-              'cost': _eur(launchOfferCost(_activeDrivers, _yearly)),
-              'period': period,
-            }), style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text('${l.t('sub_before_offer')} ${_eur(est)}',
-                style: const TextStyle(
-                    fontSize: 12, color: Colors.grey, decoration: TextDecoration.lineThrough)),
+            if (over)
+              Text(l.t('sub_over_max', {'n': '$_activeDrivers', 'max': '$kMaxDrivers'}),
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFC62828)))
+            else if (_yearly)
+              // Anual: precio de referencia (ancla, en gris) → invita a usar cupón.
+              Text('${l.t('sub_anchor')} ${_eur(est)}$period',
+                  style: const TextStyle(fontSize: 13, color: Colors.grey,
+                      decoration: TextDecoration.lineThrough))
+            else
+              Text(l.t('sub_seat_estimate',
+                  {'n': '$_activeDrivers', 'cost': _eur(est), 'period': period}),
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             Text(l.t('sub_seat_note'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: FilledButton(
-                key: const Key('subscribe_button'),
-                onPressed: _busy ? null : _subscribe,
-                child: Text(subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_subscribe')),
-              ),
+              child: over
+                  ? OutlinedButton.icon(
+                      onPressed: _busy ? null : _contactUs,
+                      icon: const Icon(Icons.mail_outline),
+                      label: Text(l.t('sub_contact_us')))
+                  : FilledButton(
+                      key: const Key('subscribe_button'),
+                      onPressed: _busy ? null : _subscribe,
+                      child: Text(subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_subscribe')),
+                    ),
             ),
           ],
         ),

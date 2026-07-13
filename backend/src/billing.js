@@ -4,13 +4,15 @@
 // separado de server.js para poder testearlo de forma aislada.
 // ============================================================
 
-// Modelo de precios POR ASIENTO (por conductor), escalonado por volumen en Stripe.
-// Un único "plan" (seat) con dos Price IDs (mensual/anual). La cantidad del
-// item = nº de conductores; Stripe aplica los tramos por volumen:
-//   1–75 conductores -> 2 €/mes (15,6 €/año) por conductor
-//   76+ (ilimitado)  -> tarifa plana 150 €/mes (1170 €/año)
-// drivers_limit = null porque NO hay tope: añadir conductores solo sube la factura.
-export const SEAT_TIER_LIMIT = 75; // último tramo por asiento (informativo)
+// Modelo de precios POR ASIENTO (por conductor), LINEAL (sin tramo plano).
+// Un único "plan" (seat) con dos Price IDs (mensual/anual). La cantidad del item
+// = nº de conductores; Stripe factura precio × conductores:
+//   mensual -> 2,50 €/mes por conductor (precio FIJO, sin cupones)
+//   anual   -> 30 €/año por conductor (precio ANCLA; el cliente aplica en el
+//              checkout el cupón de bienvenida 50% -1 vez- o el de fidelidad 20%)
+// Máximo 100 conductores (MAX_SEATS en server.js); por encima, plan a medida.
+// drivers_limit = null: el modelo por asiento no usa tope por plan.
+export const MAX_SEATS = 100; // tope del modelo por asiento (informativo)
 
 export function plans() {
   return {
