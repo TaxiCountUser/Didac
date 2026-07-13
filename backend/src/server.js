@@ -2142,7 +2142,10 @@ export async function buildApp(options = {}) {
         .select('value').eq('key', 'active_coupon').maybeSingle();
       if (!data?.value) return null;
       const c = JSON.parse(data.value);
-      return (c && c.code) ? { code: String(c.code), pct: Number(c.pct) || 0 } : null;
+      if (!c || !c.code) return null;
+      // Caducidad opcional: si ya pasó, no hay cupón activo (deja de mostrarse).
+      if (c.expires_at && new Date(c.expires_at).getTime() < Date.now()) return null;
+      return { code: String(c.code), pct: Number(c.pct) || 0, expires_at: c.expires_at ?? null };
     } catch { return null; }
   }
 
@@ -2157,16 +2160,61 @@ export async function buildApp(options = {}) {
     return reply.send({ code: coupon.code, pct: coupon.pct, show: redeemed !== coupon.code });
   });
 
-  // Admin: cambia el cupón activo (código + % anual). Cambiar el código hace que
-  // el aviso reaparezca para todos (aún no han canjeado el NUEVO código).
+  // Admin: cupón activo actual (para la pantalla de Facturación).
+  app.get('/api/v1/admin/active-coupon', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const coupon = await readActiveCoupon();
+    return reply.send({ coupon });
+  });
+
+  // Admin: fija el cupón activo (sin tocar Stripe). Cambiar el código hace que el
+  // aviso reaparezca (nadie ha canjeado el NUEVO código). code vacío = sin cupón.
   app.post('/api/v1/admin/active-coupon', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
-    const { code, pct } = request.body ?? {};
-    const value = JSON.stringify({ code: String(code || '').trim(), pct: Number(pct) || 0 });
+    const { code, pct, expires_at } = request.body ?? {};
+    const value = JSON.stringify({
+      code: String(code || '').trim(), pct: Number(pct) || 0, expires_at: expires_at || null,
+    });
     await supabase.from('system_config').upsert({ key: 'active_coupon', value }, { onConflict: 'key' });
     await logAdminAction(request, g.caller?.id ?? null, 'active_coupon_set', 'system_config', null, { code, pct });
     return reply.send({ ok: true });
+  });
+
+  // Admin: CREA el cupón en Stripe (coupon + promotion code) y lo deja como
+  // activo. duration 'once' (un pago). El % se aplica en el pago anual (el
+  // cliente introduce el código; la app solo habilita promo codes en anual).
+  app.post('/api/v1/admin/coupons', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
+    const body = request.body ?? {};
+    const code = String(body.code || '').trim().toUpperCase();
+    const pct = Number(body.pct);
+    const maxRedemptions = body.max_redemptions ? Number(body.max_redemptions) : null;
+    const expiresAt = body.expires_at || null; // ISO opcional
+    if (!code || !Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      return reply.code(400).send({ error: 'Código y porcentaje (1-100) obligatorios' });
+    }
+    try {
+      const coupon = await stripe.coupons.create({
+        percent_off: pct, duration: 'once', name: code,
+      });
+      const promo = await stripe.promotionCodes.create({
+        coupon: coupon.id, code, active: true,
+        ...(maxRedemptions ? { max_redemptions: maxRedemptions } : {}),
+        ...(expiresAt ? { expires_at: Math.floor(new Date(expiresAt).getTime() / 1000) } : {}),
+      });
+      const value = JSON.stringify({ code, pct, expires_at: expiresAt });
+      await supabase.from('system_config').upsert({ key: 'active_coupon', value }, { onConflict: 'key' });
+      await logAdminAction(request, g.caller?.id ?? null, 'coupon_create', 'system_config', null,
+        { code, pct, promo_id: promo.id });
+      return reply.send({ ok: true, code, pct, promotion_code_id: promo.id });
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(502).send({ error: `Stripe: ${e.message}` });
+    }
   });
 
   // --- Stripe Customer Portal (Fase 4) ---
@@ -2628,7 +2676,24 @@ export async function buildApp(options = {}) {
         .order('created_at', { ascending: false }).limit(limit),
     ]);
     if (rd.error) return reply.code(500).send({ error: rd.error.message });
+    // Km INICIAL de cada vehículo que usa el conductor (source 'vehicle'): es el
+    // punto de partida del odómetro (al dar de alta el coche). Aparte de las
+    // lecturas de jornada y del odómetro de cada carrera.
+    const vehIds = [...new Set([
+      ...(rd.data ?? []).map((r) => r.vehicle_id),
+      ...(tx.data ?? []).map((t) => t.vehicle_id),
+    ].filter(Boolean))];
+    let vehicles = [];
+    if (vehIds.length) {
+      const { data: vs } = await supabase.from('vehicles')
+        .select('id, license_plate, initial_odometer, created_at').in('id', vehIds);
+      vehicles = vs ?? [];
+    }
     const entries = [
+      ...vehicles.map((v) => ({
+        source: 'vehicle', id: v.id, km: v.initial_odometer ?? 0, at: v.created_at,
+        plate: v.license_plate ?? null,
+      })),
       ...(rd.data ?? []).map((r) => ({
         source: 'reading', id: r.id, km: r.reading_km, at: r.taken_at,
         plate: (r.vehicles || {}).license_plate ?? null,
@@ -2699,6 +2764,26 @@ export async function buildApp(options = {}) {
     await logAdminAction(request, g.caller?.id ?? null, 'odometer_correct', 'transactions', row.id,
       { user_id: row.user_id, from: row.odometer_km, to: newKm });
     return reply.send({ ok: true, odometer_km: newKm });
+  });
+
+  // Admin: corrige el km INICIAL de un vehículo (initial_odometer, y registered_km
+  // por compat). Es el punto de partida del odómetro para los km de retos. Auditado.
+  app.patch('/api/v1/admin/vehicles/:id/odometer', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const km = Number((request.body ?? {}).initial_odometer);
+    if (!Number.isFinite(km) || km < 0 || km > 100000000) {
+      return reply.code(400).send({ error: 'km no válido' });
+    }
+    const { data: row } = await supabase.from('vehicles')
+      .select('id, initial_odometer').eq('id', request.params.id).maybeSingle();
+    if (!row) return reply.code(404).send({ error: 'Vehículo no encontrado' });
+    const newKm = Math.round(km);
+    await supabase.from('vehicles')
+      .update({ initial_odometer: newKm, registered_km: newKm }).eq('id', row.id);
+    await logAdminAction(request, g.caller?.id ?? null, 'odometer_correct', 'vehicles', row.id,
+      { from: row.initial_odometer, to: newKm });
+    return reply.send({ ok: true, initial_odometer: newKm });
   });
 
   // ============================================================

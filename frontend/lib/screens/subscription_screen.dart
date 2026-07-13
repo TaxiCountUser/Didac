@@ -368,6 +368,20 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 _dot(const Color(0xFF00838F)),
                 Text(' ${l.t('sav_referrals')}: ${l.t('fd_days', {'n': '$tRf'})}'),
               ]),
+              const SizedBox(height: 8),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.emoji_events, size: 15, color: Color(0xFF6A1B9A)),
+                const SizedBox(width: 6),
+                Expanded(child: Text(l.t('sav_challenges_desc'),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey))),
+              ]),
+              const SizedBox(height: 4),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.group_add, size: 15, color: Color(0xFF00838F)),
+                const SizedBox(width: 6),
+                Expanded(child: Text(l.t('sav_referrals_desc'),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey))),
+              ]),
               const Divider(),
               if (exts.isEmpty && miles.isEmpty)
                 Padding(

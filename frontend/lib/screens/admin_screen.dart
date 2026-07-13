@@ -290,8 +290,11 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     if (_error != null) return _ErrorRetry(error: _error!, onRetry: _reload);
     if (_loading) return const Center(child: CircularProgressIndicator());
     // Sospechosos = TODOS los marcados por fraude (pendientes Y rechazados): así
-    // un rechazado sale aquí y NO en Logros.
+    // un rechazado sale aquí y NO en Logros. El número entre paréntesis solo
+    // cuenta los PENDIENTES de decisión (accionables); una vez decidido, no suma.
     final suspicious = _claims.where((c) => c['suspicious'] == true).toList();
+    final pendingCount = suspicious
+        .where((c) => (c['status_label'] as String?) == 'pending').length;
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
@@ -305,8 +308,8 @@ class _ChallengesTabState extends State<_ChallengesTab> {
               onTap: () => setState(() => _tab = 1)),
           const SizedBox(width: 6),
           AdminPill(
-              label: suspicious.isNotEmpty
-                  ? '${l.t('adm_ch_tab_suspicious')} (${suspicious.length})'
+              label: pendingCount > 0
+                  ? '${l.t('adm_ch_tab_suspicious')} ($pendingCount)'
                   : l.t('adm_ch_tab_suspicious'),
               selected: _tab == 2, color: AdminColors.red,
               onTap: () => setState(() => _tab = 2)),
@@ -449,26 +452,20 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     DateTime? at(Map<String, dynamic> c) =>
         DateTime.tryParse((c['reviewed_at'] ?? c['created_at']) as String? ?? '');
 
-    // Construye las etiquetas ordenadas y cuenta por bucket según el periodo.
+    // Construye las etiquetas (clave) ordenadas y cuenta por bucket.
     final labels = <String>[];
     final counts = <String, int>{};
-    String? bucketOf(DateTime d) {
-      switch (_evoPeriod) {
-        case 'months':
-          return '${d.year}-${d.month.toString().padLeft(2, '0')}';
-        case 'years':
-        case 'total':
-          return '${d.year}';
-        default: // days
-          return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-      }
-    }
-
     if (_evoPeriod == 'days') {
       for (int i = 29; i >= 0; i--) {
         final d = now.subtract(Duration(days: i));
         final k = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
         labels.add(k); counts[k] = 0;
+      }
+      for (final c in approved) {
+        final d = at(c);
+        if (d == null) continue;
+        final k = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        if (counts.containsKey(k)) counts[k] = counts[k]! + 1;
       }
     } else if (_evoPeriod == 'months') {
       for (int i = 11; i >= 0; i--) {
@@ -476,24 +473,35 @@ class _ChallengesTabState extends State<_ChallengesTab> {
         final k = '${d.year}-${d.month.toString().padLeft(2, '0')}';
         labels.add(k); counts[k] = 0;
       }
-    } else {
-      // años / total: un bucket por año presente en los datos.
+      for (final c in approved) {
+        final d = at(c);
+        if (d == null) continue;
+        final k = '${d.year}-${d.month.toString().padLeft(2, '0')}';
+        if (counts.containsKey(k)) counts[k] = counts[k]! + 1;
+      }
+    } else if (_evoPeriod == 'years') {
       final years = approved.map((c) => at(c)?.year).whereType<int>().toSet().toList()..sort();
       for (final y in years) { labels.add('$y'); counts['$y'] = 0; }
-    }
-    for (final c in approved) {
-      final d = at(c);
-      if (d == null) continue;
-      final k = bucketOf(d);
-      if (k != null && counts.containsKey(k)) counts[k] = counts[k]! + 1;
+      for (final c in approved) {
+        final y = at(c)?.year;
+        if (y != null) counts['$y'] = (counts['$y'] ?? 0) + 1;
+      }
+    } else {
+      // TOTAL: una sola barra con todos los logros desde el arranque de la app.
+      labels.add('total'); counts['total'] = approved.length;
     }
     final maxV = _maxVal(counts.values);
-    // Etiqueta corta del eje según periodo.
-    String short(String k) => switch (_evoPeriod) {
-          'days' => k.substring(5),      // MM-DD
-          'months' => k.substring(2),    // YY-MM
-          _ => k,                        // año
-        };
+
+    // Etiqueta del eje según periodo. En 'días' solo se muestran algunas (para
+    // que no se solapen); en el resto, todas.
+    final step = (labels.length / 6).ceil().clamp(1, 999);
+    bool showLabelAt(int i) => _evoPeriod != 'days' || i == 0 || i == labels.length - 1 || i % step == 0;
+    String short(String k) {
+      if (_evoPeriod == 'total') return l.t('adm_ch_period_total');
+      if (_evoPeriod == 'days') return '${k.substring(8)}/${k.substring(5, 7)}'; // DD/MM
+      if (_evoPeriod == 'months') return k.substring(2); // YY-MM
+      return k; // año
+    }
 
     return Container(
       decoration: adminCardBox(),
@@ -524,41 +532,43 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             ]),
           ),
           const SizedBox(height: 12),
-          if (labels.isEmpty)
+          if (labels.isEmpty || (_evoPeriod == 'total' && approved.isEmpty))
             Padding(padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(l.t('admin_no_challenges'),
                     style: const TextStyle(fontSize: 12, color: AdminColors.muted)))
           else
-            // Mismo estilo para TODOS los periodos: barras verticales. Con pocas
-            // barras (meses/años/total) se muestra la etiqueta debajo; en días no.
+            // Mismo estilo para TODOS los periodos: barras verticales con eje.
             SizedBox(
-              height: labels.length <= 12 ? 78 : 60,
+              height: 84,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  for (final k in labels)
+                  for (var i = 0; i < labels.length; i++)
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 1),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            if (counts[k]! > 0 && labels.length <= 12)
-                              Text('${counts[k]}',
+                            if (counts[labels[i]]! > 0 && (labels.length <= 12 || showLabelAt(i)))
+                              Text('${counts[labels[i]]}',
                                   style: const TextStyle(fontSize: 9, color: AdminColors.muted)),
                             Container(
-                              height: maxV == 0 ? 2 : (2 + 46 * counts[k]! / maxV),
+                              height: maxV == 0 ? 2 : (2 + 46 * counts[labels[i]]! / maxV),
                               decoration: BoxDecoration(
-                                color: counts[k]! > 0 ? AdminColors.teal : AdminColors.hairline,
+                                color: counts[labels[i]]! > 0 ? AdminColors.teal : AdminColors.hairline,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
-                            if (labels.length <= 12) ...[
-                              const SizedBox(height: 3),
-                              Text(short(k),
-                                  maxLines: 1, overflow: TextOverflow.clip,
-                                  style: const TextStyle(fontSize: 8, color: AdminColors.muted)),
-                            ],
+                            const SizedBox(height: 3),
+                            SizedBox(
+                              height: 20,
+                              child: showLabelAt(i)
+                                  ? Text(short(labels[i]),
+                                      maxLines: 1, overflow: TextOverflow.visible,
+                                      style: const TextStyle(fontSize: 8, color: AdminColors.muted))
+                                  : null,
+                            ),
                           ],
                         ),
                       ),
@@ -762,29 +772,39 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             if (rejected)
               AdminTag(l.t('admin_ch_rejected'),
                   fg: AdminColors.muted, bg: AdminColors.hairline)
-            else ...[
+            else if (status == 'pending') ...[
+              // Pendiente de decisión (sospechoso): aceptar o rechazar aquí mismo.
+              _tileAction(Icons.check, AdminColors.teal,
+                  () => _review(c['id'] as String, 'reward')),
+              const SizedBox(width: 6),
+              _tileAction(Icons.block, AdminColors.red,
+                  () => _review(c['id'] as String, 'reject')),
+            ] else ...[
               AdminTag(l.t('admin_ch_achieved'),
                   fg: AdminColors.teal, bg: AdminColors.tealBg),
               const SizedBox(width: 6),
-              InkWell(
-                onTap: () => _review(c['id'] as String, 'reject'),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                        color: AdminColors.redSolid.withValues(alpha: .55)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.block, size: 15, color: AdminColors.red),
-                ),
-              ),
+              _tileAction(Icons.block, AdminColors.red,
+                  () => _review(c['id'] as String, 'reject')),
             ],
           ],
         ),
       ),
     );
   }
+
+  // Botón cuadrado de acción en una fila de reto (aceptar / rechazar).
+  Widget _tileAction(IconData icon, Color color, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            border: Border.all(color: color.withValues(alpha: .55)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 15, color: color),
+        ),
+      );
 
   // ── Detalle ampliado de un reto ──────────────────────────────────────────
   Future<void> _openDetail(String id) async {
@@ -898,11 +918,17 @@ class _ChallengesTabState extends State<_ChallengesTab> {
       List<Map<String, dynamic>> entries, Map<String, dynamic> r,
       DateFormat df, NumberFormat fmt) {
     final id = r['id'] as String;
-    final isTrip = r['source'] == 'transaction';
+    final source = r['source'] as String? ?? 'reading';
+    final isTrip = source == 'transaction';
+    final isVehicle = source == 'vehicle';
     final km = (r['km'] as num?)?.toInt() ?? 0;
     final at = DateTime.tryParse((r['at'] as String?) ?? '');
     final plate = (r['plate'] as String?) ?? '—';
-    final srcLabel = isTrip ? l.t('adm_km_src_trip') : l.t('adm_km_src_reading');
+    final srcLabel = isVehicle
+        ? l.t('adm_km_src_vehicle')
+        : (isTrip ? l.t('adm_km_src_trip') : l.t('adm_km_src_reading'));
+    final srcFg = isVehicle ? AdminColors.purple : (isTrip ? AdminColors.amber : AdminColors.blue);
+    final srcBg = isVehicle ? AdminColors.purpleBg : (isTrip ? AdminColors.amberBg : AdminColors.blueBg);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
@@ -913,9 +939,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 13, color: AdminColors.text))),
               const SizedBox(width: 6),
-              AdminTag(srcLabel,
-                  fg: isTrip ? AdminColors.amber : AdminColors.blue,
-                  bg: isTrip ? AdminColors.amberBg : AdminColors.blueBg),
+              AdminTag(srcLabel, fg: srcFg, bg: srcBg),
             ]),
             Text(at != null ? df.format(at) : '—',
                 style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
@@ -928,7 +952,9 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             final newKm = await _askKm(km);
             if (newKm == null || newKm == km) return;
             try {
-              if (isTrip) {
+              if (isVehicle) {
+                await _service.adminCorrectVehicleOdometer(id, newKm);
+              } else if (isTrip) {
                 await _service.adminCorrectTransactionOdometer(id, newKm);
               } else {
                 await _service.adminCorrectOdometer(id, newKm);
@@ -945,6 +971,10 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             }
           },
         ),
+        // El km inicial del vehículo no se borra (solo se corrige).
+        if (isVehicle)
+          const SizedBox(width: 48)
+        else
         IconButton(
           icon: const Icon(Icons.delete_outline, size: 18, color: AdminColors.red),
           tooltip: l.t('adm_km_del_confirm'),

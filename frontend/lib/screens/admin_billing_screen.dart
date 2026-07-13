@@ -149,6 +149,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  const _CouponManager(),
                   if (pastDue.isNotEmpty) ...[
                     _sectionTitle(l.t('adm_bill_pastdue'), AdminColors.red),
                     _rowsCard([
@@ -298,6 +300,142 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Gestión del cupón activo (Facturación): muestra el cupón vigente y permite
+// crear uno nuevo que se replica en Stripe (coupon + promotion code) y queda
+// como activo. También permite desactivarlo (sin cupón => no se muestra aviso).
+class _CouponManager extends StatefulWidget {
+  const _CouponManager();
+  @override
+  State<_CouponManager> createState() => _CouponManagerState();
+}
+
+class _CouponManagerState extends State<_CouponManager> {
+  final _service = DataService();
+  Map<String, dynamic>? _coupon;
+  bool _loading = true;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final c = await _service.adminActiveCoupon();
+      if (mounted) setState(() { _coupon = c; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _createDialog() async {
+    final l = context.l10n;
+    final codeCtrl = TextEditingController();
+    final pctCtrl = TextEditingController(text: '50');
+    final result = await showAdminDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_coup_new')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: codeCtrl, autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(labelText: l.t('adm_coup_code'), isDense: true)),
+          const SizedBox(height: 8),
+          TextField(controller: pctCtrl, keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: l.t('adm_coup_pct'), suffixText: '%', isDense: true)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('cancel'))),
+          FilledButton(
+            onPressed: () {
+              final code = codeCtrl.text.trim().toUpperCase();
+              final pct = int.tryParse(pctCtrl.text.trim()) ?? 0;
+              if (code.isEmpty || pct <= 0 || pct > 100) return;
+              Navigator.pop(ctx, {'code': code, 'pct': pct});
+            },
+            child: Text(l.t('adm_coup_create')),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+    setState(() => _busy = true);
+    try {
+      await _service.adminCreateCoupon(code: result['code'] as String, pct: result['pct'] as int);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_coup_created'))));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deactivate() async {
+    setState(() => _busy = true);
+    try {
+      await _service.adminSetActiveCoupon(code: '');
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final c = _coupon;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: AdminColors.purple.withValues(alpha: .3)),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.local_offer, size: 16, color: AdminColors.purple),
+          const SizedBox(width: 8),
+          Expanded(child: Text(l.t('adm_coup_title'),
+              style: const TextStyle(fontSize: 11, color: AdminColors.secondary))),
+          if (_busy || _loading)
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          else
+            TextButton(onPressed: _createDialog, child: Text(l.t('adm_coup_new'))),
+        ]),
+        const SizedBox(height: 6),
+        if (!_loading)
+          Row(children: [
+            Expanded(
+              child: Text(
+                (c != null && (c['code'] as String?)?.isNotEmpty == true)
+                    ? '${c['code']} · ${c['pct']}%'
+                    : l.t('adm_coup_none'),
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600,
+                    color: (c != null && (c['code'] as String?)?.isNotEmpty == true)
+                        ? AdminColors.text : AdminColors.muted),
+              ),
+            ),
+            if (c != null && (c['code'] as String?)?.isNotEmpty == true && !_busy)
+              TextButton(onPressed: _deactivate, child: Text(l.t('adm_coup_deactivate'))),
+          ]),
+      ]),
     );
   }
 }

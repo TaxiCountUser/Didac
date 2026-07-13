@@ -454,6 +454,18 @@ class DataService {
     }
   }
 
+  /// Corrige el km inicial de un vehículo (vehicles.initial_odometer). Solo admin.
+  Future<void> adminCorrectVehicleOdometer(String id, int km) async {
+    final res = await http.patch(
+        Uri.parse('$backendUrl/api/v1/admin/vehicles/$id/odometer'),
+        headers: {..._bearer, 'Content-Type': 'application/json'},
+        body: jsonEncode({'initial_odometer': km}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo corregir');
+    }
+  }
+
   /// Corrige el odómetro apuntado en una carrera (transactions.odometer_km).
   /// km=null borra ese valor de la carrera (sin tocar importe/fecha). Solo admin.
   Future<void> adminCorrectTransactionOdometer(String id, int? km) async {
@@ -618,6 +630,43 @@ class DataService {
     final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
     if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
     return body;
+  }
+
+  /// Cupón activo actual (admin, para Facturación). Devuelve {code, pct, expires_at} o null.
+  Future<Map<String, dynamic>?> adminActiveCoupon() async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/active-coupon'), headers: _bearer);
+    if (res.statusCode != 200) return null;
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    return (body['coupon'] as Map?)?.cast<String, dynamic>();
+  }
+
+  /// Crea un cupón en Stripe (coupon + promotion code) y lo deja activo (admin).
+  Future<void> adminCreateCoupon({
+    required String code, required int pct, int? maxRedemptions, String? expiresAt,
+  }) async {
+    final res = await http.post(Uri.parse('$backendUrl/api/v1/admin/coupons'),
+        headers: {..._bearer, 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'code': code, 'pct': pct,
+          if (maxRedemptions != null) 'max_redemptions': maxRedemptions,
+          if (expiresAt != null) 'expires_at': expiresAt,
+        }));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo crear el cupón');
+    }
+  }
+
+  /// Fija/limpia el cupón activo sin tocar Stripe (admin). code vacío = sin cupón.
+  Future<void> adminSetActiveCoupon({required String code, int pct = 0, String? expiresAt}) async {
+    final res = await http.post(Uri.parse('$backendUrl/api/v1/admin/active-coupon'),
+        headers: {..._bearer, 'Content-Type': 'application/json'},
+        body: jsonEncode({'code': code, 'pct': pct, if (expiresAt != null) 'expires_at': expiresAt}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo guardar');
+    }
   }
 
   /// Cupón activo para el owner (aviso con "copiar" en Suscripción). Devuelve
