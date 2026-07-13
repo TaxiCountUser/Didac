@@ -98,9 +98,12 @@ export async function applyStripeEvent(supabase, event) {
         update.plan_id = plan.plan_id;
         update.drivers_limit = plan.drivers_limit;
       }
+      await supabase.from('tenants').update(update).eq('id', tenantId);
       // ¿Pagó usando un cupón? (total_details.amount_discount > 0). Si es así,
       // marca el cupón ACTIVO como canjeado por este tenant para que la app deje
-      // de mostrar el aviso (hasta que se cambie el cupón activo).
+      // de mostrar el aviso (hasta que se cambie el cupón activo). Best-effort y
+      // en su PROPIA actualización: si la columna/migración 069 no está, no debe
+      // tumbar el procesamiento del pago.
       const discounted = Number(obj.total_details?.amount_discount ?? 0) > 0
         || (Array.isArray(obj.discounts) && obj.discounts.length > 0);
       if (discounted) {
@@ -108,10 +111,12 @@ export async function applyStripeEvent(supabase, event) {
           const { data: cfg } = await supabase.from('system_config')
             .select('value').eq('key', 'active_coupon').maybeSingle();
           const code = cfg?.value ? (JSON.parse(cfg.value).code || '') : '';
-          if (code) update.coupon_redeemed_code = code;
-        } catch { /* sin cupón activo: nada que marcar */ }
+          if (code) {
+            await supabase.from('tenants')
+              .update({ coupon_redeemed_code: code }).eq('id', tenantId);
+          }
+        } catch { /* sin cupón activo o sin columna todavía: se ignora */ }
       }
-      await supabase.from('tenants').update(update).eq('id', tenantId);
       return { handled: true, type, tenant_id: tenantId };
     }
 
