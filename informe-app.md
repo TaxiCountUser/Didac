@@ -153,11 +153,15 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 
 ### 4.3 Panel de administración (tema oscuro "N")
 Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),
-Empresas (buscador global + fichas), Facturación (MRR/ARPU/churn), Retos (config + retos
-completados/día + **km recorridos/día** para ver el avance global + auto-refresco cada 20 s),
-Referidos (funnel), Seguridad/Auditoría (fraude + log de
-acciones + **log de semáforos** + **Métricas** en vivo), Soporte, Errores, Config (en caliente
+Empresas (buscador global + fichas + **purga definitiva** de empresas de baja, doble confirmación),
+Facturación (MRR/ARPU/churn), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:
+**km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
++ auto-refresco 20 s), Referidos (funnel + submenú **Fraude**), **Monitorización** (Métricas en
+vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, Config (en caliente
 + mantenimiento).
+
+> **Reorganización (2026-07-13):** la antigua tarjeta "Seguridad" se dividió en **Monitorización**
+> y **Auditoría**; las alertas de fraude (que son de referidos) pasaron a la tarjeta **Referidos**.
 
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa
