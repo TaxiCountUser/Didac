@@ -152,21 +152,26 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 | `push.js` | Envío FCM (`sendToTokens`, con estado `attempted/ok` para el semáforo). |
 
 ### 4.3 Panel de administración (tema oscuro "N")
-Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **10 semáforos**),
+Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),
 Empresas (buscador global + fichas), Facturación (MRR/ARPU/churn), Retos (config + evolución
 diaria), Referidos (funnel), Seguridad/Auditoría (fraude + log de acciones + **log de
-semáforos**), Soporte, Errores, Config (en caliente + mantenimiento).
+semáforos** + **Métricas** en vivo), Soporte, Errores, Config (en caliente + mantenimiento).
 
-### 4.4 Observabilidad — 10 semáforos de salud
+### 4.4 Observabilidad — 12 semáforos de salud + panel de métricas
 Alimentados por `system_config`, la bandeja `webhook_events` y sondas en vivo;
 visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/semaphores`):
 
 `API` · `BD (Supabase, latencia)` · `CRONS` · `BACKUP` · `STRIPE (webhooks)` ·
-`WEBHOOKS (bandeja error/dead)` · `WHISPER` · `OPENAI` · `PUSH (FCM)` ·
-`Purga de retención`.
+`WEBHOOKS (bandeja error/dead)` · `WHISPER` · `OPENAI` · `GROQ (rate-limit)` ·
+`Recursos Supabase (CPU/RAM/disco)` · `PUSH (FCM)` · `Purga de retención`.
 
 - `markCronRun` → frescura (rojo si >48h). `markService` → último resultado (rojo solo si
-  la última llamada falló; la inactividad no da falso rojo). `probeDb` → latencia en vivo.
+  la última llamada falló, con caducidad de 24h para no quedar pegado; la inactividad no da
+  falso rojo). `probeDb` → latencia en vivo.
+- **Panel de Métricas** (pestaña *Métricas* de Seguridad, `GET /admin/metrics`): barras en
+  vivo del **% disponible de Groq** (por cabeceras `x-ratelimit-*`, aviso <20%) y de los
+  **recursos de Supabase** — CPU/RAM/disco por scrape del endpoint privilegiado (aviso >80%)
+  + tamaño de la BD y conexiones vía RPC `db_resource_stats` (migración 066).
 
 ### 4.5 Base de datos (`supabase/migrations/`, 29 tablas)
 - **Núcleo:** `tenants` → `users` / `vehicles` / `transactions` (+ `vehicle_licenses`, `driver_vehicles`).
@@ -185,9 +190,9 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 
 | Servicio | Uso | Integración | Vigilancia |
 |---|---|---|---|
-| **Supabase** | Postgres + Auth (JWT) + realtime | cliente directo (RLS) y backend (`service_role`) | semáforo **BD** (latencia) |
-| **Stripe** | Suscripciones, portal, webhooks (idempotentes + persistidos en `webhook_events` + reproceso de la bandeja) | backend (`billing.js`, `/webhooks/stripe`, `retryFailedWebhooks`) | semáforos **STRIPE** (firma) / **WEBHOOKS** (bandeja) |
-| **OpenAI / Groq** | Whisper (voz) + parser LLM | backend (`/transcribe`, `llm_parser.js`) | semáforos **WHISPER** / **OPENAI** |
+| **Supabase** | Postgres + Auth (JWT) + realtime | cliente directo (RLS) y backend (`service_role`) | semáforos **BD** (latencia) / **Recursos** (CPU/RAM/disco vía scrape + `db_resource_stats`) |
+| **Stripe** | Suscripciones (per-asiento, máx. 100), portal, webhooks (idempotentes + persistidos en `webhook_events` + reproceso de la bandeja) | backend (`billing.js`, `/webhooks/stripe`, `retryFailedWebhooks`) | semáforos **STRIPE** (firma) / **WEBHOOKS** (bandeja) |
+| **OpenAI / Groq** | Whisper (voz) + parser LLM | backend (`/transcribe`, `llm_parser.js`) | semáforos **WHISPER** / **OPENAI** / **GROQ** (rate-limit en vivo) |
 | **Firebase (FCM)** | Notificaciones push | backend (`push.js`, `firebase-admin`) | semáforo **PUSH** |
 | **Sentry** | Errores (solo backend; el frontend no lo lleva) | activado por `SENTRY_DSN` — verificado 2026-07-10: **aún sin configurar en prod** (`/health` → `sentry:false`); alta pendiente en T4 | — |
 | **GitHub Actions** | CI/CD, crons, backup diario | workflows | semáforos **CRONS** / **BACKUP** |
