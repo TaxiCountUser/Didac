@@ -208,7 +208,7 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 | Servicio | Uso | Integración | Vigilancia |
 |---|---|---|---|
 | **Supabase** | Postgres + Auth (JWT) + realtime | cliente directo (RLS) y backend (`service_role`) | semáforos **BD** (latencia) / **Recursos** (CPU/RAM/disco vía scrape + `db_resource_stats`) |
-| **Stripe** | Suscripciones (per-asiento, máx. 100), portal, webhooks (idempotentes + persistidos en `webhook_events` + reproceso de la bandeja) | backend (`billing.js`, `/webhooks/stripe`, `retryFailedWebhooks`) | semáforos **STRIPE** (firma) / **WEBHOOKS** (bandeja) |
+| **Stripe** | Suscripciones per-asiento (máx. 100, **cantidad ajustable en Checkout**), portal, **cupón activo** (system_config `active_coupon`, aviso con "copiar" hasta canjearlo), webhooks (idempotentes + persistidos en `webhook_events` + reproceso de la bandeja) | backend (`billing.js`, `/webhooks/stripe`, `retryFailedWebhooks`) | semáforos **STRIPE** (firma) / **WEBHOOKS** (bandeja) |
 | **OpenAI / Groq** | Whisper (voz) + parser LLM | backend (`/transcribe`, `llm_parser.js`) | semáforos **WHISPER** / **OPENAI** / **GROQ** (rate-limit en vivo) |
 | **Firebase (FCM)** | Notificaciones push | backend (`push.js`, `firebase-admin`) | semáforo **PUSH** |
 | **Sentry** | Errores (solo backend; el frontend no lo lleva) | activado por `SENTRY_DSN` — verificado 2026-07-10: **aún sin configurar en prod** (`/health` → `sentry:false`); alta pendiente en T4 | — |
