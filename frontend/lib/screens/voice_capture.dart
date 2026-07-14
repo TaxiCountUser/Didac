@@ -31,7 +31,9 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   // llega —móvil— o un patrón sintético cuando no —web—).
   StreamSubscription<Amplitude>? _ampSub;
   Timer? _waveTimer;
-  final List<double> _levels = List.filled(28, 0.0);
+  // OJO: growable:true. Con una lista de longitud fija, removeAt/add lanzan y el
+  // timer de la onda moría en silencio -> barras siempre planas (línea de puntos).
+  final List<double> _levels = List.filled(28, 0.0, growable: true);
   double _currentReal = 0; // última amplitud real normalizada (0..1)
   DateTime? _lastAmpAt;     // cuándo llegó (para saber si hay amplitud real)
   int _waveTick = 0;

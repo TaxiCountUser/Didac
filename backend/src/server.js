@@ -401,6 +401,10 @@ export async function buildApp(options = {}) {
     return true;
   }
 
+  // DIAGNÓSTICO temporal: últimas cabeceras x-ratelimit-* vistas, por modelo
+  // (lo rellena markGroqRateLimit; lo lee GET /api/v1/groq-debug).
+  const _groqRlDebug = {};
+
   // --- Health ---
   app.get('/health', async () => ({
     status: 'ok',
@@ -416,6 +420,11 @@ export async function buildApp(options = {}) {
     commit: (process.env.RENDER_GIT_COMMIT || '').slice(0, 7) || undefined,
     timestamp: new Date().toISOString(),
   }));
+
+  // DIAGNÓSTICO temporal: qué cabeceras de rate-limit envía Groq en la última
+  // llamada de cada modelo (transcripción vs chat). Solo devuelve valores de
+  // rate-limit (no sensibles). Quitar cuando se resuelva el tema de Whisper.
+  app.get('/api/v1/groq-debug', async (_request, reply) => reply.send(_groqRlDebug));
 
   // Config pública de la app (sin auth): modo mantenimiento y su mensaje. La app
   // la consulta al arrancar para mostrar un aviso a todos los usuarios.
@@ -813,6 +822,17 @@ export async function buildApp(options = {}) {
       try { return headers.get ? headers.get(k) : headers[k]; } catch { return null; }
     };
     const num = (k) => { const v = Number(get(k)); return Number.isFinite(v) ? v : null; };
+    // DIAGNÓSTICO temporal: captura TODAS las cabeceras x-ratelimit-* que llegan
+    // en esta respuesta, por modelo. Se consulta en GET /api/v1/groq-debug para
+    // ver exactamente qué envía Groq (p. ej. si la transcripción trae
+    // audio-seconds). Quitar cuando esté resuelto.
+    try {
+      const rl = {};
+      const add = (k, v) => { if (String(k).toLowerCase().startsWith('x-ratelimit')) rl[k] = v; };
+      if (typeof headers.forEach === 'function') headers.forEach((v, k) => add(k, v));
+      else for (const k of Object.keys(headers || {})) add(k, headers[k]);
+      _groqRlDebug[model] = { at: new Date().toISOString(), headers: rl };
+    } catch (e) { _groqRlDebug[model] = { at: new Date().toISOString(), error: e.message }; }
     // Audio-seconds es el límite de CUENTA de transcripción (Whisper). Groq lo
     // reporta en las cabeceras de CUALQUIER respuesta (incluida la del chat del
     // parser), y la respuesta de la transcripción no siempre expone cabeceras.
