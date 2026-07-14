@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
@@ -25,9 +26,15 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   bool _busy = false;
   String? _error;
   // Ondas de voz en vivo: nivel de amplitud reciente (ventana móvil) para que se
-  // vea claramente que ESTÁ grabando.
+  // vea claramente que ESTÁ grabando. En web el plugin `record` NO emite
+  // amplitud, así que un timer anima las barras (con la amplitud real cuando
+  // llega —móvil— o un patrón sintético cuando no —web—).
   StreamSubscription<Amplitude>? _ampSub;
+  Timer? _waveTimer;
   final List<double> _levels = List.filled(28, 0.0);
+  double _currentReal = 0; // última amplitud real (0..1)
+  DateTime? _lastAmpAt;     // cuándo llegó (para saber si hay amplitud real)
+  int _waveTick = 0;
 
   @override
   void initState() {
@@ -40,6 +47,7 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   @override
   void dispose() {
     _ampSub?.cancel();
+    _waveTimer?.cancel();
     _recorder.dispose();
     super.dispose();
   }
@@ -54,11 +62,15 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       // En Android la ruta debe ser absoluta; recordingPath la resuelve.
       final out = await recordingPath('voice_note.m4a');
       await _recorder.start(const RecordConfig(), path: out);
-      // Suscripción a la amplitud (dBFS) para dibujar la onda en vivo.
+      // Suscripción a la amplitud (dBFS) para la onda real (móvil).
       _ampSub?.cancel();
       _ampSub = _recorder
           .onAmplitudeChanged(const Duration(milliseconds: 90))
-          .listen(_onAmplitude);
+          .listen(_onAmplitude, onError: (_) {});
+      // Timer que ANIMA la onda a 90 ms: usa la amplitud real si es reciente; si
+      // no (web, sin amplitud), genera un patrón que se mueve para indicar que graba.
+      _waveTimer?.cancel();
+      _waveTimer = Timer.periodic(const Duration(milliseconds: 90), _tickWave);
       setState(() => _recording = true);
     } catch (e) {
       setState(() => _error = '${context.l10n.t('vc_start_fail')}: $e');
@@ -67,11 +79,28 @@ class _VoiceCaptureState extends State<VoiceCapture> {
 
   void _onAmplitude(Amplitude amp) {
     // current va de ~-45 dBFS (silencio) a 0 (máx). Normalizamos a 0..1.
-    final norm = ((amp.current + 45) / 45).clamp(0.0, 1.0);
-    if (!mounted) return;
+    _currentReal = ((amp.current + 45) / 45).clamp(0.0, 1.0);
+    _lastAmpAt = DateTime.now();
+  }
+
+  void _tickWave(Timer _) {
+    if (!mounted || !_recording) return;
+    _waveTick++;
+    final hasReal = _lastAmpAt != null &&
+        DateTime.now().difference(_lastAmpAt!).inMilliseconds < 300;
+    double level;
+    if (hasReal) {
+      level = _currentReal;
+    } else {
+      // Patrón sintético "vivo": dos senos desfasados + algo de aleatoriedad.
+      final t = _waveTick * 0.6;
+      final wave = (math.sin(t) + math.sin(t * 1.7 + 1)) / 2; // -1..1
+      level = (0.35 + 0.4 * ((wave + 1) / 2) + 0.15 * math.Random().nextDouble())
+          .clamp(0.05, 1.0);
+    }
     setState(() {
       _levels.removeAt(0);
-      _levels.add(norm);
+      _levels.add(level);
     });
   }
 
@@ -79,6 +108,8 @@ class _VoiceCaptureState extends State<VoiceCapture> {
     final l = context.l10n; // capturado antes de los await (lint async-gap)
     _ampSub?.cancel();
     _ampSub = null;
+    _waveTimer?.cancel();
+    _waveTimer = null;
     setState(() {
       _recording = false;
       _busy = true;
