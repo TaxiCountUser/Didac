@@ -338,36 +338,106 @@ class _CouponManagerState extends State<_CouponManager> {
     final l = context.l10n;
     final codeCtrl = TextEditingController();
     final pctCtrl = TextEditingController(text: '50');
+    final maxCtrl = TextEditingController();
+    final monthsCtrl = TextEditingController(text: '3');
+    String duration = 'once';
+    DateTime? startsAt;
+    DateTime? expiresAt;
+    String fmt(DateTime? d) => d == null ? '—'
+        : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
     final result = await showAdminDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.t('adm_coup_new')),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: codeCtrl, autofocus: true,
-              textCapitalization: TextCapitalization.characters,
-              decoration: InputDecoration(labelText: l.t('adm_coup_code'), isDense: true)),
-          const SizedBox(height: 8),
-          TextField(controller: pctCtrl, keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: l.t('adm_coup_pct'), suffixText: '%', isDense: true)),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('cancel'))),
-          FilledButton(
-            onPressed: () {
-              final code = codeCtrl.text.trim().toUpperCase();
-              final pct = int.tryParse(pctCtrl.text.trim()) ?? 0;
-              if (code.isEmpty || pct <= 0 || pct > 100) return;
-              Navigator.pop(ctx, {'code': code, 'pct': pct});
-            },
-            child: Text(l.t('adm_coup_create')),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(l.t('adm_coup_new')),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                TextField(controller: codeCtrl, autofocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(labelText: l.t('adm_coup_code'), isDense: true)),
+                const SizedBox(height: 8),
+                TextField(controller: pctCtrl, keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: l.t('adm_coup_pct'), suffixText: '%', isDense: true)),
+                const SizedBox(height: 12),
+                Text(l.t('adm_coup_duration'), style: const TextStyle(fontSize: 12, color: AdminColors.muted)),
+                const SizedBox(height: 4),
+                Wrap(spacing: 6, children: [
+                  for (final (v, lbl) in [
+                    ('once', l.t('adm_coup_dur_once')),
+                    ('repeating', l.t('adm_coup_dur_repeating')),
+                    ('forever', l.t('adm_coup_dur_forever')),
+                  ])
+                    ChoiceChip(label: Text(lbl, style: const TextStyle(fontSize: 12)),
+                        selected: duration == v, onSelected: (_) => setLocal(() => duration = v)),
+                ]),
+                if (duration == 'repeating') ...[
+                  const SizedBox(height: 8),
+                  TextField(controller: monthsCtrl, keyboardType: TextInputType.number,
+                      decoration: InputDecoration(labelText: l.t('adm_coup_months'), isDense: true)),
+                ],
+                const SizedBox(height: 8),
+                TextField(controller: maxCtrl, keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: l.t('adm_coup_max'), isDense: true, hintText: '∞')),
+                const SizedBox(height: 8),
+                ListTile(
+                  contentPadding: EdgeInsets.zero, dense: true,
+                  title: Text(l.t('adm_coup_starts'), style: const TextStyle(fontSize: 13)),
+                  subtitle: Text(fmt(startsAt), style: const TextStyle(fontSize: 12)),
+                  trailing: const Icon(Icons.event, size: 18),
+                  onTap: () async {
+                    final d = await showDatePicker(context: ctx, initialDate: DateTime.now(),
+                        firstDate: DateTime.now(), lastDate: DateTime(2100));
+                    if (d != null) setLocal(() => startsAt = d);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero, dense: true,
+                  title: Text(l.t('adm_coup_expires'), style: const TextStyle(fontSize: 13)),
+                  subtitle: Text(fmt(expiresAt), style: const TextStyle(fontSize: 12)),
+                  trailing: const Icon(Icons.event_busy, size: 18),
+                  onTap: () async {
+                    final d = await showDatePicker(context: ctx, initialDate: DateTime.now().add(const Duration(days: 30)),
+                        firstDate: DateTime.now(), lastDate: DateTime(2100));
+                    if (d != null) setLocal(() => expiresAt = d);
+                  },
+                ),
+              ]),
+            ),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('cancel'))),
+            FilledButton(
+              onPressed: () {
+                final code = codeCtrl.text.trim().toUpperCase();
+                final pct = int.tryParse(pctCtrl.text.trim()) ?? 0;
+                if (code.isEmpty || pct <= 0 || pct > 100) return;
+                Navigator.pop(ctx, {
+                  'code': code, 'pct': pct, 'duration': duration,
+                  'months': int.tryParse(monthsCtrl.text.trim()),
+                  'max': int.tryParse(maxCtrl.text.trim()),
+                  'starts': startsAt?.toUtc().toIso8601String(),
+                  'expires': expiresAt?.toUtc().toIso8601String(),
+                });
+              },
+              child: Text(l.t('adm_coup_create')),
+            ),
+          ],
+        ),
       ),
     );
     if (result == null) return;
     setState(() => _busy = true);
     try {
-      await _service.adminCreateCoupon(code: result['code'] as String, pct: result['pct'] as int);
+      await _service.adminCreateCoupon(
+        code: result['code'] as String, pct: result['pct'] as int,
+        duration: result['duration'] as String,
+        durationInMonths: result['duration'] == 'repeating' ? result['months'] as int? : null,
+        maxRedemptions: result['max'] as int?,
+        startsAt: result['starts'] as String?,
+        expiresAt: result['expires'] as String?,
+      );
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_coup_created'))));

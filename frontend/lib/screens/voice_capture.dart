@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
 
@@ -22,6 +24,10 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   bool _recording = false;
   bool _busy = false;
   String? _error;
+  // Ondas de voz en vivo: nivel de amplitud reciente (ventana móvil) para que se
+  // vea claramente que ESTÁ grabando.
+  StreamSubscription<Amplitude>? _ampSub;
+  final List<double> _levels = List.filled(28, 0.0);
 
   @override
   void initState() {
@@ -33,6 +39,7 @@ class _VoiceCaptureState extends State<VoiceCapture> {
 
   @override
   void dispose() {
+    _ampSub?.cancel();
     _recorder.dispose();
     super.dispose();
   }
@@ -47,14 +54,31 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       // En Android la ruta debe ser absoluta; recordingPath la resuelve.
       final out = await recordingPath('voice_note.m4a');
       await _recorder.start(const RecordConfig(), path: out);
+      // Suscripción a la amplitud (dBFS) para dibujar la onda en vivo.
+      _ampSub?.cancel();
+      _ampSub = _recorder
+          .onAmplitudeChanged(const Duration(milliseconds: 90))
+          .listen(_onAmplitude);
       setState(() => _recording = true);
     } catch (e) {
       setState(() => _error = '${context.l10n.t('vc_start_fail')}: $e');
     }
   }
 
+  void _onAmplitude(Amplitude amp) {
+    // current va de ~-45 dBFS (silencio) a 0 (máx). Normalizamos a 0..1.
+    final norm = ((amp.current + 45) / 45).clamp(0.0, 1.0);
+    if (!mounted) return;
+    setState(() {
+      _levels.removeAt(0);
+      _levels.add(norm);
+    });
+  }
+
   Future<void> _stopAndTranscribe() async {
     final l = context.l10n; // capturado antes de los await (lint async-gap)
+    _ampSub?.cancel();
+    _ampSub = null;
     setState(() {
       _recording = false;
       _busy = true;
@@ -118,6 +142,30 @@ class _VoiceCaptureState extends State<VoiceCapture> {
                 style: Theme.of(context).textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 16),
+              // Onda de voz en vivo: solo mientras graba (indica claramente que
+              // el micrófono está capturando).
+              if (_recording)
+                SizedBox(
+                  height: 48,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      for (final level in _levels)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 90),
+                          width: 4,
+                          height: 4 + 44 * level,
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.4 + 0.6 * level),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 24),
               GestureDetector(
                 key: const Key('voice_capture_button'),

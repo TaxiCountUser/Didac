@@ -369,19 +369,35 @@ class _SecurityTabState extends State<SecurityTab> {
           const SizedBox(height: 12),
           // Supabase: BD (RPC, siempre) + CPU/RAM/disco (scrape, best-effort).
           _metricsCard(l.t('adm_metrics_supa_title'), [
-            if (db.isNotEmpty) ...[
-              _kvRow(l.t('adm_metrics_db_size'),
-                  (db['db_size_pretty'] ?? '—').toString()),
-              _kvRow(l.t('adm_metrics_conns'),
-                  '${db['connections'] ?? '—'} / ${db['max_connections'] ?? '—'}'
-                  ' · ${db['connections_active'] ?? 0} ${l.t('adm_metrics_conns_active')}'),
-            ],
             if (sysAvail) ...[
               _bar(l, l.t('adm_metrics_cpu'), (sys['cpu_pct'] as num?)?.toInt()),
               _bar(l, l.t('adm_metrics_ram'), (sys['ram_pct'] as num?)?.toInt()),
               _bar(l, l.t('adm_metrics_disk'), (sys['disk_pct'] as num?)?.toInt()),
+              if (sys['load1'] != null)
+                _kvRow(l.t('adm_metrics_load'),
+                    '${_num1(sys['load1'])} · ${_num1(sys['load5'])} · ${_num1(sys['load15'])}'),
             ] else
               _nodataRow(l, l.t('adm_metrics_supa_hint')),
+            if (db.isNotEmpty) ...[
+              const Divider(height: 14, color: AdminColors.hairline),
+              _kvRow(l.t('adm_metrics_db_size'),
+                  (db['db_size_pretty'] ?? '—').toString()),
+              _kvRow(l.t('adm_metrics_conns'),
+                  '${db['connections'] ?? '—'} / ${db['max_connections'] ?? '—'}'
+                  ' · ${db['connections_active'] ?? 0} ${l.t('adm_metrics_conns_active')}'
+                  '${db['connections_idle'] != null ? ' · ${db['connections_idle']} ${l.t('adm_metrics_conns_idle')}' : ''}'),
+              if (db['connections_waiting'] != null && (db['connections_waiting'] as num) > 0)
+                _kvRow(l.t('adm_metrics_conns_waiting'), '${db['connections_waiting']}'),
+              if (db['cache_hit_ratio'] != null)
+                _bar(l, l.t('adm_metrics_cache'), (db['cache_hit_ratio'] as num?)?.round(), invert: true),
+              if (db['oldest_txn_secs'] != null)
+                _kvRow(l.t('adm_metrics_oldest_txn'), '${db['oldest_txn_secs']} s'),
+              if (db['commits'] != null)
+                _kvRow(l.t('adm_metrics_txns'),
+                    '${_compact(db['commits'])} ✓ · ${_compact(db['rollbacks'])} ✗'),
+              if (db['deadlocks'] != null && (db['deadlocks'] as num) > 0)
+                _kvRow(l.t('adm_metrics_deadlocks'), '${db['deadlocks']}'),
+            ],
           ]),
         ],
       ),
@@ -472,6 +488,19 @@ class _SecurityTabState extends State<SecurityTab> {
     final rem = m['remaining'], lim = m['limit'];
     if (rem == null && lim == null) return '—';
     return '${rem ?? '—'} / ${lim ?? '—'}';
+  }
+
+  // Número con 1 decimal (carga del sistema).
+  String _num1(dynamic v) => (v is num) ? v.toStringAsFixed(2) : '—';
+
+  // Número grande en forma compacta (1.2M, 34k…).
+  String _compact(dynamic v) {
+    if (v is! num) return '—';
+    final n = v.toDouble();
+    if (n >= 1e9) return '${(n / 1e9).toStringAsFixed(1)}B';
+    if (n >= 1e6) return '${(n / 1e6).toStringAsFixed(1)}M';
+    if (n >= 1e3) return '${(n / 1e3).toStringAsFixed(1)}k';
+    return '${n.toInt()}';
   }
 
   // Etiqueta legible de la acción (aud_<action>), con fallback al código crudo.

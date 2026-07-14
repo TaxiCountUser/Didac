@@ -892,17 +892,26 @@ export async function buildApp(options = {}) {
       const mp = (m[2].match(/mountpoint="([^"]*)"/) || [])[1] || '?';
       (fs[mp] ??= {})[m[1]] = Number(m[3]);
     }
-    let disk_pct = null, biggest = 0;
+    let disk_pct = null, biggest = 0, disk_total = null, disk_avail = null;
     for (const mp of Object.keys(fs)) {
       const f = fs[mp];
       if (f.size > 0 && f.avail != null && f.size > biggest) {
         biggest = f.size; disk_pct = Math.round((1 - f.avail / f.size) * 100);
+        disk_total = f.size; disk_avail = f.avail;
       }
     }
     // CPU: contadores acumulados (segundos). El % se saca por delta entre fotos.
     const cpu_idle = sumMetric('node_cpu_seconds_total', (ln) => ln.includes('mode="idle"'));
     const cpu_total = sumMetric('node_cpu_seconds_total');
-    return { available: true, ram_pct, disk_pct, cpu_idle, cpu_total };
+    // Carga del sistema (gauges puntuales, sin delta) y memoria total/libre.
+    const load1 = sumMetric('node_load1');
+    const load5 = sumMetric('node_load5');
+    const load15 = sumMetric('node_load15');
+    return {
+      available: true, ram_pct, disk_pct, cpu_idle, cpu_total,
+      disk_total, disk_avail, mem_total: memTotal, mem_avail: memAvail,
+      load1, load5, load15,
+    };
   }
 
   // %CPU a partir de dos fotos de contadores (idle/total en segundos).
@@ -2143,9 +2152,25 @@ export async function buildApp(options = {}) {
       if (!data?.value) return null;
       const c = JSON.parse(data.value);
       if (!c || !c.code) return null;
-      // Caducidad opcional: si ya pasó, no hay cupón activo (deja de mostrarse).
-      if (c.expires_at && new Date(c.expires_at).getTime() < Date.now()) return null;
-      return { code: String(c.code), pct: Number(c.pct) || 0, expires_at: c.expires_at ?? null };
+      const now = Date.now();
+      // Programación opcional: aún no empieza -> no mostrar; ya caducó -> no mostrar.
+      if (c.starts_at && new Date(c.starts_at).getTime() > now) return null;
+      if (c.expires_at && new Date(c.expires_at).getTime() < now) return null;
+      return {
+        code: String(c.code), pct: Number(c.pct) || 0,
+        starts_at: c.starts_at ?? null, expires_at: c.expires_at ?? null,
+        duration: c.duration ?? 'once', max_redemptions: c.max_redemptions ?? null,
+        coupon_id: c.coupon_id ?? null, promo_id: c.promo_id ?? null,
+      };
+    } catch { return null; }
+  }
+
+  // Config crudo del cupón (incluye ids de Stripe aunque esté programado/caducado).
+  async function readCouponConfigRaw() {
+    try {
+      const { data } = await supabase.from('system_config')
+        .select('value').eq('key', 'active_coupon').maybeSingle();
+      return data?.value ? JSON.parse(data.value) : null;
     } catch { return null; }
   }
 
@@ -2168,23 +2193,27 @@ export async function buildApp(options = {}) {
     return reply.send({ coupon });
   });
 
-  // Admin: fija el cupón activo (sin tocar Stripe). Cambiar el código hace que el
-  // aviso reaparezca (nadie ha canjeado el NUEVO código). code vacío = sin cupón.
+  // Admin: DESACTIVA el cupón activo. Además de limpiar la config, desactiva el
+  // promotion code en Stripe (active:false) para que NADIE lo pueda usar ya.
   app.post('/api/v1/admin/active-coupon', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
-    const { code, pct, expires_at } = request.body ?? {};
-    const value = JSON.stringify({
-      code: String(code || '').trim(), pct: Number(pct) || 0, expires_at: expires_at || null,
-    });
-    await supabase.from('system_config').upsert({ key: 'active_coupon', value }, { onConflict: 'key' });
-    await logAdminAction(request, g.caller?.id ?? null, 'active_coupon_set', 'system_config', null, { code, pct });
+    const raw = await readCouponConfigRaw();
+    if (stripe && raw?.promo_id) {
+      try { await stripe.promotionCodes.update(raw.promo_id, { active: false }); }
+      catch (e) { request.log.warn(`[coupon] no se pudo desactivar en Stripe: ${e.message}`); }
+    }
+    await supabase.from('system_config')
+      .upsert({ key: 'active_coupon', value: JSON.stringify({ code: '' }) }, { onConflict: 'key' });
+    await logAdminAction(request, g.caller?.id ?? null, 'active_coupon_set', 'system_config', null, { code: '' });
     return reply.send({ ok: true });
   });
 
-  // Admin: CREA el cupón en Stripe (coupon + promotion code) y lo deja como
-  // activo. duration 'once' (un pago). El % se aplica en el pago anual (el
-  // cliente introduce el código; la app solo habilita promo codes en anual).
+  // Admin: CREA el cupón en Stripe (coupon + promotion code) y lo deja activo.
+  // Opciones: pct, duration ('once'|'forever'|'repeating' + duration_in_months),
+  // max_redemptions (total), starts_at (programación), expires_at (caducidad).
+  // El coupon se RESTRINGE al producto del precio ANUAL (applies_to) para que solo
+  // valga en el plan anual. Guarda los ids de Stripe para poder desactivarlo luego.
   app.post('/api/v1/admin/coupons', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
@@ -2192,30 +2221,70 @@ export async function buildApp(options = {}) {
     const body = request.body ?? {};
     const code = String(body.code || '').trim().toUpperCase();
     const pct = Number(body.pct);
+    const duration = ['once', 'forever', 'repeating'].includes(body.duration) ? body.duration : 'once';
+    const months = duration === 'repeating' ? Math.max(1, Number(body.duration_in_months) || 1) : null;
     const maxRedemptions = body.max_redemptions ? Number(body.max_redemptions) : null;
-    const expiresAt = body.expires_at || null; // ISO opcional
+    const startsAt = body.starts_at || null; // ISO
+    const expiresAt = body.expires_at || null; // ISO
     if (!code || !Number.isFinite(pct) || pct <= 0 || pct > 100) {
       return reply.code(400).send({ error: 'Código y porcentaje (1-100) obligatorios' });
     }
+    const now = Date.now();
+    const startFuture = startsAt && new Date(startsAt).getTime() > now;
     try {
+      // Producto del precio anual, para restringir el cupón a ese producto.
+      let productId = null;
+      if (STRIPE_PRICE_SEAT_YEARLY) {
+        try {
+          const price = await stripe.prices.retrieve(STRIPE_PRICE_SEAT_YEARLY);
+          productId = typeof price.product === 'string' ? price.product : price.product?.id;
+        } catch (e) { request.log.warn(`[coupon] no se pudo leer el precio anual: ${e.message}`); }
+      }
       const coupon = await stripe.coupons.create({
-        percent_off: pct, duration: 'once', name: code,
+        percent_off: pct, duration, name: code,
+        ...(months ? { duration_in_months: months } : {}),
+        ...(productId ? { applies_to: { products: [productId] } } : {}),
+        ...(expiresAt ? { redeem_by: Math.floor(new Date(expiresAt).getTime() / 1000) } : {}),
       });
       const promo = await stripe.promotionCodes.create({
-        coupon: coupon.id, code, active: true,
+        coupon: coupon.id, code,
+        // Si empieza en el futuro, se crea INACTIVO; el cron lo activa el día fijado.
+        active: !startFuture,
         ...(maxRedemptions ? { max_redemptions: maxRedemptions } : {}),
         ...(expiresAt ? { expires_at: Math.floor(new Date(expiresAt).getTime() / 1000) } : {}),
       });
-      const value = JSON.stringify({ code, pct, expires_at: expiresAt });
+      const value = JSON.stringify({
+        code, pct, duration, duration_in_months: months, max_redemptions: maxRedemptions,
+        starts_at: startsAt, expires_at: expiresAt, coupon_id: coupon.id, promo_id: promo.id,
+      });
       await supabase.from('system_config').upsert({ key: 'active_coupon', value }, { onConflict: 'key' });
       await logAdminAction(request, g.caller?.id ?? null, 'coupon_create', 'system_config', null,
-        { code, pct, promo_id: promo.id });
-      return reply.send({ ok: true, code, pct, promotion_code_id: promo.id });
+        { code, pct, duration, promo_id: promo.id, product: productId });
+      return reply.send({ ok: true, code, pct, promotion_code_id: promo.id, applies_to_product: productId });
     } catch (e) {
       request.log.error(e);
       return reply.code(502).send({ error: `Stripe: ${e.message}` });
     }
   });
+
+  // Sincroniza el estado del promo code en Stripe con la programación (starts_at/
+  // expires_at): lo activa cuando llega su día y lo desactiva al caducar. Lo llama
+  // el vigía de semáforos (cada 15 min). Best-effort.
+  async function syncScheduledCoupon() {
+    if (!stripe) return;
+    const raw = await readCouponConfigRaw();
+    if (!raw?.promo_id) return;
+    const now = Date.now();
+    const started = !raw.starts_at || new Date(raw.starts_at).getTime() <= now;
+    const expired = raw.expires_at && new Date(raw.expires_at).getTime() < now;
+    const shouldBeActive = started && !expired;
+    try {
+      const promo = await stripe.promotionCodes.retrieve(raw.promo_id);
+      if (promo.active !== shouldBeActive) {
+        await stripe.promotionCodes.update(raw.promo_id, { active: shouldBeActive });
+      }
+    } catch (e) { app.log.warn(`[coupon-sync] ${e.message}`); }
+  }
 
   // --- Stripe Customer Portal (Fase 4) ---
   app.post('/api/v1/create-portal-session', async (request, reply) => {
@@ -3072,6 +3141,7 @@ export async function buildApp(options = {}) {
     // Refresca la foto de recursos de Supabase (best-effort) para que el semáforo
     // supabase_res del vigía no quede obsoleto si nadie abre el panel.
     await supabaseMetrics().catch(() => {});
+    await syncScheduledCoupon().catch(() => {});
     const semaphores = await computeSemaphores();
     // "never" no alerta: es un semáforo aún sin datos (p. ej. recién desplegado),
     // no una avería. stale/error sí.

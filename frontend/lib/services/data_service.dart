@@ -642,14 +642,19 @@ class DataService {
   }
 
   /// Crea un cupón en Stripe (coupon + promotion code) y lo deja activo (admin).
+  /// duration: 'once' | 'forever' | 'repeating' (+ durationInMonths).
   Future<void> adminCreateCoupon({
-    required String code, required int pct, int? maxRedemptions, String? expiresAt,
+    required String code, required int pct,
+    String duration = 'once', int? durationInMonths,
+    int? maxRedemptions, String? startsAt, String? expiresAt,
   }) async {
     final res = await http.post(Uri.parse('$backendUrl/api/v1/admin/coupons'),
         headers: {..._bearer, 'Content-Type': 'application/json'},
         body: jsonEncode({
-          'code': code, 'pct': pct,
+          'code': code, 'pct': pct, 'duration': duration,
+          if (durationInMonths != null) 'duration_in_months': durationInMonths,
           if (maxRedemptions != null) 'max_redemptions': maxRedemptions,
+          if (startsAt != null) 'starts_at': startsAt,
           if (expiresAt != null) 'expires_at': expiresAt,
         }));
     if (res.statusCode != 200) {
