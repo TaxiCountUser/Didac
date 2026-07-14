@@ -10,6 +10,8 @@ import 'l10n/app_localizations.dart';
 import 'services/data_service.dart';
 import 'services/push_service.dart';
 import 'screens/admin_screen.dart';
+import 'screens/fleet_chat_screen.dart';
+import 'screens/fleet_chats_screen.dart';
 import 'screens/incidents_screen.dart';
 import 'screens/referral_screen.dart';
 import 'screens/tickets_screen.dart';
@@ -70,6 +72,30 @@ Future<void> main() async {
           _ => null,
         };
         if (module != null) page = AdminModuleScreen(module: module);
+      } else if (type == 'fleet') {
+        // Chat de flota: el jefe abre el chat de ESE conductor; el conductor
+        // abre su chat con el jefe. Títulos localizados (sin context aquí).
+        final lang = localeController.value.languageCode;
+        final bossTitle = lang == 'en'
+            ? 'Message to boss'
+            : (lang == 'ca' ? 'Missatge al cap' : 'Mensaje al jefe');
+        final msgsTitle =
+            lang == 'en' ? 'Messages' : (lang == 'ca' ? 'Missatges' : 'Mensajes');
+        if (p.isOwner) {
+          final driverId = (data['driverId'] ?? '').toString();
+          final name = (data['driverName'] ?? '').toString();
+          if (driverId.isNotEmpty) {
+            page = FleetChatScreen(
+              profile: p,
+              driverId: driverId,
+              title: name.isEmpty ? msgsTitle : name,
+            );
+          } else {
+            page = FleetChatsScreen(profile: p, standalone: true);
+          }
+        } else {
+          page = FleetChatScreen(profile: p, driverId: p.id, title: bossTitle);
+        }
       } else {
         // Usuario normal: soporte -> sus tickets; incidencia -> sus incidencias.
         if (type == 'support') {

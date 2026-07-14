@@ -1384,9 +1384,12 @@ export async function buildApp(options = {}) {
     if (g.error) return reply.code(g.code).send({ error: g.error });
 
     const status = request.query?.status; // 'abierta' | 'resuelta' | undefined
+    // Solo tickets de SOPORTE (kind='app'). Los chats de flota (jefe<->conductor)
+    // son privados de la empresa y el admin de plataforma NO los ve.
     let q = supabase
       .from('incidents')
       .select('id, kind, body, status, created_at, tenant_id, user_id, hidden_for_tenant, tenants(name), users(email)')
+      .eq('kind', 'app')
       .order('created_at', { ascending: false })
       .limit(500);
     if (status === 'abierta' || status === 'resuelta') q = q.eq('status', status);
@@ -2085,6 +2088,46 @@ export async function buildApp(options = {}) {
       await supabase.from('device_tokens').delete().in('token', result.invalidTokens);
     }
     return reply.send({ ok: true, push: true, sent: result.sent });
+  });
+
+  // --- Notificación push de un mensaje del chat de flota (jefe <-> conductor) ---
+  // La app lo llama tras insertar el mensaje (por RLS) para avisar a la otra
+  // parte. El admin de plataforma NO participa en este canal.
+  app.post('/api/v1/notify-fleet-message', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (!pushEnabled()) return reply.send({ ok: true, push: false });
+
+    const b = request.body ?? {};
+    const driverId = String(b.driver_id ?? '');
+    const text = String(b.body ?? '').slice(0, 140);
+    if (!driverId) return reply.code(400).send({ error: 'driver_id es obligatorio' });
+
+    // Nombre del remitente (para el título del aviso).
+    const { data: me } = await supabase.from('users')
+      .select('name, display_name, email').eq('id', caller.id).maybeSingle();
+    const senderName = me?.display_name || me?.name || me?.email || '';
+
+    let recipientIds;
+    let title;
+    if (caller.role === 'owner') {
+      // Jefe -> ese conductor.
+      recipientIds = [driverId];
+      title = 'Mensaje de tu jefe';
+    } else {
+      // Conductor -> jefe(s) de su tenant.
+      const { data: owners } = await supabase.from('users')
+        .select('id').eq('tenant_id', caller.tenant_id).eq('role', 'owner');
+      recipientIds = (owners || []).map((o) => o.id);
+      title = senderName ? `Mensaje de ${senderName}` : 'Mensaje de un conductor';
+    }
+    recipientIds = (recipientIds || []).filter((id) => id && id !== caller.id);
+    // driverName solo es útil cuando escribe el conductor (para que el jefe abra
+    // el chat con su nombre); el conductor que recibe lo ignora.
+    await notifyUsers(recipientIds, title, text,
+      { type: 'fleet', driverId, driverName: caller.role === 'owner' ? '' : senderName });
+    return reply.send({ ok: true, push: true });
   });
 
   // Nº de asientos (conductores) a facturar de un tenant. Mínimo 1: incluso un

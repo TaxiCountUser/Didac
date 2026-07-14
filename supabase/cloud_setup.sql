@@ -2652,3 +2652,43 @@ set initial_odometer = greatest(
              where t.vehicle_id = v.id and t.odometer_km is not null), 0)
 );
 delete from public.challenge_claims;
+
+-- ============================================================
+-- 071 - Chat de flota (jefe <-> conductor). Ver migración 071_fleet_chat.sql.
+-- ============================================================
+create table if not exists public.fleet_messages (
+  id          uuid primary key default gen_random_uuid(),
+  tenant_id   uuid not null references public.tenants(id) on delete cascade on update cascade,
+  driver_id   uuid not null references public.users(id)   on delete cascade on update cascade,
+  sender_id   uuid not null references public.users(id)   on delete cascade on update cascade,
+  body        text not null check (length(btrim(body)) > 0),
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_fleet_messages_thread
+  on public.fleet_messages(tenant_id, driver_id, created_at);
+grant select, insert on public.fleet_messages to authenticated, service_role;
+alter table public.fleet_messages enable row level security;
+drop policy if exists fleet_messages_select on public.fleet_messages;
+create policy fleet_messages_select on public.fleet_messages
+  for select to authenticated
+  using (
+    tenant_id = public.current_tenant_id()
+    and (public.current_role_name() = 'owner' or driver_id = auth.uid())
+  );
+drop policy if exists fleet_messages_insert on public.fleet_messages;
+create policy fleet_messages_insert on public.fleet_messages
+  for insert to authenticated
+  with check (
+    tenant_id = public.current_tenant_id()
+    and sender_id = auth.uid()
+    and (public.current_role_name() = 'owner' or driver_id = auth.uid())
+  );
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'fleet_messages')
+  then
+    alter publication supabase_realtime add table public.fleet_messages;
+  end if;
+end $$;

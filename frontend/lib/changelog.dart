@@ -31,6 +31,12 @@ class ChangeVersion {
 
 /// Historial (más reciente primero). Amplíalo en cada release.
 const List<ChangeVersion> kChangelog = [
+  ChangeVersion('0.1.69', '14/07/2026', [
+    ChangeItem(ChangeScope.driver,
+        es: 'Mensajes con el jefe: ahora es un chat directo. El jefe ve a todos sus conductores y chatea con cada uno; el conductor chatea con su jefe.',
+        en: 'Messaging with the boss: now a direct chat. The boss sees all drivers and chats with each one; drivers chat with their boss.',
+        ca: 'Missatges amb el cap: ara és un xat directe. El cap veu tots els seus conductors i xateja amb cadascun; el conductor xateja amb el seu cap.'),
+  ]),
   ChangeVersion('0.1.65', '14/07/2026', [
     ChangeItem(ChangeScope.driver,
         es: 'Notificaciones: ahora la app pide permiso y puedes activarlas desde Ajustes (avisos de mensajes y novedades).',

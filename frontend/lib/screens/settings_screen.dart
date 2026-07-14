@@ -13,7 +13,8 @@ import '../widgets/lang_flag.dart';
 import 'about_screen.dart';
 import 'admin_home_screen.dart';
 import 'change_password_screen.dart';
-import 'incidents_screen.dart';
+import 'fleet_chat_screen.dart';
+import 'fleet_chats_screen.dart';
 import 'challenges_screen.dart';
 import 'driver_challenges_screen.dart';
 import 'referral_screen.dart';
@@ -482,11 +483,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Retos, Invita y gana, Informar de un error.
           if (isOwner) ...[
             ListTile(
-              leading: const Icon(Icons.car_crash),
+              leading: const Icon(Icons.chat_bubble_outline),
               title: Text(l.t('set_incidents_owner')),
               subtitle: Text(l.t('set_incidents_owner_sub')),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => _open(IncidentsScreen(profile: widget.profile, standalone: true)),
+              onTap: () => _open(FleetChatsScreen(profile: widget.profile, standalone: true)),
             ),
             ListTile(
               leading: const Icon(Icons.my_location),
@@ -548,13 +549,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _changeVehicle,
               ),
-            // 4) Mensaje al jefe
+            // 4) Mensaje al jefe (chat directo)
             ListTile(
-              leading: const Icon(Icons.car_crash),
+              leading: const Icon(Icons.chat_bubble_outline),
               title: Text(l.t('set_incidents_driver')),
               subtitle: Text(l.t('set_incidents_driver_sub')),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => _open(IncidentsScreen(profile: widget.profile, standalone: true)),
+              onTap: () => _open(FleetChatScreen(
+                profile: widget.profile,
+                driverId: widget.profile.id,
+                title: l.t('fleet_boss_title'),
+              )),
             ),
             // 5) Retos
             ListTile(

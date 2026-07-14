@@ -3,12 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
-import '../services/data_service.dart';
 import '../services/push_service.dart';
 import 'owner_dashboard_screen.dart';
 import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
-import 'incidents_screen.dart';
+import 'fleet_chats_screen.dart';
 import 'settings_screen.dart';
 
 /// Home del Owner: pestañas de Vehículos y Conductores.
@@ -26,25 +25,14 @@ class OwnerHomeScreen extends StatefulWidget {
 
 class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int _index = 0;
-  int _openIncidents = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadIncidentCount();
     // Notificaciones: registra token y, si no están activas, avisa (1×/versión).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) PushService.instance.ensureRegistered(context, widget.profile.tenantId);
     });
-  }
-
-  Future<void> _loadIncidentCount() async {
-    try {
-      // Autolimpieza de incidencias antiguas (>90 días), best-effort.
-      try { await DataService().cleanupOldIncidents(); } catch (_) {}
-      final n = await DataService().openIncidentsCount();
-      if (mounted) setState(() => _openIncidents = n);
-    } catch (_) {/* badge best-effort */}
   }
 
   @override
@@ -53,12 +41,12 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       OwnerDashboardScreen(profile: widget.profile),
       VehiclesScreen(profile: widget.profile),
       DriversScreen(profile: widget.profile),
-      IncidentsScreen(profile: widget.profile),
+      FleetChatsScreen(profile: widget.profile),
     ];
     final l = context.l10n;
     final titles = [
       l.t('nav_dashboard'), l.t('nav_vehicles'), l.t('nav_drivers'),
-      l.t('nav_incidents'),
+      l.t('nav_messages'),
     ];
     return Scaffold(
       appBar: widget.embedded
@@ -84,10 +72,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       body: pages[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) {
-          setState(() => _index = i);
-          _loadIncidentCount(); // refresca el badge al navegar
-        },
+        onDestinationSelected: (i) => setState(() => _index = i),
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.dashboard_outlined),
@@ -105,17 +90,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             label: l.t('nav_drivers'),
           ),
           NavigationDestination(
-            icon: Badge(
-              isLabelVisible: _openIncidents > 0,
-              label: Text('$_openIncidents'),
-              child: const Icon(Icons.report_problem_outlined),
-            ),
-            selectedIcon: Badge(
-              isLabelVisible: _openIncidents > 0,
-              label: Text('$_openIncidents'),
-              child: const Icon(Icons.report_problem),
-            ),
-            label: l.t('nav_incidents'),
+            icon: const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble),
+            label: l.t('nav_messages'),
           ),
         ],
       ),

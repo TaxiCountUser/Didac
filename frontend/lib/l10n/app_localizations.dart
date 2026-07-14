@@ -258,6 +258,12 @@ const Map<String, Map<String, String>> _values = {
     'role_admin': 'Admin', 'role_owner': 'Jefe', 'role_driver': 'Conductor',
     'inc_write_msg': 'Escribe un mensaje…', 'inc_closed': 'Incidencia resuelta · ya no se puede escribir.',
     'inc_resolved': 'Resuelta', 'inc_open': 'Abierta',
+    // Chat de flota (jefe <-> conductor)
+    'nav_messages': 'Mensajes', 'fleet_boss_title': 'Mensaje al jefe',
+    'fleet_empty': 'Aún no hay mensajes. Escribe el primero.',
+    'fleet_write_msg': 'Escribe un mensaje…',
+    'fleet_no_drivers': 'Aún no tienes conductores en la flota.',
+    'fleet_sender_boss': 'Tu jefe', 'fleet_sender_driver': 'Conductor',
     // Owner nav
     'nav_dashboard': 'Panel de control', 'nav_vehicles': 'Vehículos',
     'nav_drivers': 'Conductores', 'nav_incidents': 'Incidencias', 'nav_subscription': 'Suscripción',
@@ -848,6 +854,12 @@ const Map<String, Map<String, String>> _values = {
     'role_admin': 'Admin', 'role_owner': 'Boss', 'role_driver': 'Driver',
     'inc_write_msg': 'Write a message…', 'inc_closed': 'Incident resolved · you can no longer write.',
     'inc_resolved': 'Resolved', 'inc_open': 'Open',
+    // Fleet chat (boss <-> driver)
+    'nav_messages': 'Messages', 'fleet_boss_title': 'Message to boss',
+    'fleet_empty': 'No messages yet. Write the first one.',
+    'fleet_write_msg': 'Write a message…',
+    'fleet_no_drivers': 'You have no drivers in your fleet yet.',
+    'fleet_sender_boss': 'Your boss', 'fleet_sender_driver': 'Driver',
     'nav_dashboard': 'Control panel', 'nav_vehicles': 'Vehicles',
     'nav_drivers': 'Drivers', 'nav_incidents': 'Incidents', 'nav_subscription': 'Subscription',
     'set_active_vehicle': 'Active vehicle', 'set_no_vehicle': 'No active vehicle',
@@ -1418,6 +1430,12 @@ const Map<String, Map<String, String>> _values = {
     'role_admin': 'Admin', 'role_owner': 'Cap', 'role_driver': 'Conductor',
     'inc_write_msg': 'Escriu un missatge…', 'inc_closed': 'Incidència resolta · ja no es pot escriure.',
     'inc_resolved': 'Resolta', 'inc_open': 'Oberta',
+    // Xat de flota (cap <-> conductor)
+    'nav_messages': 'Missatges', 'fleet_boss_title': 'Missatge al cap',
+    'fleet_empty': 'Encara no hi ha missatges. Escriu el primer.',
+    'fleet_write_msg': 'Escriu un missatge…',
+    'fleet_no_drivers': 'Encara no tens conductors a la flota.',
+    'fleet_sender_boss': 'El teu cap', 'fleet_sender_driver': 'Conductor',
     'nav_dashboard': 'Tauler de control', 'nav_vehicles': 'Vehicles',
     'nav_drivers': 'Conductors', 'nav_incidents': 'Incidències', 'nav_subscription': 'Subscripció',
     'set_active_vehicle': 'Vehicle actiu', 'set_no_vehicle': 'Sense vehicle actiu',

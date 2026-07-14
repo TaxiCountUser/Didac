@@ -1817,6 +1817,78 @@ class DataService {
     } catch (_) {/* best-effort */}
   }
 
+  // ---------------- Chat de flota (jefe <-> conductor) ----------------
+  // Un chat por conductor. El owner ve/escribe con cualquier conductor de su
+  // tenant; el conductor solo con su jefe (su propio hilo). El admin no participa.
+  // RLS de fleet_messages acota el acceso; el push va por el backend.
+
+  /// Mensajes de un hilo (conductor concreto), en orden. Para el conductor,
+  /// [driverId] es su propio id.
+  Future<List<Map<String, dynamic>>> listFleetMessages(String driverId) async {
+    final data = await _c
+        .from('fleet_messages')
+        .select('id, body, sender_id, created_at')
+        .eq('driver_id', driverId)
+        .order('created_at');
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Envía un mensaje en el chat de flota. [driverId] identifica el hilo (para
+  /// el conductor, su propio id). Avisa a la otra parte por push.
+  Future<void> sendFleetMessage({
+    required String tenantId,
+    required String driverId,
+    required String body,
+  }) async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) throw Exception('No hay sesión activa');
+    await _c.from('fleet_messages').insert({
+      'tenant_id': tenantId,
+      'driver_id': driverId,
+      'sender_id': uid,
+      'body': body,
+    });
+    await _notifyFleetMessage(driverId: driverId, body: body);
+  }
+
+  /// Suscripción realtime a un hilo del chat de flota (para refrescar en vivo).
+  RealtimeChannel fleetThreadChannel(String driverId, void Function() onChange) {
+    return _c
+        .channel('fleet_messages:$driverId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'fleet_messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'driver_id',
+            value: driverId,
+          ),
+          callback: (_) => onChange(),
+        )
+        .subscribe();
+  }
+
+  Future<void> _notifyFleetMessage({
+    required String driverId,
+    required String body,
+  }) async {
+    try {
+      final token = _c.auth.currentSession?.accessToken;
+      if (token == null) return;
+      await http
+          .post(
+            Uri.parse('$backendUrl/api/v1/notify-fleet-message'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'driver_id': driverId, 'body': body}),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {/* best-effort */}
+  }
+
   /// Nº de incidencias abiertas (para el badge del panel del jefe). Solo 'nota'
   /// (los reportes de fallo 'app' van al panel de administración).
   Future<int> openIncidentsCount() async {
