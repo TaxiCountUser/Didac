@@ -61,9 +61,19 @@ jobs:
             echo "::warning::Sin secrets PROD_*: la web apuntará a localhost (no servirá para testers)."
           fi
 
+      # Versión: para que "Novedades" muestre la versión real (no 0.1.0 del
+      # pubspec). El contador es el nº de ejecución de ESTE workflow (web), así
+      # que puede no coincidir con el de la APK; se sufija "-web" para que quede
+      # claro que es el build de la web.
+      - name: Versionado
+        id: version
+        run: |
+          echo "name=0.1.${{ github.run_number }}-web" >> "$GITHUB_OUTPUT"
+          echo "code=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
       # base-href con el nombre del repo (project pages): /Didac/
       - name: Build web
-        run: flutter build web --release --base-href /Didac/ ${{ steps.defines.outputs.args }}
+        run: flutter build web --release --base-href /Didac/ --build-name=${{ steps.version.outputs.name }} --build-number=${{ steps.version.outputs.code }} ${{ steps.defines.outputs.args }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
