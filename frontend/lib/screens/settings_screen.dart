@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../widgets/lang_flag.dart';
+import 'about_screen.dart';
 import 'admin_home_screen.dart';
 import 'change_password_screen.dart';
 import 'incidents_screen.dart';
@@ -552,11 +553,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _open(const AdminHomeScreen()),
             ),
           const Divider(height: 1),
-          AboutListTile(
-            icon: const Icon(Icons.info_outline),
-            applicationName: 'TaxiCount',
-            applicationVersion: 'v1.0.0',
-            child: Text(l.t('set_about')),
+          // "Novedades / Quant a": mejoras por versión filtradas por rol.
+          ListTile(
+            leading: const Icon(Icons.new_releases_outlined, color: Colors.teal),
+            title: Text(l.t('set_whatsnew')),
+            subtitle: Text(l.t('set_whatsnew_sub')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _open(AboutScreen(isOwner: widget.profile.isOwner)),
           ),
         ],
       ),
