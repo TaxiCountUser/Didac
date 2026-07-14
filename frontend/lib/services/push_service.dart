@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Handler de mensajes en segundo plano (debe ser una función top-level).
@@ -39,17 +40,57 @@ class PushService {
 
   /// Pide permiso, obtiene el token FCM y lo guarda en device_tokens para el
   /// usuario actual. Llamar tras iniciar sesión (con su tenant).
-  Future<void> register(String tenantId) async {
-    if (kIsWeb) return;
+  ///
+  /// Devuelve el estado del permiso ('granted' | 'denied' | 'unsupported' |
+  /// 'error') para poder mostrarlo en Ajustes.
+  Future<String> register(String tenantId) async {
+    if (kIsWeb) return 'unsupported';
     try {
       await init();
-      if (!_inited) return;
+      if (!_inited) return 'error';
       final fm = FirebaseMessaging.instance;
-      await fm.requestPermission();
+
+      // Android 13+ (POST_NOTIFICATIONS): lo pedimos EXPLÍCITAMENTE con
+      // permission_handler, que muestra el diálogo del sistema de forma fiable.
+      // (En iOS el permiso lo gestiona firebase_messaging más abajo.)
+      var granted = true;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        var status = await Permission.notification.status;
+        if (!status.isGranted) status = await Permission.notification.request();
+        granted = status.isGranted;
+      }
+      // También el flujo de firebase_messaging (necesario en iOS y para APNs).
+      final settings = await fm.requestPermission();
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
+        granted = true;
+      }
+
+      // Aunque el permiso esté denegado, guardamos el token si lo hay (por si se
+      // concede luego); sin permiso el sistema no MUESTRA la notificación, pero
+      // el envío no falla.
       final token = await fm.getToken();
       if (token != null) await _save(token, tenantId);
       fm.onTokenRefresh.listen((t) => _save(t, tenantId));
-    } catch (_) {}
+      return granted ? 'granted' : 'denied';
+    } catch (_) {
+      return 'error';
+    }
+  }
+
+  /// ¿Están concedidas las notificaciones? (para mostrar el estado en Ajustes).
+  Future<bool> notificationsGranted() async {
+    if (kIsWeb) return false;
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        return (await Permission.notification.status).isGranted;
+      }
+      final s = await FirebaseMessaging.instance.getNotificationSettings();
+      return s.authorizationStatus == AuthorizationStatus.authorized ||
+          s.authorizationStatus == AuthorizationStatus.provisional;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _save(String token, String tenantId) async {

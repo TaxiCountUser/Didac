@@ -2,11 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../services/push_service.dart';
 import '../widgets/lang_flag.dart';
 import 'about_screen.dart';
 import 'admin_home_screen.dart';
@@ -401,6 +403,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _open(Widget screen) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
+  bool _busyNotif = false;
+
+  // Pide/re-pide el permiso de notificaciones. Si el usuario lo denegó de forma
+  // permanente, el sistema ya no muestra el diálogo -> abrimos los ajustes.
+  Future<void> _enableNotifs() async {
+    final l = context.l10n;
+    setState(() => _busyNotif = true);
+    try {
+      final res = await PushService.instance.register(widget.profile.tenantId);
+      if (!mounted) return;
+      if (res == 'granted') {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('set_notifs_on'))));
+      } else {
+        // Denegado (quizá permanente): ofrecemos abrir los ajustes del sistema.
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l.t('set_notifs')),
+            content: Text(l.t('set_notifs_denied')),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('set_notifs_open'))),
+            ],
+          ),
+        );
+        if (open == true) await openAppSettings();
+      }
+    } finally {
+      if (mounted) setState(() => _busyNotif = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -552,6 +586,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const AdminHomeScreen()),
             ),
+          const Divider(height: 1),
+          // Notificaciones: muestra si están activas y permite (re)activarlas.
+          FutureBuilder<bool>(
+            future: PushService.instance.notificationsGranted(),
+            builder: (context, snap) {
+              final granted = snap.data == true;
+              return ListTile(
+                leading: Icon(granted ? Icons.notifications_active : Icons.notifications_off,
+                    color: granted ? Colors.teal : Colors.orange),
+                title: Text(l.t('set_notifs')),
+                subtitle: Text(granted ? l.t('set_notifs_on') : l.t('set_notifs_off')),
+                trailing: granted ? null : const Icon(Icons.chevron_right),
+                onTap: _busyNotif ? null : _enableNotifs,
+              );
+            },
+          ),
           const Divider(height: 1),
           // "Novedades / Quant a": mejoras por versión filtradas por rol.
           ListTile(

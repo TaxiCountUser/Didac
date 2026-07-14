@@ -43,7 +43,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     if (!widget.embedded) _startTracking();
     // Side-effects best-effort: un fallo de FCM/red/usage-ping NUNCA debe tumbar
     // la pantalla (también las hace testeables sin mockear plugins/Supabase).
-    unawaited(PushService.instance.register(widget.profile.tenantId).catchError((_) {}));
+    // register() nunca lanza (captura internamente y devuelve el estado).
+    unawaited(PushService.instance.register(widget.profile.tenantId));
     // Registra el día real de uso (para el reto de días) — idempotente por día.
     unawaited(_service.pingUsageDay(widget.profile.tenantId).catchError((_) {}));
     // Al entrar (una vez al día): saludo + km de inicio de jornada.

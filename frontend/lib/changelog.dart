@@ -31,6 +31,12 @@ class ChangeVersion {
 
 /// Historial (más reciente primero). Amplíalo en cada release.
 const List<ChangeVersion> kChangelog = [
+  ChangeVersion('0.1.65', '14/07/2026', [
+    ChangeItem(ChangeScope.driver,
+        es: 'Notificaciones: ahora la app pide permiso y puedes activarlas desde Ajustes (avisos de mensajes y novedades).',
+        en: 'Notifications: the app now asks for permission and you can enable them from Settings (message and news alerts).',
+        ca: 'Notificacions: ara l\'app demana permís i pots activar-les des d\'Ajustos (avisos de missatges i novetats).'),
+  ]),
   ChangeVersion('0.1.63', '13/07/2026', [
     ChangeItem(ChangeScope.driver,
         es: 'Al grabar por voz se ven las ondas de sonido: así sabes que está grabando.',
