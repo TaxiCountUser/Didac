@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../services/push_service.dart';
 import 'admin_billing_screen.dart';
 import 'admin_companies_screen.dart';
 import 'admin_screen.dart';
@@ -25,6 +26,18 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final _service = DataService();
   late Future<Map<String, dynamic>> _future = _service.adminOverview();
+
+  @override
+  void initState() {
+    super.initState();
+    // Registrar el token push del admin (recibe tickets de soporte y avisos de
+    // límite). El admin NO tiene empresa -> tenant vacío. Sin esto, al iniciar
+    // sesión como admin el token del dispositivo seguía asignado al usuario
+    // anterior y el admin se quedaba sin token (no le llegaba nada).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) PushService.instance.ensureRegistered(context, '');
+    });
+  }
 
   void _reload() => setState(() => _future = _service.adminOverview());
 
