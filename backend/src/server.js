@@ -810,22 +810,31 @@ export async function buildApp(options = {}) {
       try { return headers.get ? headers.get(k) : headers[k]; } catch { return null; }
     };
     const num = (k) => { const v = Number(get(k)); return Number.isFinite(v) ? v : null; };
+    // Audio-seconds es el límite de CUENTA de transcripción (Whisper). Groq lo
+    // reporta en las cabeceras de CUALQUIER respuesta (incluida la del chat del
+    // parser), y la respuesta de la transcripción no siempre expone cabeceras.
+    // Por eso se guarda APARTE (svc_groq_audio, no por modelo) y se muestra como
+    // una única línea "Whisper (audio)"; así no aparece pegado al modelo Llama.
+    const remSec = num('x-ratelimit-remaining-audio-seconds');
+    const limSec = num('x-ratelimit-limit-audio-seconds');
+    if (remSec != null || limSec != null) {
+      supabase.from('system_config').upsert(
+        { key: 'svc_groq_audio', value: JSON.stringify({ rem_sec: remSec, lim_sec: limSec, at: new Date().toISOString() }) },
+        { onConflict: 'key' },
+      ).then(({ error }) => {
+        if (error) app.log.warn(`[groq-audio] ${error.message}`);
+      }, (e) => app.log.warn(`[groq-audio] ${e.message}`));
+    }
+
     const snap = {
       model,
       rem_req: num('x-ratelimit-remaining-requests'),
       lim_req: num('x-ratelimit-limit-requests'),
       rem_tok: num('x-ratelimit-remaining-tokens'),
       lim_tok: num('x-ratelimit-limit-tokens'),
-      // Whisper (transcripción) NO se limita por peticiones/tokens sino por
-      // SEGUNDOS DE AUDIO (x-ratelimit-*-audio-seconds). Sin esto, la foto de
-      // Whisper nunca se guardaba y su apartado no se actualizaba.
-      rem_sec: num('x-ratelimit-remaining-audio-seconds'),
-      lim_sec: num('x-ratelimit-limit-audio-seconds'),
       at: new Date().toISOString(),
     };
-    if (snap.rem_req == null && snap.rem_tok == null && snap.rem_sec == null) {
-      return; // no vienen cabeceras de rate-limit
-    }
+    if (snap.rem_req == null && snap.rem_tok == null) return; // no vienen cabeceras
     // Una foto POR MODELO: el parser (llama) y Whisper (transcripción) tienen su
     // propio rate-limit, así que se guardan en claves separadas (svc_groq_rl:<modelo>)
     // para que NO se pisen entre sí y ambos aparezcan en el panel.
@@ -844,12 +853,24 @@ export async function buildApp(options = {}) {
     const pcts = [];
     if (s.lim_req > 0 && s.rem_req != null) pcts.push(s.rem_req / s.lim_req);
     if (s.lim_tok > 0 && s.rem_tok != null) pcts.push(s.rem_tok / s.lim_tok);
-    if (s.lim_sec > 0 && s.rem_sec != null) pcts.push(s.rem_sec / s.lim_sec); // Whisper: audio-seconds
     return pcts.length ? Math.round(Math.min(...pcts) * 100) : null;
   }
 
   async function groqUsage() {
     try {
+      // Métrica de transcripción (Whisper): audio-seconds de cuenta, aparte.
+      let audio = null;
+      const { data: audioRow } = await supabase.from('system_config')
+        .select('value').eq('key', 'svc_groq_audio').maybeSingle();
+      if (audioRow) {
+        try {
+          const a = JSON.parse(audioRow.value);
+          const pct = (a.lim_sec > 0 && a.rem_sec != null)
+            ? Math.round((a.rem_sec / a.lim_sec) * 100) : null;
+          audio = { remaining_pct: pct, remaining: a.rem_sec, limit: a.lim_sec, at: a.at };
+        } catch { /* ignore */ }
+      }
+
       const { data } = await supabase.from('system_config')
         .select('key, value').like('key', 'svc_groq_rl%');
       // Dedup por modelo (quedándonos con la foto más reciente); incluye la clave
@@ -864,12 +885,12 @@ export async function buildApp(options = {}) {
         model, at: s.at, remaining_pct: groqModelPct(s),
         requests: { remaining: s.rem_req, limit: s.lim_req },
         tokens: { remaining: s.rem_tok, limit: s.lim_tok },
-        audio_seconds: { remaining: s.rem_sec, limit: s.lim_sec },
       })).filter((m) => m.remaining_pct != null)
         .sort((a, b) => a.remaining_pct - b.remaining_pct);
-      if (!models.length) return { available: false };
+      if (!models.length && !audio) return { available: false };
       // remaining_pct global = el modelo más ajustado (para el resumen/semáforo).
-      return { available: true, remaining_pct: models[0].remaining_pct, models };
+      const remaining_pct = models.length ? models[0].remaining_pct : null;
+      return { available: true, remaining_pct, models, audio };
     } catch { return { available: false }; }
   }
 

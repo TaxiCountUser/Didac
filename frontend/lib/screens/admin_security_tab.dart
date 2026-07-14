@@ -341,6 +341,7 @@ class _SecurityTabState extends State<SecurityTab> {
 
     final groqAvail = groq['available'] == true;
     final groqModels = ((groq['models'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final groqAudio = (groq['audio'] as Map?)?.cast<String, dynamic>();
     final sysAvail = sys['available'] == true;
 
     return RefreshIndicator(
@@ -356,18 +357,23 @@ class _SecurityTabState extends State<SecurityTab> {
           // Groq/IA: % disponible por MODELO (parser + Whisper tienen su propio
           // rate-limit). Bajo = cerca del límite.
           _metricsCard(l.t('adm_metrics_groq_title'), [
-            if (!groqAvail || groqModels.isEmpty)
+            if ((!groqAvail || groqModels.isEmpty) && groqAudio == null)
               _nodataRow(l, l.t('adm_metrics_groq_hint'))
             else
               for (final m in groqModels) ...[
                 _bar(l, '${l.t('adm_metrics_groq_avail')} · ${m['model'] ?? '?'}',
                     (m['remaining_pct'] as num?)?.toInt(), invert: true),
-                // Solo las filas con datos: el parser usa peticiones/tokens;
-                // Whisper (transcripción) usa segundos de audio.
+                // Solo las filas con datos (el parser usa peticiones/tokens).
                 if (_hasPair(m['requests'])) _kvRow(l.t('adm_metrics_reqs'), _fmtPair(m['requests'])),
                 if (_hasPair(m['tokens'])) _kvRow(l.t('adm_metrics_tokens'), _fmtPair(m['tokens'])),
-                if (_hasPair(m['audio_seconds'])) _kvRow(l.t('adm_metrics_audio'), _fmtPair(m['audio_seconds'])),
               ],
+            // Transcripción (Whisper): límite de audio-seconds de cuenta, aparte
+            // de los modelos de chat.
+            if (groqAudio != null) ...[
+              _bar(l, '${l.t('adm_metrics_groq_avail')} · Whisper',
+                  (groqAudio['remaining_pct'] as num?)?.toInt(), invert: true),
+              _kvRow(l.t('adm_metrics_audio'), _fmtPair(groqAudio)),
+            ],
           ]),
           const SizedBox(height: 12),
           // Supabase: BD (RPC, siempre) + CPU/RAM/disco (scrape, best-effort).
