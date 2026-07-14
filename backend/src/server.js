@@ -1067,6 +1067,33 @@ export async function buildApp(options = {}) {
   // ============================================================
 
   // Cualquier usuario autenticado (conductor/jefe) envía un informe de error.
+  // Registrar el token FCM del dispositivo del usuario actual. Va por el backend
+  // (service_role) a propósito: el token es ÚNICO por dispositivo y, al cambiar
+  // de usuario en el MISMO móvil (jefe/admin/conductor de prueba), hay que
+  // REASIGNARLO a quien inicia sesión ahora. Con el upsert directo desde el
+  // cliente, reasignar un token que pertenece a otro usuario lo bloquea el RLS
+  // (la fila existente no cumple USING user_id=auth.uid()) y fallaba en silencio:
+  // el token se quedaba con el primer usuario y los demás no recibían nada.
+  app.post('/api/v1/device-token', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    const b = request.body ?? {};
+    const token = String(b.token ?? '').trim();
+    if (!token) return reply.code(400).send({ error: 'Falta el token' });
+    const platform = b.platform ? String(b.platform).slice(0, 40) : null;
+    const tenantId = b.tenant_id ? String(b.tenant_id) : (caller.tenant_id ?? null);
+    const { error } = await supabase.from('device_tokens').upsert({
+      user_id: caller.id,
+      tenant_id: tenantId,
+      token,
+      platform,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'token' });
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
   app.post('/api/v1/error-reports', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
     const caller = await getCaller(request);

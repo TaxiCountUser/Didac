@@ -1,12 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config.dart';
 import '../l10n/app_localizations.dart';
 
 /// Handler de mensajes en segundo plano (debe ser una función top-level).
@@ -157,16 +161,24 @@ class PushService {
 
   Future<void> _save(String token, String tenantId) async {
     try {
-      final c = Supabase.instance.client;
-      final uid = c.auth.currentUser?.id;
-      if (uid == null) return;
-      await c.from('device_tokens').upsert({
-        'user_id': uid,
-        'tenant_id': tenantId.isEmpty ? null : tenantId,
-        'token': token,
-        'platform': defaultTargetPlatform.name,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }, onConflict: 'token');
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) return;
+      // Se guarda a través del backend (service_role), NO directo a Supabase: al
+      // cambiar de usuario en el mismo dispositivo hay que reasignar el token a
+      // quien inicia sesión ahora, y el RLS directo lo impediría (la fila la
+      // posee el usuario anterior) fallando en silencio.
+      await http.post(
+        Uri.parse('$backendUrl/api/v1/device-token'),
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'token': token,
+          'tenant_id': tenantId.isEmpty ? null : tenantId,
+          'platform': defaultTargetPlatform.name,
+        }),
+      );
     } catch (_) {}
   }
 }

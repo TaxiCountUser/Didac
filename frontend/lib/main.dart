@@ -9,7 +9,10 @@ import 'auth_gate.dart';
 import 'l10n/app_localizations.dart';
 import 'services/data_service.dart';
 import 'services/push_service.dart';
+import 'screens/admin_screen.dart';
+import 'screens/incidents_screen.dart';
 import 'screens/referral_screen.dart';
+import 'screens/tickets_screen.dart';
 import 'widgets/maintenance_banner.dart';
 
 /// Navegador raíz, para poder navegar desde fuera del árbol (deep-links de push).
@@ -45,16 +48,39 @@ Future<void> main() async {
       await Supabase.instance.client.auth.signOut();
     }
   } catch (_) {/* best-effort */}
-  // Deep-link: al tocar una notificación de referidos, abre la pantalla.
+  // Deep-link: al tocar una notificación, abre el sitio relacionado (no el menú
+  // principal). Según el tipo y si el usuario es admin de plataforma o no.
   PushService.onTap = (data) async {
     final type = (data['type'] ?? '').toString();
-    if (!type.startsWith('referral')) return;
+    final nav = rootNavigatorKey.currentState;
+    if (nav == null || type.isEmpty) return;
     try {
       final p = await DataService().fetchMyProfile();
       if (p == null) return;
-      rootNavigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (_) => ReferralScreen(profile: p)),
-      );
+      Widget? page;
+      if (type.startsWith('referral')) {
+        page = ReferralScreen(profile: p);
+      } else if (p.isAdmin) {
+        // Panel de admin: abrir el módulo correspondiente.
+        // 0 Soporte · 3 Monitorización · 4 Errores.
+        final module = switch (type) {
+          'support' => 0,
+          'limit' => 3,
+          'error_report' => 4,
+          _ => null,
+        };
+        if (module != null) page = AdminModuleScreen(module: module);
+      } else {
+        // Usuario normal: soporte -> sus tickets; incidencia -> sus incidencias.
+        if (type == 'support') {
+          page = TicketsScreen(profile: p);
+        } else if (type == 'incident') {
+          page = IncidentsScreen(profile: p, standalone: true);
+        }
+      }
+      if (page != null) {
+        nav.push(MaterialPageRoute(builder: (_) => page!));
+      }
     } catch (_) {/* best-effort */}
   };
   // Notificación recibida con la app en PRIMER PLANO: Android no la muestra sola,
