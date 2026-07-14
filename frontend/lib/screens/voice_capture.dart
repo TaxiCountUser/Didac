@@ -32,9 +32,14 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   StreamSubscription<Amplitude>? _ampSub;
   Timer? _waveTimer;
   final List<double> _levels = List.filled(28, 0.0);
-  double _currentReal = 0; // última amplitud real (0..1)
+  double _currentReal = 0; // última amplitud real normalizada (0..1)
   DateTime? _lastAmpAt;     // cuándo llegó (para saber si hay amplitud real)
   int _waveTick = 0;
+  // Rango dinámico de dBFS observado: los móviles reportan escalas muy distintas,
+  // así que en vez de un umbral fijo (que dejaba las barras planas en algunos)
+  // adaptamos suelo/techo a lo que llega, y la onda reacciona a la voz siempre.
+  double _ampFloor = -50;
+  double _ampCeil = -20;
 
   @override
   void initState() {
@@ -62,6 +67,11 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       // En Android la ruta debe ser absoluta; recordingPath la resuelve.
       final out = await recordingPath('voice_note.m4a');
       await _recorder.start(const RecordConfig(), path: out);
+      // Reinicia el estado de la onda para esta grabación.
+      _waveTick = 0;
+      _lastAmpAt = null;
+      _ampFloor = -50;
+      _ampCeil = -20;
       // Suscripción a la amplitud (dBFS) para la onda real (móvil).
       _ampSub?.cancel();
       _ampSub = _recorder
@@ -78,26 +88,39 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   }
 
   void _onAmplitude(Amplitude amp) {
-    // current va de ~-45 dBFS (silencio) a 0 (máx). Normalizamos a 0..1.
-    _currentReal = ((amp.current + 45) / 45).clamp(0.0, 1.0);
+    final db = amp.current;
+    if (!db.isFinite) return;
+    // Adapta el rango observado: el suelo sube despacio y el techo baja despacio,
+    // de modo que la voz reciente se normaliza contra su propio rango dinámico
+    // (funciona sea cual sea la escala de dBFS del dispositivo).
+    if (db < _ampFloor) {
+      _ampFloor = db;
+    } else {
+      _ampFloor += 0.08;
+    }
+    if (db > _ampCeil) {
+      _ampCeil = db;
+    } else {
+      _ampCeil -= 0.05;
+    }
+    final span = math.max(8.0, _ampCeil - _ampFloor);
+    _currentReal = ((db - _ampFloor) / span).clamp(0.0, 1.0);
     _lastAmpAt = DateTime.now();
   }
 
   void _tickWave(Timer _) {
     if (!mounted || !_recording) return;
     _waveTick++;
+    // Baseline sintético: SIEMPRE se mueve un poco, para que nunca se vea una
+    // línea de puntos "muerta" (deja claro que el micro está capturando).
+    final t = _waveTick * 0.6;
+    final wave = (math.sin(t) + math.sin(t * 1.7 + 1)) / 2; // -1..1
+    final baseline = 0.12 + 0.14 * ((wave + 1) / 2); // ~0.12..0.26
     final hasReal = _lastAmpAt != null &&
         DateTime.now().difference(_lastAmpAt!).inMilliseconds < 300;
-    double level;
-    if (hasReal) {
-      level = _currentReal;
-    } else {
-      // Patrón sintético "vivo": dos senos desfasados + algo de aleatoriedad.
-      final t = _waveTick * 0.6;
-      final wave = (math.sin(t) + math.sin(t * 1.7 + 1)) / 2; // -1..1
-      level = (0.35 + 0.4 * ((wave + 1) / 2) + 0.15 * math.Random().nextDouble())
-          .clamp(0.05, 1.0);
-    }
+    // La voz real (si la hay) se suma por encima del baseline.
+    final real = hasReal ? _currentReal : 0.0;
+    final level = (baseline + 0.85 * real).clamp(0.05, 1.0);
     setState(() {
       _levels.removeAt(0);
       _levels.add(level);
