@@ -31,6 +31,12 @@ class ChangeVersion {
 
 /// Historial (más reciente primero). Amplíalo en cada release.
 const List<ChangeVersion> kChangelog = [
+  ChangeVersion('0.1.70', '14/07/2026', [
+    ChangeItem(ChangeScope.driver,
+        es: 'Notificaciones: ahora se activan/desactivan con la campana de arriba a la derecha en Ajustes (tachada = desactivadas).',
+        en: 'Notifications: now toggled with the bell at the top right of Settings (crossed out = off).',
+        ca: 'Notificacions: ara s\'activen/desactiven amb la campana de dalt a la dreta a Ajustos (ratllada = desactivades).'),
+  ]),
   ChangeVersion('0.1.69', '14/07/2026', [
     ChangeItem(ChangeScope.driver,
         es: 'Mensajes con el jefe: ahora es un chat directo. El jefe ve a todos sus conductores y chatea con cada uno; el conductor chatea con su jefe.',

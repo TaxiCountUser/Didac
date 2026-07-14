@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -32,7 +33,7 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
   final _service = DataService();
   late String _displayName = widget.profile.appName;
   late String? _avatarB64 = widget.profile.avatarUrl; // foto base64 o null = icono
@@ -43,12 +44,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _vehicleCount = 0; // nº de coches del conductor; el cambio solo si hay >1
   bool _subActive = false; // suscripción activa de pago o prueba vigente (referidos)
   bool _newReply = false; // el admin ha contestado a un ticket (aviso)
+  bool? _notifsGranted; // estado del permiso de notificaciones (campana del AppBar)
 
   @override
   void initState() {
     super.initState();
     _loadHeader();
     _loadTicketBadge();
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addObserver(this);
+      _refreshNotifs();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!kIsWeb) WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Al volver de los ajustes del sistema (donde se activan/desactivan), refresca
+    // el icono de la campana para reflejar el estado real.
+    if (state == AppLifecycleState.resumed) _refreshNotifs();
+  }
+
+  Future<void> _refreshNotifs() async {
+    final g = await PushService.instance.notificationsGranted();
+    if (mounted) setState(() => _notifsGranted = g);
   }
 
   // ¿El admin ha respondido a algún ticket desde la última vez que los vi?
@@ -406,6 +430,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _busyNotif = false;
 
+  // Campana del AppBar: si están OFF, las activa (pide permiso); si están ON, no
+  // se pueden revocar desde la app (limitación de Android/iOS) -> se ofrece abrir
+  // los ajustes del sistema para desactivarlas.
+  Future<void> _toggleNotifs() async {
+    final l = context.l10n;
+    final granted = _notifsGranted ?? await PushService.instance.notificationsGranted();
+    if (!mounted) return;
+    if (!granted) {
+      await _enableNotifs();
+    } else {
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.t('set_notifs')),
+          content: Text(l.t('set_notifs_disable_hint')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('set_notifs_open'))),
+          ],
+        ),
+      );
+      if (open == true) await openAppSettings();
+    }
+    await _refreshNotifs();
+  }
+
   // Pide/re-pide el permiso de notificaciones. Si el usuario lo denegó de forma
   // permanente, el sistema ya no muestra el diálogo -> abrimos los ajustes.
   Future<void> _enableNotifs() async {
@@ -440,8 +490,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isOwner = widget.profile.isOwner;
+    final notifsOn = _notifsGranted ?? false;
     return Scaffold(
-      appBar: AppBar(title: Text(l.t('set_title'))),
+      appBar: AppBar(
+        title: Text(l.t('set_title')),
+        actions: [
+          // Campana: activada (sin tachar) / desactivada (tachada). Al pulsar,
+          // activa o (vía ajustes del sistema) desactiva. En web no aplica.
+          if (!kIsWeb)
+            IconButton(
+              tooltip: l.t('set_notifs'),
+              onPressed: _busyNotif ? null : _toggleNotifs,
+              icon: Icon(
+                notifsOn ? Icons.notifications_active : Icons.notifications_off,
+                color: notifsOn ? null : Colors.orange,
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         children: [
           _header(l, isOwner),
@@ -591,22 +657,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(const AdminHomeScreen()),
             ),
-          const Divider(height: 1),
-          // Notificaciones: muestra si están activas y permite (re)activarlas.
-          FutureBuilder<bool>(
-            future: PushService.instance.notificationsGranted(),
-            builder: (context, snap) {
-              final granted = snap.data == true;
-              return ListTile(
-                leading: Icon(granted ? Icons.notifications_active : Icons.notifications_off,
-                    color: granted ? Colors.teal : Colors.orange),
-                title: Text(l.t('set_notifs')),
-                subtitle: Text(granted ? l.t('set_notifs_on') : l.t('set_notifs_off')),
-                trailing: granted ? null : const Icon(Icons.chevron_right),
-                onTap: _busyNotif ? null : _enableNotifs,
-              );
-            },
-          ),
           const Divider(height: 1),
           // "Novedades / Quant a": mejoras por versión filtradas por rol.
           ListTile(
