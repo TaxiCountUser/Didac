@@ -50,6 +50,16 @@ Future<void> main() async {
       await Supabase.instance.client.auth.signOut();
     }
   } catch (_) {/* best-effort */}
+  // Cerrar sesión desde una pantalla abierta con push (p. ej. una tarjeta del
+  // panel de admin) dejaba el login OCULTO tras esa ruta: el AuthGate se
+  // reconstruye en la RAÍZ, pero la tarjeta seguía encima y el login solo
+  // aparecía al pulsar "atrás". Al detectar el cierre de sesión, vaciamos la
+  // pila de navegación para que el login se vea al instante, venga de donde venga.
+  Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+    if (state.event == AuthChangeEvent.signedOut) {
+      rootNavigatorKey.currentState?.popUntil((r) => r.isFirst);
+    }
+  });
   // Deep-link: al tocar una notificación, abre el sitio relacionado (no el menú
   // principal). Según el tipo y si el usuario es admin de plataforma o no.
   PushService.onTap = (data) async {

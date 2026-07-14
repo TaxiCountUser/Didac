@@ -113,14 +113,16 @@ class _VoiceCaptureState extends State<VoiceCapture> {
     _waveTick++;
     // Baseline sintético: SIEMPRE se mueve un poco, para que nunca se vea una
     // línea de puntos "muerta" (deja claro que el micro está capturando).
-    final t = _waveTick * 0.6;
+    // Cada barra tiene su propia fase (según su posición) para que la onda
+    // recorra la fila de izq. a der. y se vea CLARAMENTE viva, no unos puntos.
+    final t = _waveTick * 0.55;
     final wave = (math.sin(t) + math.sin(t * 1.7 + 1)) / 2; // -1..1
-    final baseline = 0.12 + 0.14 * ((wave + 1) / 2); // ~0.12..0.26
+    final baseline = 0.20 + 0.35 * ((wave + 1) / 2); // ~0.20..0.55 (ondulación marcada)
     final hasReal = _lastAmpAt != null &&
         DateTime.now().difference(_lastAmpAt!).inMilliseconds < 300;
     // La voz real (si la hay) se suma por encima del baseline.
     final real = hasReal ? _currentReal : 0.0;
-    final level = (baseline + 0.85 * real).clamp(0.05, 1.0);
+    final level = (baseline + 0.7 * real).clamp(0.08, 1.0);
     setState(() {
       _levels.removeAt(0);
       _levels.add(level);
