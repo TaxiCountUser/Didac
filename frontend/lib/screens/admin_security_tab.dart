@@ -362,8 +362,11 @@ class _SecurityTabState extends State<SecurityTab> {
               for (final m in groqModels) ...[
                 _bar(l, '${l.t('adm_metrics_groq_avail')} · ${m['model'] ?? '?'}',
                     (m['remaining_pct'] as num?)?.toInt(), invert: true),
-                _kvRow(l.t('adm_metrics_reqs'), _fmtPair(m['requests'])),
-                _kvRow(l.t('adm_metrics_tokens'), _fmtPair(m['tokens'])),
+                // Solo las filas con datos: el parser usa peticiones/tokens;
+                // Whisper (transcripción) usa segundos de audio.
+                if (_hasPair(m['requests'])) _kvRow(l.t('adm_metrics_reqs'), _fmtPair(m['requests'])),
+                if (_hasPair(m['tokens'])) _kvRow(l.t('adm_metrics_tokens'), _fmtPair(m['tokens'])),
+                if (_hasPair(m['audio_seconds'])) _kvRow(l.t('adm_metrics_audio'), _fmtPair(m['audio_seconds'])),
               ],
           ]),
           const SizedBox(height: 12),
@@ -481,6 +484,9 @@ class _SecurityTabState extends State<SecurityTab> {
           Text(hint, style: const TextStyle(fontSize: 10.5, color: AdminColors.muted)),
         ]),
       );
+
+  // ¿El par {remaining, limit} trae algún dato? (para no pintar filas vacías).
+  bool _hasPair(dynamic m) => m is Map && (m['remaining'] != null || m['limit'] != null);
 
   // "restantes / límite" de un objeto {remaining, limit} del monitor de Groq.
   String _fmtPair(dynamic m) {
