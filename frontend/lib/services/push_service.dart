@@ -26,12 +26,20 @@ class PushService {
   /// navegar según `data['type']` (p. ej. 'referral_milestone' -> Referidos).
   static void Function(Map<String, dynamic> data)? onTap;
 
+  /// Callback al RECIBIR una notificación con la app en primer plano. Android no
+  /// la muestra sola en ese caso; main.dart enseña un aviso in-app (SnackBar).
+  static void Function(Map<String, dynamic> data, String? title, String? body)? onForeground;
+
   /// Inicializa Firebase + messaging. Seguro de llamar varias veces; no lanza.
   Future<void> init() async {
     if (kIsWeb || _inited) return;
     try {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(_bgHandler);
+      // Notificación RECIBIDA con la app en primer plano: el sistema no la muestra,
+      // así que avisamos in-app (SnackBar) vía el callback de main.dart.
+      FirebaseMessaging.onMessage.listen((m) =>
+          onForeground?.call(m.data, m.notification?.title, m.notification?.body));
       // Toque de notificación con la app en segundo plano.
       FirebaseMessaging.onMessageOpenedApp.listen((m) => onTap?.call(m.data));
       // App abierta DESDE una notificación (estado terminado).

@@ -15,6 +15,10 @@ import 'widgets/maintenance_banner.dart';
 /// Navegador raíz, para poder navegar desde fuera del árbol (deep-links de push).
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Messenger raíz, para mostrar avisos (SnackBar) desde fuera del árbol, p. ej.
+/// una notificación recibida con la app en PRIMER PLANO.
+final GlobalKey<ScaffoldMessengerState> rootMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 Future<void> main() async {
   // Si algo en build() falla, mostramos un aviso legible en vez de la pantalla
   // roja (o el cierre de la app en release).
@@ -52,6 +56,21 @@ Future<void> main() async {
         MaterialPageRoute(builder: (_) => ReferralScreen(profile: p)),
       );
     } catch (_) {/* best-effort */}
+  };
+  // Notificación recibida con la app en PRIMER PLANO: Android no la muestra sola,
+  // así que enseñamos un aviso in-app (SnackBar) con acción para abrirla.
+  PushService.onForeground = (data, title, body) {
+    final messenger = rootMessengerKey.currentState;
+    if (messenger == null) return;
+    final text = [title, body].where((s) => (s ?? '').isNotEmpty).join(' · ');
+    final lang = localeController.value.languageCode;
+    final view = lang == 'en' ? 'View' : (lang == 'ca' ? 'Veure' : 'Ver');
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      content: Text(text.isEmpty ? 'TaxiCount' : text),
+      duration: const Duration(seconds: 6),
+      action: SnackBarAction(label: view, onPressed: () => PushService.onTap?.call(data)),
+    ));
   };
   // Push (FCM): solo en móvil; en web es no-op. No bloquea el arranque si falla.
   await PushService.instance.init();
@@ -104,6 +123,7 @@ class TaxiCountApp extends StatelessWidget {
       builder: (context, locale, _) => MaterialApp(
         title: 'TaxiCount',
         navigatorKey: rootNavigatorKey,
+        scaffoldMessengerKey: rootMessengerKey,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(colorSchemeSeed: Colors.amber, useMaterial3: true),
         locale: locale,
