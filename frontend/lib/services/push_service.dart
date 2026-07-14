@@ -83,22 +83,39 @@ class PushService {
     }
   }
 
-  /// Registra el token y, si las notificaciones NO quedan activas, muestra UNA
-  /// vez por versión un aviso para activarlas (para usuarios antiguos que nunca
-  /// las concedieron o las denegaron de forma permanente). Best-effort; nunca
-  /// lanza ni bloquea el arranque.
+  /// Tras iniciar sesión: si las notificaciones YA están activas, solo guarda el
+  /// token. Si NO lo están, avisa como mucho UNA vez por versión (es decir, tras
+  /// cada actualización, nunca en cada apertura), y solo a quien no las tiene:
+  ///   - si el sistema aún puede preguntar -> muestra su diálogo de permiso;
+  ///   - si el usuario lo denegó en firme -> aviso in-app que abre los ajustes.
+  /// Best-effort; nunca lanza ni bloquea el arranque.
   Future<void> ensureRegistered(BuildContext context, String tenantId) async {
     if (kIsWeb) return;
-    final status = await register(tenantId); // pide permiso (Android) + guarda token
-    if (status == 'granted') return;
     try {
+      await init();
+      // Ya activas: solo asegurar el token guardado, sin molestar.
+      if (await notificationsGranted()) {
+        await register(tenantId);
+        return;
+      }
+      // No activas: como mucho una vez por VERSIÓN (tras una actualización).
       final prefs = await SharedPreferences.getInstance();
       final info = await PackageInfo.fromPlatform();
       const key = 'notif_prompt_version';
-      // Avisamos como mucho UNA vez por versión instalada (no molestar en cada apertura).
       if (prefs.getString(key) == info.version) return;
       await prefs.setString(key, info.version);
-      if (!context.mounted) return;
+
+      // Intenta pedir el permiso (muestra el diálogo del sistema si aún puede).
+      final status = await register(tenantId);
+      if (status == 'granted') return;
+
+      // Si el sistema todavía podría preguntar (no es denegación permanente), su
+      // diálogo ya se mostró: no añadimos un aviso in-app encima.
+      final permanent = defaultTargetPlatform == TargetPlatform.android &&
+          await Permission.notification.isPermanentlyDenied;
+      if (!permanent || !context.mounted) return;
+
+      // Denegación permanente: el sistema ya no pregunta -> guiamos a los ajustes.
       final l = context.l10n;
       final go = await showDialog<bool>(
         context: context,
@@ -111,11 +128,7 @@ class PushService {
           ],
         ),
       );
-      if (go == true) {
-        // Reintenta el permiso; si es denegación permanente, abre los ajustes.
-        final again = await register(tenantId);
-        if (again != 'granted') await openAppSettings();
-      }
+      if (go == true) await openAppSettings();
     } catch (_) {}
   }
 
