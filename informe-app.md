@@ -195,7 +195,8 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 - **Jornada:** `odometer_readings`, `driver_locations`, `app_usage_days`.
 - **Negocio/gamificación:** `subscription_extensions`, `challenge_claims`, `monthly_savings`, `fleet_quarterly_metrics` (obsoleta).
 - **Referidos:** `referrals`, `referral_codes`, `referral_shares`, `referral_milestone_rewards`, `referral_validation_queue`, `referral_fraud_alerts`.
-- **Soporte:** `incidents`, `incident_messages`, `error_reports`, `fraud_alerts`.
+- **Soporte (plataforma):** `incidents` (kind='app'), `incident_messages`, `error_reports`, `fraud_alerts`.
+- **Chat de flota (jefe↔conductor):** `fleet_messages` (chat directo 1:1, privado del tenant; el admin no lo ve). Reemplaza las antiguas notas `incidents kind='nota'`.
 - **Plataforma:** `system_config`, `admin_actions_log`, `cron_execution_logs`, `device_tokens`.
 - **Seguridad en el motor:** 53 políticas RLS + helpers `SECURITY DEFINER`
   (`current_tenant_id`, `current_role_name`, `is_platform_admin`, `current_subscription_active`)
@@ -351,7 +352,8 @@ id del perfil al id real de `auth.users`).
   `monthly_savings` y `fleet_quarterly_metrics` (histórico/obsoleto Loop#4).
 - **Referidos:** `referrals` · `referral_codes` · `referral_shares` · `referral_milestone_rewards` ·
   `referral_validation_queue` (cola de los 15 días) · `referral_fraud_alerts`.
-- **Soporte y moderación:** `incidents` · `incident_messages` · `error_reports` · `fraud_alerts`.
+- **Soporte y moderación:** `incidents` (kind='app') · `incident_messages` · `error_reports` · `fraud_alerts`.
+- **Chat de flota:** `fleet_messages` (jefe↔conductor, chat directo privado del tenant; el admin no participa).
 - **Plataforma / infra:** `system_config` (config en caliente + estado de semáforos
   `cron_last_*`/`svc_*` + **feature flags** `flag_*`, p. ej. `flag_webhook_async`) ·
   `webhook_events` (bandeja idempotente/durable de Stripe) · `tenant_daily_rollup`
