@@ -1,8 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../l10n/app_localizations.dart';
 
 /// Handler de mensajes en segundo plano (debe ser una función top-level).
 @pragma('vm:entry-point')
@@ -76,6 +81,42 @@ class PushService {
     } catch (_) {
       return 'error';
     }
+  }
+
+  /// Registra el token y, si las notificaciones NO quedan activas, muestra UNA
+  /// vez por versión un aviso para activarlas (para usuarios antiguos que nunca
+  /// las concedieron o las denegaron de forma permanente). Best-effort; nunca
+  /// lanza ni bloquea el arranque.
+  Future<void> ensureRegistered(BuildContext context, String tenantId) async {
+    if (kIsWeb) return;
+    final status = await register(tenantId); // pide permiso (Android) + guarda token
+    if (status == 'granted') return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final info = await PackageInfo.fromPlatform();
+      const key = 'notif_prompt_version';
+      // Avisamos como mucho UNA vez por versión instalada (no molestar en cada apertura).
+      if (prefs.getString(key) == info.version) return;
+      await prefs.setString(key, info.version);
+      if (!context.mounted) return;
+      final l = context.l10n;
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.t('set_notifs')),
+          content: Text(l.t('notif_prompt_body')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('later'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('notif_prompt_enable'))),
+          ],
+        ),
+      );
+      if (go == true) {
+        // Reintenta el permiso; si es denegación permanente, abre los ajustes.
+        final again = await register(tenantId);
+        if (again != 'granted') await openAppSettings();
+      }
+    } catch (_) {}
   }
 
   /// ¿Están concedidas las notificaciones? (para mostrar el estado en Ajustes).

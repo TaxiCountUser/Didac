@@ -32,7 +32,10 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   void initState() {
     super.initState();
     _loadIncidentCount();
-    PushService.instance.register(widget.profile.tenantId);
+    // Notificaciones: registra token y, si no están activas, avisa (1×/versión).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) PushService.instance.ensureRegistered(context, widget.profile.tenantId);
+    });
   }
 
   Future<void> _loadIncidentCount() async {
