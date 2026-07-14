@@ -2144,23 +2144,63 @@ export async function buildApp(options = {}) {
 
   // Cupón activo para el owner: devuelve {code, pct, show}. `show` = true si hay
   // un cupón activo y este tenant NO lo ha canjeado todavía (para el aviso con
-  // "copiar código" al entrar en Suscripción). Best-effort.
+  // "copiar código" al entrar en Suscripción).
+  //
+  // FUENTE DE VERDAD = STRIPE. Se lee el promotion code activo real en Stripe, de
+  // modo que lo que se cree/modifique/borre en Stripe se refleja en la app (y al
+  // revés, porque crear/desactivar desde el panel también toca Stripe). La config
+  // local solo aporta el "puntero" (promo_id que anunciamos) y la programación
+  // (starts_at). Si no hay puntero válido, se AUTODESCUBRE el promo activo en
+  // Stripe (preferimos el restringido al producto anual y con mayor % de dto.).
+  let _annualProductId; // cache del producto del precio anual
+  async function annualProductId() {
+    if (_annualProductId !== undefined) return _annualProductId;
+    _annualProductId = null;
+    if (stripe && STRIPE_PRICE_SEAT_YEARLY) {
+      try {
+        const price = await stripe.prices.retrieve(STRIPE_PRICE_SEAT_YEARLY);
+        _annualProductId = typeof price.product === 'string' ? price.product : (price.product?.id ?? null);
+      } catch { /* sin producto */ }
+    }
+    return _annualProductId;
+  }
+
   async function readActiveCoupon() {
+    if (!stripe) return null;
     try {
-      const { data } = await supabase.from('system_config')
-        .select('value').eq('key', 'active_coupon').maybeSingle();
-      if (!data?.value) return null;
-      const c = JSON.parse(data.value);
-      if (!c || !c.code) return null;
+      const cfg = await readCouponConfigRaw();
       const now = Date.now();
-      // Programación opcional: aún no empieza -> no mostrar; ya caducó -> no mostrar.
-      if (c.starts_at && new Date(c.starts_at).getTime() > now) return null;
-      if (c.expires_at && new Date(c.expires_at).getTime() < now) return null;
+      // Programación: si aún no ha llegado su día, no se muestra.
+      if (cfg?.starts_at && new Date(cfg.starts_at).getTime() > now) return null;
+
+      let promo = null;
+      if (cfg?.promo_id) {
+        try { promo = await stripe.promotionCodes.retrieve(cfg.promo_id); } catch { promo = null; }
+      }
+      // Puntero ausente/obsoleto (borrado o desactivado en Stripe) -> autodescubrir.
+      if (!promo || !promo.active) {
+        const prod = await annualProductId();
+        const list = await stripe.promotionCodes.list({ active: true, limit: 100 });
+        const cand = list.data.filter((p) => p.active && p.coupon && p.coupon.valid && p.coupon.percent_off);
+        // Preferir los restringidos al producto anual; luego mayor % de descuento.
+        cand.sort((a, b) => {
+          const ap = prod && (a.coupon.applies_to?.products || []).includes(prod) ? 1 : 0;
+          const bp = prod && (b.coupon.applies_to?.products || []).includes(prod) ? 1 : 0;
+          if (ap !== bp) return bp - ap;
+          return (b.coupon.percent_off || 0) - (a.coupon.percent_off || 0);
+        });
+        promo = cand[0] || null;
+      }
+      if (!promo || !promo.active || !promo.coupon?.valid) return null;
+      if (promo.expires_at && promo.expires_at * 1000 < now) return null;
       return {
-        code: String(c.code), pct: Number(c.pct) || 0,
-        starts_at: c.starts_at ?? null, expires_at: c.expires_at ?? null,
-        duration: c.duration ?? 'once', max_redemptions: c.max_redemptions ?? null,
-        coupon_id: c.coupon_id ?? null, promo_id: c.promo_id ?? null,
+        code: promo.code,
+        pct: Math.round(promo.coupon.percent_off || 0),
+        coupon_id: promo.coupon.id,
+        promo_id: promo.id,
+        expires_at: promo.expires_at ? new Date(promo.expires_at * 1000).toISOString() : null,
+        starts_at: cfg?.starts_at ?? null,
+        max_redemptions: promo.max_redemptions ?? null,
       };
     } catch { return null; }
   }
@@ -2198,9 +2238,13 @@ export async function buildApp(options = {}) {
   app.post('/api/v1/admin/active-coupon', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
+    // Resuelve el promo REAL (puntero de config o autodescubierto en Stripe) para
+    // desactivarlo, no solo lo que hubiera en la config local.
     const raw = await readCouponConfigRaw();
-    if (stripe && raw?.promo_id) {
-      try { await stripe.promotionCodes.update(raw.promo_id, { active: false }); }
+    const active = await readActiveCoupon();
+    const promoId = raw?.promo_id || active?.promo_id;
+    if (stripe && promoId) {
+      try { await stripe.promotionCodes.update(promoId, { active: false }); }
       catch (e) { request.log.warn(`[coupon] no se pudo desactivar en Stripe: ${e.message}`); }
     }
     await supabase.from('system_config')
