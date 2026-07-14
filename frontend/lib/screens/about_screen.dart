@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../changelog.dart';
 import '../l10n/app_localizations.dart';
@@ -17,12 +18,33 @@ class AboutScreen extends StatelessWidget {
     final versions = changelogFor(isOwner: isOwner);
     return Scaffold(
       appBar: AppBar(title: Text(l.t('set_whatsnew'))),
-      body: versions.isEmpty
-          ? Center(child: Text(l.t('whatsnew_empty')))
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                for (final v in versions) ...[
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Versión REAL instalada (de PackageInfo), no un valor fijo.
+          FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (context, snap) {
+              final info = snap.data;
+              final name = info?.version ?? '—';
+              final build = info?.buildNumber ?? '';
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('TaxiCount'),
+                  subtitle: Text(build.isEmpty
+                      ? 'v$name'
+                      : '${l.t('whatsnew_current')}: v$name (build $build)'),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          if (versions.isEmpty)
+            Padding(padding: const EdgeInsets.all(24),
+                child: Center(child: Text(l.t('whatsnew_empty'))))
+          else
+            for (final v in versions) ...[
                   Row(children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
