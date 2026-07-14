@@ -37,10 +37,11 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   double _currentReal = 0; // última amplitud real normalizada (0..1)
   DateTime? _lastAmpAt;     // cuándo llegó (para saber si hay amplitud real)
   int _waveTick = 0;
-  // Suelo de ruido adaptativo (dBFS): cada móvil tiene su escala, así que en vez
-  // de un umbral fijo seguimos el nivel mínimo (silencio) y medimos cuánto lo
-  // supera la voz. Así la onda REACCIONA al hablar y baja en silencio.
-  double _ampFloor = -50;
+  // Suelo de ruido adaptativo (dBFS): NO asumimos escala del dispositivo. Arranca
+  // en la primera lectura real y se adapta (baja al instante al silencio, sube
+  // despacio). El nivel = cuánto supera la voz a ese suelo. Así la onda REACCIONA
+  // al hablar y baja en silencio, sin quedarse clavada al máximo.
+  double? _ampFloor;
 
   @override
   void initState() {
@@ -71,7 +72,7 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       // Reinicia el estado de la onda para esta grabación.
       _waveTick = 0;
       _lastAmpAt = null;
-      _ampFloor = -50;
+      _ampFloor = null;
       // Suscripción a la amplitud (dBFS) para la onda real (móvil).
       _ampSub?.cancel();
       _ampSub = _recorder
@@ -90,15 +91,13 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   void _onAmplitude(Amplitude amp) {
     final db = amp.current;
     if (!db.isFinite) return;
-    // Suelo adaptativo: baja al mínimo visto (silencio) y sube muy despacio.
-    if (db < _ampFloor) {
-      _ampFloor = db;
-    } else {
-      _ampFloor += 0.05;
-    }
-    // Nivel = cuánto SUPERA la voz al suelo de ruido (en dB), ~25 dB = barra
-    // llena. En silencio (cerca del suelo) queda casi a 0; al hablar sube.
-    _currentReal = ((db - _ampFloor) / 25.0).clamp(0.0, 1.0);
+    // Arranca en el nivel real (sin asumir escala). Baja al instante al silencio,
+    // sube despacio hacia el ambiente.
+    final floor = _ampFloor ??= db;
+    _ampFloor = db < floor ? db : floor + 0.08;
+    // Nivel = cuánto SUPERA la voz al suelo (~22 dB por encima = barra llena).
+    // En silencio (cerca del suelo) queda casi a 0; al hablar sube.
+    _currentReal = ((db - _ampFloor!) / 22.0).clamp(0.0, 1.0);
     _lastAmpAt = DateTime.now();
   }
 
