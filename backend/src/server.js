@@ -1389,7 +1389,7 @@ export async function buildApp(options = {}) {
     if (!body || !String(body).trim()) return reply.code(400).send({ error: 'Mensaje vacío' });
     // Recuperamos el tenant de la incidencia para guardar el mensaje.
     const { data: inc } = await supabase
-      .from('incidents').select('tenant_id, status').eq('id', request.params.id).single();
+      .from('incidents').select('tenant_id, status, user_id').eq('id', request.params.id).single();
     if (!inc) return reply.code(404).send({ error: 'Incidencia no encontrada' });
     const { error } = await supabase.from('incident_messages').insert({
       incident_id: request.params.id,
@@ -1398,6 +1398,11 @@ export async function buildApp(options = {}) {
       body: String(body).trim(),
     });
     if (error) return reply.code(400).send({ error: error.message });
+    // Avisa al autor del ticket (usuario de la empresa) de la respuesta de soporte.
+    if (inc.user_id && inc.user_id !== g.caller.id) {
+      await notifyUser(inc.user_id, 'Respuesta de soporte', String(body).trim().slice(0, 140),
+        { type: 'support', incidentId: request.params.id });
+    }
     return reply.send({ ok: true });
   });
 
@@ -2004,17 +2009,21 @@ export async function buildApp(options = {}) {
 
     const { data: inc } = await supabase
       .from('incidents')
-      .select('id, tenant_id, user_id, body')
+      .select('id, tenant_id, user_id, body, kind')
       .eq('id', incidentId)
       .single();
     if (!inc || inc.tenant_id !== caller.tenant_id) {
       return reply.code(404).send({ error: 'Incidencia no encontrada' });
     }
 
-    // Destinatarios: si escribe el conductor -> los owners; si escribe el owner
-    // -> el autor (conductor). Nunca te notificas a ti mismo.
+    // Destinatarios:
+    //  - ticket de SOPORTE (kind='app'): avisar a los ADMINS de plataforma.
+    //  - incidencia interna: si escribe el conductor -> owners; si el owner -> autor.
+    // Nunca te notificas a ti mismo.
     let recipientIds;
-    if (caller.role === 'owner') {
+    if (inc.kind === 'app') {
+      recipientIds = await platformAdminIds();
+    } else if (caller.role === 'owner') {
       recipientIds = [inc.user_id];
     } else {
       const { data: owners } = await supabase
@@ -2033,11 +2042,14 @@ export async function buildApp(options = {}) {
       .in('user_id', recipientIds);
     const tokens = (toks || []).map((t) => t.token);
 
-    const title = kind === 'new_message' ? 'Nuevo mensaje de incidencia' : 'Nueva incidencia';
+    const support = inc.kind === 'app';
+    const title = support
+      ? (kind === 'new_message' ? 'Nuevo mensaje de soporte' : 'Nuevo ticket de soporte')
+      : (kind === 'new_message' ? 'Nuevo mensaje de incidencia' : 'Nueva incidencia');
     const text = (body || inc.body || '').toString().slice(0, 140);
     const result = await sendToTokens(
       tokens,
-      { title, body: text, data: { type: 'incident', incidentId: inc.id } },
+      { title, body: text, data: { type: support ? 'support' : 'incident', incidentId: inc.id } },
       request.log,
     );
     if (result.attempted) markService('push', result.ok);
@@ -3187,6 +3199,11 @@ export async function buildApp(options = {}) {
     await supabaseMetrics().catch(() => {});
     await syncScheduledCoupon().catch(() => {});
     const semaphores = await computeSemaphores();
+    // Avisos de LÍMITE al admin (push): Groq bajo o recursos de Supabase altos.
+    await alertLimit('groq', semaphores, '⚠ Groq cerca del límite',
+      (s) => `Queda ${s.remaining_pct ?? '?'}% de la API de Groq disponible.`);
+    await alertLimit('supabase_res', semaphores, '⚠ Recursos de Supabase altos',
+      (s) => `CPU/RAM/disco al ${s.max_pct ?? '?'}% (umbral 80%).`);
     // "never" no alerta: es un semáforo aún sin datos (p. ej. recién desplegado),
     // no una avería. stale/error sí.
     const red = semaphores.filter((s) => s.status === 'stale' || s.status === 'error');
@@ -3878,8 +3895,14 @@ export async function buildApp(options = {}) {
 
   // Envía una notificación push a un usuario (busca sus tokens en device_tokens).
   async function notifyUser(userId, title, body, data = {}) {
-    if (!userId || !pushEnabled()) return;
-    const { data: toks } = await supabase.from('device_tokens').select('token').eq('user_id', userId);
+    return notifyUsers([userId], title, body, data);
+  }
+
+  // Igual pero a varios usuarios a la vez (p. ej. todos los admins de plataforma).
+  async function notifyUsers(userIds, title, body, data = {}) {
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    if (!ids.length || !pushEnabled()) return;
+    const { data: toks } = await supabase.from('device_tokens').select('token').in('user_id', ids);
     const tokens = (toks || []).map((t) => t.token);
     if (!tokens.length) return;
     const result = await sendToTokens(tokens, { title, body, data }, app.log);
@@ -3887,6 +3910,33 @@ export async function buildApp(options = {}) {
     if (result.invalidTokens.length) {
       await supabase.from('device_tokens').delete().in('token', result.invalidTokens);
     }
+  }
+
+  // Tokens de todos los admins de plataforma -> para avisos de soporte y límites.
+  async function platformAdminIds() {
+    const { data } = await supabase.from('users').select('id').eq('is_admin', true);
+    return (data || []).map((a) => a.id);
+  }
+
+  // Aviso de LÍMITE al admin (push) cuando un semáforo de uso cruza su umbral
+  // (Groq / recursos de Supabase). Con throttle: como mucho una vez cada 6h por
+  // métrica; al recuperarse se limpia la marca para poder volver a avisar si recae.
+  async function alertLimit(key, semaphores, title, bodyFn) {
+    try {
+      const s = semaphores.find((x) => x.key === key);
+      const mark = `alert_last_${key}`;
+      if (!s || s.status !== 'error') {
+        await supabase.from('system_config').delete().eq('key', mark);
+        return;
+      }
+      const { data } = await supabase.from('system_config')
+        .select('value').eq('key', mark).maybeSingle();
+      const last = data?.value ? Number(data.value) : 0;
+      if (Date.now() - last < 6 * 60 * 60 * 1000) return;
+      await supabase.from('system_config').upsert(
+        { key: mark, value: String(Date.now()) }, { onConflict: 'key' });
+      await notifyUsers(await platformAdminIds(), title, bodyFn(s), { type: 'limit', metric: key });
+    } catch (e) { app.log.warn(`[alert-limit ${key}] ${e.message}`); }
   }
 
   // Recalcula los hitos del referidor: concede los nuevos y revoca los que ya no
