@@ -411,6 +411,9 @@ export async function buildApp(options = {}) {
     // con preposiciones ("Rambla de Figueres") y para mapear Excels raros.
     llm: !!(OPENAI_API_KEY && LLM_PARSE_MODEL),
     sentry: !!SENTRY_DSN, // captura de errores activa si hay SENTRY_DSN
+    // Commit desplegado (Render expone RENDER_GIT_COMMIT): permite comprobar
+    // desde fuera si un push ya está en producción o aún se está desplegando.
+    commit: (process.env.RENDER_GIT_COMMIT || '').slice(0, 7) || undefined,
     timestamp: new Date().toISOString(),
   }));
 
