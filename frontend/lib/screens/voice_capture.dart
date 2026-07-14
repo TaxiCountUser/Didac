@@ -37,11 +37,10 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   double _currentReal = 0; // última amplitud real normalizada (0..1)
   DateTime? _lastAmpAt;     // cuándo llegó (para saber si hay amplitud real)
   int _waveTick = 0;
-  // Rango dinámico de dBFS observado: los móviles reportan escalas muy distintas,
-  // así que en vez de un umbral fijo (que dejaba las barras planas en algunos)
-  // adaptamos suelo/techo a lo que llega, y la onda reacciona a la voz siempre.
+  // Suelo de ruido adaptativo (dBFS): cada móvil tiene su escala, así que en vez
+  // de un umbral fijo seguimos el nivel mínimo (silencio) y medimos cuánto lo
+  // supera la voz. Así la onda REACCIONA al hablar y baja en silencio.
   double _ampFloor = -50;
-  double _ampCeil = -20;
 
   @override
   void initState() {
@@ -73,7 +72,6 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       _waveTick = 0;
       _lastAmpAt = null;
       _ampFloor = -50;
-      _ampCeil = -20;
       // Suscripción a la amplitud (dBFS) para la onda real (móvil).
       _ampSub?.cancel();
       _ampSub = _recorder
@@ -92,39 +90,33 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   void _onAmplitude(Amplitude amp) {
     final db = amp.current;
     if (!db.isFinite) return;
-    // Adapta el rango observado: el suelo sube despacio y el techo baja despacio,
-    // de modo que la voz reciente se normaliza contra su propio rango dinámico
-    // (funciona sea cual sea la escala de dBFS del dispositivo).
+    // Suelo adaptativo: baja al mínimo visto (silencio) y sube muy despacio.
     if (db < _ampFloor) {
       _ampFloor = db;
     } else {
-      _ampFloor += 0.08;
+      _ampFloor += 0.05;
     }
-    if (db > _ampCeil) {
-      _ampCeil = db;
-    } else {
-      _ampCeil -= 0.05;
-    }
-    final span = math.max(8.0, _ampCeil - _ampFloor);
-    _currentReal = ((db - _ampFloor) / span).clamp(0.0, 1.0);
+    // Nivel = cuánto SUPERA la voz al suelo de ruido (en dB), ~25 dB = barra
+    // llena. En silencio (cerca del suelo) queda casi a 0; al hablar sube.
+    _currentReal = ((db - _ampFloor) / 25.0).clamp(0.0, 1.0);
     _lastAmpAt = DateTime.now();
   }
 
   void _tickWave(Timer _) {
     if (!mounted || !_recording) return;
     _waveTick++;
-    // Baseline sintético: SIEMPRE se mueve un poco, para que nunca se vea una
-    // línea de puntos "muerta" (deja claro que el micro está capturando).
-    // Cada barra tiene su propia fase (según su posición) para que la onda
-    // recorra la fila de izq. a der. y se vea CLARAMENTE viva, no unos puntos.
-    final t = _waveTick * 0.55;
-    final wave = (math.sin(t) + math.sin(t * 1.7 + 1)) / 2; // -1..1
-    final baseline = 0.20 + 0.35 * ((wave + 1) / 2); // ~0.20..0.55 (ondulación marcada)
     final hasReal = _lastAmpAt != null &&
         DateTime.now().difference(_lastAmpAt!).inMilliseconds < 300;
-    // La voz real (si la hay) se suma por encima del baseline.
-    final real = hasReal ? _currentReal : 0.0;
-    final level = (baseline + 0.7 * real).clamp(0.08, 1.0);
+    double level;
+    if (hasReal) {
+      // Móvil: la onda REACCIONA a la voz (baja en silencio, sube al hablar).
+      level = _currentReal.clamp(0.02, 1.0);
+    } else {
+      // Web (el plugin no emite amplitud): patrón sintético para indicar que graba.
+      final t = _waveTick * 0.55;
+      final wave = (math.sin(t) + math.sin(t * 1.7 + 1)) / 2; // -1..1
+      level = (0.20 + 0.35 * ((wave + 1) / 2)).clamp(0.08, 1.0);
+    }
     setState(() {
       _levels.removeAt(0);
       _levels.add(level);

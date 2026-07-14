@@ -401,10 +401,6 @@ export async function buildApp(options = {}) {
     return true;
   }
 
-  // DIAGNÓSTICO temporal: últimas cabeceras x-ratelimit-* vistas, por modelo
-  // (lo rellena markGroqRateLimit; lo lee GET /api/v1/groq-debug).
-  const _groqRlDebug = {};
-
   // --- Health ---
   app.get('/health', async () => ({
     status: 'ok',
@@ -420,11 +416,6 @@ export async function buildApp(options = {}) {
     commit: (process.env.RENDER_GIT_COMMIT || '').slice(0, 7) || undefined,
     timestamp: new Date().toISOString(),
   }));
-
-  // DIAGNÓSTICO temporal: qué cabeceras de rate-limit envía Groq en la última
-  // llamada de cada modelo (transcripción vs chat). Solo devuelve valores de
-  // rate-limit (no sensibles). Quitar cuando se resuelva el tema de Whisper.
-  app.get('/api/v1/groq-debug', async (_request, reply) => reply.send(_groqRlDebug));
 
   // Config pública de la app (sin auth): modo mantenimiento y su mensaje. La app
   // la consulta al arrancar para mostrar un aviso a todos los usuarios.
@@ -822,33 +813,9 @@ export async function buildApp(options = {}) {
       try { return headers.get ? headers.get(k) : headers[k]; } catch { return null; }
     };
     const num = (k) => { const v = Number(get(k)); return Number.isFinite(v) ? v : null; };
-    // DIAGNÓSTICO temporal: captura TODAS las cabeceras x-ratelimit-* que llegan
-    // en esta respuesta, por modelo. Se consulta en GET /api/v1/groq-debug para
-    // ver exactamente qué envía Groq (p. ej. si la transcripción trae
-    // audio-seconds). Quitar cuando esté resuelto.
-    try {
-      const rl = {};
-      const add = (k, v) => { if (String(k).toLowerCase().startsWith('x-ratelimit')) rl[k] = v; };
-      if (typeof headers.forEach === 'function') headers.forEach((v, k) => add(k, v));
-      else for (const k of Object.keys(headers || {})) add(k, headers[k]);
-      _groqRlDebug[model] = { at: new Date().toISOString(), headers: rl };
-    } catch (e) { _groqRlDebug[model] = { at: new Date().toISOString(), error: e.message }; }
-    // Audio-seconds es el límite de CUENTA de transcripción (Whisper). Groq lo
-    // reporta en las cabeceras de CUALQUIER respuesta (incluida la del chat del
-    // parser), y la respuesta de la transcripción no siempre expone cabeceras.
-    // Por eso se guarda APARTE (svc_groq_audio, no por modelo) y se muestra como
-    // una única línea "Whisper (audio)"; así no aparece pegado al modelo Llama.
-    const remSec = num('x-ratelimit-remaining-audio-seconds');
-    const limSec = num('x-ratelimit-limit-audio-seconds');
-    if (remSec != null || limSec != null) {
-      supabase.from('system_config').upsert(
-        { key: 'svc_groq_audio', value: JSON.stringify({ rem_sec: remSec, lim_sec: limSec, at: new Date().toISOString() }) },
-        { onConflict: 'key' },
-      ).then(({ error }) => {
-        if (error) app.log.warn(`[groq-audio] ${error.message}`);
-      }, (e) => app.log.warn(`[groq-audio] ${e.message}`));
-    }
-
+    // Nota: Groq limita TAMBIÉN la transcripción (Whisper) por PETICIONES (no por
+    // segundos de audio: no envía esa cabecera). Así que Whisper aparece por su
+    // propio contador de peticiones, igual que el modelo de chat.
     const snap = {
       model,
       rem_req: num('x-ratelimit-remaining-requests'),
@@ -881,19 +848,6 @@ export async function buildApp(options = {}) {
 
   async function groqUsage() {
     try {
-      // Métrica de transcripción (Whisper): audio-seconds de cuenta, aparte.
-      let audio = null;
-      const { data: audioRow } = await supabase.from('system_config')
-        .select('value').eq('key', 'svc_groq_audio').maybeSingle();
-      if (audioRow) {
-        try {
-          const a = JSON.parse(audioRow.value);
-          const pct = (a.lim_sec > 0 && a.rem_sec != null)
-            ? Math.round((a.rem_sec / a.lim_sec) * 100) : null;
-          audio = { remaining_pct: pct, remaining: a.rem_sec, limit: a.lim_sec, at: a.at };
-        } catch { /* ignore */ }
-      }
-
       const { data } = await supabase.from('system_config')
         .select('key, value').like('key', 'svc_groq_rl%');
       // Dedup por modelo (quedándonos con la foto más reciente); incluye la clave
@@ -910,10 +864,9 @@ export async function buildApp(options = {}) {
         tokens: { remaining: s.rem_tok, limit: s.lim_tok },
       })).filter((m) => m.remaining_pct != null)
         .sort((a, b) => a.remaining_pct - b.remaining_pct);
-      if (!models.length && !audio) return { available: false };
+      if (!models.length) return { available: false };
       // remaining_pct global = el modelo más ajustado (para el resumen/semáforo).
-      const remaining_pct = models.length ? models[0].remaining_pct : null;
-      return { available: true, remaining_pct, models, audio };
+      return { available: true, remaining_pct: models[0].remaining_pct, models };
     } catch { return { available: false }; }
   }
 
