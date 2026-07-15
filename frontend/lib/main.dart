@@ -15,6 +15,7 @@ import 'screens/fleet_chats_screen.dart';
 import 'screens/incidents_screen.dart';
 import 'screens/referral_screen.dart';
 import 'screens/tickets_screen.dart';
+import 'screens/vehicles_screen.dart';
 import 'widgets/maintenance_banner.dart';
 
 /// Navegador raíz, para poder navegar desde fuera del árbol (deep-links de push).
@@ -106,6 +107,9 @@ Future<void> main() async {
         } else {
           page = FleetChatScreen(profile: p, driverId: p.id, title: bossTitle);
         }
+      } else if (type == 'maintenance') {
+        // Aviso de mantenimiento: el jefe abre Vehículos.
+        if (p.isOwner) page = VehiclesScreen(profile: p);
       } else {
         // Usuario normal: soporte -> sus tickets; incidencia -> sus incidencias.
         if (type == 'support') {

@@ -1,0 +1,27 @@
+name: Avisos de mantenimiento (diario)
+
+# Recordatorios de mantenimiento de vehículos (ITV, ITV taxímetro, seguro,
+# tarjeta de transporte y revisión por km). Una vez al día llama al backend, que
+# avisa por push al/los owner(s) cuando se cruza un hito (30/15/7/1 días, el día,
+# caducado; ~1000/~200/0 km). Cada aviso se envía UNA vez (idempotente).
+#
+# Secrets del repo (ya existen para otros crons):
+#   PROD_BACKEND_URL -> URL del backend en Render (sin barra final)
+#   CRON_SECRET      -> el mismo valor que la env var CRON_SECRET en Render
+#
+# A mano: Actions -> "Avisos de mantenimiento" -> Run workflow.
+
+on:
+  schedule:
+    - cron: '0 7 * * *'   # 07:00 UTC = 08:00/09:00 en España (mañana)
+  workflow_dispatch: {}
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recordatorios de mantenimiento
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.PROD_BACKEND_URL }}/api/v1/admin/cron/maintenance-reminders"

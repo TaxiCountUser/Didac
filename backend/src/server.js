@@ -1996,6 +1996,140 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, ...res });
   });
 
+  // Recordatorios de MANTENIMIENTO de vehículos: avisa por push al/los owner(s)
+  // cuando se acerca una fecha (ITV, ITV taxímetro, seguro, tarjeta de
+  // transporte) o la revisión por km. Un cron DIARIO lo llama con x-cron-secret.
+  // Hitos: 30/15/7/1 días, el día y caducado; ~1000/~200/0 km. Cada aviso UNA
+  // vez (tabla maintenance_reminders_sent). Idempotente.
+  app.post('/api/v1/admin/cron/maintenance-reminders', async (request, reply) => {
+    const g = await cronOrAdmin(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const res = await runMaintenanceReminders();
+    await markCronRun('maintenance_reminders');
+    return reply.send({ ok: true, ...res });
+  });
+
+  // Días que faltan hasta una fecha (date-only, en UTC; margen de ±1 día por tz
+  // es aceptable para un recordatorio diario).
+  function daysUntilDate(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(`${String(dateStr).slice(0, 10)}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return null;
+    const n = new Date();
+    const today = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate());
+    return Math.round((d.getTime() - today) / 86400000);
+  }
+  // Un solo hito por día (ventanas), para no saturar aunque se dé de alta tarde.
+  function dateMilestone(daysLeft) {
+    if (daysLeft < 0) return 'expired';
+    if (daysLeft === 0) return '0';
+    if (daysLeft === 1) return '1';
+    if (daysLeft <= 7) return '7';
+    if (daysLeft <= 15) return '15';
+    if (daysLeft <= 30) return '30';
+    return null;
+  }
+  function kmMilestone(kmLeft) {
+    if (kmLeft <= 0) return 'km0';
+    if (kmLeft <= 200) return 'km200';
+    if (kmLeft <= 1000) return 'km1000';
+    return null;
+  }
+  const _cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const _fmtD = (iso) => { const p = String(iso).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; };
+
+  // Registra un aviso (vehicle,kind,ref,milestone). Devuelve true si es NUEVO
+  // (no se había enviado) -> hay que mandar el push.
+  async function recordMaintReminder(vehicleId, kind, ref, milestone) {
+    const { data } = await supabase.from('maintenance_reminders_sent')
+      .upsert({ vehicle_id: vehicleId, kind, ref: String(ref), milestone: String(milestone) },
+        { onConflict: 'vehicle_id,kind,ref,milestone', ignoreDuplicates: true })
+      .select('id');
+    return !!(data && data.length);
+  }
+  // Km actuales del vehículo: máx de km inicial/registrado, lecturas de jornada
+  // y odómetro apuntado en carreras.
+  async function vehicleCurrentKm(v) {
+    let best = Math.max(Number(v.initial_odometer || 0), Number(v.registered_km || 0));
+    const { data: r } = await supabase.from('odometer_readings')
+      .select('reading_km').eq('vehicle_id', v.id).order('reading_km', { ascending: false }).limit(1);
+    if (r && r[0]?.reading_km != null) best = Math.max(best, Number(r[0].reading_km));
+    const { data: t } = await supabase.from('transactions')
+      .select('odometer_km').eq('vehicle_id', v.id).not('odometer_km', 'is', null)
+      .order('odometer_km', { ascending: false }).limit(1);
+    if (t && t[0]?.odometer_km != null) best = Math.max(best, Number(t[0].odometer_km));
+    return best;
+  }
+
+  async function runMaintenanceReminders() {
+    if (!pushEnabled()) return { push: false, sent: 0 };
+    const { data: owners } = await supabase.from('users')
+      .select('id, tenant_id').eq('role', 'owner').eq('active', true);
+    const ownersByTenant = {};
+    for (const o of owners || []) (ownersByTenant[o.tenant_id] ||= []).push(o.id);
+
+    const { data: vehicles } = await supabase.from('vehicles')
+      .select('id, tenant_id, license_plate, model, active, itv_expiry, taximeter_itv_expiry, insurance_expiry, transport_card_date, transport_card_years, revision_interval_km, last_revision_km, initial_odometer, registered_km')
+      .eq('active', true);
+
+    let sent = 0;
+    for (const v of vehicles || []) {
+      const ownerIds = ownersByTenant[v.tenant_id];
+      if (!ownerIds || !ownerIds.length) continue;
+      const label = v.license_plate || v.model || 'Vehículo';
+
+      const items = [];
+      if (v.itv_expiry) items.push(['itv', 'ITV', v.itv_expiry]);
+      if (v.taximeter_itv_expiry) items.push(['taximeter_itv', 'ITV del taxímetro', v.taximeter_itv_expiry]);
+      if (v.insurance_expiry) items.push(['insurance', 'seguro', v.insurance_expiry]);
+      if (v.transport_card_date) {
+        const base = new Date(`${String(v.transport_card_date).slice(0, 10)}T00:00:00Z`);
+        if (!Number.isNaN(base.getTime())) {
+          base.setUTCFullYear(base.getUTCFullYear() + (Number(v.transport_card_years) || 4));
+          items.push(['transport_card', 'tarjeta de transporte', base.toISOString().slice(0, 10)]);
+        }
+      }
+      for (const [kind, kindLabel, dueDate] of items) {
+        const daysLeft = daysUntilDate(dueDate);
+        if (daysLeft == null) continue;
+        const m = dateMilestone(daysLeft);
+        if (!m) continue;
+        if (!await recordMaintReminder(v.id, kind, dueDate, m)) continue;
+        let title, body;
+        if (m === 'expired') {
+          title = '⚠️ Mantenimiento caducado';
+          body = `${label}: ${_cap(kindLabel)} venció el ${_fmtD(dueDate)}. Conviene renovarlo.`;
+        } else if (m === '0') {
+          title = '⏰ Mantenimiento: vence hoy';
+          body = `${label}: ${_cap(kindLabel)} vence hoy (${_fmtD(dueDate)}).`;
+        } else {
+          title = '⏰ Mantenimiento próximo';
+          body = `${label}: ${_cap(kindLabel)} vence en ${daysLeft} día(s) (${_fmtD(dueDate)}).`;
+        }
+        await notifyUsers(ownerIds, title, body, { type: 'maintenance', vehicleId: v.id });
+        sent++;
+      }
+
+      if (v.last_revision_km != null && v.revision_interval_km) {
+        const target = Number(v.last_revision_km) + Number(v.revision_interval_km);
+        const current = await vehicleCurrentKm(v);
+        if (current != null) {
+          const kmLeft = target - current;
+          const m = kmMilestone(kmLeft);
+          if (m && await recordMaintReminder(v.id, 'revision_km', String(target), m)) {
+            const title = '🔧 Revisión de mantenimiento';
+            const body = kmLeft > 0
+              ? `${label}: faltan ~${kmLeft} km para la próxima revisión (a los ${target} km).`
+              : `${label}: toca revisión (has superado los ${target} km).`;
+            await notifyUsers(ownerIds, title, body, { type: 'maintenance', vehicleId: v.id });
+            sent++;
+          }
+        }
+      }
+    }
+    return { push: true, sent };
+  }
+
   // Marca que la copia de seguridad diaria de la BD se realizó correctamente.
   // Lo llama el workflow "Backup diario de la BD" (backup-db.yml) al terminar el
   // pg_dump con éxito, con la cabecera x-cron-secret. Solo registra el sello de

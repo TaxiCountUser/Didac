@@ -2692,3 +2692,20 @@ begin
     alter publication supabase_realtime add table public.fleet_messages;
   end if;
 end $$;
+
+-- ============================================================
+-- 072 - Avisos de mantenimiento de vehículos. Ver migración 072.
+-- ============================================================
+create table if not exists public.maintenance_reminders_sent (
+  id          uuid primary key default gen_random_uuid(),
+  vehicle_id  uuid not null references public.vehicles(id) on delete cascade,
+  kind        text not null,
+  ref         text not null,
+  milestone   text not null,
+  sent_at     timestamptz not null default now(),
+  unique (vehicle_id, kind, ref, milestone)
+);
+create index if not exists idx_maint_reminders_vehicle
+  on public.maintenance_reminders_sent(vehicle_id);
+grant select, insert on public.maintenance_reminders_sent to service_role;
+alter table public.maintenance_reminders_sent enable row level security;
