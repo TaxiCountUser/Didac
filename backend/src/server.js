@@ -2166,9 +2166,19 @@ export async function buildApp(options = {}) {
       const sub = await stripe.subscriptions.retrieve(subId);
       const item = sub.items?.data?.[0];
       if (!item) return;
-      if (item.quantity === qty) return; // sin cambios
-      await stripe.subscriptionItems.update(item.id, { quantity: qty });
-      app.log.info(`[seats] tenant ${tenantId}: cantidad -> ${qty}`);
+      const prev = item.quantity ?? 0;
+      if (prev === qty) return; // sin cambios
+      // Al AÑADIR asientos, facturar YA la parte proporcional (always_invoice):
+      // en el plan ANUAL, con el prorrateo por defecto el asiento nuevo no se
+      // cobraría hasta la renovación (hasta ~1 año después). Al QUITAR asientos,
+      // dejamos el crédito para la próxima factura (create_prorations), sin
+      // reembolso inmediato.
+      const prorationBehavior = qty > prev ? 'always_invoice' : 'create_prorations';
+      await stripe.subscriptionItems.update(item.id, {
+        quantity: qty,
+        proration_behavior: prorationBehavior,
+      });
+      app.log.info(`[seats] tenant ${tenantId}: cantidad ${prev} -> ${qty} (${prorationBehavior})`);
     } catch (e) {
       app.log.warn(`[seats] no se pudo sincronizar asientos de ${tenantId}: ${e.message}`);
     }
