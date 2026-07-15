@@ -640,7 +640,7 @@ export async function buildApp(options = {}) {
     const seats = tenant?.drivers_limit;
     if (paid && seats != null && (activeCount ?? 0) >= seats) {
       return reply.code(403).send({
-        code: 'seat_limit',
+        code: 'seat_limit', seats,
         error: `Pagas ${seats} asiento(s) y ya están ocupados. Compra un asiento más para añadir este conductor.`,
       });
     }
@@ -758,7 +758,7 @@ export async function buildApp(options = {}) {
           .eq('tenant_id', guard.driver.tenant_id).eq('role', 'driver').eq('active', true);
         if ((activeCount ?? 0) >= t.drivers_limit) {
           return reply.code(403).send({
-            code: 'seat_limit',
+            code: 'seat_limit', seats: t.drivers_limit,
             error: `Pagas ${t.drivers_limit} asiento(s) y ya están ocupados. Compra un asiento más para reactivar este conductor.`,
           });
         }

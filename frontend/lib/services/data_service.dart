@@ -47,6 +47,17 @@ class DailyReport {
   double? get pricePerKm => (km != null && km! > 0) ? income / km! : null;
 }
 
+/// Se lanza cuando el backend rechaza añadir/reactivar un conductor porque se
+/// alcanzó el cupo de asientos pagados. Lleva [seats] (asientos actuales) para
+/// que la UI pueda ofrecer comprar uno más.
+class SeatLimitException implements Exception {
+  final String message;
+  final int? seats;
+  SeatLimitException(this.message, this.seats);
+  @override
+  String toString() => message;
+}
+
 /// Acceso a datos vía Supabase (respetando RLS) y al backend Fastify.
 class DataService {
   SupabaseClient get _c => Supabase.instance.client;
@@ -281,6 +292,10 @@ class DataService {
     );
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 201) {
+      if (body['code'] == 'seat_limit') {
+        throw SeatLimitException(
+            (body['error'] as String?) ?? 'Sin asientos libres', (body['seats'] as num?)?.toInt());
+      }
       throw Exception(body['error'] ?? 'No se pudo invitar al conductor');
     }
     return (body['tempPassword'] as String?) ?? '';
@@ -313,8 +328,29 @@ class DataService {
     );
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (body['code'] == 'seat_limit') {
+        throw SeatLimitException(
+            (body['error'] as String?) ?? 'Sin asientos libres', (body['seats'] as num?)?.toInt());
+      }
       throw Exception(body['error'] ?? 'No se pudo actualizar el conductor');
     }
+  }
+
+  /// Ajusta el nº de asientos PAGADOS de la suscripción (comprar/reducir). Cobra
+  /// la parte proporcional al instante al subir. Solo con suscripción activa.
+  Future<int> setSubscriptionSeats(int seats) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/subscription/seats'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'seats': seats}),
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'No se pudieron actualizar los asientos');
+    }
+    return (body['seats'] as num?)?.toInt() ?? seats;
   }
 
   /// Elimina definitivamente la cuenta de un conductor (vía backend).

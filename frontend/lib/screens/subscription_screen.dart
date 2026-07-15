@@ -63,6 +63,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   int _activeDrivers = 1;
   bool _loading = true;
   bool _busy = false;
+  bool _busySeats = false;
   bool _yearly = false; // periodo elegido para suscribirse
   String? _error;
   bool _couponShown = false; // el aviso del cupón se muestra una vez por entrada
@@ -248,6 +249,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           _currentPlanCard(l, status, hasCustomer, trialDaysLeft),
+          const SizedBox(height: 12),
+          _seatsCard(l, status),
           if (_savings != null) ...[
             const SizedBox(height: 12),
             _savingsCards(l),
@@ -426,6 +429,65 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _dot(Color c) => Container(width: 10, height: 10,
       decoration: BoxDecoration(color: c, shape: BoxShape.circle));
+
+  // Asientos pagados (cupo de conductores). En pago se puede ajustar (comprar /
+  // reducir); en prueba no hace falta (conductores ilimitados hasta el máximo).
+  Widget _seatsCard(AppLocalizations l, String? status) {
+    final paid = status == 'active' || status == 'past_due';
+    final seats = (_billing?['drivers_limit'] as num?)?.toInt();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.t('seats_title'), style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            if (!paid || seats == null)
+              Text(l.t('seats_trial_hint'))
+            else ...[
+              Text(l.t('seats_paid', {'n': '$seats'})),
+              Text(l.t('seats_active', {'n': '$_activeDrivers'})),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  IconButton.filledTonal(
+                    onPressed: (_busySeats || seats <= _activeDrivers) ? null : () => _setSeats(seats - 1),
+                    icon: const Icon(Icons.remove),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('$seats', style: Theme.of(context).textTheme.titleLarge),
+                  ),
+                  IconButton.filledTonal(
+                    onPressed: _busySeats ? null : () => _setSeats(seats + 1),
+                    icon: const Icon(Icons.add),
+                  ),
+                  const Spacer(),
+                  if (_busySeats)
+                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setSeats(int seats) async {
+    setState(() => _busySeats = true);
+    try {
+      await _service.setSubscriptionSeats(seats);
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busySeats = false);
+    }
+  }
 
   Widget _currentPlanCard(AppLocalizations l, String? status, bool hasCustomer, int trialDaysLeft) {
     final est = estimatedCost(_activeDrivers, _yearly);

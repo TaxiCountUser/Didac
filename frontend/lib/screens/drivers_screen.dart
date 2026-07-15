@@ -124,11 +124,10 @@ class _DriversScreenState extends State<DriversScreen> {
       ),
     );
     if (ok == true && email.text.trim().isNotEmpty) {
-      try {
-        final tempPwd = await _service.inviteDriver(
-          email: email.text.trim(),
-          name: name.text.trim().isEmpty ? null : name.text.trim(),
-        );
+      final emailStr = email.text.trim();
+      final nameStr = name.text.trim().isEmpty ? null : name.text.trim();
+      Future<void> doInvite() async {
+        final tempPwd = await _service.inviteDriver(email: emailStr, name: nameStr);
         _reload();
         if (!mounted) return;
         await showDialog<void>(
@@ -141,6 +140,12 @@ class _DriversScreenState extends State<DriversScreen> {
             ],
           ),
         );
+      }
+      try {
+        await doInvite();
+      } on SeatLimitException catch (e) {
+        if (!mounted) return;
+        await _offerBuySeat(e.seats, doInvite);
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context)
@@ -322,9 +327,44 @@ class _DriversScreenState extends State<DriversScreen> {
       );
       if (ok != true) return;
     }
-    try {
+    Future<void> doToggle() async {
       await _service.updateDriver(id: driver['id'] as String, active: !isActive);
       _reload();
+    }
+    try {
+      await doToggle();
+    } on SeatLimitException catch (e) {
+      if (!mounted) return;
+      await _offerBuySeat(e.seats, doToggle);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  /// Sin asientos libres: ofrece comprar 1 más (cobro proporcional inmediato) y,
+  /// si acepta, reintenta la acción original (invitar/reactivar).
+  Future<void> _offerBuySeat(int? currentSeats, Future<void> Function() action) async {
+    final l = context.l10n;
+    final next = (currentSeats ?? 0) + 1;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('seat_buy_title')),
+        content: Text(l.t('seat_buy_msg', {'n': '$next'})),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('seat_buy_ok'))),
+        ],
+      ),
+    );
+    if (go != true) return;
+    try {
+      await _service.setSubscriptionSeats(next);
+      await action();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('seat_bought'))));
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
