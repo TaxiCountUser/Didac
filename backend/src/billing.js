@@ -96,7 +96,8 @@ export async function applyStripeEvent(supabase, event) {
       };
       if (plan) {
         update.plan_id = plan.plan_id;
-        update.drivers_limit = plan.drivers_limit;
+        // drivers_limit (cupo de asientos pagados) NO se toca aquí: lo fija
+        // enforceSeatLimit leyendo la cantidad real de la suscripción de Stripe.
       }
       await supabase.from('tenants').update(update).eq('id', tenantId);
       // ¿Pagó usando un cupón? (total_details.amount_discount > 0). Si es así,
@@ -131,7 +132,8 @@ export async function applyStripeEvent(supabase, event) {
       const update = { subscription_status: mapStripeStatus(obj.status) };
       if (plan) {
         update.plan_id = plan.plan_id;
-        update.drivers_limit = plan.drivers_limit;
+        // drivers_limit (cupo de asientos pagados) NO se toca aquí: lo fija
+        // enforceSeatLimit leyendo la cantidad real de la suscripción de Stripe.
       }
       await supabase.from('tenants').update(update).eq('id', tenantId);
       return { handled: true, type, tenant_id: tenantId };

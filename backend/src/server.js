@@ -163,6 +163,13 @@ const STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL || 'taxicount://subscrip
 const STRIPE_PRICE_SEAT_YEARLY = process.env.STRIPE_PRICE_SEAT_YEARLY || '';
 // Tope del modelo por asiento: más conductores = plan a medida (contacto).
 const MAX_SEATS = Number(process.env.MAX_SEATS || 100);
+// Eventos de Stripe que cambian el cupo de asientos -> reaplicar enforceSeatLimit.
+const SEAT_EVENTS = new Set([
+  'checkout.session.completed',
+  'customer.subscription.created',
+  'customer.subscription.updated',
+  'invoice.paid',
+]);
 // Crédito (en céntimos) que se abona al jefe por cada reto completado por un
 // conductor: "1 mes-asiento gratis". Por defecto 250 = 2,50 €.
 
@@ -603,31 +610,39 @@ export async function buildApp(options = {}) {
     const { email, name } = request.body ?? {};
     if (!email) return reply.code(400).send({ error: 'email es obligatorio' });
 
-    // Tope máximo del modelo por asiento: 100 conductores. A partir de ahí, el
-    // cliente debe contactar con nosotros (plan a medida). Se aplica siempre,
-    // también en prueba.
-    const { count: driverCount } = await supabase
+    // Solo cuentan los conductores ACTIVOS (los que ocupan asiento). Los dados
+    // de baja no cuentan para ningún límite.
+    const { count: activeCount } = await supabase
       .from('users')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', caller.tenant_id)
-      .eq('role', 'driver');
-    if ((driverCount ?? 0) >= MAX_DRIVERS) {
+      .eq('role', 'driver')
+      .eq('active', true);
+
+    // Tope máximo absoluto por app: MAX_DRIVERS. Por encima, plan a medida.
+    if ((activeCount ?? 0) >= MAX_DRIVERS) {
       return reply.code(403).send({
         error: `Has alcanzado el máximo de ${MAX_DRIVERS} conductores. Contacta con nosotros para ampliar tu flota.`,
       });
     }
 
-    // Límite por plan (legado, p. ej. planes antiguos con drivers_limit). En el
-    // modelo por asiento drivers_limit es null y este bloque no aplica.
+    // Límite por ASIENTOS PAGADOS: en modo de pago (suscripción activa) solo se
+    // pueden tener tantos conductores ACTIVOS como asientos se pagan
+    // (tenants.drivers_limit = cantidad de la suscripción de Stripe). Durante la
+    // PRUEBA no hay límite (hasta MAX_DRIVERS). Para añadir por encima de lo
+    // pagado, primero hay que comprar un asiento (POST /api/v1/subscription/seats).
     const { data: tenant } = await supabase
       .from('tenants')
       .select('drivers_limit, subscription_status')
       .eq('id', caller.tenant_id)
       .single();
-    const limit = tenant?.drivers_limit;
     const paid = tenant?.subscription_status === 'active' || tenant?.subscription_status === 'past_due';
-    if (paid && limit !== null && limit !== undefined && (driverCount ?? 0) >= limit) {
-      return reply.code(403).send({ error: 'Has alcanzado el límite de conductores de tu plan' });
+    const seats = tenant?.drivers_limit;
+    if (paid && seats != null && (activeCount ?? 0) >= seats) {
+      return reply.code(403).send({
+        code: 'seat_limit',
+        error: `Pagas ${seats} asiento(s) y ya están ocupados. Compra un asiento más para añadir este conductor.`,
+      });
     }
 
     // Pre-comprobación: si ya hay una cuenta con ese correo, avisamos claro
@@ -664,7 +679,8 @@ export async function buildApp(options = {}) {
     app.log.info(`[create-driver] ${email} creado en tenant ${caller.tenant_id}`);
     // M-05: la contraseña es temporal -> obligar a cambiarla en el primer login.
     await supabase.from('users').update({ must_change_password: true }).eq('id', created.user.id);
-    await syncSeatQuantity(caller.tenant_id); // ajusta la factura por asiento
+    // NO se ajusta la factura al añadir: en el modelo de asientos pre-pagados el
+    // jefe ya paga por su cupo (drivers_limit); ocupar un asiento libre no cobra.
     return reply.code(201).send({ id: created.user.id, email, tenant_id: caller.tenant_id, tempPassword });
   });
 
@@ -727,7 +743,27 @@ export async function buildApp(options = {}) {
       // lo ve (display_name sincronizado; el último que escribe gana).
       patch.display_name = patch.name;
     }
-    if (active !== undefined) patch.active = active === true || active === 'true';
+    const activating = active === true || active === 'true';
+    if (active !== undefined) patch.active = activating;
+
+    // Reactivar ocupa un asiento: en modo de pago no se puede pasar del cupo
+    // pagado (drivers_limit). Para más, comprar asientos (/subscription/seats).
+    if (activating) {
+      const { data: t } = await supabase.from('tenants')
+        .select('drivers_limit, subscription_status').eq('id', guard.driver.tenant_id).maybeSingle();
+      const paid = t?.subscription_status === 'active' || t?.subscription_status === 'past_due';
+      if (paid && t?.drivers_limit != null) {
+        const { count: activeCount } = await supabase.from('users')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', guard.driver.tenant_id).eq('role', 'driver').eq('active', true);
+        if ((activeCount ?? 0) >= t.drivers_limit) {
+          return reply.code(403).send({
+            code: 'seat_limit',
+            error: `Pagas ${t.drivers_limit} asiento(s) y ya están ocupados. Compra un asiento más para reactivar este conductor.`,
+          });
+        }
+      }
+    }
 
     if (Object.keys(patch).length > 0) {
       const { error: uErr } = await supabase.from('users').update(patch).eq('id', driverId);
@@ -738,9 +774,7 @@ export async function buildApp(options = {}) {
           .send({ error: dup ? 'Ese nombre de usuario ya está en uso' : uErr.message });
       }
     }
-
-    // Activar/desactivar un conductor cambia los asientos facturables.
-    if (active !== undefined) await syncSeatQuantity(guard.driver.tenant_id);
+    // Dar de baja libera el asiento para reutilizarlo; NO cambia lo que se paga.
     return reply.send({ ok: true, id: driverId });
   });
 
@@ -755,7 +789,8 @@ export async function buildApp(options = {}) {
 
     const { error: uErr } = await supabase.from('users').update({ active: false }).eq('id', driverId);
     if (uErr) return reply.code(400).send({ error: `No se pudo dar de baja: ${uErr.message}` });
-    await syncSeatQuantity(guard.driver.tenant_id); // baja un asiento de la factura
+    // Libera el asiento para reutilizarlo; NO cambia lo que se paga (asientos
+    // pre-pagados). Para pagar menos, el jefe reduce asientos en su suscripción.
     return reply.send({ ok: true, id: driverId, deactivated: true });
   });
 
@@ -2151,38 +2186,90 @@ export async function buildApp(options = {}) {
     return Math.max(1, count ?? 0);
   }
 
-  // Sincroniza la cantidad del item de la suscripción de Stripe con el nº de
-  // conductores. Solo si hay suscripción de pago. Best-effort (no rompe la
-  // operación principal si falla). Stripe prorratea el cambio automáticamente.
-  async function syncSeatQuantity(tenantId) {
+  // Fija la CANTIDAD de asientos pagados en la suscripción de Stripe. Al AÑADIR
+  // factura YA la parte proporcional (always_invoice): en el plan ANUAL, con el
+  // prorrateo por defecto el asiento nuevo no se cobraría hasta la renovación
+  // (~1 año). Al QUITAR, deja el crédito para la próxima factura. Devuelve la
+  // cantidad efectiva. Lanza si Stripe falla (el endpoint lo traduce a error).
+  async function setSeatQuantity(tenantId, seats) {
+    const { data: t } = await supabase.from('tenants')
+      .select('stripe_subscription_id, subscription_status').eq('id', tenantId).maybeSingle();
+    const subId = t?.stripe_subscription_id;
+    if (!subId) throw new Error('sin suscripción activa');
+    const sub = await stripe.subscriptions.retrieve(subId);
+    const item = sub.items?.data?.[0];
+    if (!item) throw new Error('suscripción sin item');
+    const prev = item.quantity ?? 0;
+    if (prev !== seats) {
+      const prorationBehavior = seats > prev ? 'always_invoice' : 'create_prorations';
+      await stripe.subscriptionItems.update(item.id, {
+        quantity: seats, proration_behavior: prorationBehavior,
+      });
+      app.log.info(`[seats] tenant ${tenantId}: asientos ${prev} -> ${seats} (${prorationBehavior})`);
+    }
+    return seats;
+  }
+
+  // Aplica el cupo de asientos pagados: refleja la cantidad de Stripe en
+  // tenants.drivers_limit y BLOQUEA (active=false) los conductores MÁS NUEVOS
+  // que sobren (mantiene los 'seats' más antiguos). Se llama tras los eventos de
+  // suscripción (p. ej. al acabar la prueba y pagar N asientos). Best-effort.
+  async function enforceSeatLimit(tenantId) {
     if (!stripe || !tenantId) return;
     try {
       const { data: t } = await supabase.from('tenants')
         .select('stripe_subscription_id, subscription_status').eq('id', tenantId).maybeSingle();
       const subId = t?.stripe_subscription_id;
-      if (!subId) return; // en prueba todavía no hay suscripción
-      if (!['active', 'past_due', 'trialing'].includes(t?.subscription_status)) return;
-      const qty = await seatCount(tenantId);
+      if (!subId) return;
+      if (!['active', 'past_due'].includes(t?.subscription_status)) return;
       const sub = await stripe.subscriptions.retrieve(subId);
-      const item = sub.items?.data?.[0];
-      if (!item) return;
-      const prev = item.quantity ?? 0;
-      if (prev === qty) return; // sin cambios
-      // Al AÑADIR asientos, facturar YA la parte proporcional (always_invoice):
-      // en el plan ANUAL, con el prorrateo por defecto el asiento nuevo no se
-      // cobraría hasta la renovación (hasta ~1 año después). Al QUITAR asientos,
-      // dejamos el crédito para la próxima factura (create_prorations), sin
-      // reembolso inmediato.
-      const prorationBehavior = qty > prev ? 'always_invoice' : 'create_prorations';
-      await stripe.subscriptionItems.update(item.id, {
-        quantity: qty,
-        proration_behavior: prorationBehavior,
-      });
-      app.log.info(`[seats] tenant ${tenantId}: cantidad ${prev} -> ${qty} (${prorationBehavior})`);
+      const seats = sub.items?.data?.[0]?.quantity;
+      if (seats == null) return;
+      await supabase.from('tenants').update({ drivers_limit: seats }).eq('id', tenantId);
+      // Bloquear los más nuevos que sobren.
+      const { data: actives } = await supabase.from('users')
+        .select('id').eq('tenant_id', tenantId).eq('role', 'driver').eq('active', true)
+        .order('created_at', { ascending: true });
+      const list = actives || [];
+      if (list.length > seats) {
+        const toBlock = list.slice(seats).map((u) => u.id);
+        await supabase.from('users').update({ active: false }).in('id', toBlock);
+        app.log.info(`[seats] tenant ${tenantId}: bloqueados ${toBlock.length} conductores (cupo ${seats})`);
+      }
     } catch (e) {
-      app.log.warn(`[seats] no se pudo sincronizar asientos de ${tenantId}: ${e.message}`);
+      app.log.warn(`[seats] enforce ${tenantId}: ${e.message}`);
     }
   }
+
+  // Ajustar el nº de ASIENTOS PAGADOS (comprar/reducir). El jefe paga por
+  // adelantado su cupo de conductores; para añadir por encima de lo pagado,
+  // primero sube aquí los asientos (se cobra la parte proporcional YA). Reducir
+  // por debajo de los conductores activos bloquea los más nuevos.
+  app.post('/api/v1/subscription/seats', async (request, reply) => {
+    if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner') return reply.code(403).send({ error: 'Solo un Owner puede cambiar los asientos' });
+    const seats = Math.trunc(Number((request.body ?? {}).seats));
+    if (!Number.isFinite(seats) || seats < 1) return reply.code(400).send({ error: 'Número de asientos inválido' });
+    if (seats > MAX_SEATS) {
+      return reply.code(400).send({ code: 'over_max_seats', error: `El máximo por app son ${MAX_SEATS} asientos. Para más, contacta con nosotros.` });
+    }
+    const { data: t } = await supabase.from('tenants')
+      .select('stripe_subscription_id, subscription_status').eq('id', caller.tenant_id).maybeSingle();
+    const paid = t?.subscription_status === 'active' || t?.subscription_status === 'past_due';
+    if (!t?.stripe_subscription_id || !paid) {
+      return reply.code(400).send({ error: 'Durante la prueba no hace falta comprar asientos; puedes añadir conductores libremente.' });
+    }
+    try {
+      await setSeatQuantity(caller.tenant_id, seats);
+    } catch (e) {
+      return reply.code(502).send({ error: `No se pudo actualizar los asientos: ${e.message}` });
+    }
+    await supabase.from('tenants').update({ drivers_limit: seats }).eq('id', caller.tenant_id);
+    await enforceSeatLimit(caller.tenant_id); // bloquea los más nuevos si se redujo
+    return reply.send({ ok: true, seats });
+  });
 
   // --- Stripe Checkout (Fase 4) ---
   app.post('/api/v1/create-checkout-session', async (request, reply) => {
@@ -4261,6 +4348,9 @@ export async function buildApp(options = {}) {
         revertReferralForTenant,
         log: app.log,
       });
+      if (result.handled && result.tenant_id && SEAT_EVENTS.has(row.payload?.type)) {
+        try { await enforceSeatLimit(result.tenant_id); } catch (_) {/* best-effort */}
+      }
       await supabase.from('webhook_events')
         .update({ status: 'processed', processed_at: new Date().toISOString(),
           attempts, tenant_id: result.tenant_id ?? null })
@@ -4416,6 +4506,11 @@ export async function buildApp(options = {}) {
         log: request.log,
       });
       app.log.info(`[stripe-webhook] ${result.type} handled=${result.handled} tenant=${result.tenant_id ?? '-'}`);
+      // Aplica el cupo de asientos (drivers_limit + bloqueo de los más nuevos)
+      // tras un pago/cambio de suscripción (p. ej. al acabar la prueba).
+      if (result.handled && result.tenant_id && SEAT_EVENTS.has(event?.type)) {
+        try { await enforceSeatLimit(result.tenant_id); } catch (_) {/* best-effort */}
+      }
       // Marca el evento como procesado (best-effort).
       try {
         await supabase.from('webhook_events')

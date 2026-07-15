@@ -92,7 +92,9 @@ async function run() {
     assert.strictEqual(u.val, 'T1');
     assert.strictEqual(u.payload.subscription_status, 'active');
     assert.strictEqual(u.payload.plan_id, 'seat');
-    assert.strictEqual(u.payload.drivers_limit, null);
+    // drivers_limit (cupo de asientos) ya NO se toca en el webhook: lo fija
+    // enforceSeatLimit leyendo la cantidad real de la suscripción de Stripe.
+    assert.strictEqual(u.payload.drivers_limit, undefined);
     assert.strictEqual(u.payload.stripe_customer_id, 'cus_1');
     assert.strictEqual(u.payload.stripe_subscription_id, 'sub_1');
   });
@@ -120,7 +122,8 @@ async function run() {
     assert.strictEqual(r.handled, true);
     assert.strictEqual(sb.updates[0].payload.subscription_status, 'active');
     assert.strictEqual(sb.updates[0].payload.plan_id, 'seat');
-    assert.strictEqual(sb.updates[0].payload.drivers_limit, null);
+    // drivers_limit (cupo) ya no se toca aquí; lo gestiona enforceSeatLimit.
+    assert.strictEqual(sb.updates[0].payload.drivers_limit, undefined);
   });
 
   await check('customer.subscription.deleted -> canceled (resuelve por customer)', async () => {
