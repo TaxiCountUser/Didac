@@ -42,6 +42,8 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   // despacio). El nivel = cuánto supera la voz a ese suelo. Así la onda REACCIONA
   // al hablar y baja en silencio, sin quedarse clavada al máximo.
   double? _ampFloor;
+  // DIAGNÓSTICO temporal (calibración de la onda): rango real de amp.current.
+  double _dbgCur = 0, _dbgMin = double.infinity, _dbgMax = -double.infinity;
 
   @override
   void initState() {
@@ -91,6 +93,11 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   void _onAmplitude(Amplitude amp) {
     final db = amp.current;
     if (!db.isFinite) return;
+    // DIAGNÓSTICO temporal: registrar el rango REAL de amp.current en este móvil
+    // (no asumir dBFS). Se muestra en pantalla para calibrar bien.
+    _dbgCur = db;
+    if (db < _dbgMin) _dbgMin = db;
+    if (db > _dbgMax) _dbgMax = db;
     // Arranca en el nivel real (sin asumir escala). Baja al instante al silencio,
     // sube despacio hacia el ambiente.
     final floor = _ampFloor ??= db;
@@ -213,6 +220,18 @@ class _VoiceCaptureState extends State<VoiceCapture> {
                           ),
                         ),
                     ],
+                  ),
+                ),
+              // DIAGNÓSTICO temporal: valores reales de amplitud para calibrar.
+              if (_recording)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'dbg cur=${_dbgCur.toStringAsFixed(1)}  '
+                    'min=${_dbgMin.isFinite ? _dbgMin.toStringAsFixed(1) : '—'}  '
+                    'max=${_dbgMax.isFinite ? _dbgMax.toStringAsFixed(1) : '—'}  '
+                    'lvl=${_currentReal.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
                   ),
                 ),
               const SizedBox(height: 24),
