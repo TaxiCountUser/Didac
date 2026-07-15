@@ -782,29 +782,16 @@ class DataService {
     }
   }
 
-  // ---------------- Informes de error (Loop #6) ----------------
-
-  /// Admin: lista de informes de error (filtro opcional por estado).
-  Future<List<Map<String, dynamic>>> adminErrorReports({String? status}) async {
-    final qp = (status == null || status.isEmpty) ? '' : '?status=$status';
-    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/error-reports$qp'), headers: _bearer);
-    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
-    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
-    return ((body['reports'] as List?) ?? []).cast<Map<String, dynamic>>();
-  }
-
-  /// Admin: cambia el estado de un informe (new/viewed/in_progress/resolved).
-  Future<void> adminSetErrorReportStatus(String id, String status) async {
-    final res = await http.patch(
-      Uri.parse('$backendUrl/api/v1/admin/error-reports/$id'),
-      headers: _bearer,
-      body: jsonEncode({'status': status}),
-    );
+  /// Admin: borra un ticket de soporte (y sus mensajes).
+  Future<void> adminDeleteIncident(String id) async {
+    final res = await http.delete(
+      Uri.parse('$backendUrl/api/v1/admin/incidents/$id'), headers: _bearer);
     if (res.statusCode != 200) {
       final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
-      throw Exception(body['error'] ?? 'No se pudo actualizar el informe');
+      throw Exception(body['error'] ?? 'No se pudo borrar el ticket');
     }
   }
+
 
   /// Lista de administradores actuales (solo admin).
   Future<List<Map<String, dynamic>>> adminListAdmins() async {

@@ -75,11 +75,10 @@ Future<void> main() async {
         page = ReferralScreen(profile: p);
       } else if (p.isAdmin) {
         // Panel de admin: abrir el módulo correspondiente.
-        // 0 Soporte · 3 Monitorización · 4 Errores.
+        // 0 Soporte · 3 Monitorización.
         final module = switch (type) {
           'support' => 0,
           'limit' => 3,
-          'error_report' => 4,
           _ => null,
         };
         if (module != null) page = AdminModuleScreen(module: module);

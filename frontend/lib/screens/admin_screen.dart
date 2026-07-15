@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
-import 'admin_company_detail_screen.dart';
 import 'admin_config_tab.dart';
 import 'admin_theme.dart';
 import 'admin_incident_chat_screen.dart';
@@ -16,7 +15,7 @@ import 'admin_security_tab.dart';
 /// Módulos del panel de administración como pantallas PROPIAS (sin la barra
 /// de pestañas antigua): cada tarjeta de la portada abre su módulo con AppBar
 /// oscura y título, igual que Empresas y Facturación.
-/// 0 Soporte · 1 Retos · 2 Referidos · 3 Seguridad · 4 Errores · 5 Config.
+/// 0 Soporte · 1 Retos · 2 Referidos · 3 Monitorización · 4 Config · 5 Auditoría.
 class AdminModuleScreen extends StatelessWidget {
   final int module;
   const AdminModuleScreen({super.key, required this.module});
@@ -24,19 +23,18 @@ class AdminModuleScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final m = module.clamp(0, 6);
+    final m = module.clamp(0, 5);
     final titles = [
       l.t('adm_mod_support'),
       l.t('admin_challenges'),
       l.t('adm_ref_tab'),
       l.t('adm_mon_tab'),
-      l.t('adm_err_tab'),
       l.t('adm_cfg_tab'),
       l.t('adm_audit_tab'),
     ];
     const children = <Widget>[
       _IncidentsTab(), _ChallengesTab(), ReferralsTab(),
-      SecurityTab(mode: 'monitoring'), _ErrorReportsTab(), ConfigTab(),
+      SecurityTab(mode: 'monitoring'), ConfigTab(),
       SecurityTab(mode: 'audit'),
     ];
     return Theme(
@@ -201,10 +199,43 @@ class _IncidentsTabState extends State<_IncidentsTab> {
                         color: resolved ? AdminColors.amber : AdminColors.teal)),
               ),
             ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: l.t('delete'),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.delete_outline, size: 18, color: AdminColors.red),
+              onPressed: () => _deleteIncident(l, inc['id'] as String),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _deleteIncident(AppLocalizations l, String id) async {
+    final ok = await showAdminDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.t('adm_ticket_delete_title')),
+        content: Text(l.t('adm_ticket_delete_msg')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.t('delete'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _service.adminDeleteIncident(id);
+      _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('adm_ticket_deleted'))));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 }
 
@@ -1070,239 +1101,6 @@ class _ChallengesTabState extends State<_ChallengesTab> {
 
 }
 
-// ── Informes de error (Loop #6) ─────────────────────────────────────────────
-// Solo el admin de plataforma ve esta pestaña. El jefe recibe copia por push
-// pero no tiene acceso aquí (RLS + esta pantalla es del panel admin).
-class _ErrorReportsTab extends StatefulWidget {
-  const _ErrorReportsTab();
-  @override
-  State<_ErrorReportsTab> createState() => _ErrorReportsTabState();
-}
-
-class _ErrorReportsTabState extends State<_ErrorReportsTab> {
-  final _service = DataService();
-  String _status = ''; // '' = todos
-  late Future<List<Map<String, dynamic>>> _future = _load();
-
-  Future<List<Map<String, dynamic>>> _load() =>
-      _service.adminErrorReports(status: _status.isEmpty ? null : _status);
-
-  void _reload() => setState(() => _future = _load());
-
-  Future<void> _setStatus(String id, String status) async {
-    try {
-      await _service.adminSetErrorReportStatus(id, status);
-      _reload();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
-  String _statusLabel(AppLocalizations l, String s) => switch (s) {
-        'new' => l.t('adm_err_new'),
-        'viewed' => l.t('adm_err_viewed'),
-        'in_progress' => l.t('adm_err_in_progress'),
-        'resolved' => l.t('adm_err_resolved'),
-        _ => s,
-      };
-
-  Color _statusColor(String s) => switch (s) {
-        'resolved' => AdminColors.teal,
-        'in_progress' => AdminColors.blue,
-        'viewed' => AdminColors.gray,
-        _ => AdminColors.coral, // new
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    final l = context.l10n;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-          child: SizedBox(
-            height: 30,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final (s, label) in [
-                  ('', l.t('adm_ref_all')),
-                  ('new', l.t('adm_err_new')),
-                  ('viewed', l.t('adm_err_viewed')),
-                  ('in_progress', l.t('adm_err_in_progress')),
-                  ('resolved', l.t('adm_err_resolved')),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: AdminPill(
-                      label: label,
-                      selected: _status == s,
-                      color: s.isEmpty ? AdminColors.coral : _statusColor(s),
-                      onTap: () { _status = s; _reload(); },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: _future,
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snap.hasError) {
-                return _ErrorRetry(error: '${snap.error}', onRetry: _reload);
-              }
-              final list = snap.data ?? [];
-              if (list.isEmpty) {
-                return Center(child: Text(l.t('adm_err_empty')));
-              }
-              return RefreshIndicator(
-                onRefresh: () async => _reload(),
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: list.length,
-                  itemBuilder: (context, i) => _reportTile(l, list[i]),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _reportTile(AppLocalizations l, Map<String, dynamic> r) {
-    final desc = (r['description'] as String?) ?? '';
-    final status = (r['status'] as String?) ?? 'new';
-    final company = ((r['tenants'] as Map?)?['name'] as String?) ?? '—';
-    final author = ((r['users'] as Map?)?['name'] as String?)
-        ?? ((r['users'] as Map?)?['email'] as String?) ?? '—';
-    final device = (r['device_info'] as String?) ?? '';
-    final created = DateTime.tryParse((r['created_at'] as String?) ?? '');
-    final df = DateFormat('dd/MM/yyyy HH:mm');
-    return InkWell(
-      onTap: () => _openReport(l, r, df),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: adminCardBox(),
-        child: Row(
-          children: [
-            Icon(Icons.bug_report, size: 18, color: _statusColor(status)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12, color: AdminColors.text)),
-                  Text(
-                    '$company · $author${created != null ? ' · ${df.format(created)}' : ''}',
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 10, color: AdminColors.muted),
-                  ),
-                  if (device.isNotEmpty)
-                    Text(device,
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 9, color: AdminColors.muted)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            AdminTag(_statusLabel(l, status),
-                fg: _statusColor(status),
-                bg: _statusColor(status).withValues(alpha: .16)),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 15, color: AdminColors.muted),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Detalle del informe: texto completo, contexto y ACCIONES (cambiar estado
-  // con un toque, abrir la ficha de la empresa afectada).
-  Future<void> _openReport(
-      AppLocalizations l, Map<String, dynamic> r, DateFormat df) async {
-    final status = (r['status'] as String?) ?? 'new';
-    final company = ((r['tenants'] as Map?)?['name'] as String?) ?? '—';
-    final author = ((r['users'] as Map?)?['name'] as String?)
-        ?? ((r['users'] as Map?)?['email'] as String?) ?? '—';
-    final device = (r['device_info'] as String?) ?? '';
-    final created = DateTime.tryParse((r['created_at'] as String?) ?? '');
-    final tenantId = r['tenant_id'] as String?;
-    await showAdminDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.t('adm_err_detail'), style: const TextStyle(fontSize: 16)),
-        content: SizedBox(
-          width: 440,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$company · $author'
-                  '${created != null ? ' · ${df.format(created)}' : ''}'
-                  '${device.isNotEmpty ? '\n$device' : ''}',
-                  style: const TextStyle(fontSize: 11, color: AdminColors.muted),
-                ),
-                const Divider(height: 16),
-                SelectableText((r['description'] as String?) ?? '—',
-                    style: const TextStyle(fontSize: 13)),
-                const Divider(height: 16),
-                Text(l.t('adm_err_change_status').toUpperCase(),
-                    style: const TextStyle(
-                        fontSize: 10, letterSpacing: 1.2,
-                        color: AdminColors.muted)),
-                const SizedBox(height: 8),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  for (final s in ['new', 'viewed', 'in_progress', 'resolved'])
-                    AdminPill(
-                      label: _statusLabel(l, s),
-                      selected: status == s,
-                      color: _statusColor(s),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _setStatus(r['id'] as String, s);
-                      },
-                    ),
-                ]),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          if (tenantId != null)
-            TextButton.icon(
-              icon: const Icon(Icons.business, size: 16, color: AdminColors.purple),
-              label: Text(l.t('adm_open_company'),
-                  style: const TextStyle(color: AdminColors.purple)),
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => AdminCompanyDetailScreen(
-                      tenantId: tenantId, tenantName: company),
-                ));
-              },
-            ),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
-        ],
-      ),
-    );
-  }
-}
 
 class _ErrorRetry extends StatelessWidget {
   final String error;

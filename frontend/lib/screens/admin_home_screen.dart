@@ -55,11 +55,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // Reorganización del dashboard: "Seguridad" se dividió en Monitorización
   // (métricas+semáforos+flags) y Auditoría; el fraude vive ahora en Referidos.
-  // 0 Soporte · 1 Retos · 2 Referidos · 3 Monitorización · 4 Errores · 5 Config
-  // · 6 Auditoría.
+  // 0 Soporte · 1 Retos · 2 Referidos · 3 Monitorización · 4 Config · 5 Auditoría.
   static const _moduleTab = {
     'company': -2, 'incidents': 0, 'challenges': 1, 'referrals': 2,
-    'monitoring': 3, 'errors': 4, 'config': 5, 'audit': 6,
+    'monitoring': 3, 'config': 4, 'audit': 5,
   };
 
   @override
@@ -502,13 +501,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       _Module(l.t('adm_ref_tab'), Icons.card_giftcard, AdminColors.pink,
           l.t('adm_pending_n', {'n': '${pi('fraud')}'}), pi('fraud'), 2),
       _Module(l.t('adm_mon_tab'), Icons.monitor_heart, AdminColors.teal, '', 0, 3),
-      _Module(l.t('adm_audit_tab'), Icons.receipt_long, AdminColors.gray, '', 0, 6),
-      _Module(l.t('adm_err_tab'), Icons.bug_report, AdminColors.coral,
-          l.t('adm_pending_n', {'n': '${pi('errors')}'}), pi('errors'), 4),
+      _Module(l.t('adm_audit_tab'), Icons.receipt_long, AdminColors.gray, '', 0, 5),
       _Module(l.t('adm_mod_billing'), Icons.payments, AdminColors.teal,
           '${(k['mrr_estimate'] as num?)?.toStringAsFixed(0) ?? '0'}€/mes',
           (k['past_due'] as num?)?.toInt() ?? 0, -3),
-      _Module(l.t('adm_cfg_tab'), Icons.settings, AdminColors.gray, '', 0, 5),
+      _Module(l.t('adm_cfg_tab'), Icons.settings, AdminColors.gray, '', 0, 4),
     ];
 
     return GridView.builder(

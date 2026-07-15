@@ -1292,9 +1292,6 @@ export async function buildApp(options = {}) {
       .select('id, body, created_at, tenant_id, tenants(name)')
       .eq('kind', 'app').eq('status', 'abierta')
       .order('created_at', { ascending: true }).limit(100);
-    const { data: errNew } = await supabase.from('error_reports')
-      .select('id, description, created_at, tenants:tenant_id(name)').eq('status', 'new')
-      .order('created_at', { ascending: false }).limit(100);
     const { data: suspicious } = await supabase.from('challenge_claims')
       .select('id, tenant_id, user_id, created_at, users:user_id(name, email), tenants:tenant_id(name)')
       .eq('suspicious', true).eq('status', 'rewarded').is('reward_redeemed_at', null)
@@ -1327,11 +1324,7 @@ export async function buildApp(options = {}) {
       inbox.push({ type: 'trial', id: t.id, title: `La prueba de ${t.name} acaba en ${days} día${days === 1 ? '' : 's'}`,
         subtitle: `${t.users_count} usuarios`, tenant_id: t.id, created_at: t.trial_ends_at, module: 'company' });
     }
-    for (const e of errNew ?? []) {
-      inbox.push({ type: 'error', id: e.id, title: (e.description || '').slice(0, 90),
-        subtitle: e.tenants?.name ?? '', created_at: e.created_at, module: 'errors' });
-    }
-    const prio = { fraud: 0, challenge: 1, ticket: 2, trial: 3, error: 4 };
+    const prio = { fraud: 0, challenge: 1, ticket: 2, trial: 3 };
     inbox.sort((a, b) => (prio[a.type] - prio[b.type])
       || (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
 
@@ -1490,6 +1483,16 @@ export async function buildApp(options = {}) {
       .update({ status })
       .eq('id', request.params.id);
     if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // Borrar un ticket de soporte (y sus mensajes, por cascada). Solo admin.
+  app.delete('/api/v1/admin/incidents/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { error } = await supabase.from('incidents').delete().eq('id', request.params.id);
+    if (error) return reply.code(400).send({ error: error.message });
+    await logAdminAction(request, g.caller.id, 'incident_delete', 'incident', request.params.id, null);
     return reply.send({ ok: true });
   });
 
