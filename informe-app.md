@@ -197,6 +197,7 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 - **Referidos:** `referrals`, `referral_codes`, `referral_shares`, `referral_milestone_rewards`, `referral_validation_queue`, `referral_fraud_alerts`.
 - **Soporte (plataforma):** `incidents` (kind='app'), `incident_messages`, `error_reports`, `fraud_alerts`.
 - **Chat de flota (jefe↔conductor):** `fleet_messages` (chat directo 1:1, privado del tenant; el admin no lo ve). Reemplaza las antiguas notas `incidents kind='nota'`.
+- **Mantenimiento de vehículos:** fechas en `vehicles` (itv/taximeter_itv/insurance/transport_card + revisión por km) + `maintenance_reminders_sent` (throttle de avisos). Cron diario (maintenance-reminders.yml) avisa al jefe por push en hitos 30/15/7/1 días/día/caducado y ~1000/~200/0 km.
 - **Plataforma:** `system_config`, `admin_actions_log`, `cron_execution_logs`, `device_tokens`.
 - **Seguridad en el motor:** 53 políticas RLS + helpers `SECURITY DEFINER`
   (`current_tenant_id`, `current_role_name`, `is_platform_admin`, `current_subscription_active`)
