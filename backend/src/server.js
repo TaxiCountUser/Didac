@@ -1376,7 +1376,6 @@ export async function buildApp(options = {}) {
     health -= Math.min(15, ticketsOld * 5);
     health -= pastDue.length > 0 ? 10 : 0;
     health -= cronStale ? 10 : 0;
-    health -= Math.min(10, (errNew?.length ?? 0) * 2);
     health -= webhookErrors > 0 ? 10 : 0; // cobros/cancelaciones sin reflejar
     health = Math.max(0, Math.round(health));
 
@@ -1401,7 +1400,6 @@ export async function buildApp(options = {}) {
         challenges: suspicious?.length ?? 0,
         tickets: tickets?.length ?? 0,
         trials_ending: trialSoon.length,
-        errors: errNew?.length ?? 0,
       },
       inbox: inbox.slice(0, 12),
       crons,
