@@ -1770,11 +1770,17 @@ export async function buildApp(options = {}) {
       patch.join_code = code === '' ? null : code;
     }
     if (b.trial_ends_at !== undefined) patch.trial_ends_at = b.trial_ends_at; // ISO o null
-    // Atajo: extender la prueba N días desde ahora.
+    // Atajo: SUMAR (o restar, con negativo) N días a la prueba. Base = el fin de
+    // prueba actual si aún es futuro; si ya pasó, ahora. Así +N amplía y -N quita
+    // días (si se resta más de lo que queda, la prueba queda caducada).
     if (b.extend_trial_days !== undefined && b.extend_trial_days !== null) {
       const days = Number(b.extend_trial_days);
-      if (!Number.isNaN(days)) {
-        patch.trial_ends_at = new Date(Date.now() + days * 86400000).toISOString();
+      if (!Number.isNaN(days) && days !== 0) {
+        const { data: cur } = await supabase.from('tenants')
+          .select('trial_ends_at').eq('id', request.params.id).maybeSingle();
+        const curEnd = cur?.trial_ends_at ? new Date(cur.trial_ends_at).getTime() : 0;
+        const base = Math.max(Date.now(), curEnd);
+        patch.trial_ends_at = new Date(base + days * 86400000).toISOString();
       }
     }
     if (Object.keys(patch).length === 0) {

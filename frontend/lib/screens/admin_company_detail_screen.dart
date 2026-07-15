@@ -315,8 +315,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               row(l.t('admin_mode_solo'),
                   solo ? l.t('admin_mode_solo') : l.t('admin_mode_fleet')),
               const Divider(height: 1, color: AdminColors.hairline),
-              row('${l.t('admin_plan')} · ${l.t('admin_status')}',
-                  '${(t['plan_id'] as String?)?.isNotEmpty == true ? t['plan_id'] : '—'} · ${adminStatusLabel(l, status)}',
+              row(l.t('admin_status'), adminStatusLabel(l, status),
                   action: Icons.edit, onTap: () => _editSubscription(l, t)),
               const Divider(height: 1, color: AdminColors.hairline),
               row(l.t('admin_days_using'), daysUsing),
@@ -623,14 +622,12 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   // ===================== Editar suscripción (portado) =====================
   Future<void> _editSubscription(AppLocalizations l, Map<String, dynamic> t) async {
     String status = (t['subscription_status'] as String?) ?? 'trialing';
-    String plan = (t['plan_id'] as String?) ?? '';
     final limitCtrl = TextEditingController(
         text: t['drivers_limit'] == null ? '' : '${t['drivers_limit']}');
     final extendCtrl = TextEditingController();
     final codeCtrl =
         TextEditingController(text: (t['join_code'] as String?) ?? '');
     const statuses = ['active', 'trialing', 'past_due', 'canceled', 'inactive'];
-    const plans = ['', 'starter', 'pro', 'business'];
 
     final saved = await showAdminDialog<bool>(
       context: context,
@@ -652,17 +649,6 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                           child: Text('${adminStatusLabel(l, s)} ($s)')),
                   ],
                   onChanged: (v) => setLocal(() => status = v ?? status),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: plan,
-                  decoration: InputDecoration(labelText: l.t('admin_plan')),
-                  items: [
-                    for (final p in plans)
-                      DropdownMenuItem(
-                          value: p, child: Text(p.isEmpty ? '—' : p)),
-                  ],
-                  onChanged: (v) => setLocal(() => plan = v ?? plan),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -704,13 +690,13 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     if (saved != true) return;
     final patch = <String, dynamic>{
       'subscription_status': status,
-      'plan_id': plan,
       'drivers_limit':
           limitCtrl.text.trim().isEmpty ? null : limitCtrl.text.trim(),
       'join_code': codeCtrl.text.trim(),
     };
+    // + añade días, - quita días de prueba.
     final extend = int.tryParse(extendCtrl.text.trim());
-    if (extend != null && extend > 0) patch['extend_trial_days'] = extend;
+    if (extend != null && extend != 0) patch['extend_trial_days'] = extend;
     await _guard(
         () => _service.adminUpdateCompany(widget.tenantId, patch),
         l.t('saved'));
