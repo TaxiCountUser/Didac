@@ -85,10 +85,11 @@ class _VoiceCaptureState extends State<VoiceCapture> {
   void _onAmplitude(Amplitude amp) {
     final db = amp.current;
     if (!db.isFinite) return;
-    // amp.current es dBFS: ~-160 en silencio, ~-25 hablando, ~-5 muy fuerte
-    // (medido en dispositivo). Mapeamos el rango ÚTIL de voz (-50..-10 dB) a
-    // 0..1: en silencio queda plano y al hablar sube según el volumen.
-    _currentReal = ((db + 50) / 40).clamp(0.0, 1.0);
+    // amp.current es dBFS. Medido en dispositivo: el SILENCIO ronda -30 dBFS
+    // (no -160; eso era un instante al arrancar) y la voz sube a ~-10..-3.
+    // Mapeamos -32 dB -> 0 (silencio plano) y -3 dB -> 1, dejando margen arriba
+    // para que la voz floja no se clave al máximo.
+    _currentReal = ((db + 32) / 29).clamp(0.0, 1.0);
     _lastAmpAt = DateTime.now();
   }
 
