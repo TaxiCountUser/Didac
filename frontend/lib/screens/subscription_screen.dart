@@ -60,6 +60,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   final _service = DataService();
   Map<String, dynamic>? _billing;
   Map<String, dynamic>? _savings; // ahorro por retos/referidos (Loop #8)
+  Map<String, dynamic>? _seatInfo; // periodo/precio real del asiento (para avisar del cobro)
   int _activeDrivers = 1;
   bool _loading = true;
   bool _busy = false;
@@ -89,6 +90,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         final s = await _service.tenantFreeDays();
         if (mounted) setState(() => _savings = s);
       } catch (_) {/* sin tarjetas de días gratis */}
+      // Periodo/precio real del asiento, para avisar del cobro al añadir. Best-effort.
+      try {
+        final si = await _service.fetchSeatInfo();
+        if (mounted) setState(() => _seatInfo = si);
+      } catch (_) {/* sin info de asiento (aún en prueba) */}
       if (!mounted) return;
       setState(() {
         _billing = b;
@@ -452,7 +458,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Row(
                 children: [
                   IconButton.filledTonal(
-                    onPressed: (_busySeats || seats <= _activeDrivers) ? null : () => _setSeats(seats - 1),
+                    onPressed: (_busySeats || seats <= _activeDrivers) ? null : () => _confirmSetSeats(seats, seats - 1),
                     icon: const Icon(Icons.remove),
                   ),
                   Padding(
@@ -460,7 +466,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     child: Text('$seats', style: Theme.of(context).textTheme.titleLarge),
                   ),
                   IconButton.filledTonal(
-                    onPressed: _busySeats ? null : () => _setSeats(seats + 1),
+                    onPressed: _busySeats ? null : () => _confirmSetSeats(seats, seats + 1),
                     icon: const Icon(Icons.add),
                   ),
                   const Spacer(),
@@ -473,6 +479,44 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ),
       ),
     );
+  }
+
+  /// Etiqueta del precio por asiento según el periodo REAL del plan (Stripe).
+  /// Cae a los precios base de config si aún no tenemos la info.
+  String _seatPriceLabel(AppLocalizations l) {
+    final yearly = _seatInfo?['interval'] == 'year';
+    final cents = (_seatInfo?['unit_amount'] as num?);
+    final eur = cents != null
+        ? (cents / 100)
+        : (yearly ? kSeatYearly : kSeatMonthly);
+    final txt = eur == eur.roundToDouble()
+        ? eur.toStringAsFixed(0)
+        : eur.toStringAsFixed(2).replaceAll('.', ',');
+    return l.t(yearly ? 'seat_price_year' : 'seat_price_month', {'eur': txt});
+  }
+
+  /// Pide confirmación ANTES de cambiar los asientos. Subir cobra la parte
+  /// proporcional ya; bajar acredita el sobrante en la próxima factura.
+  Future<void> _confirmSetSeats(int from, int to) async {
+    final l = context.l10n;
+    final adding = to > from;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t(adding ? 'seat_add_title' : 'seat_remove_title')),
+        content: Text(adding
+            ? l.t('seat_add_msg', {'from': '$from', 'to': '$to', 'price': _seatPriceLabel(l)})
+            : l.t('seat_remove_msg', {'from': '$from', 'to': '$to'})),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.t(adding ? 'seat_buy_ok' : 'confirm')),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await _setSeats(to);
   }
 
   Future<void> _setSeats(int seats) async {

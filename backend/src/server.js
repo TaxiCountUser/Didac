@@ -2406,6 +2406,33 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, seats });
   });
 
+  // Info del asiento (para el aviso de cobro ANTES de comprar): cantidad actual,
+  // periodo real (month|year) y precio unitario, leídos de Stripe. Así la UI puede
+  // avisar "se cobrará X/conductor de forma proporcional" con el periodo correcto.
+  app.get('/api/v1/subscription/seats', async (request, reply) => {
+    if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    const { data: t } = await supabase.from('tenants')
+      .select('stripe_subscription_id, subscription_status').eq('id', caller.tenant_id).maybeSingle();
+    const subId = t?.stripe_subscription_id;
+    const paid = t?.subscription_status === 'active' || t?.subscription_status === 'past_due';
+    if (!subId || !paid) return reply.send({ seats: null, interval: null, unit_amount: null, currency: 'eur' });
+    try {
+      const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] });
+      const item = sub.items?.data?.[0];
+      const price = item?.price;
+      return reply.send({
+        seats: item?.quantity ?? null,
+        interval: price?.recurring?.interval ?? null, // 'month' | 'year'
+        unit_amount: price?.unit_amount ?? null,       // en céntimos
+        currency: price?.currency ?? 'eur',
+      });
+    } catch (e) {
+      return reply.code(502).send({ error: e.message });
+    }
+  });
+
   // --- Stripe Checkout (Fase 4) ---
   app.post('/api/v1/create-checkout-session', async (request, reply) => {
     if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });

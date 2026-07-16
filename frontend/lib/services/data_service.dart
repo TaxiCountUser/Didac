@@ -353,6 +353,22 @@ class DataService {
     return (body['seats'] as num?)?.toInt() ?? seats;
   }
 
+  /// Info del asiento para avisar del cobro antes de comprar:
+  /// {seats, interval ('month'|'year'|null), unit_amount (céntimos|null), currency}.
+  Future<Map<String, dynamic>> fetchSeatInfo() async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.get(
+      Uri.parse('$backendUrl/api/v1/subscription/seats'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'No se pudo obtener la info de asientos');
+    }
+    return body;
+  }
+
   /// Elimina definitivamente la cuenta de un conductor (vía backend).
   Future<void> deleteDriver(String id) async {
     final token = _c.auth.currentSession?.accessToken;
