@@ -198,6 +198,7 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 - **Soporte (plataforma):** `incidents` (kind='app'), `incident_messages`, `error_reports`, `fraud_alerts`.
 - **Chat de flota (jefe↔conductor):** `fleet_messages` (chat directo 1:1, privado del tenant; el admin no lo ve). Reemplaza las antiguas notas `incidents kind='nota'`.
 - **Mantenimiento de vehículos:** fechas en `vehicles` (itv/taximeter_itv/insurance/transport_card + revisión por km) + `maintenance_reminders_sent` (throttle de avisos). Cron diario (maintenance-reminders.yml) avisa al jefe por push en hitos 30/15/7/1 días/día/caducado y ~1000/~200/0 km.
+- **Corregir alta de un vehículo (jefe):** desde la ficha puede editar matrícula, modelo y km inicial por si se equivocó al darlo de alta. El km inicial NO se cambia a secas: reescala toda la escala del odómetro (lecturas de odómetro y carreras + `last_revision_km`) por el mismo delta, así los km ya recorridos se CONSERVAN (reto de km = lectura − inicial, invariante) y el odómetro pasa a la escala corregida. RPC atómico `rebase_vehicle_initial_km` (mig. 073, SECURITY DEFINER, solo Owner).
 - **Plataforma:** `system_config`, `admin_actions_log`, `cron_execution_logs`, `device_tokens`.
 - **Seguridad en el motor:** 53 políticas RLS + helpers `SECURITY DEFINER`
   (`current_tenant_id`, `current_role_name`, `is_platform_admin`, `current_subscription_active`)
