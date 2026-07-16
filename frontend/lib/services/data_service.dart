@@ -258,28 +258,26 @@ class DataService {
     await _c.from('vehicles').update(fields).eq('id', id);
   }
 
-  /// Corrige los datos de alta del vehículo (matrícula, modelo y km inicial) por
-  /// si el jefe se equivocó al darlo de alta. Solo Owner por RLS. La matrícula no
-  /// puede quedar vacía; el modelo sí (opcional).
-  ///
-  /// [initialOdometer] (si se pasa) es el km de partida del reto de km: el
-  /// progreso se calcula EN VIVO como (lecturas - km inicial), así que cambiarlo
-  /// recalcula automáticamente todo lo recorrido de ese vehículo. Se actualiza
-  /// también registered_km (campo de compatibilidad) para dejar la base unívoca.
-  Future<void> updateVehicleInfo(String id,
-      {required String licensePlate, String? model, int? initialOdometer}) async {
+  /// Corrige los datos de identificación del vehículo (matrícula y modelo) por si
+  /// el jefe se equivocó al darlo de alta. Solo Owner por RLS. La matrícula no
+  /// puede quedar vacía; el modelo sí (opcional). El km inicial NO se toca aquí:
+  /// para eso está [rebaseVehicleInitialKm], que reescala también las lecturas.
+  Future<void> updateVehicleInfo(String id, {required String licensePlate, String? model}) async {
     final plate = licensePlate.trim();
     if (plate.isEmpty) throw Exception('La matrícula no puede estar vacía');
-    final fields = <String, dynamic>{
+    await _c.from('vehicles').update({
       'license_plate': plate,
       'model': (model == null || model.trim().isEmpty) ? null : model.trim(),
-    };
-    if (initialOdometer != null) {
-      if (initialOdometer < 0) throw Exception('El km inicial no puede ser negativo');
-      fields['initial_odometer'] = initialOdometer;
-      fields['registered_km'] = initialOdometer;
-    }
-    await _c.from('vehicles').update(fields).eq('id', id);
+    }).eq('id', id);
+  }
+
+  /// Corrige el km inicial de un vehículo CONSERVANDO la distancia ya recorrida:
+  /// reescala todas las lecturas (odómetro y carreras) por el mismo delta, de
+  /// modo que (lectura - km inicial) no cambia y el odómetro actual pasa a la
+  /// escala corregida. Atómico y solo-Owner (RPC SECURITY DEFINER, mig. 073).
+  Future<void> rebaseVehicleInitialKm(String vehicleId, int newInitial) async {
+    await _c.rpc('rebase_vehicle_initial_km',
+        params: {'p_vehicle': vehicleId, 'p_new_initial': newInitial});
   }
 
   /// Km actuales (máx. conocido) de varios vehículos a la vez, para la lista.

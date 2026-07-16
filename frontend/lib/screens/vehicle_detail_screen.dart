@@ -303,8 +303,9 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('vh_initial_km_required'))));
       return;
     }
-    // Confirmación extra SOLO si cambia el km inicial (afecta al reto de km).
-    if (newKm != null && newKm != origKm) {
+    final kmChanged = newKm != null && newKm != origKm;
+    // Confirmación extra SOLO si cambia el km inicial (reescala el odómetro).
+    if (kmChanged) {
       if (!mounted) return;
       final confirm = await showDialog<bool>(
         context: context,
@@ -320,16 +321,19 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       if (confirm != true) return;
     }
     try {
-      await _service.updateVehicleInfo(_id,
-          licensePlate: plate, model: modelCtrl.text, initialOdometer: newKm);
+      await _service.updateVehicleInfo(_id, licensePlate: plate, model: modelCtrl.text);
+      // El km inicial se corrige aparte: reescala también las lecturas para que
+      // la distancia recorrida se conserve (RPC atómico).
+      if (kmChanged) await _service.rebaseVehicleInitialKm(_id, newKm);
       if (mounted) {
         setState(() => _v = {
               ..._v,
               'license_plate': plate,
               'model': modelCtrl.text.trim().isEmpty ? null : modelCtrl.text.trim(),
-              if (newKm != null) 'initial_odometer': newKm,
-              if (newKm != null) 'registered_km': newKm,
+              if (kmChanged) 'initial_odometer': newKm,
+              if (kmChanged) 'registered_km': newKm,
             });
+        if (kmChanged) _loadKm(); // el odómetro actual queda en la escala corregida
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('vh_info_saved'))));
       }
     } catch (e) {

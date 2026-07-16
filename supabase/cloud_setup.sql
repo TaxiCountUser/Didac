@@ -2709,3 +2709,55 @@ create index if not exists idx_maint_reminders_vehicle
   on public.maintenance_reminders_sent(vehicle_id);
 grant select, insert on public.maintenance_reminders_sent to service_role;
 alter table public.maintenance_reminders_sent enable row level security;
+
+-- ===== 073_rebase_vehicle_initial_km.sql =====
+create or replace function public.rebase_vehicle_initial_km(p_vehicle uuid, p_new_initial integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_tenant uuid;
+  v_old    integer;
+  v_delta  integer;
+begin
+  if public.current_role_name() is distinct from 'owner' then
+    raise exception 'solo el propietario puede corregir el km inicial';
+  end if;
+  if p_new_initial is null or p_new_initial < 0 then
+    raise exception 'km inicial invalido';
+  end if;
+
+  select tenant_id, coalesce(nullif(initial_odometer, 0), registered_km, 0)
+    into v_tenant, v_old
+    from public.vehicles
+   where id = p_vehicle;
+  if v_tenant is null or v_tenant is distinct from public.current_tenant_id() then
+    raise exception 'vehiculo no encontrado en tu empresa';
+  end if;
+
+  v_delta := p_new_initial - v_old;
+
+  if v_delta <> 0 then
+    update public.odometer_readings
+       set reading_km = reading_km + v_delta
+     where vehicle_id = p_vehicle;
+    update public.transactions
+       set odometer_km = odometer_km + v_delta
+     where vehicle_id = p_vehicle and odometer_km is not null;
+  end if;
+
+  update public.vehicles
+     set initial_odometer = p_new_initial,
+         registered_km    = p_new_initial,
+         last_revision_km = case when last_revision_km is not null
+                                 then last_revision_km + v_delta else null end
+   where id = p_vehicle;
+end;
+$$;
+
+revoke all on function public.rebase_vehicle_initial_km(uuid, integer) from public, anon;
+grant execute on function public.rebase_vehicle_initial_km(uuid, integer) to authenticated, service_role;
+
+notify pgrst, 'reload schema';
