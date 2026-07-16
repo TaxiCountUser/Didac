@@ -719,7 +719,13 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          '${l.t('set_active_vehicle')}: ${_activeVehicleLabel ?? l.t('set_no_vehicle')}',
+                          // "Activo" = el elegido HOY al iniciar jornada. Si aún no
+                          // hay, distinguir entre "tiene asignados" y "no tiene".
+                          _activeVehicleLabel != null
+                              ? '${l.t('set_active_vehicle')}: ${_activeVehicleLabel!}'
+                              : (_vehicleCount > 0
+                                  ? l.t('set_no_vehicle_today', {'n': '$_vehicleCount'})
+                                  : l.t('set_no_vehicle_assigned')),
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
