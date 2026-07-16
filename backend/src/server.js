@@ -1222,6 +1222,48 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, id: row.id, status });
   });
 
+  // ---- Ingresos REALES cobrados (fuente de verdad = Stripe). Suma las facturas
+  // pagadas: `paid` = neto cobrado (lo que han pagado los clientes), `discount` =
+  // total descontado con cupones. En céntimos. El global se cachea 60 s para no
+  // listar Stripe en cada carga del panel.
+  async function sumPaidInvoices(params) {
+    let paid = 0;
+    let discount = 0;
+    let count = 0;
+    let currency = 'eur';
+    for await (const inv of stripe.invoices.list({ status: 'paid', limit: 100, ...params })) {
+      paid += inv.amount_paid || 0;
+      for (const d of inv.total_discount_amounts || []) discount += d.amount || 0;
+      count += 1;
+      if (inv.currency) currency = inv.currency;
+    }
+    return { paid, discount, count, currency };
+  }
+
+  let _revenueCache = null; // { at, data }
+  async function readGlobalRevenue() {
+    if (!stripe) return null;
+    if (_revenueCache && Date.now() - _revenueCache.at < 60000) return _revenueCache.data;
+    try {
+      const data = await sumPaidInvoices({});
+      _revenueCache = { at: Date.now(), data };
+      return data;
+    } catch (e) {
+      app.log.warn(`[revenue] global: ${e.message}`);
+      return _revenueCache?.data ?? null;
+    }
+  }
+
+  async function readTenantRevenue(customerId) {
+    if (!stripe || !customerId) return { paid: 0, discount: 0, count: 0, currency: 'eur' };
+    try {
+      return await sumPaidInvoices({ customer: customerId });
+    } catch (e) {
+      app.log.warn(`[revenue] tenant: ${e.message}`);
+      return { paid: 0, discount: 0, count: 0, currency: 'eur' };
+    }
+  }
+
   // Resumen de todas las empresas: datos + nº de usuarios + incidencias abiertas.
   app.get('/api/v1/admin/overview', async (request, reply) => {
     const g = await adminGuard(request);
@@ -1379,6 +1421,10 @@ export async function buildApp(options = {}) {
     health -= webhookErrors > 0 ? 10 : 0; // cobros/cancelaciones sin reflejar
     health = Math.max(0, Math.round(health));
 
+    // Ingresos reales cobrados (Stripe): total facturado neto + lo descontado con
+    // cupones. En euros. Best-effort: si Stripe no responde, revenue = null.
+    const revenue = await readGlobalRevenue();
+
     return reply.send({
       tenants: rows,
       totals: {
@@ -1395,6 +1441,12 @@ export async function buildApp(options = {}) {
         drivers_active: driversActive,
         mrr_estimate: Number(mrr.toFixed(2)),
       },
+      revenue: revenue ? {
+        paid_total: Number((revenue.paid / 100).toFixed(2)),
+        coupon_total: Number((revenue.discount / 100).toFixed(2)),
+        invoices: revenue.count,
+        currency: revenue.currency,
+      } : null,
       pending: {
         fraud: fraudOpen,
         challenges: suspicious?.length ?? 0,
@@ -1592,6 +1644,10 @@ export async function buildApp(options = {}) {
       for (const u of activeDrivers) mrrCompany += Number(u.annual_price_paid ?? 15) / 12;
     }
     const freeDays = await freeDaysForTenant(id);
+    // Ingresos REALES cobrados a esta empresa (Stripe): total pagado + lo
+    // descontado con cupones. Esto NO son las finanzas internas del cliente
+    // (sus carreras), sino lo que ELLA nos ha pagado a nosotros. En euros.
+    const rev = await readTenantRevenue(tenant.stripe_customer_id);
 
     return reply.send({
       tenant,
@@ -1604,6 +1660,9 @@ export async function buildApp(options = {}) {
       incidents_list: incidentList || [],
       billing: {
         mrr_estimate: Number(mrrCompany.toFixed(2)),
+        paid_total: Number((rev.paid / 100).toFixed(2)),
+        coupon_total: Number((rev.discount / 100).toFixed(2)),
+        paid_invoices: rev.count,
         free_days: freeDays.total,
         free_days_challenges: freeDays.challenges,
         free_days_referrals: freeDays.referrals,

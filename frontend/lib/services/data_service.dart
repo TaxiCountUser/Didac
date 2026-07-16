@@ -258,6 +258,18 @@ class DataService {
     await _c.from('vehicles').update(fields).eq('id', id);
   }
 
+  /// Corrige los datos de identificación del vehículo (matrícula y modelo) por si
+  /// el jefe se equivocó al darlo de alta. Solo Owner por RLS. La matrícula no
+  /// puede quedar vacía; el modelo sí (opcional).
+  Future<void> updateVehicleInfo(String id, {required String licensePlate, String? model}) async {
+    final plate = licensePlate.trim();
+    if (plate.isEmpty) throw Exception('La matrícula no puede estar vacía');
+    await _c.from('vehicles').update({
+      'license_plate': plate,
+      'model': (model == null || model.trim().isEmpty) ? null : model.trim(),
+    }).eq('id', id);
+  }
+
   /// Km actuales (máx. conocido) de varios vehículos a la vez, para la lista.
   /// Devuelve {vehicleId: km} solo con los que tienen alguna lectura.
   Future<Map<String, int>> currentKmFor(List<String> vehicleIds) async {

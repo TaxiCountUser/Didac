@@ -115,6 +115,11 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
         title: Text('${l.t('vh_detail')} · $plate'),
         actions: [
           IconButton(
+            tooltip: l.t('vh_edit_info'),
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: _editInfo,
+          ),
+          IconButton(
             tooltip: l.t('vh_delete'),
             icon: const Icon(Icons.delete_outline),
             onPressed: _confirmDelete,
@@ -237,6 +242,58 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
         trailing: Text(trailing, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
       ),
     );
+  }
+
+  // ---------------- Corregir matrícula / modelo ----------------
+  // Por si el jefe se equivocó al dar de alta el vehículo.
+  Future<void> _editInfo() async {
+    final l = context.l10n;
+    final plateCtrl = TextEditingController(text: _v['license_plate'] as String? ?? '');
+    final modelCtrl = TextEditingController(text: _v['model'] as String? ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('vh_edit_info')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: plateCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(labelText: l.t('vh_plate')),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: modelCtrl,
+              decoration: InputDecoration(labelText: l.t('vh_model')),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('save'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final plate = plateCtrl.text.trim();
+    if (plate.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('vh_plate_required'))));
+      return;
+    }
+    try {
+      await _service.updateVehicleInfo(_id, licensePlate: plate, model: modelCtrl.text);
+      if (mounted) {
+        setState(() => _v = {
+              ..._v,
+              'license_plate': plate,
+              'model': modelCtrl.text.trim().isEmpty ? null : modelCtrl.text.trim(),
+            });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('vh_info_saved'))));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+    }
   }
 
   // ---------------- Editar ficha de mantenimiento ----------------

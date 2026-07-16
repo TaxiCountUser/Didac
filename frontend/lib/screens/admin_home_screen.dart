@@ -241,6 +241,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final soon = ((d['pending'] as Map?)?['trials_ending'] as num?)?.toInt() ?? 0;
     final driversActive = (k['drivers_active'] as num?)?.toInt() ?? 0;
     final driversTotal = (k['drivers_total'] as num?)?.toInt() ?? 0;
+    final rev = (d['revenue'] as Map?);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,10 +302,53 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         ? l.t('adm_kpi_soon', {'n': '$soon'})
                         : l.t('adm_kpi_none_soon'), AdminColors.amber),
               ]),
+              if (rev != null) ...[
+                const SizedBox(height: 8),
+                _revenueStrip(l, rev),
+              ],
             ],
           ),
         ),
       ],
+    );
+  }
+
+  // Ingresos REALES cobrados (Stripe): total facturado neto acumulado y cuánto
+  // se ha descontado con cupones. Distinto del MRR (que es la cuota recurrente).
+  Widget _revenueStrip(AppLocalizations l, Map rev) {
+    final paid = (rev['paid_total'] as num?)?.toDouble() ?? 0;
+    final coupon = (rev['coupon_total'] as num?)?.toDouble() ?? 0;
+    final invoices = (rev['invoices'] as num?)?.toInt() ?? 0;
+    String eur(double v) => '${v.toStringAsFixed(2).replaceAll('.', ',')}€';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AdminColors.teal.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AdminColors.teal.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.payments_outlined, size: 18, color: AdminColors.teal),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.t('adm_kpi_revenue'),
+                    style: const TextStyle(fontSize: 10, letterSpacing: 0.5, color: AdminColors.secondary)),
+                Text(eur(paid),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AdminColors.text)),
+                Text(
+                  '${l.t('adm_kpi_coupons')}: ${eur(coupon)} · ${l.t('adm_kpi_invoices', {'n': '$invoices'})}',
+                  style: const TextStyle(fontSize: 11, color: AdminColors.secondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

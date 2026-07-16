@@ -172,6 +172,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     final mrr = (billing['mrr_estimate'] as num?)?.toDouble() ?? 0;
     final freeDays = (billing['free_days'] as num?)?.toInt() ?? 0;
     final seats = (billing['active_drivers'] as num?)?.toInt() ?? 0;
+    final paidTotal = (billing['paid_total'] as num?)?.toDouble() ?? 0;
+    final couponTotal = (billing['coupon_total'] as num?)?.toDouble() ?? 0;
     final limit = t['drivers_limit'];
     final created = DateTime.tryParse('${t['created_at']}')?.toLocal();
     final since = created == null
@@ -203,17 +205,32 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
           ),
         );
 
-    return Row(
+    String eur(double v) => '${v.toStringAsFixed(2).replaceAll('.', ',')}€';
+    return Column(
       children: [
-        tile(l.t('adm_kpi_fee'), '${mrr.toStringAsFixed(2)}€', AdminColors.teal),
-        const SizedBox(width: 7),
-        tile(l.t('adm_kpi_seats'),
-            limit == null ? '$seats' : '$seats/$limit', AdminColors.blue),
-        const SizedBox(width: 7),
-        tile(l.t('adm_kpi_freedays'), l.t('fd_days', {'n': '$freeDays'}),
-            AdminColors.teal),
-        const SizedBox(width: 7),
-        tile(l.t('adm_kpi_since'), since, AdminColors.purple),
+        Row(
+          children: [
+            tile(l.t('adm_kpi_fee'), '${mrr.toStringAsFixed(2)}€', AdminColors.teal),
+            const SizedBox(width: 7),
+            tile(l.t('adm_kpi_seats'),
+                limit == null ? '$seats' : '$seats/$limit', AdminColors.blue),
+            const SizedBox(width: 7),
+            tile(l.t('adm_kpi_freedays'), l.t('fd_days', {'n': '$freeDays'}),
+                AdminColors.teal),
+            const SizedBox(width: 7),
+            tile(l.t('adm_kpi_since'), since, AdminColors.purple),
+          ],
+        ),
+        const SizedBox(height: 7),
+        // Lo que ESTA empresa nos ha pagado realmente (Stripe) y cuánto se le
+        // ha descontado con cupones. No son sus finanzas internas (sus carreras).
+        Row(
+          children: [
+            tile(l.t('adm_kpi_paid_total'), eur(paidTotal), AdminColors.teal),
+            const SizedBox(width: 7),
+            tile(l.t('adm_kpi_coupons'), eur(couponTotal), AdminColors.amber),
+          ],
+        ),
       ],
     );
   }
