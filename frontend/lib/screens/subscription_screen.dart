@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
@@ -263,9 +264,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ],
           const SizedBox(height: 24),
           Text(
-            subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_choose_plan'),
+            subscriptionIsActive(status) ? l.t('sub_billing_period') : l.t('sub_choose_plan'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
+          if (subscriptionIsActive(status)) ...[
+            const SizedBox(height: 4),
+            Text(l.t('sub_billing_period_hint'),
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
           const SizedBox(height: 8),
           Center(
             child: SegmentedButton<bool>(
@@ -292,6 +298,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ),
           ),
+          if (widget.profile.isOwner) ...[
+            const SizedBox(height: 24),
+            _dangerZone(l),
+          ],
           if (_busy) const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),
@@ -299,6 +309,132 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ],
       ),
     );
+  }
+
+  // Zona de baja: dar de baja la empresa (solo Owner). Cancela la suscripción,
+  // cierra la cuenta (retención GDPR) y elimina los accesos.
+  Widget _dangerZone(AppLocalizations l) {
+    if (widget.profile.role != 'owner') return const SizedBox.shrink();
+    return Card(
+      color: const Color(0xFFFDECEA),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.warning_amber_rounded, color: Color(0xFFC62828)),
+              const SizedBox(width: 8),
+              Text(l.t('sub_danger_title'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFC62828))),
+            ]),
+            const SizedBox(height: 6),
+            Text(l.t('sub_danger_sub'), style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFC62828),
+                side: const BorderSide(color: Color(0xFFC62828)),
+              ),
+              onPressed: _busy ? null : _closeCompany,
+              icon: const Icon(Icons.no_accounts),
+              label: Text(l.t('sub_close_company')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Cancelar / reactivar la suscripción (a fin de periodo).
+  Future<void> _setCancel({required bool resume}) async {
+    final l = context.l10n;
+    if (!resume) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.t('sub_cancel_title')),
+          content: Text(l.t('sub_cancel_msg')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('sub_cancel_keep'))),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.t('sub_cancel_ok')),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    setState(() => _busy = true);
+    try {
+      await _service.cancelSubscription(resume: resume);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.t(resume ? 'sub_resume_done' : 'sub_cancel_done'))));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  // Baja de la empresa: exige escribir el nombre exacto y avisa de las
+  // consecuencias. Al confirmar, cierra la cuenta y cierra sesión.
+  Future<void> _closeCompany() async {
+    final l = context.l10n;
+    final name = (_billing?['name'] as String?)?.trim() ?? '';
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(l.t('sub_close_company')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l.t('sub_close_warn')),
+              const SizedBox(height: 12),
+              Text(l.t('sub_close_type', {'name': name}),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                decoration: InputDecoration(labelText: l.t('sub_close_name_label'), isDense: true),
+                onChanged: (_) => setLocal(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
+              onPressed: ctrl.text.trim().toLowerCase() == name.toLowerCase() && name.isNotEmpty
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: Text(l.t('sub_close_confirm')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      await _service.closeCompany(ctrl.text.trim());
+      // Cuenta cerrada: cerramos sesión (el listener global lleva al login).
+      await Supabase.instance.client.auth.signOut();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+      }
+    }
   }
 
   // --------------- Días gratis por retos/referidos ---------------
@@ -585,10 +721,38 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 label: Text(l.t('sub_manage_billing')),
               ),
             ],
+            // Cancelar / reactivar la suscripción (a fin de periodo).
+            if (hasCustomer && subscriptionIsActive(status)) ...[
+              if (_seatInfo?['cancel_at_period_end'] == true) ...[
+                const SizedBox(height: 8),
+                Text(
+                  l.t('sub_cancel_scheduled', {'date': _fmtDate(_seatInfo?['current_period_end'])}),
+                  style: const TextStyle(color: Color(0xFFC62828), fontWeight: FontWeight.w600),
+                ),
+                TextButton.icon(
+                  onPressed: _busy ? null : () => _setCancel(resume: true),
+                  icon: const Icon(Icons.undo),
+                  label: Text(l.t('sub_resume')),
+                ),
+              ] else
+                TextButton.icon(
+                  onPressed: _busy ? null : () => _setCancel(resume: false),
+                  style: TextButton.styleFrom(foregroundColor: const Color(0xFFC62828)),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: Text(l.t('sub_cancel_sub')),
+                ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  // Fecha corta dd/mm/aaaa a partir de un ISO (o '—').
+  String _fmtDate(dynamic iso) {
+    final d = DateTime.tryParse('${iso ?? ''}')?.toLocal();
+    if (d == null) return '—';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
   Future<void> _contactUs() {
@@ -631,15 +795,39 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       onPressed: _busy ? null : _contactUs,
                       icon: const Icon(Icons.mail_outline),
                       label: Text(l.t('sub_contact_us')))
-                  : FilledButton(
-                      key: const Key('subscribe_button'),
-                      onPressed: _busy ? null : _subscribe,
-                      child: Text(subscriptionIsActive(status) ? l.t('sub_change_plan') : l.t('sub_subscribe')),
-                    ),
+                  : _subscribeButton(l, status),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // Botón principal del plan. Si no hay suscripción -> "Suscribirse". Si ya está
+  // activa, el selector mensual/anual es el PERIODO de facturación: si el periodo
+  // elegido coincide con el actual (Stripe), no hay nada que cambiar; si difiere,
+  // permite cambiar a ese periodo.
+  Widget _subscribeButton(AppLocalizations l, String? status) {
+    if (!subscriptionIsActive(status)) {
+      return FilledButton(
+        key: const Key('subscribe_button'),
+        onPressed: _busy ? null : _subscribe,
+        child: Text(l.t('sub_subscribe')),
+      );
+    }
+    final interval = _seatInfo?['interval'] as String?; // 'month' | 'year' | null
+    final period = _yearly ? l.t('sub_period_yearly') : l.t('sub_period_monthly');
+    final sameAsCurrent = interval != null && (interval == 'year') == _yearly;
+    if (sameAsCurrent) {
+      return FilledButton(
+        onPressed: null,
+        child: Text(l.t('sub_current_period', {'period': period})),
+      );
+    }
+    return FilledButton(
+      key: const Key('subscribe_button'),
+      onPressed: _busy ? null : _subscribe,
+      child: Text(l.t('sub_switch_period', {'period': period})),
     );
   }
 

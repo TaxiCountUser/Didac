@@ -1891,17 +1891,21 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
-  // Eliminar una empresa entera: borra el tenant (cascada a usuarios, vehículos,
-  // transacciones, incidencias…) y las cuentas de auth de sus usuarios.
-  app.delete('/api/v1/admin/company/:id', async (request, reply) => {
-    const g = await adminGuard(request);
-    if (g.error) return reply.code(g.code).send({ error: g.error });
-    const id = request.params.id;
-
-    // CIERRE LÓGICO con retención fiscal (5 años): NO borramos la empresa (eso
-    // borraría en cascada sus carreras). Marcamos closed_at, anonimizamos y
-    // eliminamos las cuentas de acceso; las carreras quedan (user_id -> null) y
-    // se purgan a los 5 años (purge_expired_retention).
+  // CIERRE LÓGICO de una empresa con retención fiscal (5 años): NO borra la
+  // empresa (eso borraría en cascada sus carreras). Marca closed_at, anonimiza,
+  // cancela la suscripción en Stripe (si cancelStripe) y elimina las cuentas de
+  // acceso; las carreras quedan (user_id -> null) y se purgan a los 5 años
+  // (purge_expired_retention). Lo usan el cierre del admin y la baja del propio
+  // owner. Un admin de plataforma NUNCA pierde su cuenta: solo se le desvincula.
+  async function closeTenantAccount(id, { cancelStripe } = {}) {
+    if (cancelStripe && stripe) {
+      const { data: t } = await supabase.from('tenants')
+        .select('stripe_subscription_id').eq('id', id).maybeSingle();
+      if (t?.stripe_subscription_id) {
+        try { await stripe.subscriptions.cancel(t.stripe_subscription_id); }
+        catch (e) { app.log.warn(`[close] cancel stripe ${id}: ${e.message}`); }
+      }
+    }
     const { data: users } = await supabase.from('users').select('id, is_admin').eq('tenant_id', id);
     const { error } = await supabase.from('tenants').update({
       closed_at: new Date().toISOString(),
@@ -1911,11 +1915,7 @@ export async function buildApp(options = {}) {
       stripe_subscription_id: null,
       join_code: null,
     }).eq('id', id);
-    if (error) return reply.code(400).send({ error: error.message });
-    // Elimina las cuentas de acceso de la empresa. IMPORTANTE: un admin de
-    // plataforma NUNCA pierde su cuenta (aunque fuera propietario de esta
-    // empresa): solo se le desvincula (tenant_id = null). Los demás pierden el
-    // acceso; sus carreras se conservan (user_id -> null por ON DELETE SET NULL).
+    if (error) throw new Error(error.message);
     let removed = 0;
     for (const u of users || []) {
       if (u.is_admin) {
@@ -1925,9 +1925,44 @@ export async function buildApp(options = {}) {
       try { await supabase.auth.admin.deleteUser(u.id); } catch (_) {}
       removed += 1;
     }
+    return { removed };
+  }
+
+  // Eliminar una empresa entera (admin): cierre lógico + eliminación de accesos.
+  app.delete('/api/v1/admin/company/:id', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+    let removed = 0;
+    try { ({ removed } = await closeTenantAccount(id, { cancelStripe: false })); }
+    catch (e) { return reply.code(400).send({ error: e.message }); }
     await logAdminAction(request, g.caller.id, 'company_close', 'tenant', id,
       { removed_access: removed });
     return reply.send({ ok: true, closed: true, removed_access: removed });
+  });
+
+  // Baja de la propia empresa (el OWNER cierra su cuenta). Cancela la suscripción
+  // en Stripe, marca la empresa como dada de baja (retención GDPR 5 años) y
+  // elimina los accesos (incluido el suyo). Exige confirmar escribiendo el nombre
+  // de la empresa para evitar accidentes. Irreversible desde la app.
+  app.post('/api/v1/company/close', async (request, reply) => {
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner') return reply.code(403).send({ error: 'Solo el propietario puede dar de baja la empresa' });
+    const { data: t } = await supabase.from('tenants')
+      .select('id, name, closed_at').eq('id', caller.tenant_id).maybeSingle();
+    if (!t) return reply.code(404).send({ error: 'Empresa no encontrada' });
+    if (t.closed_at) return reply.code(400).send({ error: 'La empresa ya está dada de baja' });
+    const confirmName = String((request.body ?? {}).confirm_name ?? '').trim();
+    if (confirmName.toLowerCase() !== String(t.name || '').trim().toLowerCase()) {
+      return reply.code(400).send({ code: 'name_mismatch', error: 'El nombre de la empresa no coincide' });
+    }
+    try {
+      const { removed } = await closeTenantAccount(caller.tenant_id, { cancelStripe: true });
+      return reply.send({ ok: true, removed_access: removed });
+    } catch (e) {
+      return reply.code(500).send({ error: e.message });
+    }
   });
 
   // Purga DEFINITIVA de UNA empresa YA dada de baja: borra el tenant y, en
@@ -2486,9 +2521,38 @@ export async function buildApp(options = {}) {
         interval: price?.recurring?.interval ?? null, // 'month' | 'year'
         unit_amount: price?.unit_amount ?? null,       // en céntimos
         currency: price?.currency ?? 'eur',
+        cancel_at_period_end: !!sub.cancel_at_period_end,
+        current_period_end: sub.current_period_end
+          ? new Date(sub.current_period_end * 1000).toISOString() : null,
       });
     } catch (e) {
       return reply.code(502).send({ error: e.message });
+    }
+  });
+
+  // Cancelar la suscripción a FIN DE PERIODO (no corta el servicio ya pagado):
+  // el cliente sigue activo hasta current_period_end y luego no se renueva.
+  // `resume:true` deshace la cancelación programada. Solo Owner.
+  app.post('/api/v1/subscription/cancel', async (request, reply) => {
+    if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner') return reply.code(403).send({ error: 'Solo un Owner puede cancelar la suscripción' });
+    const resume = (request.body ?? {}).resume === true;
+    const { data: t } = await supabase.from('tenants')
+      .select('stripe_subscription_id').eq('id', caller.tenant_id).maybeSingle();
+    const subId = t?.stripe_subscription_id;
+    if (!subId) return reply.code(400).send({ error: 'No hay suscripción activa' });
+    try {
+      const sub = await stripe.subscriptions.update(subId, { cancel_at_period_end: !resume });
+      return reply.send({
+        ok: true,
+        cancel_at_period_end: !!sub.cancel_at_period_end,
+        current_period_end: sub.current_period_end
+          ? new Date(sub.current_period_end * 1000).toISOString() : null,
+      });
+    } catch (e) {
+      return reply.code(502).send({ error: `No se pudo cambiar la cancelación: ${e.message}` });
     }
   });
 

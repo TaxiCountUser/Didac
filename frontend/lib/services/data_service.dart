@@ -391,6 +391,39 @@ class DataService {
     return body;
   }
 
+  /// Cancela la suscripción a FIN DE PERIODO (o la reactiva con resume:true).
+  /// Devuelve {cancel_at_period_end, current_period_end}.
+  Future<Map<String, dynamic>> cancelSubscription({bool resume = false}) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/subscription/cancel'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'resume': resume}),
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'No se pudo cambiar la cancelación');
+    }
+    return body;
+  }
+
+  /// Da de baja la PROPIA empresa (solo Owner). Cancela Stripe, cierra la empresa
+  /// (retención GDPR) y elimina los accesos. Requiere escribir el nombre exacto.
+  Future<void> closeCompany(String confirmName) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/company/close'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'confirm_name': confirmName}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo dar de baja la empresa');
+    }
+  }
+
   /// Elimina definitivamente la cuenta de un conductor (vía backend).
   Future<void> deleteDriver(String id) async {
     final token = _c.auth.currentSession?.accessToken;
