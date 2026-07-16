@@ -2388,9 +2388,9 @@ export async function buildApp(options = {}) {
     let recipientIds;
     let title;
     if (caller.role === 'owner') {
-      // Jefe -> ese conductor.
+      // Jefe -> ese conductor. Muestra el NOMBRE del jefe, no "tu jefe".
       recipientIds = [driverId];
-      title = 'Mensaje de tu jefe';
+      title = senderName ? `Mensaje de ${senderName}` : 'Mensaje de tu jefe';
     } else {
       // Conductor -> jefe(s) de su tenant.
       const { data: owners } = await supabase.from('users')
@@ -2404,6 +2404,21 @@ export async function buildApp(options = {}) {
     await notifyUsers(recipientIds, title, text,
       { type: 'fleet', driverId, driverName: caller.role === 'owner' ? '' : senderName });
     return reply.send({ ok: true, push: true });
+  });
+
+  // Nombre del jefe (owner) del tenant del que pregunta. Para que el conductor
+  // vea el NOMBRE real del jefe en el chat (no puede leer la fila del owner por
+  // RLS). Vía service_role. Cualquier miembro autenticado del tenant.
+  app.get('/api/v1/fleet/boss-name', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (!caller.tenant_id) return reply.send({ name: '' });
+    const { data: owner } = await supabase.from('users')
+      .select('name, display_name, email').eq('tenant_id', caller.tenant_id)
+      .eq('role', 'owner').order('created_at', { ascending: true }).limit(1).maybeSingle();
+    const name = owner?.display_name || owner?.name || owner?.email || '';
+    return reply.send({ name });
   });
 
   // Nº de asientos (conductores) a facturar de un tenant. Mínimo 1: incluso un

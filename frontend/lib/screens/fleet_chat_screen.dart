@@ -33,11 +33,18 @@ class _FleetChatScreenState extends State<FleetChatScreen> {
   late Future<List<Map<String, dynamic>>> _future;
   RealtimeChannel? _channel;
   bool _sending = false;
+  String? _bossName; // nombre real del jefe (para el conductor)
 
   @override
   void initState() {
     super.initState();
     _reload();
+    // El conductor ve el NOMBRE del jefe (no puede leer su fila por RLS).
+    if (!widget.profile.isOwner) {
+      _service.fleetBossName().then((n) {
+        if (mounted && n != null) setState(() => _bossName = n);
+      });
+    }
     // Refresco en vivo cuando llega/envía un mensaje en este hilo.
     _channel = _service.fleetThreadChannel(widget.driverId, () {
       if (mounted) _reload();
@@ -87,7 +94,9 @@ class _FleetChatScreenState extends State<FleetChatScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        title: Text(widget.profile.isOwner ? widget.title : (_bossName ?? widget.title)),
+      ),
       body: Column(
         children: [
           Expanded(child: _messages(l)),
@@ -165,7 +174,7 @@ class _FleetChatScreenState extends State<FleetChatScreen> {
     if (widget.profile.isOwner) {
       return widget.title.trim().isEmpty ? l.t('fleet_sender_driver') : widget.title;
     }
-    return l.t('fleet_sender_boss');
+    return _bossName ?? l.t('fleet_sender_boss');
   }
 
   Widget _composer(AppLocalizations l) {

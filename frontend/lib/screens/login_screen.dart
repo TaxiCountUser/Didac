@@ -157,6 +157,58 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Restablecer contraseña: pide el correo y envía el enlace de recuperación.
+  // Al abrirlo, la app recibe el evento passwordRecovery y muestra la pantalla
+  // para poner una nueva contraseña (main.dart). Requiere el CORREO (no el
+  // usuario), porque el enlace se manda por email.
+  Future<void> _forgotPassword() async {
+    final l = context.l10n;
+    final ctrl = TextEditingController(
+      text: _email.text.contains('@') ? _email.text.trim() : '',
+    );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('login_forgot')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l.t('login_forgot_msg')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(labelText: l.t('login_email')),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('login_forgot_send'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final email = ctrl.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('login_forgot_bademail'))));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: kIsWeb ? _webRedirect() : 'app.taxicount://login-callback',
+      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('login_forgot_sent'))));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   // URL de retorno en web: origen + carpeta de la app (sin query/fragment).
   // Ej.: https://taxicountuser.github.io/Didac/  o  http://localhost:8080/
   String _webRedirect() {
@@ -354,6 +406,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? l.t('login_toggle_to_signin')
                         : l.t('login_toggle_to_signup')),
                   ),
+                  if (!_isSignUp)
+                    TextButton(
+                      onPressed: _loading ? null : _forgotPassword,
+                      child: Text(l.t('login_forgot')),
+                    ),
                   const SizedBox(height: 8),
                   Row(children: [
                     const Expanded(child: Divider()),

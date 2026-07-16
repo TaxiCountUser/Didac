@@ -1027,16 +1027,44 @@ class DataService {
 
   // ---------------- Asignación conductor <-> vehículo ----------------
 
-  /// Vehículos asignados a un conductor (vía driver_vehicles).
+  /// Vehículos asignados a un conductor (vía driver_vehicles). Se hace en DOS
+  /// consultas (ids + vehículos) en vez de un embed anidado: el embed
+  /// driver_vehicles->vehicles bajo RLS del conductor devolvía a veces null y el
+  /// conductor veía "sin vehículo asignado" aunque el jefe se lo hubiera asignado.
   Future<List<Map<String, dynamic>>> vehiclesForDriver(String userId) async {
-    final data = await _c
+    final links = await _c
         .from('driver_vehicles')
-        .select('vehicle_id, vehicles:vehicle_id(id, license_plate, model)')
+        .select('vehicle_id')
         .eq('user_id', userId);
-    return (data as List)
-        .map((r) => (r['vehicles'] as Map?)?.cast<String, dynamic>())
-        .whereType<Map<String, dynamic>>()
+    final ids = (links as List)
+        .map((r) => r['vehicle_id'] as String?)
+        .whereType<String>()
         .toList();
+    if (ids.isEmpty) return [];
+    final data = await _c
+        .from('vehicles')
+        .select('id, license_plate, model')
+        .inFilter('id', ids);
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Nombre del jefe (owner) del tenant, para mostrarlo en el chat de flota. El
+  /// conductor no puede leer la fila del owner por RLS, así que lo pide al backend.
+  Future<String?> fleetBossName() async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) return null;
+    try {
+      final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/fleet/boss-name'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode != 200) return null;
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      final name = (body['name'] as String?)?.trim();
+      return (name == null || name.isEmpty) ? null : name;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Conductores asignados a un vehículo.

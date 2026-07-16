@@ -10,6 +10,7 @@ import 'l10n/app_localizations.dart';
 import 'services/data_service.dart';
 import 'services/push_service.dart';
 import 'screens/admin_screen.dart';
+import 'screens/change_password_screen.dart';
 import 'screens/fleet_chat_screen.dart';
 import 'screens/fleet_chats_screen.dart';
 import 'screens/incidents_screen.dart';
@@ -59,6 +60,18 @@ Future<void> main() async {
   Supabase.instance.client.auth.onAuthStateChange.listen((state) {
     if (state.event == AuthChangeEvent.signedOut) {
       rootNavigatorKey.currentState?.popUntil((r) => r.isFirst);
+    }
+    // Recuperación de contraseña: al abrir el enlace del correo, Supabase deja
+    // una sesión de recovery y emite este evento. Mostramos la pantalla para
+    // fijar una nueva contraseña; al guardar, vuelve a la app ya autenticado.
+    if (state.event == AuthChangeEvent.passwordRecovery) {
+      final nav = rootNavigatorKey.currentState;
+      nav?.push(MaterialPageRoute(
+        builder: (_) => ChangePasswordScreen(
+          forced: true,
+          onDone: () => nav.popUntil((r) => r.isFirst),
+        ),
+      ));
     }
   });
   // Deep-link: al tocar una notificación, abre el sitio relacionado (no el menú
