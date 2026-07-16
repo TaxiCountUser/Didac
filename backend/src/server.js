@@ -1988,6 +1988,80 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true, purged: true });
   });
 
+  // REACTIVAR una empresa dada de baja (antes de purgarla): la baja eliminó las
+  // cuentas de acceso pero conservó los datos (retención). Esto deshace el cierre
+  // lógico (closed_at), restaura el nombre (la baja lo anonimizó), regenera el
+  // código de flota, da un periodo de prueba para que pueda re-suscribirse y CREA
+  // la cuenta del owner con contraseña temporal (el trigger de alta la vincula al
+  // tenant existente vía metadata). Los datos históricos (carreras, vehículos…)
+  // reaparecen; los conductores deben re-invitarse (sus cuentas se eliminaron).
+  app.post('/api/v1/admin/company/:id/reactivate', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+    const b = request.body ?? {};
+    const ownerEmail = String(b.owner_email ?? '').trim().toLowerCase();
+    const companyName = String(b.company_name ?? '').trim();
+    const trialDays = Math.min(60, Math.max(1, Math.trunc(Number(b.trial_days)) || 15));
+    if (!ownerEmail || !ownerEmail.includes('@')) {
+      return reply.code(400).send({ error: 'Correo del propietario inválido' });
+    }
+    if (!companyName) return reply.code(400).send({ error: 'El nombre de la empresa es obligatorio' });
+
+    const { data: t } = await supabase.from('tenants')
+      .select('id, name, closed_at').eq('id', id).maybeSingle();
+    if (!t) return reply.code(404).send({ error: 'Empresa no encontrada' });
+    if (!t.closed_at) return reply.code(400).send({ error: 'La empresa no está dada de baja' });
+
+    // El correo no puede pertenecer ya a otra cuenta (misma pre-comprobación que
+    // al invitar conductores: sin esto el trigger falla con un error confuso).
+    const { data: dup } = await supabase.from('users')
+      .select('id').ilike('email', ownerEmail).maybeSingle();
+    if (dup) return reply.code(409).send({ error: 'Ese correo ya está registrado en TaxiCount; usa otro.' });
+
+    // 1) Reabrir el tenant: quitar closed_at, restaurar nombre, nueva prueba y
+    //    código de flota nuevo (con reintentos por si colisiona el unique).
+    let joinCode = null;
+    for (let i = 0; i < 5 && !joinCode; i++) {
+      const code = randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
+      const { error } = await supabase.from('tenants').update({
+        closed_at: null,
+        name: companyName,
+        subscription_status: 'trialing',
+        trial_ends_at: new Date(Date.now() + trialDays * 86400000).toISOString(),
+        join_code: code,
+      }).eq('id', id);
+      if (!error) joinCode = code;
+      else if (!/duplicate|unique|23505/i.test(error.message || '')) {
+        return reply.code(400).send({ error: error.message });
+      }
+    }
+    if (!joinCode) return reply.code(500).send({ error: 'No se pudo generar el código de flota' });
+
+    // 2) Crear la cuenta del owner vinculada al tenant (metadata -> trigger).
+    const tempPassword = generateTempPassword();
+    const { data: created, error: createErr } = await supabase.auth.admin.createUser({
+      email: ownerEmail,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { role: 'owner', tenant_id: id, name: b.owner_name ?? null },
+    });
+    if (createErr) {
+      // Deshacer la reapertura para no dejar una empresa abierta sin owner.
+      await supabase.from('tenants').update({
+        closed_at: t.closed_at, name: t.name, join_code: null, trial_ends_at: null,
+        subscription_status: 'canceled',
+      }).eq('id', id);
+      return reply.code(400).send({ error: createErr.message || 'No se pudo crear la cuenta del owner' });
+    }
+    await supabase.from('users').update({ must_change_password: true }).eq('id', created.user.id);
+
+    await logAdminAction(request, g.caller.id, 'company_reactivate', 'tenant', id,
+      { owner_email: ownerEmail, trial_days: trialDays });
+    app.log.info(`[reactivate] tenant ${id} reabierto; owner ${ownerEmail}`);
+    return reply.send({ ok: true, owner_email: ownerEmail, tempPassword, join_code: joinCode, trial_days: trialDays });
+  });
+
   // Purga de retención: elimina definitivamente las empresas cerradas hace más
   // de 5 años (cascada a sus carreras). Pensado para ejecutarse periódicamente
   // (cron externo o manual). Devuelve cuántas se eliminaron.

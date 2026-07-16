@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
@@ -27,6 +28,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   late Future<Map<String, dynamic>> _future =
       _service.adminCompany(widget.tenantId);
   int _tab = 0; // 0 resumen · 1 usuarios · 2 vehículos · 3 incidencias
+  bool _busy = false; // operación en curso (reactivar, etc.)
 
   void _reload() =>
       setState(() => _future = _service.adminCompany(widget.tenantId));
@@ -454,11 +456,25 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               ),
             ],
           ),
-          // Purga DEFINITIVA: solo para empresas YA dadas de baja. Borra TODOS
-          // sus datos (irreversible), sin esperar la retención de 5 años.
+          // Empresa YA dada de baja: reactivarla (deshace el cierre y recrea el
+          // owner) o purgarla DEFINITIVAMENTE (borra todos sus datos).
           if (closed) ...[
             const SizedBox(height: 10),
             const Divider(height: 1, color: AdminColors.hairline),
+            const SizedBox(height: 10),
+            Text(l.t('adm_dz_react_sub'),
+                style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AdminColors.teal,
+                side: BorderSide(color: AdminColors.teal.withValues(alpha: .5)),
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.restart_alt, size: 15),
+              onPressed: _busy ? null : () => _reactivateCompany(l),
+              label: Text(l.t('adm_dz_react'), style: const TextStyle(fontSize: 11)),
+            ),
             const SizedBox(height: 10),
             Text(l.t('adm_dz_purge_sub'),
                 style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
@@ -477,6 +493,100 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         ],
       ),
     );
+  }
+
+  // REACTIVAR una empresa dada de baja: pide el nombre real (la baja lo
+  // anonimizó), el correo del nuevo owner y los días de prueba; al confirmar,
+  // muestra la contraseña temporal y el código de flota para dárselos al cliente.
+  Future<void> _reactivateCompany(AppLocalizations l) async {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final daysCtrl = TextEditingController(text: '15');
+    final ok = await showAdminDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_dz_react')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.t('adm_react_help'), style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              decoration: InputDecoration(labelText: l.t('adm_react_name'), isDense: true),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(labelText: l.t('adm_react_email'), isDense: true),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: daysCtrl,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: l.t('adm_react_days'), isDense: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('adm_dz_react'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final name = nameCtrl.text.trim();
+    final email = emailCtrl.text.trim();
+    if (name.isEmpty || !email.contains('@')) {
+      await _toast(l.t('adm_react_invalid'));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final res = await _service.adminReactivateCompany(
+        widget.tenantId,
+        ownerEmail: email,
+        companyName: name,
+        trialDays: int.tryParse(daysCtrl.text.trim()) ?? 15,
+      );
+      _reload();
+      if (!mounted) return;
+      final temp = (res['tempPassword'] ?? '').toString();
+      final code = (res['join_code'] ?? '').toString();
+      final summary = '${l.t('adm_react_email')}: $email\n'
+          '${l.t('adm_react_temp')}: $temp\n'
+          '${l.t('adm_react_code')}: $code';
+      await showAdminDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.t('adm_react_done')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l.t('adm_react_done_help'), style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 10),
+              SelectableText(summary, style: const TextStyle(fontSize: 13)),
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              icon: const Icon(Icons.copy, size: 16),
+              onPressed: () => Clipboard.setData(ClipboardData(text: summary)),
+              label: Text(l.t('copy')),
+            ),
+            FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('ok'))),
+          ],
+        ),
+      );
+    } catch (e) {
+      await _toast('Error: ${e.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   // Purga DEFINITIVA con DOBLE confirmación: 1) escribir el nombre exacto,

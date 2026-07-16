@@ -925,6 +925,31 @@ class DataService {
     }
   }
 
+  /// Reactiva una empresa dada de baja (antes de purgarla): reabre el tenant,
+  /// restaura el nombre, da días de prueba y crea la cuenta del owner con
+  /// contraseña temporal. Devuelve {tempPassword, join_code, ...} para dárselos.
+  Future<Map<String, dynamic>> adminReactivateCompany(
+    String id, {
+    required String ownerEmail,
+    required String companyName,
+    int trialDays = 15,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/company/$id/reactivate'),
+      headers: _bearer,
+      body: jsonEncode({
+        'owner_email': ownerEmail,
+        'company_name': companyName,
+        'trial_days': trialDays,
+      }),
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'No se pudo reactivar la empresa');
+    }
+    return body;
+  }
+
   /// Eliminar una empresa entera (cascada) y las cuentas de sus usuarios.
   Future<void> adminDeleteCompany(String id) async {
     final res = await http.delete(
