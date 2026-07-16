@@ -380,6 +380,11 @@ class _CouponManagerState extends State<_CouponManager> {
                 const SizedBox(height: 8),
                 TextField(controller: maxCtrl, keyboardType: TextInputType.number,
                     decoration: InputDecoration(labelText: l.t('adm_coup_max'), isDense: true, hintText: '∞')),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(l.t('adm_coup_max_help'),
+                      style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+                ),
                 const SizedBox(height: 8),
                 ListTile(
                   contentPadding: EdgeInsets.zero, dense: true,
