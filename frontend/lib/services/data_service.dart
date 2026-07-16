@@ -258,16 +258,28 @@ class DataService {
     await _c.from('vehicles').update(fields).eq('id', id);
   }
 
-  /// Corrige los datos de identificación del vehículo (matrícula y modelo) por si
-  /// el jefe se equivocó al darlo de alta. Solo Owner por RLS. La matrícula no
+  /// Corrige los datos de alta del vehículo (matrícula, modelo y km inicial) por
+  /// si el jefe se equivocó al darlo de alta. Solo Owner por RLS. La matrícula no
   /// puede quedar vacía; el modelo sí (opcional).
-  Future<void> updateVehicleInfo(String id, {required String licensePlate, String? model}) async {
+  ///
+  /// [initialOdometer] (si se pasa) es el km de partida del reto de km: el
+  /// progreso se calcula EN VIVO como (lecturas - km inicial), así que cambiarlo
+  /// recalcula automáticamente todo lo recorrido de ese vehículo. Se actualiza
+  /// también registered_km (campo de compatibilidad) para dejar la base unívoca.
+  Future<void> updateVehicleInfo(String id,
+      {required String licensePlate, String? model, int? initialOdometer}) async {
     final plate = licensePlate.trim();
     if (plate.isEmpty) throw Exception('La matrícula no puede estar vacía');
-    await _c.from('vehicles').update({
+    final fields = <String, dynamic>{
       'license_plate': plate,
       'model': (model == null || model.trim().isEmpty) ? null : model.trim(),
-    }).eq('id', id);
+    };
+    if (initialOdometer != null) {
+      if (initialOdometer < 0) throw Exception('El km inicial no puede ser negativo');
+      fields['initial_odometer'] = initialOdometer;
+      fields['registered_km'] = initialOdometer;
+    }
+    await _c.from('vehicles').update(fields).eq('id', id);
   }
 
   /// Km actuales (máx. conocido) de varios vehículos a la vez, para la lista.

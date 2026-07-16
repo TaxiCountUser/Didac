@@ -244,30 +244,47 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     );
   }
 
-  // ---------------- Corregir matrícula / modelo ----------------
-  // Por si el jefe se equivocó al dar de alta el vehículo.
+  // ---------------- Corregir datos de alta (matrícula / modelo / km inicial) ---
+  // Por si el jefe se equivocó al dar de alta el vehículo. El km inicial es la
+  // base del reto de km: al cambiarlo, el progreso (lecturas - km inicial) se
+  // recalcula solo, así que se avisa antes de guardar.
   Future<void> _editInfo() async {
     final l = context.l10n;
     final plateCtrl = TextEditingController(text: _v['license_plate'] as String? ?? '');
     final modelCtrl = TextEditingController(text: _v['model'] as String? ?? '');
+    final origKm = (_v['initial_odometer'] as num?)?.toInt();
+    final kmCtrl = TextEditingController(text: origKm?.toString() ?? '');
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.t('vh_edit_info')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: plateCtrl,
-              textCapitalization: TextCapitalization.characters,
-              decoration: InputDecoration(labelText: l.t('vh_plate')),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: modelCtrl,
-              decoration: InputDecoration(labelText: l.t('vh_model')),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: plateCtrl,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(labelText: l.t('vh_plate')),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: modelCtrl,
+                decoration: InputDecoration(labelText: l.t('vh_model')),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: kmCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: l.t('vh_initial_km'),
+                  suffixText: 'km',
+                  helperText: l.t('vh_initial_km_warn'),
+                  helperMaxLines: 3,
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
@@ -281,13 +298,37 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('vh_plate_required'))));
       return;
     }
+    final newKm = int.tryParse(kmCtrl.text.trim());
+    if (kmCtrl.text.trim().isNotEmpty && (newKm == null || newKm < 0)) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('vh_initial_km_required'))));
+      return;
+    }
+    // Confirmación extra SOLO si cambia el km inicial (afecta al reto de km).
+    if (newKm != null && newKm != origKm) {
+      if (!mounted) return;
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.t('vh_initial_km')),
+          content: Text(l.t('vh_initial_km_confirm', {'km': '$newKm'})),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('confirm'))),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
     try {
-      await _service.updateVehicleInfo(_id, licensePlate: plate, model: modelCtrl.text);
+      await _service.updateVehicleInfo(_id,
+          licensePlate: plate, model: modelCtrl.text, initialOdometer: newKm);
       if (mounted) {
         setState(() => _v = {
               ..._v,
               'license_plate': plate,
               'model': modelCtrl.text.trim().isEmpty ? null : modelCtrl.text.trim(),
+              if (newKm != null) 'initial_odometer': newKm,
+              if (newKm != null) 'registered_km': newKm,
             });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('vh_info_saved'))));
       }
