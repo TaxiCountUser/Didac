@@ -62,6 +62,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Map<String, dynamic>? _billing;
   Map<String, dynamic>? _savings; // ahorro por retos/referidos (Loop #8)
   Map<String, dynamic>? _seatInfo; // periodo/precio real del asiento (para avisar del cobro)
+  int? _pendingSeats; // ajuste de asientos acumulado, pendiente de aplicar
   int _activeDrivers = 1;
   bool _loading = true;
   bool _busy = false;
@@ -591,25 +592,59 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Text(l.t('seats_paid', {'n': '$seats'})),
               Text(l.t('seats_active', {'n': '$_activeDrivers'})),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  IconButton.filledTonal(
-                    onPressed: (_busySeats || seats <= _activeDrivers) ? null : () => _confirmSetSeats(seats, seats - 1),
-                    icon: const Icon(Icons.remove),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('$seats', style: Theme.of(context).textTheme.titleLarge),
-                  ),
-                  IconButton.filledTonal(
-                    onPressed: _busySeats ? null : () => _confirmSetSeats(seats, seats + 1),
-                    icon: const Icon(Icons.add),
-                  ),
-                  const Spacer(),
-                  if (_busySeats)
-                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                ],
-              ),
+              // El +/- ajusta un valor PENDIENTE: se puede subir/bajar varios de
+              // golpe y se aplica todo junto con UN solo cobro y UNA confirmación.
+              Builder(builder: (context) {
+                final target = _pendingSeats ?? seats;
+                final minSeats = _activeDrivers < 1 ? 1 : _activeDrivers;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton.filledTonal(
+                          onPressed: (_busySeats || target <= minSeats)
+                              ? null
+                              : () => setState(() => _pendingSeats = target - 1),
+                          icon: const Icon(Icons.remove),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text('$target', style: Theme.of(context).textTheme.titleLarge),
+                        ),
+                        IconButton.filledTonal(
+                          onPressed: (_busySeats || target >= kMaxDrivers)
+                              ? null
+                              : () => setState(() => _pendingSeats = target + 1),
+                          icon: const Icon(Icons.add),
+                        ),
+                        const Spacer(),
+                        if (_busySeats)
+                          const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      ],
+                    ),
+                    if (target != seats) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(l.t('seats_pending', {'from': '$seats', 'to': '$target'}),
+                                style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                          TextButton(
+                            onPressed: _busySeats ? null : () => setState(() => _pendingSeats = null),
+                            child: Text(l.t('cancel')),
+                          ),
+                          FilledButton(
+                            onPressed: _busySeats ? null : () => _confirmSetSeats(seats, target),
+                            child: Text(l.t('seats_apply')),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                );
+              }),
             ],
           ],
         ),
@@ -659,6 +694,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     setState(() => _busySeats = true);
     try {
       await _service.setSubscriptionSeats(seats);
+      if (mounted) setState(() => _pendingSeats = null); // ajuste aplicado
       await _load();
     } catch (e) {
       if (mounted) {

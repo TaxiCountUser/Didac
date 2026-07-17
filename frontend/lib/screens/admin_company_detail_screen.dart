@@ -176,6 +176,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     final seats = (billing['active_drivers'] as num?)?.toInt() ?? 0;
     final paidTotal = (billing['paid_total'] as num?)?.toDouble() ?? 0;
     final couponTotal = (billing['coupon_total'] as num?)?.toDouble() ?? 0;
+    final refundTotal = (billing['refund_total'] as num?)?.toDouble() ?? 0;
     final limit = t['drivers_limit'];
     final created = DateTime.tryParse('${t['created_at']}')?.toLocal();
     final since = created == null
@@ -231,6 +232,10 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             tile(l.t('adm_kpi_paid_total'), eur(paidTotal), AdminColors.teal),
             const SizedBox(width: 7),
             tile(l.t('adm_kpi_coupons'), eur(couponTotal), AdminColors.amber),
+            if (refundTotal > 0) ...[
+              const SizedBox(width: 7),
+              tile(l.t('adm_kpi_refunds'), eur(refundTotal), AdminColors.red),
+            ],
           ],
         ),
       ],

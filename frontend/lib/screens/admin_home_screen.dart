@@ -318,6 +318,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget _revenueStrip(AppLocalizations l, Map rev) {
     final paid = (rev['paid_total'] as num?)?.toDouble() ?? 0;
     final coupon = (rev['coupon_total'] as num?)?.toDouble() ?? 0;
+    final refund = (rev['refund_total'] as num?)?.toDouble() ?? 0;
     final invoices = (rev['invoices'] as num?)?.toInt() ?? 0;
     String eur(double v) => '${v.toStringAsFixed(2).replaceAll('.', ',')}€';
     return Container(
@@ -341,7 +342,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 Text(eur(paid),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AdminColors.text)),
                 Text(
-                  '${l.t('adm_kpi_coupons')}: ${eur(coupon)} · ${l.t('adm_kpi_invoices', {'n': '$invoices'})}',
+                  '${l.t('adm_kpi_coupons')}: ${eur(coupon)}'
+                  '${refund > 0 ? ' · ${l.t('adm_kpi_refunds')}: ${eur(refund)}' : ''}'
+                  ' · ${l.t('adm_kpi_invoices', {'n': '$invoices'})}',
                   style: const TextStyle(fontSize: 11, color: AdminColors.secondary),
                 ),
               ],

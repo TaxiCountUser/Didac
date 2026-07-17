@@ -1240,12 +1240,30 @@ export async function buildApp(options = {}) {
     return { paid, discount, count, currency };
   }
 
+  // Total DEVUELTO (reembolsos). Las facturas pagadas no cambian al reembolsar,
+  // así que se mira aparte: global vía refunds.list; por cliente vía sus charges
+  // (refunds no se puede filtrar por customer).
+  async function sumRefunds(customerId) {
+    let refunded = 0;
+    if (customerId) {
+      for await (const ch of stripe.charges.list({ customer: customerId, limit: 100 })) {
+        refunded += ch.amount_refunded || 0;
+      }
+    } else {
+      for await (const r of stripe.refunds.list({ limit: 100 })) {
+        if (r.status !== 'failed' && r.status !== 'canceled') refunded += r.amount || 0;
+      }
+    }
+    return refunded;
+  }
+
   let _revenueCache = null; // { at, data }
   async function readGlobalRevenue() {
     if (!stripe) return null;
     if (_revenueCache && Date.now() - _revenueCache.at < 60000) return _revenueCache.data;
     try {
       const data = await sumPaidInvoices({});
+      data.refunded = await sumRefunds(null);
       _revenueCache = { at: Date.now(), data };
       return data;
     } catch (e) {
@@ -1255,12 +1273,14 @@ export async function buildApp(options = {}) {
   }
 
   async function readTenantRevenue(customerId) {
-    if (!stripe || !customerId) return { paid: 0, discount: 0, count: 0, currency: 'eur' };
+    if (!stripe || !customerId) return { paid: 0, discount: 0, count: 0, refunded: 0, currency: 'eur' };
     try {
-      return await sumPaidInvoices({ customer: customerId });
+      const data = await sumPaidInvoices({ customer: customerId });
+      data.refunded = await sumRefunds(customerId);
+      return data;
     } catch (e) {
       app.log.warn(`[revenue] tenant: ${e.message}`);
-      return { paid: 0, discount: 0, count: 0, currency: 'eur' };
+      return { paid: 0, discount: 0, count: 0, refunded: 0, currency: 'eur' };
     }
   }
 
@@ -1442,8 +1462,10 @@ export async function buildApp(options = {}) {
         mrr_estimate: Number(mrr.toFixed(2)),
       },
       revenue: revenue ? {
-        paid_total: Number((revenue.paid / 100).toFixed(2)),
+        // Neto REAL en caja: facturado pagado menos lo devuelto (reembolsos).
+        paid_total: Number(((revenue.paid - (revenue.refunded || 0)) / 100).toFixed(2)),
         coupon_total: Number((revenue.discount / 100).toFixed(2)),
+        refund_total: Number(((revenue.refunded || 0) / 100).toFixed(2)),
         invoices: revenue.count,
         currency: revenue.currency,
       } : null,
@@ -1660,8 +1682,10 @@ export async function buildApp(options = {}) {
       incidents_list: incidentList || [],
       billing: {
         mrr_estimate: Number(mrrCompany.toFixed(2)),
-        paid_total: Number((rev.paid / 100).toFixed(2)),
+        // Neto real: pagado menos devuelto (reembolsos).
+        paid_total: Number(((rev.paid - (rev.refunded || 0)) / 100).toFixed(2)),
         coupon_total: Number((rev.discount / 100).toFixed(2)),
+        refund_total: Number(((rev.refunded || 0) / 100).toFixed(2)),
         paid_invoices: rev.count,
         free_days: freeDays.total,
         free_days_challenges: freeDays.challenges,
