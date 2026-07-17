@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
@@ -284,7 +284,15 @@ function loggerConfig() {
 }
 
 export async function buildApp(options = {}) {
-  const app = Fastify({ logger: loggerConfig() });
+  // trustProxy: detrás del proxy de Render, request.ip debe ser la IP REAL del
+  // cliente (no la del proxy), o los límites por IP (rate-limit, anti-fuerza
+  // bruta del login) no distinguen a nadie. Por defecto 1 salto (el proxy de
+  // Render); configurable con TRUST_PROXY_HOPS. Contar saltos (no `true`) evita
+  // que un cliente falsee X-Forwarded-For.
+  const trustProxy = process.env.TRUST_PROXY_HOPS !== undefined
+    ? Number(process.env.TRUST_PROXY_HOPS)
+    : 1;
+  const app = Fastify({ logger: loggerConfig(), trustProxy });
 
   // Sentry (Fase 6): solo si hay DSN configurado. En tests no se carga.
   if (SENTRY_DSN) {
@@ -298,10 +306,18 @@ export async function buildApp(options = {}) {
     app.log.info('[sentry] captura de errores activada');
   }
 
-  const corsOrigin = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true;
-  if (corsOrigin === true && process.env.NODE_ENV === 'production') {
-    app.log.warn('[cors] CORS_ORIGIN no definido: se reflejará CUALQUIER origen. '
-      + 'Define CORS_ORIGIN con la URL de tu web en producción.');
+  // CORS: en producción NO reflejar cualquier origen. Si CORS_ORIGIN no está
+  // definido, se cae a un origen conocido (la web oficial) en vez de `true`
+  // (fail-closed). En desarrollo sí se permite todo para comodidad.
+  let corsOrigin;
+  if (process.env.CORS_ORIGIN) {
+    corsOrigin = process.env.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean);
+  } else if (process.env.NODE_ENV === 'production') {
+    corsOrigin = ['https://taxicountuser.github.io'];
+    app.log.warn('[cors] CORS_ORIGIN no definido: se usa el origen por defecto '
+      + `(${corsOrigin.join(', ')}). Define CORS_ORIGIN si tu web está en otra URL.`);
+  } else {
+    corsOrigin = true; // dev
   }
   await app.register(cors, { origin: corsOrigin });
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
@@ -395,17 +411,17 @@ export async function buildApp(options = {}) {
     return prof || null;
   }
 
-  // Comprueba y actualiza el límite diario. Devuelve true si se permite.
+  // Comprueba y actualiza el límite diario en UNA operación atómica (evita el
+  // TOCTOU de leer/comprobar/escribir por separado). Devuelve true si se permite.
   async function bumpDailyLimit(caller) {
-    const today = new Date().toISOString().slice(0, 10);
-    let count = caller.daily_transcription_count || 0;
-    if (caller.transcription_count_date !== today) count = 0;
-    if (count >= DAILY_LIMIT) return false;
-    await supabase
-      .from('users')
-      .update({ daily_transcription_count: count + 1, transcription_count_date: today })
-      .eq('id', caller.id);
-    return true;
+    const { data, error } = await supabase.rpc('bump_daily_transcription', {
+      p_user: caller.id, p_limit: DAILY_LIMIT,
+    });
+    if (error) {
+      app.log.warn(`[transcribe] bump_daily_transcription: ${error.message}`);
+      return false; // fail-closed: si no se puede contabilizar, no se permite
+    }
+    return data === true;
   }
 
   // --- Health ---
@@ -1058,9 +1074,15 @@ export async function buildApp(options = {}) {
     }
   }
 
-  // ¿Viene de un scheduler externo con el secreto de cron correcto?
+  // ¿Viene de un scheduler externo con el secreto de cron correcto? Comparación
+  // en tiempo CONSTANTE (evita timing attacks sobre el secreto).
   function cronAuthorized(request) {
-    return !!CRON_SECRET && request.headers['x-cron-secret'] === CRON_SECRET;
+    if (!CRON_SECRET) return false;
+    const provided = request.headers['x-cron-secret'];
+    if (typeof provided !== 'string' || provided.length === 0) return false;
+    const a = Buffer.from(provided);
+    const b = Buffer.from(CRON_SECRET);
+    return a.length === b.length && timingSafeEqual(a, b);
   }
 
   // Autoriza un endpoint de cron: acepta el secreto de cron O un admin. Devuelve
@@ -1123,7 +1145,9 @@ export async function buildApp(options = {}) {
     const token = String(b.token ?? '').trim();
     if (!token) return reply.code(400).send({ error: 'Falta el token' });
     const platform = b.platform ? String(b.platform).slice(0, 40) : null;
-    const tenantId = b.tenant_id ? String(b.tenant_id) : (caller.tenant_id ?? null);
+    // El tenant SIEMPRE es el del llamante (no se acepta del body: evitar que se
+    // marque el token con un tenant ajeno).
+    const tenantId = caller.tenant_id ?? null;
     const { error } = await supabase.from('device_tokens').upsert({
       user_id: caller.id,
       tenant_id: tenantId,

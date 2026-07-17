@@ -2761,3 +2761,39 @@ revoke all on function public.rebase_vehicle_initial_km(uuid, integer) from publ
 grant execute on function public.rebase_vehicle_initial_km(uuid, integer) to authenticated, service_role;
 
 notify pgrst, 'reload schema';
+
+-- ===== 074_security_hardening.sql =====
+create or replace function public.bump_daily_transcription(p_user uuid, p_limit int)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_allowed boolean;
+begin
+  update public.users
+     set daily_transcription_count = case
+           when transcription_count_date is distinct from current_date then 1
+           else coalesce(daily_transcription_count, 0) + 1
+         end,
+         transcription_count_date = current_date
+   where id = p_user
+     and (transcription_count_date is distinct from current_date
+          or coalesce(daily_transcription_count, 0) < p_limit)
+   returning true into v_allowed;
+  return coalesce(v_allowed, false);
+end;
+$$;
+revoke all on function public.bump_daily_transcription(uuid, int) from public, anon, authenticated;
+grant execute on function public.bump_daily_transcription(uuid, int) to service_role;
+
+drop policy if exists system_config_read on public.system_config;
+create policy system_config_read_anon on public.system_config
+  for select to anon
+  using (left(key, 9) = 'referral_');
+create policy system_config_read_auth on public.system_config
+  for select to authenticated
+  using (left(key, 9) = 'referral_' or left(key, 10) = 'challenge_');
+
+notify pgrst, 'reload schema';
