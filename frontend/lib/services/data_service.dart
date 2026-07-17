@@ -408,6 +408,23 @@ class DataService {
     return body;
   }
 
+  /// Aplica un cupón a la suscripción ACTIVA: el descuento entra en la próxima
+  /// renovación. Devuelve {code, pct}. Un uso por empresa.
+  Future<Map<String, dynamic>> applySubscriptionCoupon(String code) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/subscription/apply-coupon'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'code': code}),
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'No se pudo aplicar el cupón');
+    }
+    return body;
+  }
+
   /// Da de baja la PROPIA empresa (solo Owner). Cancela Stripe, cierra la empresa
   /// (retención GDPR) y elimina los accesos. Requiere escribir el nombre exacto.
   Future<void> closeCompany(String confirmName) async {

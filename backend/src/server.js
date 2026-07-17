@@ -2570,6 +2570,9 @@ export async function buildApp(options = {}) {
           customer: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
           subscription: subId,
           auto_advance: true,
+          // Sin descuentos heredados: un cupón pendiente (p. ej. aplicado para la
+          // próxima renovación) NO debe gastarse en esta compra de asientos.
+          discounts: [],
         });
         const fin = await stripe.invoices.finalizeInvoice(inv.id);
         if (fin.status !== 'paid') {
@@ -2706,6 +2709,46 @@ export async function buildApp(options = {}) {
       });
     } catch (e) {
       return reply.code(502).send({ error: `No se pudo cambiar la cancelación: ${e.message}` });
+    }
+  });
+
+  // Aplicar un CUPÓN a una suscripción YA activa: el descuento se aplica a la
+  // PRÓXIMA factura (la renovación) — no hace falta "adelantar" ningún pago, la
+  // renovación se cobra sola con el descuento. Un uso por empresa (igual que en
+  // el Checkout): se marca coupon_redeemed_code. Solo Owner.
+  app.post('/api/v1/subscription/apply-coupon', async (request, reply) => {
+    if (!stripe) return reply.code(500).send({ error: 'Stripe no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (caller.role !== 'owner') return reply.code(403).send({ error: 'Solo un Owner puede aplicar un cupón' });
+    const code = String((request.body ?? {}).code ?? '').trim().toUpperCase();
+    if (!code) return reply.code(400).send({ error: 'Código de cupón obligatorio' });
+
+    const { data: t } = await supabase.from('tenants')
+      .select('stripe_subscription_id, subscription_status, coupon_redeemed_code')
+      .eq('id', caller.tenant_id).maybeSingle();
+    const subId = t?.stripe_subscription_id;
+    const paid = t?.subscription_status === 'active' || t?.subscription_status === 'past_due';
+    if (!subId || !paid) {
+      return reply.code(400).send({ error: 'Necesitas una suscripción activa; si aún no tienes, introduce el cupón al suscribirte.' });
+    }
+    if (t?.coupon_redeemed_code && t.coupon_redeemed_code === code) {
+      return reply.code(409).send({ error: 'Ya has usado este cupón.' });
+    }
+    try {
+      const list = await stripe.promotionCodes.list({ code, active: true, limit: 1 });
+      const promo = list.data?.[0];
+      if (!promo || !promo.coupon?.valid) {
+        return reply.code(404).send({ code: 'bad_coupon', error: 'Cupón no válido o caducado' });
+      }
+      await stripe.subscriptions.update(subId, { discounts: [{ promotion_code: promo.id }] });
+      // Un uso por empresa: marcarlo canjeado (también oculta el aviso en la app).
+      await supabase.from('tenants')
+        .update({ coupon_redeemed_code: promo.code }).eq('id', caller.tenant_id);
+      app.log.info(`[coupon] tenant ${caller.tenant_id}: cupón ${promo.code} aplicado a la suscripción`);
+      return reply.send({ ok: true, code: promo.code, pct: Math.round(promo.coupon.percent_off || 0) });
+    } catch (e) {
+      return reply.code(502).send({ error: `No se pudo aplicar el cupón: ${e.message}` });
     }
   });
 

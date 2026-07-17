@@ -757,6 +757,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 label: Text(l.t('sub_manage_billing')),
               ),
             ],
+            // Aplicar un cupón a la suscripción activa (descuento en la próxima
+            // renovación). Al suscribirse, el cupón se pone en el Checkout.
+            if (hasCustomer && subscriptionIsActive(status))
+              TextButton.icon(
+                onPressed: _busy ? null : _applyCoupon,
+                icon: const Icon(Icons.local_offer_outlined, size: 18),
+                label: Text(l.t('sub_have_coupon')),
+              ),
             // Cancelar / reactivar la suscripción (a fin de periodo).
             if (hasCustomer && subscriptionIsActive(status)) ...[
               if (_seatInfo?['cancel_at_period_end'] == true) ...[
@@ -782,6 +790,55 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ),
       ),
     );
+  }
+
+  // Aplicar un cupón a la suscripción activa: el descuento entra en la
+  // PRÓXIMA renovación (no hace falta adelantar ningún pago).
+  Future<void> _applyCoupon() async {
+    final l = context.l10n;
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('sub_have_coupon')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.t('sub_coupon_hint'), style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(labelText: l.t('sub_coupon_code'), isDense: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('sub_coupon_apply'))),
+        ],
+      ),
+    );
+    if (ok != true || ctrl.text.trim().isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final res = await _service.applySubscriptionCoupon(ctrl.text.trim());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(l.t('sub_coupon_applied', {'pct': '${res['pct'] ?? ''}'})),
+          duration: const Duration(seconds: 6),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   // Fecha corta dd/mm/aaaa a partir de un ISO (o '—').
