@@ -222,7 +222,15 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 
 **Secretos y aislamiento:** `service_role` y las claves secretas de Stripe **nunca** están
 en el código de la app; se inyectan por variables de entorno (Render) y GitHub Secrets. Los
-crons externos se autentican con `x-cron-secret`.
+crons externos se autentican con `x-cron-secret` (comparación en tiempo constante).
+
+**Hardening de seguridad (auditoría):** `trustProxy` para IP real tras el proxy (rate-limit y
+anti-fuerza bruta efectivos); CORS *fail-closed* en producción (no refleja cualquier origen);
+límite diario de transcripción **atómico** (RPC `bump_daily_transcription`, mig. 074, cierra el
+TOCTOU); `system_config` no expone a anon/authenticated flags/cron/svc/cupón (solo config
+pública de referidos/retos); auto-escalada a admin bloqueada por *column lockdown* (mig. 040);
+superficie anon minimizada (mig. 042). **Config de producción a verificar:** `CORS_ORIGIN`,
+`TRUST_PROXY_HOPS`, CSP estricta en la web.
 
 ---
 
