@@ -2542,12 +2542,52 @@ export async function buildApp(options = {}) {
     const item = sub.items?.data?.[0];
     if (!item) throw new Error('suscripción sin item');
     const prev = item.quantity ?? 0;
-    if (prev !== seats) {
-      const prorationBehavior = seats > prev ? 'always_invoice' : 'create_prorations';
-      await stripe.subscriptionItems.update(item.id, {
-        quantity: seats, proration_behavior: prorationBehavior,
-      });
-      app.log.info(`[seats] tenant ${tenantId}: asientos ${prev} -> ${seats} (${prorationBehavior})`);
+    if (prev === seats) return seats;
+
+    if (seats > prev) {
+      // AMPLIAR: cobrar SOLO los asientos nuevos (parte proporcional hasta la
+      // renovación) SIN tocar lo ya pagado. El prorrateo de Stripe (abono +
+      // recargo) hacía perder el descuento del cupón inicial: abonaba lo pagado
+      // CON descuento y recobraba todo a precio pleno (15€ -> +45€ en vez de
+      // +30€). Aquí: 1) factura inmediata solo con los asientos añadidos,
+      // 2) si el cobro va bien, subir la cantidad sin prorratear (none).
+      const price = item.price ?? {};
+      const nowS = Math.floor(Date.now() / 1000);
+      const start = sub.current_period_start ?? nowS;
+      const end = sub.current_period_end ?? nowS;
+      const frac = end > start ? Math.max(0, Math.min(1, (end - nowS) / (end - start))) : 1;
+      const added = seats - prev;
+      const amount = Math.round((price.unit_amount ?? 0) * added * frac);
+      if (amount > 0) {
+        await stripe.invoiceItems.create({
+          customer: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
+          subscription: subId,
+          currency: price.currency ?? 'eur',
+          amount,
+          description: `TaxiCount: ${added} asiento(s) adicional(es) — parte proporcional hasta la renovación`,
+        });
+        const inv = await stripe.invoices.create({
+          customer: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
+          subscription: subId,
+          auto_advance: true,
+        });
+        const fin = await stripe.invoices.finalizeInvoice(inv.id);
+        if (fin.status !== 'paid') {
+          try {
+            await stripe.invoices.pay(fin.id);
+          } catch (e) {
+            // Cobro fallido: anular la factura y NO subir la cantidad.
+            try { await stripe.invoices.voidInvoice(fin.id); } catch { /* ya anulada */ }
+            throw new Error(`el cobro del asiento no se pudo completar: ${e.message}`);
+          }
+        }
+      }
+      await stripe.subscriptionItems.update(item.id, { quantity: seats, proration_behavior: 'none' });
+      app.log.info(`[seats] tenant ${tenantId}: asientos ${prev} -> ${seats} (cobrados ${added} nuevos, ${amount} cts)`);
+    } else {
+      // REDUCIR: el sobrante se acredita en la próxima factura (sin cobro).
+      await stripe.subscriptionItems.update(item.id, { quantity: seats, proration_behavior: 'create_prorations' });
+      app.log.info(`[seats] tenant ${tenantId}: asientos ${prev} -> ${seats} (create_prorations)`);
     }
     return seats;
   }
