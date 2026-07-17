@@ -2736,6 +2736,19 @@ export async function buildApp(options = {}) {
       return reply.code(409).send({ error: 'Ya has usado este cupón.' });
     }
     try {
+      // UN solo cupón por renovación: si la suscripción ya tiene un descuento
+      // pendiente (aplicado y aún no consumido por la renovación), se rechaza.
+      // Ni se acumulan ni se puede cambiar por otro mejor. Tras la renovación
+      // (que consume el descuento 'once'), el hueco queda libre para el año
+      // siguiente.
+      const sub = await stripe.subscriptions.retrieve(subId);
+      const hasPending = (Array.isArray(sub.discounts) && sub.discounts.length > 0) || !!sub.discount;
+      if (hasPending) {
+        return reply.code(409).send({
+          code: 'coupon_pending',
+          error: 'Ya tienes un cupón aplicado a tu próxima renovación. Solo se puede usar un cupón por renovación.',
+        });
+      }
       const list = await stripe.promotionCodes.list({ code, active: true, limit: 1 });
       const promo = list.data?.[0];
       if (!promo || !promo.coupon?.valid) {
@@ -2969,9 +2982,25 @@ export async function buildApp(options = {}) {
         ...(maxRedemptions ? { max_redemptions: maxRedemptions } : {}),
         ...(expiresAt ? { expires_at: Math.floor(new Date(expiresAt).getTime() / 1000) } : {}),
       });
+      // Solo hay UN cupón vigente: al lanzar uno nuevo se RETIRA el anterior
+      // (nadie más puede canjearlo). Los descuentos ya aplicados a suscripciones
+      // se conservan (la caducidad/desactivación solo afecta a canjes nuevos).
+      // Si el nuevo está PROGRAMADO, el anterior sigue vivo hasta que el nuevo
+      // se active (el vigía lo retira entonces, vía prev_promo_id).
+      const prevRaw = await readCouponConfigRaw();
+      let prevPromoId = null;
+      if (prevRaw?.promo_id && prevRaw.promo_id !== promo.id) {
+        if (startFuture) {
+          prevPromoId = prevRaw.promo_id;
+        } else {
+          try { await stripe.promotionCodes.update(prevRaw.promo_id, { active: false }); }
+          catch (e) { request.log.warn(`[coupon] no se pudo retirar el anterior: ${e.message}`); }
+        }
+      }
       const value = JSON.stringify({
         code, pct, duration, duration_in_months: months, max_redemptions: maxRedemptions,
         starts_at: startsAt, expires_at: expiresAt, coupon_id: coupon.id, promo_id: promo.id,
+        ...(prevPromoId ? { prev_promo_id: prevPromoId } : {}),
       });
       await supabase.from('system_config').upsert({ key: 'active_coupon', value }, { onConflict: 'key' });
       await logAdminAction(request, g.caller?.id ?? null, 'coupon_create', 'system_config', null,
@@ -2998,6 +3027,15 @@ export async function buildApp(options = {}) {
       const promo = await stripe.promotionCodes.retrieve(raw.promo_id);
       if (promo.active !== shouldBeActive) {
         await stripe.promotionCodes.update(raw.promo_id, { active: shouldBeActive });
+      }
+      // Al ACTIVARSE un cupón programado, retirar el anterior (prev_promo_id):
+      // el cupón vigente es único. Una sola vez (se limpia el puntero).
+      if (shouldBeActive && raw.prev_promo_id) {
+        try { await stripe.promotionCodes.update(raw.prev_promo_id, { active: false }); }
+        catch (e) { app.log.warn(`[coupon-sync] retirar anterior: ${e.message}`); }
+        const { prev_promo_id: _prev, ...rest } = raw;
+        await supabase.from('system_config')
+          .upsert({ key: 'active_coupon', value: JSON.stringify(rest) }, { onConflict: 'key' });
       }
     } catch (e) { app.log.warn(`[coupon-sync] ${e.message}`); }
   }
