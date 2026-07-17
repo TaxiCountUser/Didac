@@ -11,7 +11,7 @@
     "test:ci": "node tests/health.test.js && node tests/run_parser_tests.js && node tests/unit/importer.test.js && node tests/unit/billing_logic.test.js"
   },
   "dependencies": {
-    "@fastify/cors": "^10.1.0",
+    "@fastify/cors": "^11.3.0",
     "@fastify/multipart": "^9.4.0",
     "@logtail/pino": "^0.5.8",
     "@sentry/node": "^10.59.0",
