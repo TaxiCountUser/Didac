@@ -16,6 +16,9 @@ on:
     - cron: '0 7 * * *'   # 07:00 UTC = 08:00/09:00 en España (mañana)
   workflow_dispatch: {}
 
+# Solo hace curl al backend: no necesita ningún permiso sobre el repo.
+permissions: {}
+
 jobs:
   maintenance:
     runs-on: ubuntu-latest

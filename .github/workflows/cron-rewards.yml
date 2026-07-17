@@ -17,6 +17,9 @@ on:
     - cron: '0 3 * * *'   # cada día a las 03:00 UTC (04:00/05:00 en España)
   workflow_dispatch: {}
 
+# Solo hace curl al backend: no necesita ningún permiso sobre el repo.
+permissions: {}
+
 jobs:
   rewards:
     runs-on: ubuntu-latest

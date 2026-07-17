@@ -1,0 +1,24 @@
+# Dependabot: PRs automáticos con actualizaciones de seguridad para las acciones
+# de GitHub Actions y las dependencias del backend. Es la vía MANTENIBLE de tener
+# las acciones/dependencias al día (mejor que pinnear a mano por SHA y olvidarlo).
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+
+  - package-ecosystem: "npm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    # Agrupa las actualizaciones menores/parche en un solo PR para reducir ruido.
+    groups:
+      backend-minor-patch:
+        update-types: ["minor", "patch"]

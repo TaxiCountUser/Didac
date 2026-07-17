@@ -6,7 +6,26 @@ on:
   pull_request:
     branches: [main]
 
+# Principio de menor privilegio: por defecto los jobs solo pueden LEER el repo.
+permissions:
+  contents: read
+
 jobs:
+  # Supply chain: falla si hay vulnerabilidades ALTAS o CRÍTICAS en dependencias
+  # de producción del backend. No bloquea por moderadas/bajas (ruido).
+  audit-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm audit (prod, high+critical)
+        run: npm audit --omit=dev --audit-level=high
+
   lint-backend:
     runs-on: ubuntu-latest
     defaults:

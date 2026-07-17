@@ -21,6 +21,9 @@ on:
     - cron: '3,18,33,48 * * * *'   # cada 15 min, desfasado del vigía de semáforos
   workflow_dispatch: {}
 
+# Solo hace curl al backend: no necesita ningún permiso sobre el repo.
+permissions: {}
+
 jobs:
   retry:
     runs-on: ubuntu-latest
