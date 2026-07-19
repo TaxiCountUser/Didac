@@ -880,6 +880,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   // Tarjeta del modelo por asiento (lineal, sin tramo plano): precio por
   // conductor, cupones anuales y estimación para el nº actual de conductores.
   Widget _seatPlanCard(AppLocalizations l, String? status) {
+    final isPaid = status == 'active' || status == 'past_due';
     final over = _activeDrivers > kMaxDrivers;
     final est = estimatedCost(_activeDrivers, _yearly);
     final perDriver = _yearly ? kSeatYearly : kSeatMonthly;
@@ -895,16 +896,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             _row(Icons.person, l.t('sub_seat_per_driver', {'price': _eur(perDriver), 'period': period})),
             _row(Icons.info_outline, l.t('sub_seat_max', {'max': '$kMaxDrivers'})),
             const Divider(height: 20),
-            if (over)
+            // La estimación "para N conductores" y la nota SOLO al suscribirse
+            // (previsualiza lo que pagará). Ya suscrito, el nº de asientos y su
+            // coste se gestionan arriba en la tarjeta de asientos: aquí sobra.
+            if (over) ...[
               Text(l.t('sub_over_max', {'n': '$_activeDrivers', 'max': '$kMaxDrivers'}),
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFC62828)))
-            else
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFC62828))),
+              const SizedBox(height: 8),
+            ] else if (!isPaid) ...[
               Text(l.t('sub_seat_estimate',
                   {'n': '$_activeDrivers', 'cost': _eur(est), 'period': period}),
                   style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text(l.t('sub_seat_note'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 12),
+              const SizedBox(height: 4),
+              Text(l.t('sub_seat_note'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 8),
+            ],
             SizedBox(
               width: double.infinity,
               child: over
