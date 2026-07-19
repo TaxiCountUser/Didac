@@ -360,7 +360,9 @@ class DataService {
 
   /// Ajusta el nº de asientos PAGADOS de la suscripción (comprar/reducir). Cobra
   /// la parte proporcional al instante al subir. Solo con suscripción activa.
-  Future<int> setSubscriptionSeats(int seats) async {
+  /// Ajusta los asientos. Devuelve el diagnóstico del backend
+  /// {seats, prev, amount (céntimos), charged, reason} para poder mostrarlo.
+  Future<Map<String, dynamic>> setSubscriptionSeats(int seats) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
     final res = await http.post(
@@ -372,7 +374,7 @@ class DataService {
     if (res.statusCode != 200) {
       throw Exception(body['error'] ?? 'No se pudieron actualizar los asientos');
     }
-    return (body['seats'] as num?)?.toInt() ?? seats;
+    return body;
   }
 
   /// Info del asiento para avisar del cobro antes de comprar:

@@ -2562,11 +2562,14 @@ export async function buildApp(options = {}) {
       .select('stripe_subscription_id, subscription_status').eq('id', tenantId).maybeSingle();
     const subId = t?.stripe_subscription_id;
     if (!subId) throw new Error('sin suscripción activa');
-    const sub = await stripe.subscriptions.retrieve(subId);
+    const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] });
     const item = sub.items?.data?.[0];
     if (!item) throw new Error('suscripción sin item');
     const prev = item.quantity ?? 0;
-    if (prev === seats) return seats;
+    if (prev === seats) {
+      return { seats, prev, amount: 0, charged: false, reason: 'Stripe ya tenía esa cantidad (nada que cobrar)' };
+    }
+    let _amount = 0; let _charged = false; let _reason = '';
 
     if (seats > prev) {
       // AMPLIAR: cobrar YA solo los asientos nuevos (parte proporcional hasta la
@@ -2583,12 +2586,13 @@ export async function buildApp(options = {}) {
       const end = item.current_period_end ?? sub.current_period_end ?? nowS;
       const frac = end > start ? Math.max(0, Math.min(1, (end - nowS) / (end - start))) : 1;
       const added = seats - prev;
-      const amount = Math.round((price.unit_amount ?? 0) * added * frac);
-      if (amount > 0 && custId) {
+      _amount = Math.round((price.unit_amount ?? 0) * added * frac);
+      _reason = `unit=${price.unit_amount} added=${added} frac=${frac.toFixed(3)} cust=${!!custId}`;
+      if (_amount > 0 && custId) {
         await stripe.invoiceItems.create({
           customer: custId,
           currency: price.currency ?? 'eur',
-          amount,
+          amount: _amount,
           description: `TaxiCount: ${added} asiento(s) adicional(es) — prorrateado hasta la renovación`,
         });
         const inv = await stripe.invoices.create({
@@ -2606,18 +2610,20 @@ export async function buildApp(options = {}) {
             throw new Error(`el cobro del asiento no se pudo completar: ${e.message}`);
           }
         }
-        app.log.info(`[seats] tenant ${tenantId}: cobrado one-off ${amount} cts (${added} asientos)`);
+        _charged = true;
+        app.log.info(`[seats] tenant ${tenantId}: cobrado one-off ${_amount} cts (${added} asientos)`);
       } else {
-        app.log.warn(`[seats] tenant ${tenantId}: amount=${amount} custId=${!!custId} unit=${price.unit_amount} frac=${frac} -> NO se cobra`);
+        app.log.warn(`[seats] tenant ${tenantId}: NO se cobra -> ${_reason}`);
       }
       await stripe.subscriptionItems.update(item.id, { quantity: seats, proration_behavior: 'none' });
       app.log.info(`[seats] tenant ${tenantId}: asientos ${prev} -> ${seats}`);
     } else {
       // REDUCIR: el sobrante se acredita en la próxima factura (sin cobro).
       await stripe.subscriptionItems.update(item.id, { quantity: seats, proration_behavior: 'create_prorations' });
+      _reason = 'reducción: crédito en la próxima factura';
       app.log.info(`[seats] tenant ${tenantId}: asientos ${prev} -> ${seats} (create_prorations)`);
     }
-    return seats;
+    return { seats, prev, amount: _amount, charged: _charged, reason: _reason };
   }
 
   // Aplica el cupo de asientos pagados: refleja la cantidad de Stripe en
@@ -2671,14 +2677,15 @@ export async function buildApp(options = {}) {
     if (!t?.stripe_subscription_id || !paid) {
       return reply.code(400).send({ error: 'Durante la prueba no hace falta comprar asientos; puedes añadir conductores libremente.' });
     }
+    let diag;
     try {
-      await setSeatQuantity(caller.tenant_id, seats);
+      diag = await setSeatQuantity(caller.tenant_id, seats);
     } catch (e) {
       return reply.code(502).send({ error: `No se pudo actualizar los asientos: ${e.message}` });
     }
     await supabase.from('tenants').update({ drivers_limit: seats }).eq('id', caller.tenant_id);
     await enforceSeatLimit(caller.tenant_id); // bloquea los más nuevos si se redujo
-    return reply.send({ ok: true, seats });
+    return reply.send({ ok: true, seats, prev: diag.prev, amount: diag.amount, charged: diag.charged, reason: diag.reason });
   });
 
   // Info del asiento (para el aviso de cobro ANTES de comprar): cantidad actual,

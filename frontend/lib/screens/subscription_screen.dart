@@ -693,9 +693,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Future<void> _setSeats(int seats) async {
     setState(() => _busySeats = true);
     try {
-      await _service.setSubscriptionSeats(seats);
+      final r = await _service.setSubscriptionSeats(seats);
       if (mounted) setState(() => _pendingSeats = null); // ajuste aplicado
       await _load();
+      // Diagnóstico temporal: mostramos qué hizo Stripe (prev/cobro/motivo).
+      if (mounted) {
+        final prev = (r['prev'] as num?)?.toInt();
+        final amount = (r['amount'] as num?)?.toInt() ?? 0;
+        final charged = r['charged'] == true;
+        final reason = (r['reason'] ?? '').toString();
+        final msg = charged
+            ? 'Cobrat ${(amount / 100).toStringAsFixed(2)} € (de $prev a $seats seients)'
+            : 'NO s\'ha cobrat (Stripe tenia $prev). $reason';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg), duration: const Duration(seconds: 10)));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
