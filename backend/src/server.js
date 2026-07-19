@@ -2579,6 +2579,7 @@ export async function buildApp(options = {}) {
       // cobra al instante. Con subscription= el ítem quedaba pendiente para la
       // próxima renovación (~1 año) y no se cobraba nada ahora.
       const price = item.price ?? {};
+      const plan = item.plan ?? {}; // estructura legada (subs antiguas)
       const custId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
       const nowS = Math.floor(Date.now() / 1000);
       // El periodo actual: primero a nivel de ítem (API nueva), luego de la sub.
@@ -2586,12 +2587,21 @@ export async function buildApp(options = {}) {
       const end = item.current_period_end ?? sub.current_period_end ?? nowS;
       const frac = end > start ? Math.max(0, Math.min(1, (end - nowS) / (end - start))) : 1;
       const added = seats - prev;
-      _amount = Math.round((price.unit_amount ?? 0) * added * frac);
-      _reason = `unit=${price.unit_amount} added=${added} frac=${frac.toFixed(3)} cust=${!!custId}`;
+      // Importe unitario del asiento (céntimos). unit_amount puede venir null si el
+      // precio usa unit_amount_decimal o la estructura legada `plan`; y como último
+      // recurso, el precio base según el periodo (2,50€/mes · 30€/año).
+      const interval = price.recurring?.interval || plan.interval;
+      let unit = price.unit_amount;
+      if (unit == null && price.unit_amount_decimal != null) unit = Math.round(Number(price.unit_amount_decimal));
+      if (unit == null && plan.amount != null) unit = plan.amount;
+      if (unit == null || Number.isNaN(unit)) unit = interval === 'year' ? 3000 : 250;
+      const currency = price.currency ?? plan.currency ?? 'eur';
+      _amount = Math.round(unit * added * frac);
+      _reason = `unit=${unit} added=${added} frac=${frac.toFixed(3)} cust=${!!custId}`;
       if (_amount > 0 && custId) {
         await stripe.invoiceItems.create({
           customer: custId,
-          currency: price.currency ?? 'eur',
+          currency,
           amount: _amount,
           description: `TaxiCount: ${added} asiento(s) adicional(es) — prorrateado hasta la renovación`,
         });
