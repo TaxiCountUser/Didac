@@ -2599,6 +2599,26 @@ export async function buildApp(options = {}) {
       _amount = Math.round(unit * added * frac);
       _reason = `unit=${unit} added=${added} frac=${frac.toFixed(3)} cust=${!!custId}`;
       if (_amount > 0 && custId) {
+        // La factura one-off necesita una tarjeta explícita: el cliente creado por
+        // Checkout no tiene invoice_settings.default_payment_method. Se usa la de
+        // la suscripción; si no, la del cliente; si no, la primera tarjeta guardada.
+        let pmId = typeof sub.default_payment_method === 'string'
+          ? sub.default_payment_method : sub.default_payment_method?.id;
+        if (!pmId) {
+          try {
+            const cust = await stripe.customers.retrieve(custId);
+            const d = cust?.invoice_settings?.default_payment_method;
+            pmId = typeof d === 'string' ? d : d?.id;
+          } catch { /* sigue buscando */ }
+        }
+        if (!pmId) {
+          try {
+            const pms = await stripe.paymentMethods.list({ customer: custId, type: 'card', limit: 1 });
+            pmId = pms.data?.[0]?.id;
+          } catch { /* sin tarjetas */ }
+        }
+        if (!pmId) throw new Error('no hay tarjeta guardada para cobrar el asiento');
+
         await stripe.invoiceItems.create({
           customer: custId,
           currency,
@@ -2609,12 +2629,13 @@ export async function buildApp(options = {}) {
           customer: custId,
           collection_method: 'charge_automatically',
           auto_advance: false,
+          default_payment_method: pmId, // tarjeta con la que cobrar
           pending_invoice_items_behavior: 'include', // incluye el cargo one-off
         });
         const fin = await stripe.invoices.finalizeInvoice(inv.id);
         if (fin.status !== 'paid') {
           try {
-            await stripe.invoices.pay(fin.id);
+            await stripe.invoices.pay(fin.id, { payment_method: pmId });
           } catch (e) {
             try { await stripe.invoices.voidInvoice(fin.id); } catch { /* ya anulada */ }
             throw new Error(`el cobro del asiento no se pudo completar: ${e.message}`);
