@@ -577,7 +577,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   // reducir); en prueba no hace falta (conductores ilimitados hasta el máximo).
   Widget _seatsCard(AppLocalizations l, String? status) {
     final paid = status == 'active' || status == 'past_due';
-    final seats = (_billing?['drivers_limit'] as num?)?.toInt();
+    // Asientos PAGADOS = cantidad real en Stripe (_seatInfo); drivers_limit de la
+    // BD es solo el respaldo por si aún no cargó. Así se ven los que se pagan
+    // (p. ej. 6) aunque haya menos conductores activos.
+    final seats = (_seatInfo?['seats'] as num?)?.toInt()
+        ?? (_billing?['drivers_limit'] as num?)?.toInt();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

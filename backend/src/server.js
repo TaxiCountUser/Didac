@@ -2739,8 +2739,16 @@ export async function buildApp(options = {}) {
       const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] });
       const item = sub.items?.data?.[0];
       const price = item?.price;
+      const qty = item?.quantity ?? null;
+      // Auto-sincroniza: los asientos PAGADOS son la cantidad de Stripe. Si la BD
+      // (tenants.drivers_limit) se quedó desfasada, se corrige aquí para que tanto
+      // la tarjeta como el límite de alta de conductores usen el número real.
+      if (qty != null) {
+        await supabase.from('tenants').update({ drivers_limit: qty })
+          .eq('id', caller.tenant_id).neq('drivers_limit', qty);
+      }
       return reply.send({
-        seats: item?.quantity ?? null,
+        seats: qty,
         interval: price?.recurring?.interval ?? null, // 'month' | 'year'
         unit_amount: price?.unit_amount ?? null,       // en céntimos
         currency: price?.currency ?? 'eur',
