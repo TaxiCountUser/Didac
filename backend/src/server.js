@@ -2631,6 +2631,10 @@ export async function buildApp(options = {}) {
           auto_advance: false,
           default_payment_method: pmId, // tarjeta con la que cobrar
           pending_invoice_items_behavior: 'include', // incluye el cargo one-off
+          // Los asientos nuevos SIEMPRE a precio base: el cupón (attach a la
+          // suscripción) es un descuento de RENOVACIÓN, no de ampliación. Así no
+          // se gasta ni se aplica por error a esta compra.
+          discounts: [],
         });
         const fin = await stripe.invoices.finalizeInvoice(inv.id);
         if (fin.status !== 'paid') {
