@@ -12,6 +12,11 @@
     <meta name="description" content="TaxiCount - gestión para taxistas autónomos" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TaxiCount</title>
+    <!-- Icono de la app / PWA (favicon, iOS y manifest). Rutas relativas al base href. -->
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#FFF8F2" />
     <script>
       // Shim para passkeys_web (dependencia transitiva vía supabase_flutter).
       // TaxiCount usa login email/contrasena y NO usa passkeys, pero el plugin

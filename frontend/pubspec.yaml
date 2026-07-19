@@ -48,6 +48,17 @@ dev_dependencies:
     sdk: flutter
   test: ^1.25.0
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
+
+# Icono de la app (Android). El web se gestiona a mano en web/ (favicon +
+# icons/ + manifest.json). Genera con: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFF8F2"
+  adaptive_icon_foreground: "assets/icon/app_icon_fg.png"
