@@ -256,6 +256,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   String _fStatus = '';
   int _tab = 0; // 0 = resumen (KPIs + gráficos + logros), 1 = sospechosos
   String _evoPeriod = 'days'; // días | months | years | total
+  int? _kmSelDay; // índice del día seleccionado en el gráfico de km/día
   Timer? _autoRefresh;
 
   @override
@@ -620,6 +621,13 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     final max = vals.isEmpty ? 1 : vals.reduce((a, b) => a > b ? a : b);
     final total = vals.fold<int>(0, (s, v) => s + v);
     final fmt = NumberFormat.decimalPattern();
+    // Índice seleccionado válido (si cambió el nº de días, se ignora).
+    final sel = (_kmSelDay != null && _kmSelDay! >= 0 && _kmSelDay! < km.length) ? _kmSelDay : null;
+    String dayLabel(int i) {
+      final d = DateTime.tryParse('${km[i]['day']}');
+      if (d == null) return '';
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+    }
     return Container(
       decoration: adminCardBox(),
       child: Padding(
@@ -631,27 +639,44 @@ class _ChallengesTabState extends State<_ChallengesTab> {
               Text(l.t('adm_ch_chart_km_daily'),
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               const Spacer(),
-              Text(l.t('adm_ch_km_last30', {'n': fmt.format(total)}),
-                  style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+              // Si hay un día seleccionado, muestra su fecha + km; si no, el total.
+              sel != null
+                  ? Text('${dayLabel(sel)} · ${fmt.format(vals[sel])} km',
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AdminColors.teal))
+                  : Text(l.t('adm_ch_km_last30', {'n': fmt.format(total)}),
+                      style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
             ]),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            Text(sel != null ? l.t('adm_ch_km_tap_hint_sel') : l.t('adm_ch_km_tap_hint'),
+                style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+            const SizedBox(height: 8),
             SizedBox(
               height: 60,
               child: (vals.isEmpty || total == 0)
                   ? Center(child: Text(l.t('adm_ch_km_empty'),
                       style: const TextStyle(fontSize: 12, color: AdminColors.muted)))
                   : Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final v in vals)
+                        for (var i = 0; i < vals.length; i++)
                           Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 1),
-                              child: Container(
-                                height: max == 0 ? 2 : (2 + 56 * v / max),
-                                decoration: BoxDecoration(
-                                  color: v > 0 ? AdminColors.teal : AdminColors.hairline,
-                                  borderRadius: BorderRadius.circular(2),
+                            // Toda la columna es zona táctil (aunque la barra sea baja).
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => setState(() => _kmSelDay = sel == i ? null : i),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 1),
+                                child: Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: Container(
+                                    height: max == 0 ? 2 : (2 + 56 * vals[i] / max),
+                                    decoration: BoxDecoration(
+                                      color: vals[i] == 0
+                                          ? AdminColors.hairline
+                                          : (sel == i ? AdminColors.amber : AdminColors.teal),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
