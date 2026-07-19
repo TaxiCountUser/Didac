@@ -2569,48 +2569,49 @@ export async function buildApp(options = {}) {
     if (prev === seats) return seats;
 
     if (seats > prev) {
-      // AMPLIAR: cobrar SOLO los asientos nuevos (parte proporcional hasta la
-      // renovación) SIN tocar lo ya pagado. El prorrateo de Stripe (abono +
-      // recargo) hacía perder el descuento del cupón inicial: abonaba lo pagado
-      // CON descuento y recobraba todo a precio pleno (15€ -> +45€ en vez de
-      // +30€). Aquí: 1) factura inmediata solo con los asientos añadidos,
-      // 2) si el cobro va bien, subir la cantidad sin prorratear (none).
+      // AMPLIAR: cobrar YA solo los asientos nuevos (parte proporcional hasta la
+      // renovación), SIN tocar lo ya pagado ni su descuento. El prorrateo estándar
+      // de Stripe (abono+recargo) perdía el cupón inicial. Aquí se emite un cargo
+      // ONE-OFF DESACOPLADO de la suscripción (customer, sin subscription=): así se
+      // cobra al instante. Con subscription= el ítem quedaba pendiente para la
+      // próxima renovación (~1 año) y no se cobraba nada ahora.
       const price = item.price ?? {};
+      const custId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
       const nowS = Math.floor(Date.now() / 1000);
-      const start = sub.current_period_start ?? nowS;
-      const end = sub.current_period_end ?? nowS;
+      // El periodo actual: primero a nivel de ítem (API nueva), luego de la sub.
+      const start = item.current_period_start ?? sub.current_period_start ?? nowS;
+      const end = item.current_period_end ?? sub.current_period_end ?? nowS;
       const frac = end > start ? Math.max(0, Math.min(1, (end - nowS) / (end - start))) : 1;
       const added = seats - prev;
       const amount = Math.round((price.unit_amount ?? 0) * added * frac);
-      if (amount > 0) {
+      if (amount > 0 && custId) {
         await stripe.invoiceItems.create({
-          customer: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
-          subscription: subId,
+          customer: custId,
           currency: price.currency ?? 'eur',
           amount,
-          description: `TaxiCount: ${added} asiento(s) adicional(es) — parte proporcional hasta la renovación`,
+          description: `TaxiCount: ${added} asiento(s) adicional(es) — prorrateado hasta la renovación`,
         });
         const inv = await stripe.invoices.create({
-          customer: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
-          subscription: subId,
-          auto_advance: true,
-          // Sin descuentos heredados: un cupón pendiente (p. ej. aplicado para la
-          // próxima renovación) NO debe gastarse en esta compra de asientos.
-          discounts: [],
+          customer: custId,
+          collection_method: 'charge_automatically',
+          auto_advance: false,
+          pending_invoice_items_behavior: 'include', // incluye el cargo one-off
         });
         const fin = await stripe.invoices.finalizeInvoice(inv.id);
         if (fin.status !== 'paid') {
           try {
             await stripe.invoices.pay(fin.id);
           } catch (e) {
-            // Cobro fallido: anular la factura y NO subir la cantidad.
             try { await stripe.invoices.voidInvoice(fin.id); } catch { /* ya anulada */ }
             throw new Error(`el cobro del asiento no se pudo completar: ${e.message}`);
           }
         }
+        app.log.info(`[seats] tenant ${tenantId}: cobrado one-off ${amount} cts (${added} asientos)`);
+      } else {
+        app.log.warn(`[seats] tenant ${tenantId}: amount=${amount} custId=${!!custId} unit=${price.unit_amount} frac=${frac} -> NO se cobra`);
       }
       await stripe.subscriptionItems.update(item.id, { quantity: seats, proration_behavior: 'none' });
-      app.log.info(`[seats] tenant ${tenantId}: asientos ${prev} -> ${seats} (cobrados ${added} nuevos, ${amount} cts)`);
+      app.log.info(`[seats] tenant ${tenantId}: asientos ${prev} -> ${seats}`);
     } else {
       // REDUCIR: el sobrante se acredita en la próxima factura (sin cobro).
       await stripe.subscriptionItems.update(item.id, { quantity: seats, proration_behavior: 'create_prorations' });
