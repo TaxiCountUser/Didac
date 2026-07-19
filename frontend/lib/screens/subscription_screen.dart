@@ -722,7 +722,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _currentPlanCard(AppLocalizations l, String? status, bool hasCustomer, int trialDaysLeft) {
-    final est = estimatedCost(_activeDrivers, _yearly);
+    // Con suscripción PAGADA se muestra lo que se paga: los ASIENTOS comprados
+    // (cantidad de Stripe) y el periodo REAL, no los conductores activos ni el
+    // toggle. En prueba aún no hay asientos: se estima por conductores activos.
+    final isPaid = status == 'active' || status == 'past_due';
+    final paidSeats = (_seatInfo?['seats'] as num?)?.toInt()
+        ?? (_billing?['drivers_limit'] as num?)?.toInt();
+    final yearly = isPaid ? (_seatInfo?['interval'] == 'year') : _yearly;
+    final count = (isPaid && paidSeats != null && paidSeats > 0) ? paidSeats : _activeDrivers;
+    final est = estimatedCost(count, yearly);
     return Card(
       key: const Key('current_plan_card'),
       child: Padding(
@@ -756,9 +764,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ],
             const SizedBox(height: 8),
             Text(l.t('sub_seat_current', {
-              'n': '$_activeDrivers',
+              'n': '$count',
               'cost': _eur(est),
-              'period': _yearly ? l.t('sub_per_year') : l.t('sub_per_month'),
+              'period': yearly ? l.t('sub_per_year') : l.t('sub_per_month'),
             })),
             if (!subscriptionIsActive(status)) ...[
               const SizedBox(height: 8),
