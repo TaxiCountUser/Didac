@@ -305,6 +305,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
     // Semáforos en una fila que se reparte (salto de línea limpio si no caben).
     return Wrap(
+      alignment: WrapAlignment.center,
       spacing: 8,
       runSpacing: 8,
       children: [
