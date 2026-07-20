@@ -171,33 +171,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   // únicamente NUESTROS ingresos; nunca el dinero de las carreras de los clientes.
   Widget _dailyPulse(AppLocalizations l, Map<String, dynamic> d) {
     final k = (d['kpis'] as Map?) ?? const {};
-    final rev = (d['revenue'] as Map?);
     final driversActive = (k['drivers_active'] as num?)?.toInt() ?? 0;
     final driversTotal = (k['drivers_total'] as num?)?.toInt() ?? 0;
 
+    // Totales de plataforma (recuentos). El dinero (MRR/facturado/cupones) vive
+    // en el módulo Facturación, no aquí.
     final globalTiles = <Widget>[
       _mTile(l.t('adm_kpi_companies'), _numStr(k['tenants']), AdminColors.purple),
       _mTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal', AdminColors.blue),
       _mTile(l.t('adm_kpi_trials'), _numStr(k['trialing']), AdminColors.amber),
-      _mTile(l.t('adm_kpi_mrr'), '${(k['mrr_estimate'] as num?)?.toStringAsFixed(0) ?? '0'} €', AdminColors.teal),
-      if (rev != null) _mTile(l.t('adm_kpi_revenue'), _eurStr(rev['paid_total']), AdminColors.teal),
-      if (rev != null) _mTile(l.t('adm_kpi_coupons'), _eurStr(rev['coupon_total']), AdminColors.amber),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          Text(l.t('adm_dm_title'),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5, color: AdminColors.text)),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(l.t('adm_dm_sub'),
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
-          ),
-        ]),
+        Text(l.t('adm_dm_title'),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                letterSpacing: 1.5, color: AdminColors.text)),
         _subLabel(l.t('adm_dm_global')),
         Wrap(spacing: 8, runSpacing: 8, children: globalTiles),
         _subLabel(l.t('adm_dm_today')),
@@ -220,7 +210,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             final us = (m['usage'] as Map?) ?? const {};
             final gr = (m['growth'] as Map?) ?? const {};
             final pr = (m['product'] as Map?) ?? const {};
-            final su = (m['support'] as Map?) ?? const {};
             final rate = pr['activation_rate'];
             final refunds = (biz['refunds_today'] as num?)?.toDouble() ?? 0;
             final tiles = <Widget>[
@@ -233,7 +222,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               _mTile(l.t('adm_dm_trials_end'), _numStr(gr['trials_ending']), AdminColors.amber),
               _mTile(l.t('adm_dm_activation'), rate == null ? '—' : '$rate%', AdminColors.teal),
               _mTile(l.t('adm_dm_at_risk'), _numStr(pr['at_risk']), AdminColors.red),
-              _mTile(l.t('adm_dm_tickets'), _numStr(su['open_tickets']), AdminColors.coral),
               if (refunds > 0) _mTile(l.t('adm_dm_refunds'), _eurStr(biz['refunds_today']), AdminColors.red),
             ];
             return Wrap(spacing: 8, runSpacing: 8, children: tiles);
@@ -315,19 +303,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ),
         );
 
-    // Fecha en su propia línea y, debajo, los semáforos en una fila que se
-    // reparte (o hace salto de línea limpio si no caben todos).
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // Semáforos en una fila que se reparte (salto de línea limpio si no caben).
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        Text(_todayLabel(),
-            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
-        const SizedBox(height: 9),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            dot('API', true),
+        dot('API', true),
             dot(l.t('adm_home_db').toUpperCase(), dbOk),
             dot(l.t('adm_home_crons').toUpperCase(),
                 fresh('challenge_credits') && fresh('referral_validations')),
@@ -337,61 +318,45 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             dot('WHISPER', svcOk('whisper')),
             dot('OPENAI', svcOk('openai')),
             dot('PUSH', svcOk('push')),
-          ],
-        ),
       ],
     );
   }
 
-  String _todayLabel() {
-    final now = DateTime.now();
-    return '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} '
-        '· ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-  }
-
-  // --- Centro de control: SOLO el anillo de salud + estado. Las métricas viven
-  // ahora en el Pulso diario (unificado). ---
+  // --- Anillo de salud CENTRADO + estado en una línea. Las métricas viven en
+  // el bloque de Resumen; el nº de la bandeja tiene su propia sección. ---
   Widget _controlCenter(AppLocalizations l, Map<String, dynamic> d) {
     final health = (d['health'] as num?)?.toInt() ?? 100;
-    final inboxLen = ((d['inbox'] as List?) ?? const []).length;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 100, height: 100,
-          child: CustomPaint(
-            painter: _RingPainter(health / 100),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('$health',
-                      style: const TextStyle(
-                          fontSize: 26, fontWeight: FontWeight.w600,
-                          color: AdminColors.text)),
-                  Text(l.t('adm_home_health').toUpperCase(),
-                      style: const TextStyle(
-                          fontSize: 8, letterSpacing: 1.5, color: AdminColors.secondary)),
-                ],
+    final ok = health >= 90;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 112, height: 112,
+            child: CustomPaint(
+              painter: _RingPainter(health / 100),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('$health',
+                        style: const TextStyle(
+                            fontSize: 28, fontWeight: FontWeight.w600, color: AdminColors.text)),
+                    Text(l.t('adm_home_health').toUpperCase(),
+                        style: const TextStyle(
+                            fontSize: 8, letterSpacing: 1.5, color: AdminColors.secondary)),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l.t('adm_home_ok'),
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500, color: AdminColors.text)),
-              const SizedBox(height: 4),
-              Text(l.t('adm_home_items', {'n': '$inboxLen'}),
-                  style: const TextStyle(fontSize: 11.5, color: AdminColors.secondary)),
-            ],
-          ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(ok ? l.t('adm_home_ok') : l.t('adm_home_attention'),
+              style: TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w500,
+                  color: ok ? AdminColors.teal : AdminColors.amber)),
+        ],
+      ),
     );
   }
 
