@@ -29,14 +29,18 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       _service.adminCompany(widget.tenantId);
   int _tab = 0; // 0 resumen · 1 usuarios · 2 vehículos · 3 incidencias
   bool _busy = false; // operación en curso (reactivar, etc.)
+  // "Modo soporte": por defecto la ficha es de SUPERVISIÓN (solo lectura de la
+  // operativa del cliente: conductores y vehículos). Al activarlo se revelan las
+  // acciones operativas, que YA quedan registradas en admin_actions_log
+  // (Auditoría). Separa el rol plataforma (nosotros) del rol operador (el jefe).
+  bool _support = false;
 
   void _reload() =>
       setState(() => _future = _service.adminCompany(widget.tenantId));
 
   Future<void> _toast(String msg) async {
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
@@ -57,20 +61,21 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       data: adminDarkTheme(),
       child: Scaffold(
         backgroundColor: AdminColors.bg,
-        appBar: AppBar(
-          backgroundColor: AdminColors.bg,
-          foregroundColor: AdminColors.text,
-          elevation: 0,
-          title: Text(widget.tenantName,
-              style: const TextStyle(fontSize: 16, color: AdminColors.text)),
-          actions: [
-            IconButton(
-                tooltip: l.t('refresh'),
-                icon: const Icon(Icons.refresh,
-                    size: 20, color: AdminColors.secondary),
-                onPressed: _reload),
-          ],
-        ),
+        appBar: adminAppBar(widget.tenantName, actions: [
+          IconButton(
+            tooltip: l.t('adm_support_mode'),
+            icon: Icon(
+                _support ? Icons.build_circle : Icons.build_circle_outlined,
+                size: 20,
+                color: _support ? AdminColors.amber : AdminColors.secondary),
+            onPressed: () => setState(() => _support = !_support),
+          ),
+          IconButton(
+              tooltip: l.t('refresh'),
+              icon: const Icon(Icons.refresh,
+                  size: 20, color: AdminColors.secondary),
+              onPressed: _reload),
+        ]),
         body: FutureBuilder<Map<String, dynamic>>(
           future: _future,
           builder: (context, snap) {
@@ -111,6 +116,10 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               children: [
                 _header(l, tenant, users),
+                if (_support) ...[
+                  const SizedBox(height: 10),
+                  _supportBanner(l),
+                ],
                 const SizedBox(height: 12),
                 _kpiStrip(l, tenant, billing),
                 const SizedBox(height: 12),
@@ -149,13 +158,16 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(widget.tenantName,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
                       color: AdminColors.text)),
               if (ownerMail.isNotEmpty)
                 Text(ownerMail,
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 11, color: AdminColors.muted)),
             ],
@@ -167,6 +179,28 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       ],
     );
   }
+
+  // Aviso visible mientras el modo soporte está activo: recuerda que actuar
+  // sobre la operativa del cliente queda registrado en Auditoría.
+  Widget _supportBanner(AppLocalizations l) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: AdminColors.amber.withValues(alpha: .10),
+          border: Border.all(color: AdminColors.amber.withValues(alpha: .5)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.build_circle, size: 15, color: AdminColors.amber),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(l.t('adm_support_on'),
+                  style: const TextStyle(
+                      fontSize: 10.5, color: AdminColors.amber, height: 1.3)),
+            ),
+          ],
+        ),
+      );
 
   // ===================== KPIs de suscripción =====================
   Widget _kpiStrip(AppLocalizations l, Map<String, dynamic> t,
@@ -193,14 +227,17 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label.toUpperCase(),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         fontSize: 8, letterSpacing: 1.1, color: color)),
                 const SizedBox(height: 2),
                 Text(value,
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                         color: AdminColors.text)),
               ],
             ),
@@ -274,9 +311,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                         fontSize: 11,
                         fontWeight:
                             _tab == i ? FontWeight.w600 : FontWeight.w400,
-                        color: _tab == i
-                            ? AdminColors.bg
-                            : AdminColors.secondary,
+                        color:
+                            _tab == i ? AdminColors.bg : AdminColors.secondary,
                       )),
                 ),
               ),
@@ -287,8 +323,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   }
 
   // ===================== TAB Resumen =====================
-  Widget _summaryTab(AppLocalizations l, Map<String, dynamic> t,
-      Map<String, dynamic> counts) {
+  Widget _summaryTab(
+      AppLocalizations l, Map<String, dynamic> t, Map<String, dynamic> counts) {
     final created = DateTime.tryParse('${t['created_at']}')?.toLocal();
     final daysUsing =
         created == null ? '—' : '${DateTime.now().difference(created).inDays}';
@@ -312,7 +348,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                             fontSize: 11, color: AdminColors.secondary))),
                 Text(v,
                     style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                         color: AdminColors.text)),
                 if (action != null) ...[
                   const SizedBox(width: 8),
@@ -329,8 +366,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-              color: AdminColors.card,
-              borderRadius: BorderRadius.circular(12)),
+              color: AdminColors.card, borderRadius: BorderRadius.circular(12)),
           child: Column(
             children: [
               row(l.t('admin_mode_solo'),
@@ -359,13 +395,13 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-              color: AdminColors.card,
-              borderRadius: BorderRadius.circular(12)),
+              color: AdminColors.card, borderRadius: BorderRadius.circular(12)),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _stat('${counts['vehicles'] ?? 0}', l.t('nav_vehicles')),
-              _stat('${counts['transactions'] ?? 0}', l.t('admin_transactions')),
+              _stat(
+                  '${counts['transactions'] ?? 0}', l.t('admin_transactions')),
               _stat('${counts['incidents'] ?? 0}', l.t('admin_incidents')),
             ],
           ),
@@ -392,7 +428,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         children: [
           Text(v,
               style: const TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w600,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
                   color: AdminColors.text)),
           Text(label,
               style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
@@ -413,12 +450,12 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.warning_amber,
-                  size: 15, color: AdminColors.red),
+              const Icon(Icons.warning_amber, size: 15, color: AdminColors.red),
               const SizedBox(width: 8),
               Text(l.t('adm_dz_title'),
                   style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                       color: AdminColors.red)),
             ],
           ),
@@ -475,7 +512,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               ),
               icon: const Icon(Icons.restart_alt, size: 15),
               onPressed: _busy ? null : () => _reactivateCompany(l),
-              label: Text(l.t('adm_dz_react'), style: const TextStyle(fontSize: 11)),
+              label: Text(l.t('adm_dz_react'),
+                  style: const TextStyle(fontSize: 11)),
             ),
             const SizedBox(height: 10),
             Text(l.t('adm_dz_purge_sub'),
@@ -484,12 +522,14 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: AdminColors.red,
-                side: BorderSide(color: AdminColors.redSolid.withValues(alpha: .7)),
+                side: BorderSide(
+                    color: AdminColors.redSolid.withValues(alpha: .7)),
                 visualDensity: VisualDensity.compact,
               ),
               icon: const Icon(Icons.delete_forever, size: 15),
               onPressed: () => _purgeCompany(l),
-              label: Text(l.t('adm_dz_purge'), style: const TextStyle(fontSize: 11)),
+              label: Text(l.t('adm_dz_purge'),
+                  style: const TextStyle(fontSize: 11)),
             ),
           ],
         ],
@@ -517,25 +557,32 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             TextField(
               controller: nameCtrl,
               autofocus: true,
-              decoration: InputDecoration(labelText: l.t('adm_react_name'), isDense: true),
+              decoration: InputDecoration(
+                  labelText: l.t('adm_react_name'), isDense: true),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: emailCtrl,
               keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(labelText: l.t('adm_react_email'), isDense: true),
+              decoration: InputDecoration(
+                  labelText: l.t('adm_react_email'), isDense: true),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: daysCtrl,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: l.t('adm_react_days'), isDense: true),
+              decoration: InputDecoration(
+                  labelText: l.t('adm_react_days'), isDense: true),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('adm_dz_react'))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.t('cancel'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.t('adm_dz_react'))),
         ],
       ),
     );
@@ -569,7 +616,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l.t('adm_react_done_help'), style: const TextStyle(fontSize: 12)),
+              Text(l.t('adm_react_done_help'),
+                  style: const TextStyle(fontSize: 12)),
               const SizedBox(height: 10),
               SelectableText(summary, style: const TextStyle(fontSize: 13)),
             ],
@@ -580,7 +628,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               onPressed: () => Clipboard.setData(ClipboardData(text: summary)),
               label: Text(l.t('copy')),
             ),
-            FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('ok'))),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx), child: Text(l.t('ok'))),
           ],
         ),
       );
@@ -604,10 +653,12 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l.t('adm_dz_purge_help'), style: const TextStyle(fontSize: 12)),
+              Text(l.t('adm_dz_purge_help'),
+                  style: const TextStyle(fontSize: 12)),
               const SizedBox(height: 10),
               Text(l.t('adm_dz_type_name'),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 controller: ctrl,
@@ -622,9 +673,12 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(l.t('cancel'))),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: AdminColors.redSolid),
+              style:
+                  FilledButton.styleFrom(backgroundColor: AdminColors.redSolid),
               onPressed: ctrl.text.trim() == widget.tenantName.trim()
                   ? () => Navigator.pop(ctx, true)
                   : null,
@@ -643,9 +697,12 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         title: Text(l.t('adm_dz_purge_final_title')),
         content: Text(l.t('adm_dz_purge_final', {'name': widget.tenantName})),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.t('cancel'))),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AdminColors.redSolid),
+            style:
+                FilledButton.styleFrom(backgroundColor: AdminColors.redSolid),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(l.t('adm_dz_purge')),
           ),
@@ -667,8 +724,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(l.t('adm_dz_suspend')),
-          content: Text(
-              l.t('adm_dz_suspend_confirm', {'name': widget.tenantName})),
+          content:
+              Text(l.t('adm_dz_suspend_confirm', {'name': widget.tenantName})),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -749,7 +806,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   }
 
   // ===================== Editar suscripción (portado) =====================
-  Future<void> _editSubscription(AppLocalizations l, Map<String, dynamic> t) async {
+  Future<void> _editSubscription(
+      AppLocalizations l, Map<String, dynamic> t) async {
     String status = (t['subscription_status'] as String?) ?? 'trialing';
     final limitCtrl = TextEditingController(
         text: t['drivers_limit'] == null ? '' : '${t['drivers_limit']}');
@@ -826,8 +884,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     // + añade días, - quita días de prueba.
     final extend = int.tryParse(extendCtrl.text.trim());
     if (extend != null && extend != 0) patch['extend_trial_days'] = extend;
-    await _guard(
-        () => _service.adminUpdateCompany(widget.tenantId, patch),
+    await _guard(() => _service.adminUpdateCompany(widget.tenantId, patch),
         l.t('saved'));
   }
 
@@ -842,18 +899,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             style: const TextStyle(fontSize: 12, color: AdminColors.muted)),
       ));
     }
-    return Container(
-      decoration: BoxDecoration(
-          color: AdminColors.card, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: [
-          for (var i = 0; i < users.length; i++) ...[
-            if (i > 0) const Divider(height: 1, color: AdminColors.hairline),
-            _userRow(l, users[i], vehicles),
-          ],
-        ],
-      ),
-    );
+    return adminRowsCard([for (final u in users) _userRow(l, u, vehicles)]);
   }
 
   Widget _userRow(AppLocalizations l, Map<String, dynamic> u,
@@ -865,24 +911,28 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     final isAdmin = u['is_admin'] == true;
     final isOwner = role == 'owner';
     return InkWell(
-      onTap: () => _assignVehiclesDialog(l, u, vehicles),
+      onTap: _support ? () => _assignVehiclesDialog(l, u, vehicles) : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
             Icon(isOwner ? Icons.badge : Icons.person,
                 size: 18,
-                color: active ? (isOwner ? AdminColors.purple : AdminColors.blue) : AdminColors.muted),
+                color: active
+                    ? (isOwner ? AdminColors.purple : AdminColors.blue)
+                    : AdminColors.muted),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(name.isNotEmpty ? name : email,
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           fontSize: 12,
-                          color: active ? AdminColors.text : AdminColors.muted)),
+                          color:
+                              active ? AdminColors.text : AdminColors.muted)),
                   Text(
                     [
                       if (name.isNotEmpty) email,
@@ -892,54 +942,59 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                       if (!active) l.t('admin_inactive'),
                       if (isAdmin) 'ADMIN',
                     ].join(' · '),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 10, color: AdminColors.muted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(fontSize: 10, color: AdminColors.muted),
                   ),
                 ],
               ),
             ),
-            PopupMenuButton<String>(
-              iconColor: AdminColors.secondary,
-              onSelected: (v) {
-                if (v == 'vehicles') {
-                  _assignVehiclesDialog(l, u, vehicles);
-                } else {
-                  _onUserAction(l, u, v);
-                }
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                    value: 'vehicles', child: Text(l.t('dr_assign_vehicles'))),
-                PopupMenuItem(
-                    value: 'toggle_active',
-                    child: Text(active
-                        ? l.t('admin_deactivate')
-                        : l.t('admin_activate'))),
-                PopupMenuItem(
-                    value: 'toggle_admin',
-                    child: Text(isAdmin
-                        ? l.t('admin_remove_admin')
-                        : l.t('admin_make_admin_short'))),
-                PopupMenuItem(
-                    value: 'role',
-                    child: Text(isOwner
-                        ? l.t('admin_set_driver')
-                        : l.t('admin_set_owner'))),
-                PopupMenuItem(
-                    value: 'delete',
-                    child: Text(l.t('admin_delete_user'),
-                        style: const TextStyle(color: AdminColors.red))),
-              ],
-            ),
+            // Gestión operativa del equipo del cliente: solo en modo soporte
+            // (auditada). Fuera de él, la ficha es de supervisión (solo lectura).
+            if (_support)
+              PopupMenuButton<String>(
+                iconColor: AdminColors.secondary,
+                onSelected: (v) {
+                  if (v == 'vehicles') {
+                    _assignVehiclesDialog(l, u, vehicles);
+                  } else {
+                    _onUserAction(l, u, v);
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                      value: 'vehicles',
+                      child: Text(l.t('dr_assign_vehicles'))),
+                  PopupMenuItem(
+                      value: 'toggle_active',
+                      child: Text(active
+                          ? l.t('admin_deactivate')
+                          : l.t('admin_activate'))),
+                  PopupMenuItem(
+                      value: 'toggle_admin',
+                      child: Text(isAdmin
+                          ? l.t('admin_remove_admin')
+                          : l.t('admin_make_admin_short'))),
+                  PopupMenuItem(
+                      value: 'role',
+                      child: Text(isOwner
+                          ? l.t('admin_set_driver')
+                          : l.t('admin_set_owner'))),
+                  PopupMenuItem(
+                      value: 'delete',
+                      child: Text(l.t('admin_delete_user'),
+                          style: const TextStyle(color: AdminColors.red))),
+                ],
+              ),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _assignVehiclesDialog(AppLocalizations l,
-      Map<String, dynamic> u, List<Map<String, dynamic>> vehicles) async {
+  Future<void> _assignVehiclesDialog(AppLocalizations l, Map<String, dynamic> u,
+      List<Map<String, dynamic>> vehicles) async {
     final userId = u['id'] as String;
     if (vehicles.isEmpty) {
       await _toast(l.t('admin_no_vehicles'));
@@ -957,8 +1012,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title:
-              Text(l.t('dr_vehicles_of', {'name': (u['email'] as String?) ?? ''})),
+          title: Text(
+              l.t('dr_vehicles_of', {'name': (u['email'] as String?) ?? ''})),
           content: SizedBox(
             width: 420,
             child: ListView(
@@ -992,8 +1047,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       ),
     );
     if (ok != true) return;
-    await _guard(
-        () => _service.adminSetUserVehicles(userId, selected.toList()),
+    await _guard(() => _service.adminSetUserVehicles(userId, selected.toList()),
         l.t('saved'));
   }
 
@@ -1003,12 +1057,14 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     switch (action) {
       case 'toggle_active':
         await _guard(
-            () => _service.adminUpdateUser(id, {'active': !(u['active'] != false)}),
+            () => _service
+                .adminUpdateUser(id, {'active': !(u['active'] != false)}),
             l.t('saved'));
         break;
       case 'toggle_admin':
         await _guard(
-            () => _service.adminUpdateUser(id, {'is_admin': !(u['is_admin'] == true)}),
+            () => _service
+                .adminUpdateUser(id, {'is_admin': !(u['is_admin'] == true)}),
             l.t('saved'));
         break;
       case 'role':
@@ -1032,8 +1088,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
           ),
         );
         if (ok != true) return;
-        await _guard(
-            () => _service.adminUpdateUser(id, {'role': newRole}), l.t('saved'));
+        await _guard(() => _service.adminUpdateUser(id, {'role': newRole}),
+            l.t('saved'));
         break;
       case 'delete':
         final ok = await showAdminDialog<bool>(
@@ -1056,7 +1112,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
           ),
         );
         if (ok == true) {
-          await _guard(() => _service.adminDeleteUser(id), l.t('admin_deleted'));
+          await _guard(
+              () => _service.adminDeleteUser(id), l.t('admin_deleted'));
         }
         break;
     }
@@ -1067,44 +1124,33 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AdminColors.teal,
-              side: BorderSide(color: AdminColors.teal.withValues(alpha: .5)),
-              visualDensity: VisualDensity.compact,
+        // Alta de vehículos = operativa del cliente: solo en modo soporte.
+        if (_support) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AdminColors.teal,
+                side: BorderSide(color: AdminColors.teal.withValues(alpha: .5)),
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.add, size: 15),
+              label: Text(l.t('admin_add_vehicle'),
+                  style: const TextStyle(fontSize: 11)),
+              onPressed: () => _vehicleDialog(l),
             ),
-            icon: const Icon(Icons.add, size: 15),
-            label: Text(l.t('admin_add_vehicle'),
-                style: const TextStyle(fontSize: 11)),
-            onPressed: () => _vehicleDialog(l),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
         if (vehicles.isEmpty)
           Center(
               child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(l.t('admin_no_vehicles'),
-                style:
-                    const TextStyle(fontSize: 12, color: AdminColors.muted)),
+                style: const TextStyle(fontSize: 12, color: AdminColors.muted)),
           ))
         else
-          Container(
-            decoration: BoxDecoration(
-                color: AdminColors.card,
-                borderRadius: BorderRadius.circular(12)),
-            child: Column(
-              children: [
-                for (var i = 0; i < vehicles.length; i++) ...[
-                  if (i > 0)
-                    const Divider(height: 1, color: AdminColors.hairline),
-                  _vehicleRow(l, vehicles[i]),
-                ],
-              ],
-            ),
-          ),
+          adminRowsCard([for (final v in vehicles) _vehicleRow(l, v)]),
       ],
     );
   }
@@ -1124,7 +1170,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               children: [
                 Text(plate,
                     style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                         color: AdminColors.text)),
                 if (model.isNotEmpty)
                   Text(model,
@@ -1133,45 +1180,47 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               ],
             ),
           ),
-          PopupMenuButton<String>(
-            iconColor: AdminColors.secondary,
-            onSelected: (a) {
-              if (a == 'edit') {
-                _vehicleDialog(l, vehicle: v);
-              } else if (a == 'delete') {
-                showAdminDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Text(l.t('admin_delete_vehicle')),
-                    content: Text('${l.t('admin_delete_vehicle')}: $plate?'),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: Text(l.t('cancel'))),
-                      FilledButton(
-                        style: FilledButton.styleFrom(
-                            backgroundColor: AdminColors.redSolid),
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: Text(l.t('admin_delete_confirm_btn')),
-                      ),
-                    ],
-                  ),
-                ).then((ok) {
-                  if (ok == true) {
-                    _guard(() => _service.adminDeleteVehicle(v['id'] as String),
-                        l.t('admin_deleted'));
-                  }
-                });
-              }
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(value: 'edit', child: Text(l.t('edit'))),
-              PopupMenuItem(
-                  value: 'delete',
-                  child: Text(l.t('admin_delete_vehicle'),
-                      style: const TextStyle(color: AdminColors.red))),
-            ],
-          ),
+          if (_support)
+            PopupMenuButton<String>(
+              iconColor: AdminColors.secondary,
+              onSelected: (a) {
+                if (a == 'edit') {
+                  _vehicleDialog(l, vehicle: v);
+                } else if (a == 'delete') {
+                  showAdminDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text(l.t('admin_delete_vehicle')),
+                      content: Text('${l.t('admin_delete_vehicle')}: $plate?'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text(l.t('cancel'))),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                              backgroundColor: AdminColors.redSolid),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: Text(l.t('admin_delete_confirm_btn')),
+                        ),
+                      ],
+                    ),
+                  ).then((ok) {
+                    if (ok == true) {
+                      _guard(
+                          () => _service.adminDeleteVehicle(v['id'] as String),
+                          l.t('admin_deleted'));
+                    }
+                  });
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'edit', child: Text(l.t('edit'))),
+                PopupMenuItem(
+                    value: 'delete',
+                    child: Text(l.t('admin_delete_vehicle'),
+                        style: const TextStyle(color: AdminColors.red))),
+              ],
+            ),
         ],
       ),
     );
@@ -1226,7 +1275,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   }
 
   // ===================== TAB Incidencias (portado) =====================
-  Widget _incidentsTab(AppLocalizations l, List<Map<String, dynamic>> incidents) {
+  Widget _incidentsTab(
+      AppLocalizations l, List<Map<String, dynamic>> incidents) {
     if (incidents.isEmpty) {
       return Center(
           child: Padding(
@@ -1268,15 +1318,15 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         child: Row(
           children: [
             Icon(isApp ? Icons.bug_report : Icons.note_alt,
-                size: 17,
-                color: isApp ? AdminColors.coral : AdminColors.blue),
+                size: 17, color: isApp ? AdminColors.coral : AdminColors.blue),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(body,
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
                         color: resolved ? AdminColors.muted : AdminColors.text,
@@ -1285,7 +1335,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                       )),
                   if (author.isNotEmpty)
                     Text(author,
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 10, color: AdminColors.muted)),
                 ],

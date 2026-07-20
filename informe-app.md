@@ -153,7 +153,7 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 
 ### 4.3 Panel de administración (tema oscuro "N")
 Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),
-Empresas (buscador global + fichas + **purga definitiva** de empresas de baja, doble confirmación),
+Empresas (buscador global + recuento + orden + fichas de **supervisión** + **purga definitiva** de empresas de baja, doble confirmación),
 Facturación (MRR/ARPU/churn), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
 + auto-refresco 20 s), Referidos (funnel + submenú **Fraude**), **Monitorización** (Métricas en
@@ -162,6 +162,18 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 
 > **Reorganización (2026-07-13):** la antigua tarjeta "Seguridad" se dividió en **Monitorización**
 > y **Auditoría**; las alertas de fraude (que son de referidos) pasaron a la tarjeta **Referidos**.
+
+> **Ficha de empresa — rol neto (2026-07-20):** la consola de plataforma separa el rol
+> **operador** (el jefe opera SU flota) del rol **plataforma** (nosotros supervisamos). Por
+> defecto la ficha es de **solo supervisión**: los conductores y los vehículos se ven pero NO
+> se editan. Un botón **"Modo soporte"** (⚙️ en la barra) revela las acciones operativas
+> —crear/editar/borrar vehículos, asignarlos, gestionar el equipo— con un aviso ámbar de que
+> **quedan registradas en Auditoría** (`admin_actions_log`, ya existente). Lo que SÍ está siempre
+> disponible es el **ciclo de vida de la cuenta** (editar suscripción/asientos/prueba, suspender,
+> reactivar, purgar) y los **tickets de soporte**. La pestaña **Incidencias** muestra solo tickets
+> de soporte (`kind='app'`, igual que la bandeja global); el chat de flota jefe↔conductor sigue
+> sin ser visible. Coherente con la protección de datos: la plataforma no opera el negocio del
+> cliente ni ve el dinero de sus carreras.
 
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa

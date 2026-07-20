@@ -1777,11 +1777,14 @@ export async function buildApp(options = {}) {
       .eq('tenant_id', id)
       .order('created_at', { ascending: true });
 
-    // Incidencias de la empresa (operativas: notas conductor<->jefe).
+    // Tickets de SOPORTE de la empresa (kind='app'). El chat de flota
+    // (jefe<->conductor) vive en fleet_messages y el admin no lo ve; aquí solo
+    // salen las incidencias de soporte, igual que en la bandeja global.
     const { data: incidentList } = await supabase
       .from('incidents')
       .select('id, kind, body, status, created_at, users(email)')
       .eq('tenant_id', id)
+      .eq('kind', 'app')
       .order('created_at', { ascending: false })
       .limit(100);
 

@@ -40,3 +40,6 @@ tests/load/*.summary.json
 
 # GitHub Actions secrets (rellenado localmente, nunca versionar)
 scripts/.actions-secrets.env
+
+# Web de marketing (no forma part de l'app, no es publica)
+landing/

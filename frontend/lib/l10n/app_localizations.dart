@@ -571,6 +571,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_co_risk': 'En riesgo', 'adm_co_match': 'coincide: {m}',
     'adm_kpi_fee': 'Cuota/mes', 'adm_kpi_seats': 'Plazas', 'adm_kpi_savings': 'Ahorro',
     'adm_kpi_paid_total': 'Total pagado', 'adm_kpi_refunds': 'Devuelto',
+    'adm_support_mode': 'Modo soporte',
+    'adm_support_on':
+        'Modo soporte activo · las acciones sobre la operativa del cliente '
+            '(conductores y vehículos) quedan registradas en Auditoría.',
     'adm_kpi_since': 'Alta', 'adm_dz_title': 'Zona sensible',
     'adm_dz_sub': 'Suspender el acceso o eliminar la empresa (GDPR)',
     'adm_dz_suspend': 'Suspender', 'adm_dz_reactivate': 'Reactivar',
@@ -1202,6 +1206,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_co_risk': 'At risk', 'adm_co_match': 'matches: {m}',
     'adm_kpi_fee': 'Fee/mo', 'adm_kpi_seats': 'Seats', 'adm_kpi_savings': 'Savings',
     'adm_kpi_paid_total': 'Total paid', 'adm_kpi_refunds': 'Refunded',
+    'adm_support_mode': 'Support mode',
+    'adm_support_on':
+        'Support mode on · actions on the client\'s operations (drivers and '
+            'vehicles) are logged in Audit.',
     'adm_kpi_since': 'Joined', 'adm_dz_title': 'Sensitive zone',
     'adm_dz_sub': 'Suspend access or delete the company (GDPR)',
     'adm_dz_suspend': 'Suspend', 'adm_dz_reactivate': 'Reactivate',
@@ -1831,6 +1839,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_co_risk': 'En risc', 'adm_co_match': 'coincideix: {m}',
     'adm_kpi_fee': 'Quota/mes', 'adm_kpi_seats': 'Places', 'adm_kpi_savings': 'Estalvi',
     'adm_kpi_paid_total': 'Total pagat', 'adm_kpi_refunds': 'Retornat',
+    'adm_support_mode': 'Mode suport',
+    'adm_support_on':
+        'Mode suport actiu · les accions sobre l\'operativa del client '
+            '(conductors i vehicles) queden registrades a Auditoria.',
     'adm_kpi_since': 'Alta', 'adm_dz_title': 'Zona sensible',
     'adm_dz_sub': 'Suspendre l\'accés o eliminar l\'empresa (GDPR)',
     'adm_dz_suspend': 'Suspendre', 'adm_dz_reactivate': 'Reactivar',
