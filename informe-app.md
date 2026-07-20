@@ -169,11 +169,17 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 > se editan. Un botón **"Modo soporte"** (⚙️ en la barra) revela las acciones operativas
 > —crear/editar/borrar vehículos, asignarlos, gestionar el equipo— con un aviso ámbar de que
 > **quedan registradas en Auditoría** (`admin_actions_log`, ya existente). Lo que SÍ está siempre
-> disponible es el **ciclo de vida de la cuenta** (editar suscripción/asientos/prueba, suspender,
+> disponible es el **ciclo de vida de la cuenta** (estado, prueba, código de flota, suspender,
 > reactivar, purgar) y los **tickets de soporte**. La pestaña **Incidencias** muestra solo tickets
 > de soporte (`kind='app'`, igual que la bandeja global); el chat de flota jefe↔conductor sigue
 > sin ser visible. Coherente con la protección de datos: la plataforma no opera el negocio del
 > cliente ni ve el dinero de sus carreras.
+>
+> Los **asientos** (`drivers_limit` = cantidad pagada en Stripe) **ya NO se editan desde la ficha**:
+> se gestionan desde **Facturación** (que cobra y sincroniza Stripe), para no desincronizar la
+> fuente de verdad. Limpieza: se eliminó la ficha clásica `admin_company_screen.dart` (obsoleta) y
+> el cálculo muerto de `mrr_estimate` por empresa; la ficha usa el kit compartido (`adminAppBar`,
+> `adminRowsCard`, `adminCardBox`, `adminStatusLabel` movido a `admin_theme.dart`).
 
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa

@@ -81,7 +81,9 @@ ThemeData adminDarkTheme() => ThemeData(
       dividerTheme: const DividerThemeData(color: AdminColors.hairline),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? AdminColors.teal : AdminColors.muted),
+            s.contains(WidgetState.selected)
+                ? AdminColors.teal
+                : AdminColors.muted),
         trackColor: WidgetStateProperty.resolveWith((s) =>
             s.contains(WidgetState.selected)
                 ? AdminColors.tealBg
@@ -94,7 +96,8 @@ ThemeData adminDarkTheme() => ThemeData(
 class AdminStatusChip extends StatelessWidget {
   final String? status;
   final int trialDaysLeft;
-  const AdminStatusChip({super.key, required this.status, this.trialDaysLeft = 0});
+  const AdminStatusChip(
+      {super.key, required this.status, this.trialDaysLeft = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +112,11 @@ class AdminStatusChip extends StatelessWidget {
           AdminColors.amberBg
         ),
       'past_due' => (l.t('st_past_due'), AdminColors.red, AdminColors.redBg),
-      'canceled' => (l.t('st_canceled'), AdminColors.muted, AdminColors.hairline),
+      'canceled' => (
+          l.t('st_canceled'),
+          AdminColors.muted,
+          AdminColors.hairline
+        ),
       _ => (l.t('st_inactive'), AdminColors.muted, AdminColors.hairline),
     };
     return Container(
@@ -117,8 +124,8 @@ class AdminStatusChip extends StatelessWidget {
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(9)),
       child: Text(label,
-          style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.w500, color: fg)),
+          style:
+              TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: fg)),
     );
   }
 }
@@ -170,8 +177,13 @@ class AdminKpiTile extends StatelessWidget {
   final IconData? icon;
   final double? width;
   const AdminKpiTile(
-      {super.key, required this.label, required this.value, this.sub = '',
-      required this.color, this.icon, this.width});
+      {super.key,
+      required this.label,
+      required this.value,
+      this.sub = '',
+      required this.color,
+      this.icon,
+      this.width});
 
   @override
   Widget build(BuildContext context) {
@@ -193,22 +205,25 @@ class AdminKpiTile extends StatelessWidget {
             ],
             Flexible(
               child: Text(label.toUpperCase(),
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       fontSize: 8.5, letterSpacing: 1.1, color: color)),
             ),
           ]),
           const SizedBox(height: 2),
           Text(value,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                   color: AdminColors.text)),
           if (sub.isNotEmpty)
             Text(sub,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(fontSize: 9, color: AdminColors.muted)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 9, color: AdminColors.muted)),
         ],
       ),
     );
@@ -223,8 +238,11 @@ class AdminPill extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
   const AdminPill(
-      {super.key, required this.label, required this.selected,
-      required this.color, required this.onTap});
+      {super.key,
+      required this.label,
+      required this.selected,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -235,8 +253,8 @@ class AdminPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? color : Colors.transparent,
-          border:
-              Border.all(color: selected ? color : color.withValues(alpha: .35)),
+          border: Border.all(
+              color: selected ? color : color.withValues(alpha: .35)),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(label,
@@ -265,13 +283,24 @@ class AdminTag extends StatelessWidget {
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
       child: Text(text.toUpperCase(),
           style: TextStyle(
-              fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
               color: fg)),
     );
   }
 }
 
 /// AppBar estándar del panel (mismo fondo/estilo en todos los módulos).
+/// Etiqueta legible del estado de suscripción (trialing -> "Periodo de prueba"...).
+String adminStatusLabel(AppLocalizations l, String? s) => l.t(switch (s) {
+      'active' => 'st_active',
+      'trialing' => 'st_trial',
+      'past_due' => 'st_past_due',
+      'canceled' => 'st_canceled',
+      _ => 'st_inactive',
+    });
+
 AppBar adminAppBar(String title, {List<Widget>? actions}) => AppBar(
       backgroundColor: AdminColors.bg,
       foregroundColor: AdminColors.text,
@@ -289,14 +318,17 @@ Widget adminSectionTitle(String text,
       child: Row(
         children: [
           Container(
-              width: 3, height: 12,
+              width: 3,
+              height: 12,
               decoration: BoxDecoration(
                   color: color, borderRadius: BorderRadius.circular(2))),
           const SizedBox(width: 8),
           Text(text.toUpperCase(),
               style: const TextStyle(
-                  fontSize: 10.5, fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2, color: AdminColors.text)),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AdminColors.text)),
           if (trailing != null) ...[const Spacer(), trailing],
         ],
       ),
@@ -308,8 +340,8 @@ Widget adminRowsCard(List<Widget> rows) {
   for (var i = 0; i < rows.length; i++) {
     children.add(rows[i]);
     if (i < rows.length - 1) {
-      children.add(const Divider(
-          height: 1, thickness: 1, color: AdminColors.hairline));
+      children.add(
+          const Divider(height: 1, thickness: 1, color: AdminColors.hairline));
     }
   }
   return Container(
@@ -346,7 +378,8 @@ Widget adminSearchField({
             borderSide: BorderSide.none),
         suffixIcon: hasQuery
             ? IconButton(
-                icon: const Icon(Icons.clear, size: 16, color: AdminColors.muted),
+                icon:
+                    const Icon(Icons.clear, size: 16, color: AdminColors.muted),
                 onPressed: onClear)
             : null,
       ),
@@ -391,9 +424,11 @@ class AdminListRow extends StatelessWidget {
                 Row(children: [
                   Flexible(
                     child: Text(title,
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                             color: AdminColors.text)),
                   ),
                   if (titleTrailing != null) ...[
@@ -403,12 +438,14 @@ class AdminListRow extends StatelessWidget {
                 ]),
                 if (subtitle != null && subtitle!.isNotEmpty)
                   Text(subtitle!,
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 10.5, color: AdminColors.muted)),
                 if (note != null && note!.isNotEmpty)
                   Text(note!,
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 10, color: noteColor)),
               ],
             ),
@@ -433,17 +470,23 @@ class AdminInitialsAvatar extends StatelessWidget {
   final Color bg;
   final double size;
   const AdminInitialsAvatar(
-      {super.key, required this.name, this.color = AdminColors.purple,
-      this.bg = AdminColors.purpleBg, this.size = 32});
+      {super.key,
+      required this.name,
+      this.color = AdminColors.purple,
+      this.bg = AdminColors.purpleBg,
+      this.size = 32});
 
   @override
   Widget build(BuildContext context) {
     final parts = name.trim().split(RegExp(r'\s+'));
     final initials = parts.length >= 2
         ? '${parts[0][0]}${parts[1][0]}'
-        : (name.trim().isEmpty ? '?' : name.trim().substring(0, name.trim().length >= 2 ? 2 : 1));
+        : (name.trim().isEmpty
+            ? '?'
+            : name.trim().substring(0, name.trim().length >= 2 ? 2 : 1));
     return Container(
-      width: size, height: size,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
           color: bg, borderRadius: BorderRadius.circular(size * .28)),
       alignment: Alignment.center,

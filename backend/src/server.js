@@ -1788,15 +1788,9 @@ export async function buildApp(options = {}) {
       .order('created_at', { ascending: false })
       .limit(100);
 
-    // Datos de SUSCRIPCIÓN (lado TaxiCount, no finanzas del cliente): cuota
-    // mensual estimada (annual_price_paid/12 de los conductores activos) y días
-    // gratis conseguidos (retos + referidos). Para la ficha rediseñada.
-    let mrrCompany = 0;
+    // Datos de SUSCRIPCIÓN (lado TaxiCount, no finanzas del cliente): asientos
+    // ocupados y días gratis conseguidos (retos + referidos). Para la ficha.
     const activeDrivers = (users || []).filter((u) => u.role === 'driver' && u.active !== false);
-    if ((tenant.subscription_status === 'active' || tenant.subscription_status === 'past_due')) {
-      if (activeDrivers.length === 0) mrrCompany = 15 / 12;
-      for (const u of activeDrivers) mrrCompany += Number(u.annual_price_paid ?? 15) / 12;
-    }
     const freeDays = await freeDaysForTenant(id);
     // Ingresos REALES cobrados a esta empresa (Stripe): total pagado + lo
     // descontado con cupones. Esto NO son las finanzas internas del cliente
@@ -1813,7 +1807,6 @@ export async function buildApp(options = {}) {
       vehicles_list: vehicleList || [],
       incidents_list: incidentList || [],
       billing: {
-        mrr_estimate: Number(mrrCompany.toFixed(2)),
         // Neto real: pagado menos devuelto (reembolsos).
         paid_total: Number(((rev.paid - (rev.refunded || 0)) / 100).toFixed(2)),
         coupon_total: Number((rev.discount / 100).toFixed(2)),

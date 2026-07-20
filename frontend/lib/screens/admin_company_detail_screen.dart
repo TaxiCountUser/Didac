@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
-import 'admin_company_screen.dart' show adminStatusLabel;
 import 'admin_incident_chat_screen.dart';
 import 'admin_theme.dart';
 
@@ -153,23 +152,21 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       children: [
         AdminInitialsAvatar(name: widget.tenantName, size: 38),
         const SizedBox(width: 10),
+        // El nombre ya está en la barra superior; aquí, el contacto del owner.
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.tenantName,
+              Text(ownerMail.isNotEmpty ? ownerMail : '—',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: AdminColors.text)),
-              if (ownerMail.isNotEmpty)
-                Text(ownerMail,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 11, color: AdminColors.muted)),
+              Text(l.t('admin_role_owner'),
+                  style:
+                      const TextStyle(fontSize: 10, color: AdminColors.muted)),
             ],
           ),
         ),
@@ -197,6 +194,22 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               child: Text(l.t('adm_support_on'),
                   style: const TextStyle(
                       fontSize: 10.5, color: AdminColors.amber, height: 1.3)),
+            ),
+          ],
+        ),
+      );
+
+  // Pista de solo-lectura en las pestañas operativas cuando NO hay modo soporte.
+  Widget _readonlyHint(AppLocalizations l) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, left: 2),
+        child: Row(
+          children: [
+            const Icon(Icons.lock_outline, size: 12, color: AdminColors.muted),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(l.t('adm_readonly_hint'),
+                  style:
+                      const TextStyle(fontSize: 10, color: AdminColors.muted)),
             ),
           ],
         ),
@@ -339,7 +352,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
                 Expanded(
@@ -363,39 +376,24 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-              color: AdminColors.card, borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            children: [
-              row(l.t('admin_mode_solo'),
-                  solo ? l.t('admin_mode_solo') : l.t('admin_mode_fleet')),
-              const Divider(height: 1, color: AdminColors.hairline),
-              row(l.t('admin_status'), adminStatusLabel(l, status),
-                  action: Icons.edit, onTap: () => _editSubscription(l, t)),
-              const Divider(height: 1, color: AdminColors.hairline),
-              row(l.t('admin_days_using'), daysUsing),
-              const Divider(height: 1, color: AdminColors.hairline),
-              row(l.t('admin_trial_left'),
-                  trialLeft > 0 ? '$trialLeft' : l.t('admin_trial_over')),
-              if ((t['join_code'] as String?)?.isNotEmpty == true) ...[
-                const Divider(height: 1, color: AdminColors.hairline),
-                row(l.t('admin_join_code'), '${t['join_code']}'),
-              ],
-              if ((t['stripe_customer_id'] as String?)?.isNotEmpty == true) ...[
-                const Divider(height: 1, color: AdminColors.hairline),
-                row('Stripe', l.t('admin_has_stripe')),
-              ],
-            ],
-          ),
-        ),
+        adminRowsCard([
+          row(l.t('admin_mode_solo'),
+              solo ? l.t('admin_mode_solo') : l.t('admin_mode_fleet')),
+          row(l.t('admin_status'), adminStatusLabel(l, status),
+              action: Icons.edit, onTap: () => _editSubscription(l, t)),
+          row(l.t('admin_days_using'), daysUsing),
+          row(l.t('admin_trial_left'),
+              trialLeft > 0 ? '$trialLeft' : l.t('admin_trial_over')),
+          if ((t['join_code'] as String?)?.isNotEmpty == true)
+            row(l.t('admin_join_code'), '${t['join_code']}'),
+          if ((t['stripe_customer_id'] as String?)?.isNotEmpty == true)
+            row('Stripe', l.t('admin_has_stripe')),
+        ]),
         const SizedBox(height: 10),
         // Recuentos (las finanzas del cliente siguen enmascaradas).
         Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-              color: AdminColors.card, borderRadius: BorderRadius.circular(12)),
+          decoration: adminCardBox(),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -809,8 +807,6 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   Future<void> _editSubscription(
       AppLocalizations l, Map<String, dynamic> t) async {
     String status = (t['subscription_status'] as String?) ?? 'trialing';
-    final limitCtrl = TextEditingController(
-        text: t['drivers_limit'] == null ? '' : '${t['drivers_limit']}');
     final extendCtrl = TextEditingController();
     final codeCtrl =
         TextEditingController(text: (t['join_code'] as String?) ?? '');
@@ -837,13 +833,15 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                   ],
                   onChanged: (v) => setLocal(() => status = v ?? status),
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: limitCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                      labelText: l.t('admin_limit'),
-                      hintText: l.t('sub_unlimited')),
+                const SizedBox(height: 6),
+                // Los asientos (drivers_limit) = cantidad pagada en Stripe: se
+                // gestionan desde Facturación (cobra y sincroniza). Aquí NO, para
+                // no desincronizar la fuente de verdad.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(l.t('adm_seats_in_billing'),
+                      style: const TextStyle(
+                          fontSize: 10.5, color: AdminColors.muted)),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -877,8 +875,6 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     if (saved != true) return;
     final patch = <String, dynamic>{
       'subscription_status': status,
-      'drivers_limit':
-          limitCtrl.text.trim().isEmpty ? null : limitCtrl.text.trim(),
       'join_code': codeCtrl.text.trim(),
     };
     // + añade días, - quita días de prueba.
@@ -899,7 +895,13 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             style: const TextStyle(fontSize: 12, color: AdminColors.muted)),
       ));
     }
-    return adminRowsCard([for (final u in users) _userRow(l, u, vehicles)]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!_support) _readonlyHint(l),
+        adminRowsCard([for (final u in users) _userRow(l, u, vehicles)]),
+      ],
+    );
   }
 
   Widget _userRow(AppLocalizations l, Map<String, dynamic> u,
@@ -1124,6 +1126,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (!_support) _readonlyHint(l),
         // Alta de vehículos = operativa del cliente: solo en modo soporte.
         if (_support) ...[
           Align(
@@ -1285,27 +1288,15 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             style: const TextStyle(fontSize: 12, color: AdminColors.muted)),
       ));
     }
-    return Container(
-      decoration: BoxDecoration(
-          color: AdminColors.card, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: [
-          for (var i = 0; i < incidents.length; i++) ...[
-            if (i > 0) const Divider(height: 1, color: AdminColors.hairline),
-            _incidentRow(l, incidents[i]),
-          ],
-        ],
-      ),
-    );
+    return adminRowsCard([for (final inc in incidents) _incidentRow(l, inc)]);
   }
 
   Widget _incidentRow(AppLocalizations l, Map<String, dynamic> inc) {
     final body = (inc['body'] as String?) ?? '';
-    final kind = (inc['kind'] as String?) ?? 'nota';
     final status = (inc['status'] as String?) ?? 'abierta';
     final author = ((inc['users'] as Map?)?['email'] as String?) ?? '';
     final resolved = status == 'resuelta';
-    final isApp = kind == 'app';
+    // Solo llegan tickets de soporte (kind='app'); el backend ya filtra.
     return InkWell(
       onTap: () async {
         await Navigator.of(context).push(MaterialPageRoute(
@@ -1317,8 +1308,7 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            Icon(isApp ? Icons.bug_report : Icons.note_alt,
-                size: 17, color: isApp ? AdminColors.coral : AdminColors.blue),
+            const Icon(Icons.bug_report, size: 17, color: AdminColors.coral),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
