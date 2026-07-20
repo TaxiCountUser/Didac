@@ -1333,6 +1333,43 @@ export async function buildApp(options = {}) {
     }
   }
 
+  // MRR REAL (Monthly Recurring Revenue): NO es una proyección, es la foto AHORA
+  // del ingreso recurrente. Se lee de las subscripciones vivas de Stripe (active +
+  // past_due: siguen suscritas aunque falle el cobro) sumando, por item,
+  // unit_amount×cantidad normalizado a mes (anual /12). MRR bruto (antes de
+  // cupones). unit_amount puede venir null -> fallbacks como en el ajuste de
+  // asientos. ARR = MRR×12. Caché 60 s.
+  let _mrrCache = null;
+  async function readMrr() {
+    if (!stripe) return null;
+    if (_mrrCache && Date.now() - _mrrCache.at < 60000) return _mrrCache.data;
+    try {
+      let mrr = 0; // céntimos/mes
+      let subs = 0;
+      for (const status of ['active', 'past_due']) {
+        for await (const s of stripe.subscriptions.list(
+            { status, limit: 100, expand: ['data.items.data.price'] })) {
+          subs += 1;
+          for (const it of s.items?.data ?? []) {
+            const p = it.price || {};
+            let unit = p.unit_amount;
+            if (unit == null && p.unit_amount_decimal != null) unit = Math.round(Number(p.unit_amount_decimal));
+            const interval = p.recurring?.interval || 'month';
+            if (unit == null || Number.isNaN(unit)) unit = interval === 'year' ? 3000 : 250;
+            const qty = it.quantity ?? 1;
+            mrr += interval === 'year' ? (unit * qty) / 12 : unit * qty;
+          }
+        }
+      }
+      const data = { mrr: Math.round(mrr), subs };
+      _mrrCache = { at: Date.now(), data };
+      return data;
+    } catch (e) {
+      app.log.warn(`[mrr] ${e.message}`);
+      return _mrrCache?.data ?? null;
+    }
+  }
+
   // Resumen de todas las empresas: datos + nº de usuarios + incidencias abiertas.
   app.get('/api/v1/admin/overview', async (request, reply) => {
     const g = await adminGuard(request);
@@ -1867,6 +1904,7 @@ export async function buildApp(options = {}) {
     // pagadas por cliente. Sustituye al MRR estimado (proyección por asientos
     // activos): aquí solo hay lo que se ha cobrado de verdad.
     const rev = await readGlobalRevenue();
+    const mrrData = await readMrr();
     const byCustomer = rev?.byCustomer ?? {};
     const rows = (tenants ?? []).map((t) => {
       const paying = t.subscription_status === 'active' || t.subscription_status === 'past_due';
@@ -1887,17 +1925,25 @@ export async function buildApp(options = {}) {
 
     const payingCount = rows.filter((r) => r.status === 'active').length;
     const canceled = rows.filter((r) => r.status === 'canceled').length;
-    const totalPaid = Number(((rev?.paid ?? 0) / 100).toFixed(2));
-    const companiesPaid = rows.filter((r) => r.paid_total > 0).length;
-    // Churn = cancelaciones / (activas + canceladas). Media pagada por empresa.
+    // Churn = cancelaciones / (activas + canceladas).
     const churn = (payingCount + canceled) > 0
       ? +((canceled / (payingCount + canceled)) * 100).toFixed(1) : 0;
-    const avgPaid = companiesPaid > 0 ? +(totalPaid / companiesPaid).toFixed(2) : 0;
+    // Salud recurrente: MRR real (foto ahora, de las subs vivas de Stripe),
+    // ARR = MRR×12, ARPA = MRR / empresas que pagan.
+    const mrr = Number(((mrrData?.mrr ?? 0) / 100).toFixed(2));
+    const arr = Number((mrr * 12).toFixed(2));
+    const arpa = payingCount > 0 ? +(mrr / payingCount).toFixed(2) : 0;
+    // Caja REAL cobrada (Stripe) por periodo: hoy, este mes (MTD) y total neto.
+    const cashToday = Number(((rev?.paidToday ?? 0) / 100).toFixed(2));
+    const cashMtd = Number(((rev?.paidMtd ?? 0) / 100).toFixed(2));
+    const cashTotal = Number((((rev?.paid ?? 0) - (rev?.refunded ?? 0)) / 100).toFixed(2));
 
     return reply.send({
       totals: {
-        total_paid: totalPaid,       // € reales cobrados (acumulado, todas las empresas)
-        avg_paid: avgPaid,           // € media por empresa que ha pagado
+        mrr, arr, arpa,              // salud recurrente (€/mes, €/año, €/empresa·mes)
+        cash_today: cashToday,       // € cobrados hoy
+        cash_mtd: cashMtd,           // € cobrados este mes
+        cash_total: cashTotal,       // € cobrados neto (acumulado histórico)
         paying: payingCount,
         past_due: rows.filter((r) => r.status === 'past_due').length,
         trialing: rows.filter((r) => r.trial_days_left != null).length,

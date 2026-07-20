@@ -154,7 +154,7 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 ### 4.3 Panel de administración (tema oscuro "N")
 Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),
 Empresas (buscador global + recuento + orden + fichas de **supervisión** + **purga definitiva** de empresas de baja, doble confirmación),
-Facturación (MRR/ARPU/churn), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:
+Facturación (salud recurrente + caja + colas de acción, ver nota), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
 + auto-refresco 20 s), Referidos (funnel + submenú **Fraude**), **Monitorización** (Métricas en
 vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, Config (en caliente
@@ -174,6 +174,18 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 > de soporte (`kind='app'`, igual que la bandeja global); el chat de flota jefe↔conductor sigue
 > sin ser visible. Coherente con la protección de datos: la plataforma no opera el negocio del
 > cliente ni ve el dinero de sus carreras.
+>
+> **Facturación — estándar SaaS (2026-07-20):** el módulo sigue el patrón de un back-office de
+> operador, separando lo que la industria separa: **(A) SALUD recurrente** arriba — **MRR real**
+> (no proyección: foto de las subscripciones vivas de Stripe, `readMrr()`, active+past_due,
+> unit×cantidad normalizado a mes), **ARR** (MRR×12), **ARPA** (MRR/empresas que pagan) y **churn**;
+> **(B) CAJA real cobrada** con selector **Hoy / Este mes / Total** (de las facturas pagadas de
+> Stripe, `readGlobalRevenue` paidToday/paidMtd/neto); y **(C) colas de acción** (impagados/dunning,
+> pruebas que acaban). Se retiró el titular de "total facturado acumulado" y la "media/empresa"
+> (acumulados opacos, poco accionables). Lista de empresas que pagan con recuento + orden (€/
+> asientos/nombre). Gestor de cupón (dominio nuestro) sin cambios. Migrado al kit
+> (`adminAppBar`/`AdminKpiTile`/`adminSectionTitle`/`adminRowsCard`/`AdminListRow`). Recordatorio:
+> **la ficha de empresa muestra el REAL pagado por ESE cliente; el módulo global, MRR + caja**.
 >
 > Los **asientos** (`drivers_limit` = cantidad pagada en Stripe) **ya NO se editan desde la ficha**:
 > se gestionan desde **Facturación** (que cobra y sincroniza Stripe), para no desincronizar la
