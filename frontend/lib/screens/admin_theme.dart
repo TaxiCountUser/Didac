@@ -271,6 +271,161 @@ class AdminTag extends StatelessWidget {
   }
 }
 
+/// AppBar estándar del panel (mismo fondo/estilo en todos los módulos).
+AppBar adminAppBar(String title, {List<Widget>? actions}) => AppBar(
+      backgroundColor: AdminColors.bg,
+      foregroundColor: AdminColors.text,
+      elevation: 0,
+      title: Text(title,
+          style: const TextStyle(fontSize: 16, color: AdminColors.text)),
+      actions: actions,
+    );
+
+/// Título de sección con acento de color (FRAU, IMPAGATS, EMPRESES…).
+Widget adminSectionTitle(String text,
+        {Color color = AdminColors.secondary, Widget? trailing}) =>
+    Padding(
+      padding: const EdgeInsets.fromLTRB(2, 14, 2, 8),
+      child: Row(
+        children: [
+          Container(
+              width: 3, height: 12,
+              decoration: BoxDecoration(
+                  color: color, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 8),
+          Text(text.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 10.5, fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2, color: AdminColors.text)),
+          if (trailing != null) ...[const Spacer(), trailing],
+        ],
+      ),
+    );
+
+/// Caja de "tarjeta con filas" separadas por hairline (listas cortas).
+Widget adminRowsCard(List<Widget> rows) {
+  final children = <Widget>[];
+  for (var i = 0; i < rows.length; i++) {
+    children.add(rows[i]);
+    if (i < rows.length - 1) {
+      children.add(const Divider(
+          height: 1, thickness: 1, color: AdminColors.hairline));
+    }
+  }
+  return Container(
+    decoration: adminCardBox(),
+    clipBehavior: Clip.antiAlias,
+    child: Column(mainAxisSize: MainAxisSize.min, children: children),
+  );
+}
+
+/// Campo de búsqueda estándar del panel.
+Widget adminSearchField({
+  required TextEditingController controller,
+  required String hint,
+  required ValueChanged<String> onChanged,
+  required bool hasQuery,
+  required VoidCallback onClear,
+  Key? fieldKey,
+}) =>
+    TextField(
+      key: fieldKey,
+      controller: controller,
+      onChanged: onChanged,
+      style: const TextStyle(fontSize: 13, color: AdminColors.text),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 12, color: AdminColors.muted),
+        prefixIcon:
+            const Icon(Icons.search, size: 17, color: AdminColors.muted),
+        filled: true,
+        fillColor: AdminColors.card,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none),
+        suffixIcon: hasQuery
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 16, color: AdminColors.muted),
+                onPressed: onClear)
+            : null,
+      ),
+    );
+
+/// Fila de lista estándar: leading (avatar/icono) · título (+badge) · subtítulo
+/// · nota opcional · trailing (chip/valor) · chevron. Úsala en TODOS los módulos.
+class AdminListRow extends StatelessWidget {
+  final Widget? leading;
+  final String title;
+  final Widget? titleTrailing;
+  final String? subtitle;
+  final String? note;
+  final Color noteColor;
+  final Widget? trailing;
+  final bool chevron;
+  final VoidCallback? onTap;
+  const AdminListRow({
+    super.key,
+    this.leading,
+    required this.title,
+    this.titleTrailing,
+    this.subtitle,
+    this.note,
+    this.noteColor = AdminColors.blue,
+    this.trailing,
+    this.chevron = true,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 10)],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Flexible(
+                    child: Text(title,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w500,
+                            color: AdminColors.text)),
+                  ),
+                  if (titleTrailing != null) ...[
+                    const SizedBox(width: 6),
+                    titleTrailing!,
+                  ],
+                ]),
+                if (subtitle != null && subtitle!.isNotEmpty)
+                  Text(subtitle!,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 10.5, color: AdminColors.muted)),
+                if (note != null && note!.isNotEmpty)
+                  Text(note!,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10, color: noteColor)),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+          if (chevron) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 16, color: AdminColors.muted),
+          ],
+        ],
+      ),
+    );
+    if (onTap == null) return row;
+    return InkWell(onTap: onTap, child: row);
+  }
+}
+
 /// Avatar cuadrado con las iniciales de la empresa.
 class AdminInitialsAvatar extends StatelessWidget {
   final String name;

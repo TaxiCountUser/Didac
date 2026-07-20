@@ -7,9 +7,9 @@ import '../services/data_service.dart';
 import 'admin_company_detail_screen.dart';
 import 'admin_theme.dart';
 
-/// Módulo Empresas del panel rediseñado (Fase 2): lista con buscador global
-/// (empresa, email, matrícula — resuelto en el backend) y filtros de estado.
-/// Toca una empresa para abrir su ficha oscura (AdminCompanyDetailScreen).
+/// Módulo Empresas del panel: lista con buscador global (empresa, email,
+/// matrícula — resuelto en el backend), filtros de estado, recuento y orden.
+/// Toca una empresa para abrir su ficha (AdminCompanyDetailScreen).
 class AdminCompaniesScreen extends StatefulWidget {
   const AdminCompaniesScreen({super.key});
 
@@ -19,12 +19,15 @@ class AdminCompaniesScreen extends StatefulWidget {
 
 enum _Filter { all, paying, trial, risk }
 
+enum _Sort { recent, name, status }
+
 class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
   final _service = DataService();
   final _searchCtrl = TextEditingController();
   late Future<Map<String, dynamic>> _future = _service.adminOverview();
 
   _Filter _filter = _Filter.all;
+  _Sort _sort = _Sort.recent;
   String _query = '';
   Timer? _debounce;
   // tenant_id -> motivo del match remoto (email/matrícula) del buscador global.
@@ -46,18 +49,13 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
       setState(() => _remoteMatches = {});
       return;
     }
-    // Búsqueda remota (email, matrícula, usuario) con debounce.
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       try {
         final results = await _service.adminSearch(_query);
         if (!mounted) return;
         setState(() => _remoteMatches = {
               for (final r in results)
-                if ((r['reason'] as String?)?.isNotEmpty == true)
-                  r['tenant_id'] as String: r['reason'] as String,
-              for (final r in results)
-                if ((r['reason'] as String?)?.isEmpty != false)
-                  r['tenant_id'] as String: '',
+                r['tenant_id'] as String: (r['reason'] as String?) ?? '',
             });
       } catch (_) {/* best-effort: queda el filtro local */}
     });
@@ -89,6 +87,30 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     return _remoteMatches.containsKey(t['id']);
   }
 
+  int _statusRank(String? s) => switch (s) {
+        'active' => 0,
+        'past_due' => 1,
+        'trialing' => 2,
+        'canceled' => 3,
+        _ => 4,
+      };
+
+  void _sortList(List<Map<String, dynamic>> rows) {
+    switch (_sort) {
+      case _Sort.recent:
+        rows.sort((a, b) => '${b['created_at']}'.compareTo('${a['created_at']}'));
+      case _Sort.name:
+        rows.sort((a, b) => ('${a['name']}').toLowerCase()
+            .compareTo(('${b['name']}').toLowerCase()));
+      case _Sort.status:
+        rows.sort((a, b) {
+          final r = _statusRank(a['subscription_status'] as String?)
+              .compareTo(_statusRank(b['subscription_status'] as String?));
+          return r != 0 ? r : '${b['created_at']}'.compareTo('${a['created_at']}');
+        });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -96,19 +118,12 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
       data: adminDarkTheme(),
       child: Scaffold(
         backgroundColor: AdminColors.bg,
-        appBar: AppBar(
-          backgroundColor: AdminColors.bg,
-          foregroundColor: AdminColors.text,
-          elevation: 0,
-          title: Text(l.t('admin_companies'),
-              style: const TextStyle(fontSize: 16, color: AdminColors.text)),
-          actions: [
-            IconButton(
-                tooltip: l.t('refresh'),
-                icon: const Icon(Icons.refresh, size: 20, color: AdminColors.secondary),
-                onPressed: _reload),
-          ],
-        ),
+        appBar: adminAppBar(l.t('admin_companies'), actions: [
+          IconButton(
+              tooltip: l.t('refresh'),
+              icon: const Icon(Icons.refresh, size: 20, color: AdminColors.secondary),
+              onPressed: _reload),
+        ]),
         body: FutureBuilder<Map<String, dynamic>>(
           future: _future,
           builder: (context, snap) {
@@ -127,39 +142,21 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                 .where(_matchesFilter)
                 .where(_matchesQuery)
                 .toList();
+            _sortList(visible);
             return adminConstrained(Column(
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                  child: TextField(
-                    key: const Key('admin_company_search'),
+                  child: adminSearchField(
+                    fieldKey: const Key('admin_company_search'),
                     controller: _searchCtrl,
+                    hint: l.t('adm_co_search_hint'),
                     onChanged: _onQuery,
-                    style: const TextStyle(fontSize: 13, color: AdminColors.text),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: l.t('adm_co_search_hint'),
-                      hintStyle: const TextStyle(
-                          fontSize: 12, color: AdminColors.muted),
-                      prefixIcon: const Icon(Icons.search,
-                          size: 17, color: AdminColors.muted),
-                      filled: true,
-                      fillColor: AdminColors.card,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear,
-                                  size: 16, color: AdminColors.muted),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                _onQuery('');
-                              },
-                            ),
-                    ),
+                    hasQuery: _query.isNotEmpty,
+                    onClear: () {
+                      _searchCtrl.clear();
+                      _onQuery('');
+                    },
                   ),
                 ),
                 SizedBox(
@@ -168,14 +165,26 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      _filterChip(l.t('adm_co_all'), _Filter.all, AdminColors.purple),
-                      _filterChip(l.t('adm_co_paying'), _Filter.paying, AdminColors.teal),
-                      _filterChip(l.t('adm_co_trial'), _Filter.trial, AdminColors.amber),
-                      _filterChip(l.t('adm_co_risk'), _Filter.risk, AdminColors.red),
+                      _pill(l.t('adm_co_all'), _Filter.all, AdminColors.purple),
+                      _pill(l.t('adm_co_paying'), _Filter.paying, AdminColors.teal),
+                      _pill(l.t('adm_co_trial'), _Filter.trial, AdminColors.amber),
+                      _pill(l.t('adm_co_risk'), _Filter.risk, AdminColors.red),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                // Recuento + orden.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 12, 6),
+                  child: Row(
+                    children: [
+                      Text(l.t('adm_co_count', {'n': '${visible.length}'}),
+                          style: const TextStyle(
+                              fontSize: 11, color: AdminColors.secondary)),
+                      const Spacer(),
+                      _sortButton(l),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: visible.isEmpty
                       ? Center(
@@ -186,13 +195,12 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                           color: AdminColors.teal,
                           backgroundColor: AdminColors.card,
                           onRefresh: () async => _reload(),
-                          child: ListView.separated(
+                          child: ListView(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                            itemCount: visible.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 6),
-                            itemBuilder: (context, i) =>
-                                _companyRow(l, visible[i]),
+                            children: [
+                              adminRowsCard(
+                                  [for (final t in visible) _companyRow(l, t)]),
+                            ],
                           ),
                         ),
                 ),
@@ -204,29 +212,35 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     );
   }
 
-  Widget _filterChip(String label, _Filter f, Color color) {
-    final selected = _filter == f;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: InkWell(
-        onTap: () => setState(() => _filter = f),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? color : Colors.transparent,
-            border: Border.all(
-                color: selected ? color : color.withValues(alpha: .35)),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected ? AdminColors.bg : color,
-              )),
-        ),
-      ),
+  Widget _pill(String label, _Filter f, Color color) => Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: AdminPill(
+            label: label,
+            selected: _filter == f,
+            color: color,
+            onTap: () => setState(() => _filter = f)),
+      );
+
+  Widget _sortButton(AppLocalizations l) {
+    String label(_Sort s) => switch (s) {
+          _Sort.recent => l.t('adm_co_sort_recent'),
+          _Sort.name => l.t('adm_co_sort_name'),
+          _Sort.status => l.t('adm_co_sort_status'),
+        };
+    return PopupMenuButton<_Sort>(
+      initialValue: _sort,
+      tooltip: l.t('adm_co_sort'),
+      onSelected: (s) => setState(() => _sort = s),
+      itemBuilder: (ctx) => [
+        for (final s in _Sort.values)
+          PopupMenuItem(value: s, child: Text(label(s))),
+      ],
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.swap_vert, size: 15, color: AdminColors.secondary),
+        const SizedBox(width: 4),
+        Text(label(_sort),
+            style: const TextStyle(fontSize: 11, color: AdminColors.secondary)),
+      ]),
     );
   }
 
@@ -241,7 +255,18 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     final openInc = (t['open_incidents'] as num?)?.toInt() ?? 0;
     final match = _remoteMatches[t['id']];
 
-    return InkWell(
+    return AdminListRow(
+      leading: AdminInitialsAvatar(name: name),
+      title: name,
+      titleTrailing: openInc > 0
+          ? const Icon(Icons.mark_chat_unread, size: 12, color: AdminColors.amber)
+          : null,
+      subtitle: '$users ${l.t('admin_users').toLowerCase()}'
+          '${openInc > 0 ? ' · $openInc ${l.t('admin_open').toLowerCase()}' : ''}',
+      note: (match != null && match.isNotEmpty)
+          ? l.t('adm_co_match', {'m': match})
+          : null,
+      trailing: AdminStatusChip(status: status, trialDaysLeft: trialLeft),
       onTap: () async {
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => AdminCompanyDetailScreen(
@@ -249,59 +274,6 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
         ));
         _reload();
       },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AdminColors.card,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            AdminInitialsAvatar(name: name),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(name,
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500,
-                                color: AdminColors.text)),
-                      ),
-                      if (openInc > 0) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.mark_chat_unread,
-                            size: 12, color: AdminColors.amber),
-                      ],
-                    ],
-                  ),
-                  Text(
-                    '$users ${l.t('admin_users').toLowerCase()}'
-                    '${openInc > 0 ? ' · $openInc ${l.t('admin_open').toLowerCase()}' : ''}',
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(fontSize: 10.5, color: AdminColors.muted),
-                  ),
-                  if (match != null && match.isNotEmpty)
-                    Text(l.t('adm_co_match', {'m': match}),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 10, color: AdminColors.blue)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            AdminStatusChip(status: status, trialDaysLeft: trialLeft),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 16, color: AdminColors.muted),
-          ],
-        ),
-      ),
     );
   }
 }
