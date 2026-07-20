@@ -132,7 +132,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   const SizedBox(height: 14),
                   _controlCenter(l, d),
                   const SizedBox(height: 18),
-                  _dailyPulse(l),
+                  _dailyPulse(l, d),
                   const SizedBox(height: 18),
                   _inboxHeader(l, d),
                   const SizedBox(height: 8),
@@ -156,58 +156,90 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   // --- Pols diari: métricas agregadas del día. PROTECCIÓN DE DATOS: solo
   // recuentos y, en €, únicamente NUESTROS ingresos (suscripciones), nunca el
   // dinero de las carreras de los clientes.
-  Widget _dailyPulse(AppLocalizations l) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _dailyFuture,
-      builder: (ctx, snap) {
-        if (snap.hasError) return const SizedBox.shrink();
-        if (!snap.hasData) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 10),
-            child: Center(child: SizedBox(width: 18, height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AdminColors.teal))),
-          );
-        }
-        final m = snap.data!;
-        final biz = (m['business'] as Map?) ?? const {};
-        final us = (m['usage'] as Map?) ?? const {};
-        final gr = (m['growth'] as Map?) ?? const {};
-        final pr = (m['product'] as Map?) ?? const {};
-        final su = (m['support'] as Map?) ?? const {};
-        String eur(dynamic v) => '${((v as num?)?.toDouble() ?? 0).toStringAsFixed(2).replaceAll('.', ',')} €';
-        String n(dynamic v) => '${(v as num?)?.toInt() ?? 0}';
-        final rate = pr['activation_rate'];
-        final refunds = (biz['refunds_today'] as num?)?.toDouble() ?? 0;
-        final tiles = <Widget>[
-          _mTile(l.t('adm_dm_rev_today'), eur(biz['revenue_today']), AdminColors.teal),
-          _mTile(l.t('adm_dm_rev_mtd'), eur(biz['revenue_mtd']), AdminColors.teal),
-          _mTile(l.t('adm_dm_rides'), n(us['rides_today']), AdminColors.amber),
-          _mTile(l.t('adm_dm_dau'), n(us['dau']), AdminColors.blue),
-          _mTile(l.t('adm_dm_voice'), n(us['transcriptions_today']), AdminColors.purple),
-          _mTile(l.t('adm_dm_new_co'), n(gr['new_companies_today']), AdminColors.teal),
-          _mTile(l.t('adm_dm_new_dr'), n(gr['new_drivers_today']), AdminColors.blue),
-          _mTile(l.t('adm_dm_trials_end'), n(gr['trials_ending']), AdminColors.amber),
-          _mTile(l.t('adm_dm_activation'), rate == null ? '—' : '$rate%', AdminColors.teal),
-          _mTile(l.t('adm_dm_at_risk'), n(pr['at_risk']), AdminColors.red),
-          _mTile(l.t('adm_dm_tickets'), n(su['open_tickets']), AdminColors.coral),
-          if (refunds > 0) _mTile(l.t('adm_dm_refunds'), eur(biz['refunds_today']), AdminColors.red),
-        ];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Text(l.t('adm_dm_title'),
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                      letterSpacing: 1.5, color: AdminColors.text)),
-              const SizedBox(width: 8),
-              Text(l.t('adm_dm_sub'),
-                  style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
-            ]),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: tiles),
-          ],
-        );
-      },
+  String _eurStr(dynamic v) => '${((v as num?)?.toDouble() ?? 0).toStringAsFixed(2).replaceAll('.', ',')} €';
+  String _numStr(dynamic v) => '${(v as num?)?.toInt() ?? 0}';
+
+  Widget _subLabel(String t) => Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 6),
+        child: Text(t.toUpperCase(),
+            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700,
+                letterSpacing: 1.3, color: AdminColors.secondary)),
+      );
+
+  // Panel ÚNICO de métricas: fila GLOBAL (totales, del overview `d`) + fila HOY
+  // (del endpoint diario, async). PROTECCIÓN DE DATOS: solo recuentos y, en €,
+  // únicamente NUESTROS ingresos; nunca el dinero de las carreras de los clientes.
+  Widget _dailyPulse(AppLocalizations l, Map<String, dynamic> d) {
+    final k = (d['kpis'] as Map?) ?? const {};
+    final rev = (d['revenue'] as Map?);
+    final driversActive = (k['drivers_active'] as num?)?.toInt() ?? 0;
+    final driversTotal = (k['drivers_total'] as num?)?.toInt() ?? 0;
+
+    final globalTiles = <Widget>[
+      _mTile(l.t('adm_kpi_companies'), _numStr(k['tenants']), AdminColors.purple),
+      _mTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal', AdminColors.blue),
+      _mTile(l.t('adm_kpi_trials'), _numStr(k['trialing']), AdminColors.amber),
+      _mTile(l.t('adm_kpi_mrr'), '${(k['mrr_estimate'] as num?)?.toStringAsFixed(0) ?? '0'} €', AdminColors.teal),
+      if (rev != null) _mTile(l.t('adm_kpi_revenue'), _eurStr(rev['paid_total']), AdminColors.teal),
+      if (rev != null) _mTile(l.t('adm_kpi_coupons'), _eurStr(rev['coupon_total']), AdminColors.amber),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text(l.t('adm_dm_title'),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5, color: AdminColors.text)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(l.t('adm_dm_sub'),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+          ),
+        ]),
+        _subLabel(l.t('adm_dm_global')),
+        Wrap(spacing: 8, runSpacing: 8, children: globalTiles),
+        _subLabel(l.t('adm_dm_today')),
+        FutureBuilder<Map<String, dynamic>>(
+          future: _dailyFuture,
+          builder: (ctx, snap) {
+            if (snap.hasError) {
+              return Text(l.t('adm_dm_err'),
+                  style: const TextStyle(fontSize: 11, color: AdminColors.muted));
+            }
+            if (!snap.hasData) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AdminColors.teal)),
+              );
+            }
+            final m = snap.data!;
+            final biz = (m['business'] as Map?) ?? const {};
+            final us = (m['usage'] as Map?) ?? const {};
+            final gr = (m['growth'] as Map?) ?? const {};
+            final pr = (m['product'] as Map?) ?? const {};
+            final su = (m['support'] as Map?) ?? const {};
+            final rate = pr['activation_rate'];
+            final refunds = (biz['refunds_today'] as num?)?.toDouble() ?? 0;
+            final tiles = <Widget>[
+              _mTile(l.t('adm_dm_rev_today'), _eurStr(biz['revenue_today']), AdminColors.teal),
+              _mTile(l.t('adm_dm_rides'), _numStr(us['rides_today']), AdminColors.amber),
+              _mTile(l.t('adm_dm_dau'), _numStr(us['dau']), AdminColors.blue),
+              _mTile(l.t('adm_dm_voice'), _numStr(us['transcriptions_today']), AdminColors.purple),
+              _mTile(l.t('adm_dm_new_co'), _numStr(gr['new_companies_today']), AdminColors.teal),
+              _mTile(l.t('adm_dm_new_dr'), _numStr(gr['new_drivers_today']), AdminColors.blue),
+              _mTile(l.t('adm_dm_trials_end'), _numStr(gr['trials_ending']), AdminColors.amber),
+              _mTile(l.t('adm_dm_activation'), rate == null ? '—' : '$rate%', AdminColors.teal),
+              _mTile(l.t('adm_dm_at_risk'), _numStr(pr['at_risk']), AdminColors.red),
+              _mTile(l.t('adm_dm_tickets'), _numStr(su['open_tickets']), AdminColors.coral),
+              if (refunds > 0) _mTile(l.t('adm_dm_refunds'), _eurStr(biz['refunds_today']), AdminColors.red),
+            ];
+            return Wrap(spacing: 8, runSpacing: 8, children: tiles);
+          },
+        ),
+      ],
     );
   }
 
@@ -317,23 +349,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         '· ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
   }
 
-  // --- Centro de control: anillo de salud + 4 KPIs. ---
+  // --- Centro de control: SOLO el anillo de salud + estado. Las métricas viven
+  // ahora en el Pulso diario (unificado). ---
   Widget _controlCenter(AppLocalizations l, Map<String, dynamic> d) {
     final health = (d['health'] as num?)?.toInt() ?? 100;
-    final k = (d['kpis'] as Map?) ?? const {};
     final inboxLen = ((d['inbox'] as List?) ?? const []).length;
-    final mrr = (k['mrr_estimate'] as num?)?.toDouble() ?? 0;
-    final trialing = (k['trialing'] as num?)?.toInt() ?? 0;
-    final soon = ((d['pending'] as Map?)?['trials_ending'] as num?)?.toInt() ?? 0;
-    final driversActive = (k['drivers_active'] as num?)?.toInt() ?? 0;
-    final driversTotal = (k['drivers_total'] as num?)?.toInt() ?? 0;
-    final rev = (d['revenue'] as Map?);
-
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 108, height: 108,
+          width: 100, height: 100,
           child: CustomPaint(
             painter: _RingPainter(health / 100),
             child: Center(
@@ -352,46 +377,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(l.t('adm_home_ok'),
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w500,
-                            color: AdminColors.text)),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text('· ${l.t('adm_home_items', {'n': '$inboxLen'})}',
-                        style:
-                            const TextStyle(fontSize: 11, color: AdminColors.secondary)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // 2×2 de altura FIJA: así en pantallas anchas (web/PC) las tarjetas
-              // no se estiran ni dejan el texto flotando en el centro.
-              _kpiGridFixed([
-                _kpiTile(l.t('adm_kpi_mrr'), '${mrr.toStringAsFixed(0)}€',
-                    l.t('adm_kpi_paying', {'n': '${k['paying'] ?? 0}'}), AdminColors.teal),
-                _kpiTile(l.t('adm_kpi_companies'), '${k['tenants'] ?? 0}',
-                    l.t('adm_kpi_active', {'n': '${k['paying'] ?? 0}'}), AdminColors.purple),
-                _kpiTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal',
-                    l.t('adm_kpi_active', {'n': '$driversActive'}), AdminColors.blue),
-                _kpiTile(l.t('adm_kpi_trials'), '$trialing',
-                    soon > 0
-                        ? l.t('adm_kpi_soon', {'n': '$soon'})
-                        : l.t('adm_kpi_none_soon'), AdminColors.amber),
-              ]),
-              if (rev != null) ...[
-                const SizedBox(height: 8),
-                _revenueStrip(l, rev),
-              ],
+              Text(l.t('adm_home_ok'),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w500, color: AdminColors.text)),
+              const SizedBox(height: 4),
+              Text(l.t('adm_home_items', {'n': '$inboxLen'}),
+                  style: const TextStyle(fontSize: 11.5, color: AdminColors.secondary)),
             ],
           ),
         ),
@@ -399,98 +395,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // Ingresos REALES cobrados (Stripe): total facturado neto acumulado y cuánto
-  // se ha descontado con cupones. Distinto del MRR (que es la cuota recurrente).
-  Widget _revenueStrip(AppLocalizations l, Map rev) {
-    final paid = (rev['paid_total'] as num?)?.toDouble() ?? 0;
-    final coupon = (rev['coupon_total'] as num?)?.toDouble() ?? 0;
-    final refund = (rev['refund_total'] as num?)?.toDouble() ?? 0;
-    final invoices = (rev['invoices'] as num?)?.toInt() ?? 0;
-    String eur(double v) => '${v.toStringAsFixed(2).replaceAll('.', ',')}€';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AdminColors.teal.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AdminColors.teal.withValues(alpha: 0.30)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.payments_outlined, size: 18, color: AdminColors.teal),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l.t('adm_kpi_revenue'),
-                    style: const TextStyle(fontSize: 10, letterSpacing: 0.5, color: AdminColors.secondary)),
-                Text(eur(paid),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AdminColors.text)),
-                Text(
-                  '${l.t('adm_kpi_coupons')}: ${eur(coupon)}'
-                  '${refund > 0 ? ' · ${l.t('adm_kpi_refunds')}: ${eur(refund)}' : ''}'
-                  ' · ${l.t('adm_kpi_invoices', {'n': '$invoices'})}',
-                  style: const TextStyle(fontSize: 11, color: AdminColors.secondary),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 2×2 de altura fija (54 px por fila): las tarjetas mantienen su tamaño en
-  // móvil y en web/PC (no se estiran con el ancho como haría un aspectRatio).
-  Widget _kpiGridFixed(List<Widget> tiles) {
-    Widget row(Widget a, Widget b) => SizedBox(
-          height: 54,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: a),
-              const SizedBox(width: 7),
-              Expanded(child: b),
-            ],
-          ),
-        );
-    return Column(
-      children: [
-        row(tiles[0], tiles[1]),
-        const SizedBox(height: 7),
-        row(tiles[2], tiles[3]),
-      ],
-    );
-  }
-
-  Widget _kpiTile(String label, String value, String sub, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: color.withValues(alpha: .28)),
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(label.toUpperCase(),
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style:
-                  TextStyle(fontSize: 8.5, letterSpacing: 1.2, color: color)),
-          const SizedBox(height: 1),
-          Text(value,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w600, color: AdminColors.text)),
-          Text(sub,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 8.5, color: AdminColors.muted)),
-        ],
-      ),
-    );
-  }
 
   // --- Bandeja de trabajo. ---
   Widget _inboxHeader(AppLocalizations l, Map<String, dynamic> d) {
