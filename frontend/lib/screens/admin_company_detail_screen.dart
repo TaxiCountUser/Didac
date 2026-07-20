@@ -171,7 +171,6 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
   // ===================== KPIs de suscripción =====================
   Widget _kpiStrip(AppLocalizations l, Map<String, dynamic> t,
       Map<String, dynamic> billing) {
-    final mrr = (billing['mrr_estimate'] as num?)?.toDouble() ?? 0;
     final freeDays = (billing['free_days'] as num?)?.toInt() ?? 0;
     final seats = (billing['active_drivers'] as num?)?.toInt() ?? 0;
     final paidTotal = (billing['paid_total'] as num?)?.toDouble() ?? 0;
@@ -213,8 +212,6 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       children: [
         Row(
           children: [
-            tile(l.t('adm_kpi_fee'), '${mrr.toStringAsFixed(2)}€', AdminColors.teal),
-            const SizedBox(width: 7),
             tile(l.t('adm_kpi_seats'),
                 limit == null ? '$seats' : '$seats/$limit', AdminColors.blue),
             const SizedBox(width: 7),

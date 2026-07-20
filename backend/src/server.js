@@ -1266,17 +1266,21 @@ export async function buildApp(options = {}) {
     let paidToday = 0;
     let countToday = 0;
     let paidMtd = 0;
+    const byCustomer = {}; // customerId -> total pagado (céntimos), para el módulo de facturación
     const { startTodayS, startMonthS } = dayBounds();
     for await (const inv of stripe.invoices.list({ status: 'paid', limit: 100, ...params })) {
-      paid += inv.amount_paid || 0;
+      const amt = inv.amount_paid || 0;
+      paid += amt;
       for (const d of inv.total_discount_amounts || []) discount += d.amount || 0;
       count += 1;
       if (inv.currency) currency = inv.currency;
+      const cust = typeof inv.customer === 'string' ? inv.customer : inv.customer?.id;
+      if (cust) byCustomer[cust] = (byCustomer[cust] || 0) + amt;
       const at = inv.status_transitions?.paid_at ?? inv.created ?? 0;
-      if (at >= startTodayS) { paidToday += inv.amount_paid || 0; countToday += 1; }
-      if (at >= startMonthS) paidMtd += inv.amount_paid || 0;
+      if (at >= startTodayS) { paidToday += amt; countToday += 1; }
+      if (at >= startMonthS) paidMtd += amt;
     }
-    return { paid, discount, count, currency, paidToday, countToday, paidMtd };
+    return { paid, discount, count, currency, paidToday, countToday, paidMtd, byCustomer };
   }
 
   // Total DEVUELTO (reembolsos). Las facturas pagadas no cambian al reembolsar,
@@ -1832,7 +1836,7 @@ export async function buildApp(options = {}) {
 
     const [{ data: tenants }, { data: drivers }, { data: exts }, { data: milestones }] = await Promise.all([
       supabase.from('tenants')
-        .select('id, name, subscription_status, trial_ends_at, drivers_limit, created_at')
+        .select('id, name, subscription_status, trial_ends_at, drivers_limit, created_at, stripe_customer_id')
         .order('created_at', { ascending: false }),
       supabase.from('users').select('id, tenant_id, active, annual_price_paid, role'),
       supabase.from('subscription_extensions').select('tenant_id, days_extended').eq('extension_type', 'challenge'),
@@ -1863,43 +1867,46 @@ export async function buildApp(options = {}) {
       daysRef += d;
     }
 
-    let mrrTotal = 0;
+    // Dinero REAL pagado por cada empresa (Stripe), agrupando las facturas
+    // pagadas por cliente. Sustituye al MRR estimado (proyección por asientos
+    // activos): aquí solo hay lo que se ha cobrado de verdad.
+    const rev = await readGlobalRevenue();
+    const byCustomer = rev?.byCustomer ?? {};
     const rows = (tenants ?? []).map((t) => {
       const paying = t.subscription_status === 'active' || t.subscription_status === 'past_due';
-      const seats = seatsByTenant[t.id] ?? [];
-      let mrr = 0;
-      if (paying) {
-        if (seats.length === 0) mrr = 15 / 12;
-        for (const p of seats) mrr += p / 12;
-        mrrTotal += mrr;
-      }
+      const activeSeats = (seatsByTenant[t.id] ?? []).length;
+      const paidCents = t.stripe_customer_id ? (byCustomer[t.stripe_customer_id] || 0) : 0;
       const trialEnds = t.trial_ends_at ? new Date(t.trial_ends_at).getTime() : null;
       const trialDays = (!paying && trialEnds && trialEnds > now)
         ? Math.ceil((trialEnds - now) / dayMs) : null;
       return {
         id: t.id, name: t.name, status: t.subscription_status,
-        seats: Math.max(1, seats.length), drivers_limit: t.drivers_limit,
-        mrr: Number(mrr.toFixed(2)), trial_days_left: trialDays,
+        paid_seats: t.drivers_limit,          // asientos PAGADOS (cantidad Stripe)
+        active_seats: activeSeats,             // asientos ocupados (conductores activos)
+        paid_total: Number((paidCents / 100).toFixed(2)), // € reales pagados (acumulado)
+        trial_days_left: trialDays,
         free_days: daysByTenant[t.id] ?? 0,
       };
     });
 
     const payingCount = rows.filter((r) => r.status === 'active').length;
     const canceled = rows.filter((r) => r.status === 'canceled').length;
-    // Churn = cancelaciones / (activas + canceladas). ARPU = MRR / empresas de pago.
+    const totalPaid = Number(((rev?.paid ?? 0) / 100).toFixed(2));
+    const companiesPaid = rows.filter((r) => r.paid_total > 0).length;
+    // Churn = cancelaciones / (activas + canceladas). Media pagada por empresa.
     const churn = (payingCount + canceled) > 0
       ? +((canceled / (payingCount + canceled)) * 100).toFixed(1) : 0;
-    const arpu = payingCount > 0 ? +(mrrTotal / payingCount).toFixed(2) : 0;
+    const avgPaid = companiesPaid > 0 ? +(totalPaid / companiesPaid).toFixed(2) : 0;
 
     return reply.send({
       totals: {
-        mrr: Number(mrrTotal.toFixed(2)),
+        total_paid: totalPaid,       // € reales cobrados (acumulado, todas las empresas)
+        avg_paid: avgPaid,           // € media por empresa que ha pagado
         paying: payingCount,
         past_due: rows.filter((r) => r.status === 'past_due').length,
         trialing: rows.filter((r) => r.trial_days_left != null).length,
         canceled,
         churn, // %
-        arpu, // €
         free_days_total: daysCh + daysRef,
         free_days_challenges: daysCh,
         free_days_referrals: daysRef,
@@ -1908,7 +1915,7 @@ export async function buildApp(options = {}) {
       trials: rows.filter((r) => r.trial_days_left != null)
         .sort((a, b) => a.trial_days_left - b.trial_days_left),
       paying: rows.filter((r) => r.status === 'active')
-        .sort((a, b) => b.mrr - a.mrr),
+        .sort((a, b) => b.paid_total - a.paid_total),
     });
   });
 

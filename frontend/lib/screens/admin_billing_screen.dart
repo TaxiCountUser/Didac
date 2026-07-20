@@ -72,7 +72,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                 ((d['trials'] as List?) ?? []).cast<Map<String, dynamic>>();
             final paying =
                 ((d['paying'] as List?) ?? []).cast<Map<String, dynamic>>();
-            final mrr = (t['mrr'] as num?)?.toDouble() ?? 0;
+            final totalPaid = (t['total_paid'] as num?)?.toDouble() ?? 0;
             final daysCh = (t['free_days_challenges'] as num?)?.toInt() ?? 0;
             final daysRef = (t['free_days_referrals'] as num?)?.toInt() ?? 0;
 
@@ -86,11 +86,11 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                   // KPIs (fila 1: negocio)
                   Row(
                     children: [
-                      _kpi(l.t('adm_kpi_mrr'), '${mrr.toStringAsFixed(2)}€',
+                      _kpi(l.t('adm_kpi_revenue'), '${totalPaid.toStringAsFixed(2)}€',
                           '${t['paying'] ?? 0} ${l.t('adm_co_paying').toLowerCase()}',
                           AdminColors.teal),
                       const SizedBox(width: 7),
-                      _kpi(l.t('adm_bill_arpu'), '${(t['arpu'] as num?)?.toStringAsFixed(2) ?? '0'}€', '',
+                      _kpi(l.t('adm_bill_avg'), '${(t['avg_paid'] as num?)?.toStringAsFixed(2) ?? '0'}€', '',
                           AdminColors.blue),
                       const SizedBox(width: 7),
                       _kpi(l.t('adm_bill_churn'), '${(t['churn'] as num?)?.toStringAsFixed(1) ?? '0'}%',
@@ -157,7 +157,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                       for (final r in pastDue)
                         _companyRow(l, r,
                             trailing:
-                                '${(r['mrr'] as num?)?.toStringAsFixed(2) ?? '0'}€',
+                                '${(r['paid_total'] as num?)?.toStringAsFixed(2) ?? '0'}€',
                             trailingColor: AdminColors.red),
                     ]),
                   ],
@@ -187,7 +187,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                       for (final r in paying)
                         _companyRow(l, r,
                             trailing:
-                                '${(r['mrr'] as num?)?.toStringAsFixed(2) ?? '0'}€',
+                                '${(r['paid_total'] as num?)?.toStringAsFixed(2) ?? '0'}€',
                             trailingColor: AdminColors.teal),
                     ]),
                 ],
@@ -261,7 +261,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
   Widget _companyRow(AppLocalizations l, Map<String, dynamic> r,
       {required String trailing, required Color trailingColor}) {
     final name = (r['name'] as String?) ?? '—';
-    final seats = (r['seats'] as num?)?.toInt() ?? 1;
+    final paidSeats = (r['paid_seats'] as num?)?.toInt();
+    final activeSeats = (r['active_seats'] as num?)?.toInt() ?? 0;
     final freeDays = (r['free_days'] as num?)?.toInt() ?? 0;
     return InkWell(
       onTap: () => _openCompany(r),
@@ -281,7 +282,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                           fontSize: 12, fontWeight: FontWeight.w500,
                           color: AdminColors.text)),
                   Text(
-                    '$seats ${l.t('adm_kpi_seats').toLowerCase()}'
+                    '${paidSeats ?? activeSeats} ${l.t('adm_kpi_seats').toLowerCase()}'
+                    ' · ${l.t('adm_kpi_active', {'n': '$activeSeats'})}'
                     '${freeDays > 0 ? ' · ${l.t('fd_days', {'n': '$freeDays'})}' : ''}',
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
