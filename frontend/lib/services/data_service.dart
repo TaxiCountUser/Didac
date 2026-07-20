@@ -489,6 +489,14 @@ class DataService {
   Future<void> adminSystemConfigUpdate(Map<String, String> changes) =>
       adminReferralConfigUpdate(changes);
 
+  /// Métricas diarias agregadas de la plataforma (solo admin).
+  Future<Map<String, dynamic>> adminDailyMetrics() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/daily-metrics'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
   /// Retos logrados pendientes de revisar (solo admin, todas las empresas).
   Future<List<Map<String, dynamic>>> adminChallenges() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/challenges'), headers: _bearer);

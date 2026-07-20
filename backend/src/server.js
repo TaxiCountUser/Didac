@@ -1250,18 +1250,33 @@ export async function buildApp(options = {}) {
   // pagadas: `paid` = neto cobrado (lo que han pagado los clientes), `discount` =
   // total descontado con cupones. En céntimos. El global se cachea 60 s para no
   // listar Stripe en cada carga del panel.
+  function dayBounds() {
+    const t = new Date(); t.setUTCHours(0, 0, 0, 0);
+    const startTodayS = Math.floor(t.getTime() / 1000);
+    const d = new Date();
+    const startMonthS = Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000);
+    return { startTodayS, startMonthS };
+  }
+
   async function sumPaidInvoices(params) {
     let paid = 0;
     let discount = 0;
     let count = 0;
     let currency = 'eur';
+    let paidToday = 0;
+    let countToday = 0;
+    let paidMtd = 0;
+    const { startTodayS, startMonthS } = dayBounds();
     for await (const inv of stripe.invoices.list({ status: 'paid', limit: 100, ...params })) {
       paid += inv.amount_paid || 0;
       for (const d of inv.total_discount_amounts || []) discount += d.amount || 0;
       count += 1;
       if (inv.currency) currency = inv.currency;
+      const at = inv.status_transitions?.paid_at ?? inv.created ?? 0;
+      if (at >= startTodayS) { paidToday += inv.amount_paid || 0; countToday += 1; }
+      if (at >= startMonthS) paidMtd += inv.amount_paid || 0;
     }
-    return { paid, discount, count, currency };
+    return { paid, discount, count, currency, paidToday, countToday, paidMtd };
   }
 
   // Total DEVUELTO (reembolsos). Las facturas pagadas no cambian al reembolsar,
@@ -1269,16 +1284,20 @@ export async function buildApp(options = {}) {
   // (refunds no se puede filtrar por customer).
   async function sumRefunds(customerId) {
     let refunded = 0;
+    let refundedToday = 0;
+    const { startTodayS } = dayBounds();
     if (customerId) {
       for await (const ch of stripe.charges.list({ customer: customerId, limit: 100 })) {
         refunded += ch.amount_refunded || 0;
       }
     } else {
       for await (const r of stripe.refunds.list({ limit: 100 })) {
-        if (r.status !== 'failed' && r.status !== 'canceled') refunded += r.amount || 0;
+        if (r.status === 'failed' || r.status === 'canceled') continue;
+        refunded += r.amount || 0;
+        if ((r.created ?? 0) >= startTodayS) refundedToday += r.amount || 0;
       }
     }
-    return refunded;
+    return { refunded, refundedToday };
   }
 
   let _revenueCache = null; // { at, data }
@@ -1287,7 +1306,9 @@ export async function buildApp(options = {}) {
     if (_revenueCache && Date.now() - _revenueCache.at < 60000) return _revenueCache.data;
     try {
       const data = await sumPaidInvoices({});
-      data.refunded = await sumRefunds(null);
+      const ref = await sumRefunds(null);
+      data.refunded = ref.refunded;
+      data.refundedToday = ref.refundedToday;
       _revenueCache = { at: Date.now(), data };
       return data;
     } catch (e) {
@@ -1300,7 +1321,7 @@ export async function buildApp(options = {}) {
     if (!stripe || !customerId) return { paid: 0, discount: 0, count: 0, refunded: 0, currency: 'eur' };
     try {
       const data = await sumPaidInvoices({ customer: customerId });
-      data.refunded = await sumRefunds(customerId);
+      data.refunded = (await sumRefunds(customerId)).refunded;
       return data;
     } catch (e) {
       app.log.warn(`[revenue] tenant: ${e.message}`);
@@ -1505,6 +1526,86 @@ export async function buildApp(options = {}) {
       webhook_errors: webhookErrors,
       database: await probeDb(),
       health,
+    });
+  });
+
+  // ---- Pols diari: métricas agregadas de la plataforma. PROTECCIÓN DE DATOS: el
+  // admin NO ve el dinero de las carreras de los clientes; aquí solo hay NÚMEROS
+  // (recuentos) y, en €, únicamente NUESTROS ingresos (suscripciones de Stripe).
+  app.get('/api/v1/admin/daily-metrics', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+
+    const startToday = new Date(); startToday.setUTCHours(0, 0, 0, 0);
+    const todayIso = startToday.toISOString();
+    const todayDate = todayIso.slice(0, 10);
+    const weekAgoIso = new Date(Date.now() - 7 * 86400000).toISOString();
+    const now = Date.now();
+    const dayMs = 86400000;
+
+    const countSince = async (table, col, sinceIso, extra) => {
+      let q = supabase.from(table).select('id', { count: 'exact', head: true }).gte(col, sinceIso);
+      if (extra) q = extra(q);
+      const { count } = await q;
+      return count || 0;
+    };
+
+    // --- Uso (recuentos, sin importes) ---
+    const ridesToday = await countSince('transactions', 'created_at', todayIso, (q) => q.eq('type', 'income'));
+    // DAU: usuarios distintos con actividad hoy (carreras/gastos + lecturas km).
+    const [{ data: txU }, { data: odU }] = await Promise.all([
+      supabase.from('transactions').select('user_id').gte('created_at', todayIso).limit(5000),
+      supabase.from('odometer_readings').select('user_id').gte('taken_at', todayIso).limit(5000),
+    ]);
+    const dau = new Set([...(txU || []), ...(odU || [])].map((r) => r.user_id).filter(Boolean)).size;
+    // Transcripciones de voz hoy (suma del contador diario por usuario).
+    const { data: trRows } = await supabase.from('users')
+      .select('daily_transcription_count').eq('transcription_count_date', todayDate);
+    const transcriptionsToday = (trRows || []).reduce((s, r) => s + (r.daily_transcription_count || 0), 0);
+
+    // --- Crecimiento ---
+    const newCompaniesToday = await countSince('tenants', 'created_at', todayIso, (q) => q.is('closed_at', null));
+    const newDriversToday = await countSince('users', 'created_at', todayIso, (q) => q.eq('role', 'driver'));
+
+    // --- Producto: activación y riesgo (a partir de tenants + actividad) ---
+    const { data: tenants } = await supabase.from('tenants')
+      .select('id, subscription_status, trial_ends_at, closed_at');
+    const live = (tenants || []).filter((t) => !t.closed_at);
+    const trialing = live.filter((t) => t.subscription_status === 'trialing'
+      && t.trial_ends_at && new Date(t.trial_ends_at).getTime() > now);
+    const paying = live.filter((t) => t.subscription_status === 'active' || t.subscription_status === 'past_due');
+    const trialsEnding = trialing.filter((t) => new Date(t.trial_ends_at).getTime() - now <= 5 * dayMs).length;
+    // Tenants con alguna carrera (activación) y con carrera en 7 días (retención).
+    const [{ data: everTx }, { data: recentTx }] = await Promise.all([
+      supabase.from('transactions').select('tenant_id').limit(20000),
+      supabase.from('transactions').select('tenant_id').gte('created_at', weekAgoIso).limit(20000),
+    ]);
+    const everSet = new Set((everTx || []).map((r) => r.tenant_id));
+    const recentSet = new Set((recentTx || []).map((r) => r.tenant_id));
+    const activated = trialing.filter((t) => everSet.has(t.id)).length;
+    const activationRate = trialing.length ? Math.round((activated / trialing.length) * 100) : null;
+    const atRisk = paying.filter((t) => !recentSet.has(t.id)).length;
+
+    // --- Soporte ---
+    const { count: openTickets } = await supabase.from('incidents')
+      .select('id', { count: 'exact', head: true }).eq('kind', 'app').eq('status', 'abierta');
+
+    // --- Negocio (€ NUESTROS: Stripe) ---
+    const rev = await readGlobalRevenue();
+    const business = rev ? {
+      revenue_today: Number(((rev.paidToday || 0) / 100).toFixed(2)),
+      revenue_mtd: Number(((rev.paidMtd || 0) / 100).toFixed(2)),
+      payments_today: rev.countToday || 0,
+      refunds_today: Number(((rev.refundedToday || 0) / 100).toFixed(2)),
+    } : null;
+
+    return reply.send({
+      day: todayDate,
+      business,
+      usage: { rides_today: ridesToday, dau, transcriptions_today: transcriptionsToday },
+      growth: { new_companies_today: newCompaniesToday, new_drivers_today: newDriversToday, trials_ending: trialsEnding },
+      product: { activation_rate: activationRate, activated, trialing: trialing.length, at_risk: atRisk, paying: paying.length },
+      support: { open_tickets: openTickets || 0 },
     });
   });
 

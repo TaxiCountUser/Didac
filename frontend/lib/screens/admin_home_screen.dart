@@ -26,6 +26,7 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final _service = DataService();
   late Future<Map<String, dynamic>> _future = _service.adminOverview();
+  late Future<Map<String, dynamic>> _dailyFuture = _service.adminDailyMetrics();
 
   @override
   void initState() {
@@ -39,7 +40,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     });
   }
 
-  void _reload() => setState(() => _future = _service.adminOverview());
+  void _reload() => setState(() {
+        _future = _service.adminOverview();
+        _dailyFuture = _service.adminDailyMetrics();
+      });
 
   // Abre un módulo: -2 = Empresas y -3 = Facturación; 0..5 = pantalla propia
   // del módulo (AdminModuleScreen, sin pestañas). Recarga al volver.
@@ -128,6 +132,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   const SizedBox(height: 14),
                   _controlCenter(l, d),
                   const SizedBox(height: 18),
+                  _dailyPulse(l),
+                  const SizedBox(height: 18),
                   _inboxHeader(l, d),
                   const SizedBox(height: 8),
                   _inbox(l, d),
@@ -146,6 +152,86 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
     );
   }
+
+  // --- Pols diari: métricas agregadas del día. PROTECCIÓN DE DATOS: solo
+  // recuentos y, en €, únicamente NUESTROS ingresos (suscripciones), nunca el
+  // dinero de las carreras de los clientes.
+  Widget _dailyPulse(AppLocalizations l) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _dailyFuture,
+      builder: (ctx, snap) {
+        if (snap.hasError) return const SizedBox.shrink();
+        if (!snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Center(child: SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AdminColors.teal))),
+          );
+        }
+        final m = snap.data!;
+        final biz = (m['business'] as Map?) ?? const {};
+        final us = (m['usage'] as Map?) ?? const {};
+        final gr = (m['growth'] as Map?) ?? const {};
+        final pr = (m['product'] as Map?) ?? const {};
+        final su = (m['support'] as Map?) ?? const {};
+        String eur(dynamic v) => '${((v as num?)?.toDouble() ?? 0).toStringAsFixed(2).replaceAll('.', ',')} €';
+        String n(dynamic v) => '${(v as num?)?.toInt() ?? 0}';
+        final rate = pr['activation_rate'];
+        final refunds = (biz['refunds_today'] as num?)?.toDouble() ?? 0;
+        final tiles = <Widget>[
+          _mTile(l.t('adm_dm_rev_today'), eur(biz['revenue_today']), AdminColors.teal),
+          _mTile(l.t('adm_dm_rev_mtd'), eur(biz['revenue_mtd']), AdminColors.teal),
+          _mTile(l.t('adm_dm_rides'), n(us['rides_today']), AdminColors.amber),
+          _mTile(l.t('adm_dm_dau'), n(us['dau']), AdminColors.blue),
+          _mTile(l.t('adm_dm_voice'), n(us['transcriptions_today']), AdminColors.purple),
+          _mTile(l.t('adm_dm_new_co'), n(gr['new_companies_today']), AdminColors.teal),
+          _mTile(l.t('adm_dm_new_dr'), n(gr['new_drivers_today']), AdminColors.blue),
+          _mTile(l.t('adm_dm_trials_end'), n(gr['trials_ending']), AdminColors.amber),
+          _mTile(l.t('adm_dm_activation'), rate == null ? '—' : '$rate%', AdminColors.teal),
+          _mTile(l.t('adm_dm_at_risk'), n(pr['at_risk']), AdminColors.red),
+          _mTile(l.t('adm_dm_tickets'), n(su['open_tickets']), AdminColors.coral),
+          if (refunds > 0) _mTile(l.t('adm_dm_refunds'), eur(biz['refunds_today']), AdminColors.red),
+        ];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Text(l.t('adm_dm_title'),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5, color: AdminColors.text)),
+              const SizedBox(width: 8),
+              Text(l.t('adm_dm_sub'),
+                  style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+            ]),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: tiles),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _mTile(String label, String value, Color color) => Container(
+        width: 112,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: AdminColors.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: .28)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: color)),
+            const SizedBox(height: 2),
+            Text(label,
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 9.5, color: AdminColors.secondary, height: 1.15)),
+          ],
+        ),
+      );
 
   // --- Semáforos: API (si hay datos, está viva) + crons + servicios externos. ---
   Widget _statusRow(AppLocalizations l, Map<String, dynamic> d) {
