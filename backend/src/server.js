@@ -3574,7 +3574,6 @@ export async function buildApp(options = {}) {
     let rejected = 0;
     let completedThisMonth = 0;
     const driversWithClaim = new Set();
-    const maxLevelByUser = {};        // nivel máximo aprobado por conductor
     for (const c of claims ?? []) {
       if (c.status === 'rewarded') {
         // Solo cuenta como "conductor con reto" quien tiene un logro COMPLETADO
@@ -3582,8 +3581,6 @@ export async function buildApp(options = {}) {
         // rechazado seguiría inflando el %).
         driversWithClaim.add(c.user_id);
         totalCompleted += 1;
-        const lvl = c.level ?? 1;
-        if (!maxLevelByUser[c.user_id] || lvl > maxLevelByUser[c.user_id]) maxLevelByUser[c.user_id] = lvl;
         const when = c.reviewed_at || c.created_at;
         if (when) {
           const t = new Date(when).getTime();
@@ -3597,10 +3594,13 @@ export async function buildApp(options = {}) {
         rejected += 1;
       }
     }
-    const levels = Object.values(maxLevelByUser);
-    const avgLevel = levels.length ? +(levels.reduce((s, n) => s + n, 0) / levels.length).toFixed(1) : 0;
     const driversWithChallenge = totalDrivers
       ? +((driversWithClaim.size / totalDrivers) * 100).toFixed(1) : 0;
+    // Tasa de compleción = completados / intentos decididos (completados + pendientes
+    // + rechazados). Ratio, no volumen (estándar de analítica de engagement).
+    const attempts = totalCompleted + pendingApprovals + rejected;
+    const completionRate = attempts > 0
+      ? +((totalCompleted / attempts) * 100).toFixed(1) : 0;
     // Tasa de fraude = rechazados / (completados + rechazados).
     const fraudRate = (totalCompleted + rejected) > 0
       ? +((rejected / (totalCompleted + rejected)) * 100).toFixed(1) : 0;
@@ -3611,6 +3611,14 @@ export async function buildApp(options = {}) {
       .select('days_extended').eq('extension_type', 'challenge').limit(20000);
     const daysChallenges = (extRows ?? [])
       .reduce((s, r) => s + (r.days_extended ?? 0), 0);
+    // COSTE del programa de recompensas (lo que REGALAMOS): cada día gratis vale
+    // el precio de un asiento/día (250 céntimos-mes / 30 ≈ 8,33 c/día). En €. Y
+    // qué % del valor bruto (cobrado + regalado) supone. Conecta con Facturación.
+    const rewardCostEur = +((daysChallenges * (250 / 30)) / 100).toFixed(2);
+    const rev = await readGlobalRevenue();
+    const cashTotal = ((rev?.paid ?? 0) - (rev?.refunded ?? 0)) / 100;
+    const rewardPct = (cashTotal + rewardCostEur) > 0
+      ? +((rewardCostEur / (cashTotal + rewardCostEur)) * 100).toFixed(1) : 0;
 
     // Evolución de km RECORRIDOS por día (global, últimos 30 días): muestra cómo
     // AVANZAN los conductores hacia los retos, no solo cuándo los completan.
@@ -3624,8 +3632,10 @@ export async function buildApp(options = {}) {
     return reply.send({
       total_completed: totalCompleted,
       drivers_with_challenge: driversWithChallenge, // %
-      avg_level: avgLevel,
+      completion_rate: completionRate, // % completados / intentos
       days_challenges: daysChallenges,
+      reward_cost_eur: rewardCostEur, // € regalados en recompensas
+      reward_pct: rewardPct, // % del valor bruto que regalamos
       pending_approvals: pendingApprovals,
       rejected,
       fraud_rate: fraudRate, // %
@@ -4143,6 +4153,7 @@ export async function buildApp(options = {}) {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const action = (request.body ?? {}).action;
+    const reason = String((request.body ?? {}).reason ?? '').trim().slice(0, 300);
     if (action !== 'reward' && action !== 'reject') {
       return reply.code(400).send({ error: 'Acción no válida' });
     }
@@ -4172,7 +4183,7 @@ export async function buildApp(options = {}) {
         .update({ status: 'rejected', reviewed_at: new Date().toISOString(), reward_redeemed_at: null })
         .eq('id', claim.id);
       await logAdminAction(request, g.caller?.id ?? null, 'challenge_reject',
-        'challenge_claims', claim.id, { clawed_back_days: clawedDays });
+        'challenge_claims', claim.id, { clawed_back_days: clawedDays, reason: reason || null });
       return reply.send({ ok: true, rejected: true, clawed_back_days: clawedDays });
     }
 

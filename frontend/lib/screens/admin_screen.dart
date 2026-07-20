@@ -299,14 +299,56 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     }
   }
 
-  Future<void> _review(String id, String action) async {
+  Future<void> _review(String id, String action, {String? reason}) async {
     try {
-      await _service.adminReviewChallenge(id, action);
+      await _service.adminReviewChallenge(id, action, reason: reason);
       _reload();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+    }
+  }
+
+  // Rechazar por fraude pide un MOTIVO (opcional pero recomendado, estándar de
+  // moderación T&S): queda registrado en Auditoría junto a la acción.
+  Future<void> _rejectWithReason(String id) async {
+    final l = context.l10n;
+    final ctrl = TextEditingController();
+    final ok = await showAdminDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_ch_reject_title')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.t('adm_ch_reject_help'), style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              maxLength: 300,
+              maxLines: 2,
+              decoration: InputDecoration(
+                  labelText: l.t('adm_ch_reject_reason'), isDense: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.t('cancel'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AdminColors.redSolid),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.t('adm_ch_reject_confirm')),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _review(id, 'reject', reason: ctrl.text.trim());
     }
   }
 
@@ -418,19 +460,24 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   // ── Resumen (KPIs) ─────────────────────────────────────────────────────
   Widget _summaryCards(AppLocalizations l) {
     num n(String k) => (_summary[k] as num?) ?? 0;
+    final rewardEur = (n('reward_cost_eur')).toStringAsFixed(2);
     return Wrap(spacing: 8, runSpacing: 8, children: [
       _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'), '${n('total_completed')}', AdminColors.amber),
       _kpi(Icons.calendar_month, l.t('adm_ch_kpi_month'), '${n('completed_this_month')}', AdminColors.blue),
       _kpi(Icons.groups, l.t('adm_ch_kpi_drivers'), '${n('drivers_with_challenge')}%', AdminColors.blue),
-      _kpi(Icons.trending_up, l.t('adm_ch_kpi_avglevel'), '${n('avg_level')}', AdminColors.purple),
-      _kpi(Icons.savings, l.t('adm_ch_kpi_days_free'), l.t('fd_days', {'n': '${n('days_challenges').toInt()}'}), AdminColors.teal),
+      _kpi(Icons.percent, l.t('adm_ch_kpi_completion'), '${n('completion_rate')}%', AdminColors.purple),
+      // Coste del programa: lo que REGALAMOS (€), con los días y el % sobre el bruto.
+      _kpi(Icons.savings, l.t('adm_ch_kpi_reward_cost'), '$rewardEur€', AdminColors.teal,
+          sub: '${l.t('fd_days', {'n': '${n('days_challenges').toInt()}'})} · ${n('reward_pct')}%'),
       _kpi(Icons.hourglass_bottom, l.t('adm_ch_kpi_pending'), '${n('pending_approvals')}', AdminColors.coral),
       _kpi(Icons.gpp_maybe, l.t('adm_ch_kpi_fraud'), '${n('fraud_rate')}%', AdminColors.red),
     ]);
   }
 
-  Widget _kpi(IconData icon, String label, String value, Color color) =>
-      AdminKpiTile(width: 150, icon: icon, label: label, value: value, color: color);
+  Widget _kpi(IconData icon, String label, String value, Color color,
+          {String sub = ''}) =>
+      AdminKpiTile(
+          width: 150, icon: icon, label: label, value: value, color: color, sub: sub);
 
   // ── Gráficos (sin dependencias: barras con Containers) ─────────────────────
   Widget _charts(AppLocalizations l) {
@@ -757,6 +804,16 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     ]);
   }
 
+  // Antigüedad de un pendiente (cuánto lleva esperando revisión).
+  String _ageLabel(AppLocalizations l, Object? createdAt) {
+    final dt = DateTime.tryParse('$createdAt');
+    if (dt == null) return '—';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inDays >= 1) return '${diff.inDays}d';
+    if (diff.inHours >= 1) return '${diff.inHours}h';
+    return l.t('adm_age_now');
+  }
+
   Widget _claimTile(AppLocalizations l, Map<String, dynamic> c) {
     final challenge = (c['challenge'] as String?) ?? '';
     final isKm = challenge == 'km_100k';
@@ -817,7 +874,9 @@ class _ChallengesTabState extends State<_ChallengesTab> {
                     style: const TextStyle(fontSize: 10, color: AdminColors.muted),
                   ),
                   if (suspicious && !rejected)
-                    Text('⚠ ${l.t('admin_ch_suspicious')}',
+                    Text(
+                        '⚠ ${l.t('admin_ch_suspicious')}'
+                        '${status == 'pending' ? ' · ⏱ ${_ageLabel(l, c['created_at'])}' : ''}',
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 10, color: AdminColors.red)),
@@ -834,13 +893,13 @@ class _ChallengesTabState extends State<_ChallengesTab> {
                   () => _review(c['id'] as String, 'reward')),
               const SizedBox(width: 6),
               _tileAction(Icons.block, AdminColors.red,
-                  () => _review(c['id'] as String, 'reject')),
+                  () => _rejectWithReason(c['id'] as String)),
             ] else ...[
               AdminTag(l.t('admin_ch_achieved'),
                   fg: AdminColors.teal, bg: AdminColors.tealBg),
               const SizedBox(width: 6),
               _tileAction(Icons.block, AdminColors.red,
-                  () => _review(c['id'] as String, 'reject')),
+                  () => _rejectWithReason(c['id'] as String)),
             ],
           ],
         ),

@@ -193,6 +193,16 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 > el cálculo muerto de `mrr_estimate` por empresa; la ficha usa el kit compartido (`adminAppBar`,
 > `adminRowsCard`, `adminCardBox`, `adminStatusLabel` movido a `admin_theme.dart`).
 
+> **Retos — estándar de engagement + rewards (2026-07-21):** el módulo separa lo que la industria
+> separa: **analítica de recompensas** y **cola de moderación (T&S)**. KPIs de negocio: se añadió
+> el **coste del programa en €** (lo que REGALAMOS: días gratis × precio asiento/día ≈ 8,33 c/día,
+> `reward_cost_eur`) y su **% sobre el valor bruto** (`reward_pct`) — conecta con Facturación; y la
+> **tasa de compleción** (`completion_rate` = completados/intentos, ratio en vez de volumen). Se
+> retiró el KPI **nivel medio** (vanity). La **cola de fraude** es ahora una cola de acción: cada
+> pendiente muestra su **antigüedad** (cuánto lleva esperando) y **rechazar pide un MOTIVO**
+> (opcional, se guarda en `admin_actions_log`/Auditoría; sin migración). El leaderboard top-10 se
+> mantiene (a petición). Nota: usa el kit desde antes (`AdminKpiTile`, `AdminPill`, `adminCardBox`).
+
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa
 > hasta que el admin lo **acepta**; al **rechazarlo**, si ya se había premiado se revierte

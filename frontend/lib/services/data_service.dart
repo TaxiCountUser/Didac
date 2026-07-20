@@ -516,11 +516,15 @@ class DataService {
   }
 
   /// Aprueba (mes gratis) o rechaza un reto logrado (solo admin).
-  Future<void> adminReviewChallenge(String id, String action) async {
+  Future<void> adminReviewChallenge(String id, String action,
+      {String? reason}) async {
     final res = await http.post(
       Uri.parse('$backendUrl/api/v1/admin/challenges/$id'),
       headers: _bearer,
-      body: jsonEncode({'action': action}),
+      body: jsonEncode({
+        'action': action,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      }),
     );
     if (res.statusCode != 200) {
       final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
