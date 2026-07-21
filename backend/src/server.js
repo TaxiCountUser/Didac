@@ -1852,6 +1852,10 @@ export async function buildApp(options = {}) {
         free_days: freeDays.total,
         free_days_challenges: freeDays.challenges,
         free_days_referrals: freeDays.referrals,
+        // Crédito de recompensas (reto + referido) aplicado en Stripe, en euros.
+        reward_credit_eur: Number((freeDays.total_cents / 100).toFixed(2)),
+        reward_credit_challenges_eur: Number((freeDays.challenges_cents / 100).toFixed(2)),
+        reward_credit_referrals_eur: Number((freeDays.referrals_cents / 100).toFixed(2)),
         active_drivers: activeDrivers.length,
       },
     });
@@ -1872,11 +1876,12 @@ export async function buildApp(options = {}) {
         .select('id, name, subscription_status, trial_ends_at, drivers_limit, created_at, stripe_customer_id')
         .order('created_at', { ascending: false }),
       supabase.from('users').select('id, tenant_id, active, annual_price_paid, role'),
-      supabase.from('subscription_extensions').select('tenant_id, days_extended').eq('extension_type', 'challenge'),
-      supabase.from('referral_milestone_rewards').select('user_id, days_awarded'),
+      supabase.from('subscription_extensions').select('tenant_id, credit_cents').eq('extension_type', 'challenge'),
+      supabase.from('referral_milestone_rewards').select('user_id, credit_cents'),
     ]);
 
-    // Días gratis por retos (por tenant) y por referidos (por owner -> tenant).
+    // Crédito de recompensas (retos por tenant, referidos por owner -> tenant), en
+    // céntimos: lo que hemos REGALADO como descuento Stripe (no días de trial).
     const ownerTenant = {};
     const seatsByTenant = {};
     for (const u of drivers ?? []) {
@@ -1885,19 +1890,19 @@ export async function buildApp(options = {}) {
         (seatsByTenant[u.tenant_id] ||= []).push(Number(u.annual_price_paid ?? 15));
       }
     }
-    const daysByTenant = {};
-    let daysCh = 0;
-    let daysRef = 0;
+    const centsByTenant = {};
+    let centsCh = 0;
+    let centsRef = 0;
     for (const e of exts ?? []) {
-      const d = e.days_extended ?? 0;
-      daysByTenant[e.tenant_id] = (daysByTenant[e.tenant_id] ?? 0) + d;
-      daysCh += d;
+      const c = e.credit_cents ?? 0;
+      centsByTenant[e.tenant_id] = (centsByTenant[e.tenant_id] ?? 0) + c;
+      centsCh += c;
     }
     for (const m of milestones ?? []) {
       const tid = ownerTenant[m.user_id];
-      const d = m.days_awarded ?? 0;
-      if (tid) daysByTenant[tid] = (daysByTenant[tid] ?? 0) + d;
-      daysRef += d;
+      const c = m.credit_cents ?? 0;
+      if (tid) centsByTenant[tid] = (centsByTenant[tid] ?? 0) + c;
+      centsRef += c;
     }
 
     // Dinero REAL pagado por cada empresa (Stripe), agrupando las facturas
@@ -1919,7 +1924,7 @@ export async function buildApp(options = {}) {
         active_seats: activeSeats,             // asientos ocupados (conductores activos)
         paid_total: Number((paidCents / 100).toFixed(2)), // € reales pagados (acumulado)
         trial_days_left: trialDays,
-        free_days: daysByTenant[t.id] ?? 0,
+        reward_credit_eur: Number(((centsByTenant[t.id] ?? 0) / 100).toFixed(2)),
       };
     });
 
@@ -1949,9 +1954,9 @@ export async function buildApp(options = {}) {
         trialing: rows.filter((r) => r.trial_days_left != null).length,
         canceled,
         churn, // %
-        free_days_total: daysCh + daysRef,
-        free_days_challenges: daysCh,
-        free_days_referrals: daysRef,
+        reward_credit_total_eur: Number(((centsCh + centsRef) / 100).toFixed(2)),
+        reward_credit_challenges_eur: Number((centsCh / 100).toFixed(2)),
+        reward_credit_referrals_eur: Number((centsRef / 100).toFixed(2)),
       },
       past_due: rows.filter((r) => r.status === 'past_due'),
       trials: rows.filter((r) => r.trial_days_left != null)
@@ -2290,18 +2295,6 @@ export async function buildApp(options = {}) {
   // Extiende la suscripción de un tenant N días (1 mes = 30). Si trial_ends_at
   // está en el pasado, cuenta desde hoy. Es el mecanismo común de "mes/días
   // gratis" para retos y referidos (ya no se usa crédito Stripe).
-  async function extendTenantTrial(tenantId, deltaDays) {
-    if (!tenantId || !deltaDays) return;
-    const { data: t } = await supabase.from('tenants')
-      .select('trial_ends_at').eq('id', tenantId).maybeSingle();
-    const now = Date.now();
-    const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : now;
-    const base = cur > now ? cur : now;
-    await supabase.from('tenants')
-      .update({ trial_ends_at: new Date(base + deltaDays * 86400000).toISOString() })
-      .eq('id', tenantId);
-  }
-
   // ¿El tenant es cliente DE PAGO? Las recompensas (mes de retos / días de
   // referidos) solo se aplican sobre una suscripción activa; durante la PRUEBA
   // se difieren (no tiene sentido alargar una prueba que ya es gratis).
@@ -2309,6 +2302,69 @@ export async function buildApp(options = {}) {
     const { data: t } = await supabase.from('tenants')
       .select('subscription_status').eq('id', tenantId).maybeSingle();
     return t?.subscription_status === 'active' || t?.subscription_status === 'past_due';
+  }
+
+  // Coste MENSUAL efectivo de la flota (céntimos), NETO de descuentos, leído de las
+  // facturas de Stripe realmente pagadas y VIGENTES hoy (su periodo cubre "ahora").
+  // Suma cada factura vigente / sus meses, así que si hay asientos pagados a precios
+  // distintos (p. ej. 1er asiento con cupón de bienvenida + 2o a precio pleno en su
+  // prorrateo), se SUMAN automáticamente sin reconstruir historial por asiento. Es la
+  // base de las recompensas: reto = 1 asiento·mes; referido = N días de flota.
+  // Devuelve 0 si no hay factura vigente (p. ej. en prueba, sin suscripción todavía).
+  async function fleetMonthlyCents(customerId) {
+    if (!stripe || !customerId) return 0;
+    const nowS = Math.floor(Date.now() / 1000);
+    let monthly = 0;
+    try {
+      for await (const inv of stripe.invoices.list({ customer: customerId, status: 'paid', limit: 100 })) {
+        const ps = inv.period_start ?? inv.lines?.data?.[0]?.period?.start;
+        const pe = inv.period_end ?? inv.lines?.data?.[0]?.period?.end;
+        if (!ps || !pe || pe <= ps) continue;
+        if (!(ps <= nowS && nowS < pe)) continue; // solo facturas VIGENTES hoy
+        const months = Math.max(1, Math.round((pe - ps) / (30.44 * 86400)));
+        monthly += (inv.amount_paid || 0) / months;
+      }
+    } catch (e) {
+      app.log.warn(`[reward] fleetMonthlyCents ${customerId}: ${e.message}`);
+      return 0;
+    }
+    return Math.round(monthly);
+  }
+
+  // Crédito de recompensa: aplica un saldo NEGATIVO al cliente en Stripe, que se
+  // consume automáticamente en su PRÓXIMA factura. Devuelve el id de la transacción
+  // (para poder revertirla en un clawback) o null si no se aplicó.
+  async function applyRewardCredit(customerId, cents, description) {
+    if (!stripe || !customerId || !(cents > 0)) return null;
+    try {
+      const txn = await stripe.customers.createBalanceTransaction(customerId, {
+        amount: -Math.round(cents), currency: 'eur', description,
+      });
+      return txn.id;
+    } catch (e) {
+      app.log.warn(`[reward] applyRewardCredit ${customerId}: ${e.message}`);
+      return null;
+    }
+  }
+
+  // Clawback (opción b): retira el crédito que AÚN NO se haya consumido; si ya se
+  // gastó (el saldo del cliente ya no lo cubre), se asume la pérdida y NO se cobra
+  // de más al cliente. Nunca deja el saldo en positivo (nunca genera un cargo).
+  async function reverseRewardCredit(customerId, cents) {
+    if (!stripe || !customerId || !(cents > 0)) return 0;
+    try {
+      const cust = await stripe.customers.retrieve(customerId);
+      const bal = cust?.balance ?? 0; // negativo = crédito disponible
+      const reverse = Math.min(Math.round(cents), Math.max(0, -bal));
+      if (reverse <= 0) return 0;
+      await stripe.customers.createBalanceTransaction(customerId, {
+        amount: reverse, currency: 'eur', description: 'Clawback recompensa referido',
+      });
+      return reverse;
+    } catch (e) {
+      app.log.warn(`[reward] reverseRewardCredit ${customerId}: ${e.message}`);
+      return 0;
+    }
   }
 
   async function applyPendingChallengeCredits() {
@@ -2325,18 +2381,24 @@ export async function buildApp(options = {}) {
       // Solo se premia si la empresa ya es de PAGO. En prueba se deja pendiente
       // (sin marcar canjeado) y el cron lo aplicará cuando pase a suscripción.
       if (!(await tenantIsPaying(c.tenant_id))) { deferred++; continue; }
-      const { data: u } = await supabase.from('users')
-        .select('annual_price_paid').eq('id', c.user_id).maybeSingle();
-      const monthlyValue = Number(u?.annual_price_paid ?? 15) / 12;
+      // Recompensa del reto = 1 ASIENTO · 1 MES, valorado a la tarifa EFECTIVA por
+      // asiento del último pago (neto de cupón). Con asientos a precios distintos se
+      // usa el asiento MEDIO: coste_mensual_flota / asientos. Se aplica como crédito
+      // Stripe que se consume en la PRÓXIMA factura (no extiende trial_ends_at).
+      const { data: tRow } = await supabase.from('tenants')
+        .select('stripe_customer_id, drivers_limit').eq('id', c.tenant_id).maybeSingle();
+      const seats = Math.max(1, Number(tRow?.drivers_limit ?? 1));
+      const fleetM = await fleetMonthlyCents(tRow?.stripe_customer_id);
+      const creditCents = Math.round(fleetM / seats);
       try {
         const now = new Date();
-        // Recompensa: 1 MES GRATIS (extiende la suscripción 30 días), por el
-        // valor de un conductor. Antes era crédito Stripe; ahora extensión.
-        await extendTenantTrial(c.tenant_id, 30);
+        const txnId = creditCents > 0
+          ? await applyRewardCredit(tRow?.stripe_customer_id, creditCents, `Reto completado (${c.challenge ?? ''})`)
+          : null;
         await supabase.from('subscription_extensions').insert({
           user_id: c.user_id, tenant_id: c.tenant_id, extension_type: 'challenge',
-          source_id: c.id, days_extended: 30, monthly_value: monthlyValue.toFixed(2),
-          extended_until: new Date(now.getTime() + 30 * 86400000).toISOString(),
+          source_id: c.id, days_extended: 0, credit_cents: creditCents, stripe_txn_id: txnId,
+          monthly_value: (creditCents / 100).toFixed(2), extended_until: now.toISOString(),
         });
         await supabase.from('challenge_claims')
           .update({ reward_redeemed_at: now.toISOString() }).eq('id', c.id);
@@ -2354,18 +2416,25 @@ export async function buildApp(options = {}) {
   // Es el "ahorro" real del nuevo modelo, medido en días de suscripción gratis.
   async function freeDaysForTenant(tenantId) {
     const { data: exts } = await supabase.from('subscription_extensions')
-      .select('days_extended').eq('tenant_id', tenantId).eq('extension_type', 'challenge');
+      .select('days_extended, credit_cents').eq('tenant_id', tenantId).eq('extension_type', 'challenge');
     const challenges = (exts ?? []).reduce((s, r) => s + (r.days_extended ?? 0), 0);
+    const challengesCents = (exts ?? []).reduce((s, r) => s + (r.credit_cents ?? 0), 0);
     const { data: owners } = await supabase.from('users')
       .select('id').eq('tenant_id', tenantId).eq('role', 'owner');
     const ownerIds = (owners ?? []).map((o) => o.id);
     let referrals = 0;
+    let referralsCents = 0;
     if (ownerIds.length) {
       const { data: rr } = await supabase.from('referral_milestone_rewards')
-        .select('days_awarded').in('user_id', ownerIds);
+        .select('days_awarded, credit_cents').in('user_id', ownerIds);
       referrals = (rr ?? []).reduce((s, r) => s + (r.days_awarded ?? 0), 0);
+      referralsCents = (rr ?? []).reduce((s, r) => s + (r.credit_cents ?? 0), 0);
     }
-    return { challenges, referrals, total: challenges + referrals };
+    return {
+      challenges, referrals, total: challenges + referrals,
+      challenges_cents: challengesCents, referrals_cents: referralsCents,
+      total_cents: challengesCents + referralsCents,
+    };
   }
 
   app.post('/api/v1/admin/cron/apply-challenge-credits', async (request, reply) => {
@@ -3629,16 +3698,14 @@ export async function buildApp(options = {}) {
     const fraudRate = (totalCompleted + rejected) > 0
       ? +((rejected / (totalCompleted + rejected)) * 100).toFixed(1) : 0;
 
-    // Días gratis concedidos por retos = suma de las extensiones de suscripción
-    // (cada reto completado = 1 mes gratis / 30 días).
-    const { data: extRows } = await supabase.from('subscription_extensions')
-      .select('days_extended').eq('extension_type', 'challenge').limit(20000);
-    const daysChallenges = (extRows ?? [])
-      .reduce((s, r) => s + (r.days_extended ?? 0), 0);
-    // COSTE del programa de recompensas (lo que REGALAMOS): cada día gratis vale
-    // el precio de un asiento/día (250 céntimos-mes / 30 ≈ 8,33 c/día). En €. Y
+    // COSTE real del programa de retos = suma de los CRÉDITOS Stripe concedidos
+    // (cada reto completado = 1 asiento·mes a la tarifa efectiva del cliente). Y
     // qué % del valor bruto (cobrado + regalado) supone. Conecta con Facturación.
-    const rewardCostEur = +((daysChallenges * (250 / 30)) / 100).toFixed(2);
+    const { data: extRows } = await supabase.from('subscription_extensions')
+      .select('credit_cents').eq('extension_type', 'challenge').limit(20000);
+    const rewardCount = (extRows ?? []).length;
+    const rewardCostEur = +((extRows ?? [])
+      .reduce((s, r) => s + (r.credit_cents ?? 0), 0) / 100).toFixed(2);
     const rev = await readGlobalRevenue();
     const cashTotal = ((rev?.paid ?? 0) - (rev?.refunded ?? 0)) / 100;
     const rewardPct = (cashTotal + rewardCostEur) > 0
@@ -3657,7 +3724,7 @@ export async function buildApp(options = {}) {
       total_completed: totalCompleted,
       drivers_with_challenge: driversWithChallenge, // %
       completion_rate: completionRate, // % completados / intentos
-      days_challenges: daysChallenges,
+      reward_count: rewardCount, // nº de recompensas concedidas
       reward_cost_eur: rewardCostEur, // € regalados en recompensas
       reward_pct: rewardPct, // % del valor bruto que regalamos
       pending_approvals: pendingApprovals,
@@ -4189,17 +4256,21 @@ export async function buildApp(options = {}) {
     if (cErr || !claim) return reply.code(404).send({ error: 'Reto no encontrado' });
 
     if (action === 'reject') {
-      // Si el logro YA se había premiado (extensión de suscripción aplicada por
-      // el cron), se revierte: se borra la extensión y se descuentan los días
-      // del trial. Así el logro rechazado DESAPARECE de las estadísticas de
-      // "completados" y del ahorro (días gratis).
-      let clawedDays = 0;
+      // Si el logro YA se había premiado (crédito Stripe aplicado por el cron), se
+      // revierte con clawback (b): se retira el crédito NO consumido y se borra la
+      // recompensa, para que el logro rechazado DESAPAREZCA de "completados" y del
+      // crédito acumulado. Si el crédito ya se gastó, se asume (no se cobra de más).
+      let clawedCents = 0;
       if (claim.reward_redeemed_at) {
         const { data: exts } = await supabase.from('subscription_extensions')
-          .select('id, days_extended')
+          .select('id, credit_cents')
           .eq('source_id', claim.id).eq('extension_type', 'challenge');
-        clawedDays = (exts ?? []).reduce((s, e) => s + (e.days_extended ?? 0), 0);
-        if (clawedDays > 0) await extendTenantTrial(claim.tenant_id, -clawedDays);
+        clawedCents = (exts ?? []).reduce((s, e) => s + (e.credit_cents ?? 0), 0);
+        if (clawedCents > 0) {
+          const { data: tRow } = await supabase.from('tenants')
+            .select('stripe_customer_id').eq('id', claim.tenant_id).maybeSingle();
+          await reverseRewardCredit(tRow?.stripe_customer_id, clawedCents);
+        }
         if ((exts ?? []).length) {
           await supabase.from('subscription_extensions')
             .delete().eq('source_id', claim.id).eq('extension_type', 'challenge');
@@ -4209,8 +4280,8 @@ export async function buildApp(options = {}) {
         .update({ status: 'rejected', reviewed_at: new Date().toISOString(), reward_redeemed_at: null })
         .eq('id', claim.id);
       await logAdminAction(request, g.caller?.id ?? null, 'challenge_reject',
-        'challenge_claims', claim.id, { clawed_back_days: clawedDays, reason: reason || null });
-      return reply.send({ ok: true, rejected: true, clawed_back_days: clawedDays });
+        'challenge_claims', claim.id, { clawed_back_cents: clawedCents, reason: reason || null });
+      return reply.send({ ok: true, rejected: true, clawed_back_cents: clawedCents });
     }
 
     // action === 'reward': aprueba un logro pendiente (sospechoso) -> pasa a
@@ -4255,9 +4326,9 @@ export async function buildApp(options = {}) {
       ? request.query.tenant_id : caller.tenant_id;
     const totals = await freeDaysForTenant(tenantId);
 
-    // Detalle de retos: cada extensión con su fecha y días.
+    // Detalle de retos: cada recompensa con su fecha y crédito €.
     const { data: exts } = await supabase.from('subscription_extensions')
-      .select('days_extended, applied_at, extension_type')
+      .select('days_extended, credit_cents, applied_at, extension_type')
       .eq('tenant_id', tenantId).eq('extension_type', 'challenge')
       .order('applied_at', { ascending: false }).limit(100);
     // Detalle de referidos: hitos conseguidos por los owners del tenant.
@@ -4267,7 +4338,7 @@ export async function buildApp(options = {}) {
     let milestones = [];
     if (ownerIds.length) {
       const { data: rr } = await supabase.from('referral_milestone_rewards')
-        .select('milestone_level, days_awarded, created_at').in('user_id', ownerIds)
+        .select('milestone_level, days_awarded, credit_cents, created_at').in('user_id', ownerIds)
         .order('created_at', { ascending: false }).limit(100);
       milestones = rr ?? [];
     }
@@ -4275,6 +4346,9 @@ export async function buildApp(options = {}) {
       challenges_days: totals.challenges,
       referrals_days: totals.referrals,
       total_days: totals.total,
+      challenges_eur: Number((totals.challenges_cents / 100).toFixed(2)),
+      referrals_eur: Number((totals.referrals_cents / 100).toFixed(2)),
+      total_eur: Number((totals.total_cents / 100).toFixed(2)),
       challenge_extensions: exts ?? [],
       referral_milestones: milestones,
     });
@@ -4581,12 +4655,13 @@ export async function buildApp(options = {}) {
       .select('referrer_user_id').eq('status', 'valid').limit(5000);
     const distinctReferrers = new Set((validRows ?? []).map((r) => r.referrer_user_id)).size;
     const { data: rewardRows } = await supabase.from('referral_milestone_rewards')
-      .select('days_awarded').limit(5000);
+      .select('days_awarded, credit_cents').limit(5000);
     const daysAwarded = (rewardRows ?? []).reduce((s, r) => s + (r.days_awarded ?? 0), 0);
     const milestonesAchieved = (rewardRows ?? []).length;
-    // COSTE del programa (lo que REGALAMOS): días gratis × precio asiento/día
-    // (250 céntimos-mes / 30 ≈ 8,33 c/día). En €. Mismo criterio que Retos.
-    const rewardCostEur = +((daysAwarded * (250 / 30)) / 100).toFixed(2);
+    // COSTE real del programa = suma de los CRÉDITOS Stripe concedidos por hitos
+    // (N días de flota a la tarifa efectiva del cliente). Mismo criterio que Retos.
+    const rewardCostEur = +((rewardRows ?? [])
+      .reduce((s, r) => s + (r.credit_cents ?? 0), 0) / 100).toFixed(2);
     // Top referidores por nº de referidos VÁLIDOS (leaderboard de crecimiento).
     const validByReferrer = {};
     for (const r of validRows ?? []) {
@@ -4859,20 +4934,6 @@ export async function buildApp(options = {}) {
   // correspondan (p. ej. tras una reversión por cancelación temprana).
   // ============================================================
 
-  // Suma (o resta, si delta<0) días al trial_ends_at del tenant del referidor.
-  async function extendReferrerTrial(referrerUserId, deltaDays) {
-    if (!deltaDays) return;
-    const { data: u } = await supabase.from('users').select('tenant_id').eq('id', referrerUserId).maybeSingle();
-    if (!u?.tenant_id) return;
-    const { data: t } = await supabase.from('tenants').select('trial_ends_at').eq('id', u.tenant_id).maybeSingle();
-    const now = Date.now();
-    const cur = t?.trial_ends_at ? new Date(t.trial_ends_at).getTime() : now;
-    const base = cur > now ? cur : now; // si está en el pasado, desde hoy
-    await supabase.from('tenants')
-      .update({ trial_ends_at: new Date(base + deltaDays * 86400000).toISOString() })
-      .eq('id', u.tenant_id);
-  }
-
   // Envía una notificación push a un usuario (busca sus tokens en device_tokens).
   async function notifyUser(userId, title, body, data = {}) {
     return notifyUsers([userId], title, body, data);
@@ -4938,39 +4999,51 @@ export async function buildApp(options = {}) {
     let annualDays = (u?.referral_annual_year === year) ? (u?.referral_rewards_annual_days ?? 0) : 0;
 
     const { data: claimedRows } = await supabase.from('referral_milestone_rewards')
-      .select('id, milestone_level, days_awarded').eq('user_id', referrerUserId);
+      .select('id, milestone_level, days_awarded, credit_cents').eq('user_id', referrerUserId);
     const claimed = new Map((claimedRows ?? []).map((r) => [r.milestone_level, r]));
     const target = new Set(milestones.filter((m) => valid >= m.required).map((m) => m.level));
 
-    // Los días solo se conceden si el referidor ya es cliente DE PAGO. En prueba
-    // se difieren: al pasar a suscripción (webhook) se vuelve a recalcular y se
-    // conceden los hitos pendientes.
+    // El premio solo se aplica si el referidor ya es cliente DE PAGO. En prueba se
+    // difiere: al pasar a suscripción (webhook) se recalcula y se conceden los hitos
+    // pendientes. Se aplica como CRÉDITO Stripe = N días de la FLOTA a la tarifa
+    // efectiva del último pago, consumible en su próxima factura (no toca trial).
     const { data: refUser } = await supabase.from('users')
       .select('tenant_id').eq('id', referrerUserId).maybeSingle();
     const paying = refUser?.tenant_id ? await tenantIsPaying(refUser.tenant_id) : false;
+    const { data: refTenant } = refUser?.tenant_id
+      ? await supabase.from('tenants').select('stripe_customer_id').eq('id', refUser.tenant_id).maybeSingle()
+      : { data: null };
+    const customerId = refTenant?.stripe_customer_id ?? null;
+    const fleetM = paying ? await fleetMonthlyCents(customerId) : 0;
 
     // Conceder hitos alcanzados que aún no se hayan concedido (solo si de pago).
     for (const m of milestones) {
       if (target.has(m.level) && !claimed.has(m.level) && paying) {
         const remaining = Math.max(0, annualMax - annualDays);
         const award = Math.min(m.days, remaining);
+        const creditCents = Math.round(fleetM * award / 30);
+        const txnId = creditCents > 0
+          ? await applyRewardCredit(customerId, creditCents, `Referidos: hito ${m.level} (+${award} dias de flota)`)
+          : null;
         await supabase.from('referral_milestone_rewards').insert({
-          user_id: referrerUserId, milestone_level: m.level, required: m.required, days_awarded: award,
+          user_id: referrerUserId, milestone_level: m.level, required: m.required,
+          days_awarded: award, credit_cents: creditCents, stripe_txn_id: txnId,
         });
         if (award > 0) {
-          await extendReferrerTrial(referrerUserId, award);
           annualDays += award;
-          await notifyUser(referrerUserId, '🎉 ¡Has ganado días gratis!',
-            `Hito ${m.level} conseguido: +${award} días de suscripción gratis. ¡Sigue invitando!`,
+          await notifyUser(referrerUserId, '🎉 ¡Has ganado un descuento!',
+            `Hito ${m.level} conseguido: ${(creditCents / 100).toFixed(2)}€ de descuento en tu próxima factura. ¡Sigue invitando!`,
             { type: 'referral_milestone', level: m.level });
         }
-        app.log.info(`[referral] hito ${m.level} concedido a ${referrerUserId} (+${award} días)`);
+        app.log.info(`[referral] hito ${m.level} concedido a ${referrerUserId} (+${award} días, ${creditCents}c)`);
       }
     }
-    // Revocar hitos que ya no correspondan (tras una reversión).
+    // Revocar hitos que ya no correspondan (tras una reversión) — clawback (b):
+    // se retira el crédito NO consumido; si ya se gastó, se asume (no se cobra más).
     for (const [lvl, row] of claimed) {
       if (!target.has(lvl)) {
-        if ((row.days_awarded ?? 0) > 0) { await extendReferrerTrial(referrerUserId, -row.days_awarded); annualDays -= row.days_awarded; }
+        if ((row.credit_cents ?? 0) > 0 && customerId) await reverseRewardCredit(customerId, row.credit_cents);
+        if ((row.days_awarded ?? 0) > 0) annualDays -= row.days_awarded;
         await supabase.from('referral_milestone_rewards').delete().eq('id', row.id);
         app.log.info(`[referral] hito ${lvl} revocado a ${referrerUserId}`);
       }

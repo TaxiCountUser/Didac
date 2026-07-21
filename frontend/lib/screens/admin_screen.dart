@@ -462,7 +462,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
                 color: AdminColors.text)),
         const SizedBox(width: 6),
         Text(
-            '${l.t('fd_days', {'n': '${n('days_challenges').toInt()}'})} · ${n('reward_pct')}%',
+            '${l.t('adm_reward_count', {'n': '${n('reward_count').toInt()}'})} · ${n('reward_pct')}%',
             style: const TextStyle(fontSize: 9, color: AdminColors.muted)),
       ]),
     );

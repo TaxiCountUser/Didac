@@ -255,11 +255,25 @@ mantenimiento + administradores).
 > (`GET /admin/active-coupon` ahora devuelve también `config`) y al guardar crea uno nuevo y retira
 > el anterior (reemplazo; los descuentos ya aplicados conservan sus condiciones).
 
+> **Recompensas = CRÉDITO real en Stripe (mig. 075), no días de trial.** Antes las
+> recompensas extendían `trial_ends_at`, lo que para un cliente de PAGO no reducía nada
+> (Stripe factura igual). Ahora se aplican como **crédito al saldo del cliente** (customer
+> balance, negativo) que Stripe consume en su **próxima factura**. Valor a la **tarifa
+> efectiva por asiento del último pago** (neta de cupón), calculada con `fleetMonthlyCents`
+> = Σ de las facturas pagadas VIGENTES hoy (`amount_paid`/meses); si hay asientos a precios
+> distintos, se suman solos. **Reto** = 1 asiento·mes (`coste_flota/asientos`, asiento medio).
+> **Referido** = N días de flota (`coste_flota × N/30`). Solo se aplican si el tenant ya PAGA
+> (en prueba se difieren hasta el primer pago). Se guarda `credit_cents` + `stripe_txn_id` por
+> recompensa (en `subscription_extensions` y `referral_milestone_rewards`) para idempotencia y
+> **clawback (b)**: al revertir un referido/reto se retira el crédito NO consumido; si ya se
+> gastó, se asume (nunca se cobra de más al cliente). Nota: la comisión de Stripe no se
+> descuenta de las cifras de Facturación (se muestra el bruto cobrado).
+
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa
 > hasta que el admin lo **acepta**; al **rechazarlo**, si ya se había premiado se revierte
-> la extensión de suscripción (se descuentan los días) para que desaparezca de las
-> estadísticas de completados y del ahorro. Los logros limpios siguen auto-aprobados.
+> el crédito Stripe no consumido (clawback b) y se borra la recompensa, para que desaparezca
+> de las estadísticas de completados y del coste. Los logros limpios siguen auto-aprobados.
 >
 > **Corregir km:** desde el detalle del reto, el admin puede editar o eliminar una lectura
 > de cuentakilómetros mal introducida por el conductor (inicio/cierre de jornada) —
@@ -452,7 +466,7 @@ id del perfil al id real de `auth.users`).
     type (income/expense), category, payment_method, description, origin, destination,
     odometer_km, client_name, hidden`.
 - **Jornada y lecturas:** `odometer_readings` · `driver_locations` · `app_usage_days` (días activos para retos).
-- **Facturación/gamificación:** `subscription_extensions` (días/mes gratis) · `challenge_claims` ·
+- **Facturación/gamificación:** `subscription_extensions` (crédito de recompensas: `credit_cents`, `stripe_txn_id`) · `challenge_claims` ·
   `monthly_savings` y `fleet_quarterly_metrics` (histórico/obsoleto Loop#4).
 - **Referidos:** `referrals` · `referral_codes` · `referral_shares` · `referral_milestone_rewards` ·
   `referral_validation_queue` (cola de los 15 días) · `referral_fraud_alerts`.

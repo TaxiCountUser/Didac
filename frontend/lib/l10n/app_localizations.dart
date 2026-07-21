@@ -506,7 +506,8 @@ const Map<String, Map<String, String>> _values = {
         'Días gratis para TODA la flota por cada empresa que invitas.',
     'sav_referrals': 'Por referidos',
     'fd_days': '{n} días',
-    'adm_kpi_freedays': 'Días gratis',
+    'adm_kpi_rewards': 'Recompensas',
+    'adm_reward_count': '{n} recompensas',
     'sav_this_year': 'Este año: {v}', 'sav_detail_title': 'Detalle de ahorro',
     'sav_total': 'Total acumulado', 'sav_month': 'Mes',
     'sav_none':
@@ -1600,7 +1601,8 @@ const Map<String, Map<String, String>> _values = {
         'Free days for the WHOLE fleet for each company you invite.',
     'sav_referrals': 'From referrals',
     'fd_days': '{n} days',
-    'adm_kpi_freedays': 'Free days',
+    'adm_kpi_rewards': 'Rewards',
+    'adm_reward_count': '{n} rewards',
     'sav_this_year': 'This year: {v}', 'sav_detail_title': 'Savings detail',
     'sav_total': 'Total accrued', 'sav_month': 'Month',
     'sav_none':
@@ -2657,7 +2659,8 @@ const Map<String, Map<String, String>> _values = {
         'Dies gratis per a TOTA la flota per cada empresa que convides.',
     'sav_referrals': 'Per referits',
     'fd_days': '{n} dies',
-    'adm_kpi_freedays': 'Dies gratis',
+    'adm_kpi_rewards': 'Recompenses',
+    'adm_reward_count': '{n} recompenses',
     'sav_this_year': 'Enguany: {v}', 'sav_detail_title': 'Detall de l\'estalvi',
     'sav_total': 'Total acumulat', 'sav_month': 'Mes',
     'sav_none':

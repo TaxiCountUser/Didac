@@ -75,8 +75,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                 ((d['trials'] as List?) ?? []).cast<Map<String, dynamic>>();
             final paying =
                 ((d['paying'] as List?) ?? []).cast<Map<String, dynamic>>();
-            final daysCh = (t['free_days_challenges'] as num?)?.toInt() ?? 0;
-            final daysRef = (t['free_days_referrals'] as num?)?.toInt() ?? 0;
+            final rewCh = (t['reward_credit_challenges_eur'] as num?)?.toDouble() ?? 0;
+            final rewRef = (t['reward_credit_referrals_eur'] as num?)?.toDouble() ?? 0;
             final sortedPaying = _sortPaying(paying);
 
             String eur(Object? v) =>
@@ -126,12 +126,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                           '', AdminColors.amber),
                       const SizedBox(width: 7),
                       _kpiTile(
-                          l.t('adm_kpi_freedays'),
-                          l.t('fd_days', {
-                            'n':
-                                '${(t['free_days_total'] as num?)?.toInt() ?? 0}'
-                          }),
-                          '${l.t('sav_challenges')} $daysCh · ${l.t('sav_referrals')} $daysRef',
+                          l.t('adm_kpi_rewards'),
+                          eur(t['reward_credit_total_eur']),
+                          '${l.t('sav_challenges')} ${eur(rewCh)} · ${l.t('sav_referrals')} ${eur(rewRef)}',
                           AdminColors.purple),
                     ],
                   ),
@@ -290,14 +287,14 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
     final name = (r['name'] as String?) ?? '—';
     final paidSeats = (r['paid_seats'] as num?)?.toInt();
     final activeSeats = (r['active_seats'] as num?)?.toInt() ?? 0;
-    final freeDays = (r['free_days'] as num?)?.toInt() ?? 0;
+    final rewardEur = (r['reward_credit_eur'] as num?)?.toDouble() ?? 0;
     return AdminListRow(
       leading: AdminInitialsAvatar(name: name, size: 28),
       title: name,
       subtitle:
           '${paidSeats ?? activeSeats} ${l.t('adm_kpi_seats').toLowerCase()}'
           ' · ${l.t('adm_kpi_active', {'n': '$activeSeats'})}'
-          '${freeDays > 0 ? ' · ${l.t('fd_days', {'n': '$freeDays'})}' : ''}',
+          '${rewardEur > 0 ? ' · ${rewardEur.toStringAsFixed(2)}€' : ''}',
       trailing: Text(trailing,
           style: TextStyle(
               fontSize: 12, fontWeight: FontWeight.w600, color: trailingColor)),
