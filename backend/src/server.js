@@ -3969,6 +3969,8 @@ export async function buildApp(options = {}) {
       .order('created_at', { ascending: false });
     if (qp.action_type) q = q.eq('action_type', qp.action_type);
     if (qp.admin_id) q = q.eq('admin_id', qp.admin_id);
+    if (qp.from) q = q.gte('created_at', qp.from);
+    if (qp.to) q = q.lte('created_at', qp.to);
     const { data, count, error } = await q.range(offset, offset + limit - 1);
     if (error) return reply.code(500).send({ error: error.message });
     return reply.send({ logs: data ?? [], total: count ?? (data ?? []).length, limit, offset });

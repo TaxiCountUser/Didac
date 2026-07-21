@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
@@ -32,7 +33,14 @@ class _SecurityTabState extends State<SecurityTab> {
   String? _flagBusy; // nombre del flag conmutándose (deshabilita el switch)
   bool _loading = true;
   String? _error;
-  String _actionFilter = ''; // auditoría: filtro por tipo de acción
+  String _actionFilter = ''; // auditoría: filtro por tipo de acción (servidor)
+  String _adminFilter = ''; // auditoría: filtro por admin (id)
+  String _adminFilterLabel = ''; // email del admin filtrado (para el chip)
+  DateTime? _from; // auditoría: rango de fechas
+  DateTime? _to;
+  int _auditOffset = 0;
+  final int _auditPageSize = 50;
+  int _auditTotal = 0;
 
   @override
   void initState() {
@@ -44,8 +52,17 @@ class _SecurityTabState extends State<SecurityTab> {
     setState(() { _loading = true; _error = null; });
     try {
       if (_view == 1) {
-        final r = await _service.adminAuditLogs();
+        final r = await _service.adminAuditLogs(
+          actionType: _actionFilter,
+          adminId: _adminFilter,
+          from: _from?.toUtc().toIso8601String(),
+          // "hasta" inclusivo: hasta el final de ese día.
+          to: _to?.add(const Duration(days: 1)).toUtc().toIso8601String(),
+          limit: _auditPageSize,
+          offset: _auditOffset,
+        );
         _logs = ((r['logs'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _auditTotal = (r['total'] as num?)?.toInt() ?? _logs.length;
       } else if (_view == 2) {
         _semaphores = await _service.adminSemaphores();
         _flags = await _service.adminFlags();
@@ -126,24 +143,74 @@ class _SecurityTabState extends State<SecurityTab> {
     return AdminColors.gray;
   }
 
+  // Recarga la auditoría desde el principio (al cambiar cualquier filtro).
+  void _auditReload() { _auditOffset = 0; _reload(); }
+
+  Future<void> _pickAuditDate(bool isFrom) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (isFrom ? _from : _to) ?? now,
+      firstDate: DateTime(2024),
+      lastDate: now,
+    );
+    if (picked == null) return;
+    setState(() { if (isFrom) { _from = picked; } else { _to = picked; } });
+    _auditReload();
+  }
+
   Widget _auditView(AppLocalizations l) {
     final df = DateFormat('dd/MM/yyyy HH:mm');
-    // Tipos de acción presentes en los logs cargados (dinámico).
+    final dfd = DateFormat('dd/MM/yy');
+    // Tipos de acción presentes en la página cargada (para las píldoras).
     final types = _logs
         .map((g) => (g['action_type'] as String?) ?? '')
         .where((t) => t.isNotEmpty)
         .toSet()
         .toList()
       ..sort();
-    final visible = _actionFilter.isEmpty
-        ? _logs
-        : _logs.where((g) => g['action_type'] == _actionFilter).toList();
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          if (types.length > 1)
+          // Rango de fechas + exportar CSV.
+          Row(children: [
+            Expanded(
+              child: _dateChip(l, l.t('adm_audit_from'),
+                  _from == null ? null : dfd.format(_from!),
+                  () => _pickAuditDate(true)),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _dateChip(l, l.t('adm_audit_to'),
+                  _to == null ? null : dfd.format(_to!),
+                  () => _pickAuditDate(false)),
+            ),
+            IconButton(
+              tooltip: l.t('adm_ref_export_csv'),
+              icon: const Icon(Icons.download, size: 19, color: AdminColors.secondary),
+              onPressed: _logs.isEmpty ? null : _exportAuditCsv,
+            ),
+          ]),
+          // Chip de filtro por admin activo.
+          if (_adminFilter.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InputChip(
+                  label: Text(_adminFilterLabel, style: const TextStyle(fontSize: 11)),
+                  avatar: const Icon(Icons.person, size: 14),
+                  onDeleted: () {
+                    setState(() { _adminFilter = ''; _adminFilterLabel = ''; });
+                    _auditReload();
+                  },
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          if (types.length > 1 || _actionFilter.isNotEmpty)
             SizedBox(
               height: 30,
               child: ListView(scrollDirection: Axis.horizontal, children: [
@@ -153,7 +220,7 @@ class _SecurityTabState extends State<SecurityTab> {
                       label: l.t('adm_ref_all'),
                       selected: _actionFilter.isEmpty,
                       color: AdminColors.gray,
-                      onTap: () => setState(() => _actionFilter = '')),
+                      onTap: () { setState(() => _actionFilter = ''); _auditReload(); }),
                 ),
                 for (final t in types)
                   Padding(
@@ -161,28 +228,87 @@ class _SecurityTabState extends State<SecurityTab> {
                     child: AdminPill(
                         label: _actionLabel(l, t), selected: _actionFilter == t,
                         color: _actionColor(t),
-                        onTap: () => setState(() => _actionFilter = t)),
+                        onTap: () { setState(() => _actionFilter = t); _auditReload(); }),
                   ),
               ]),
             ),
           const SizedBox(height: 8),
-          if (visible.isEmpty)
+          if (_logs.isEmpty)
             Padding(padding: const EdgeInsets.all(24),
                 child: Center(child: Text(l.t('adm_audit_none'))))
-          else
+          else ...[
             Container(
               decoration: adminCardBox(),
               child: Column(children: [
-                for (var i = 0; i < visible.length; i++) ...[
+                for (var i = 0; i < _logs.length; i++) ...[
                   if (i > 0)
                     const Divider(height: 1, color: AdminColors.hairline),
-                  _auditRow(l, visible[i], df),
+                  _auditRow(l, _logs[i], df),
                 ],
               ]),
             ),
+            const SizedBox(height: 10),
+            _auditPagination(l),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _dateChip(AppLocalizations l, String label, String? value, VoidCallback onTap) =>
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: value == null ? AdminColors.secondary : AdminColors.text,
+          side: const BorderSide(color: AdminColors.hairline),
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+        icon: const Icon(Icons.event, size: 15),
+        label: Text(value ?? label,
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11)),
+        onPressed: onTap,
+      );
+
+  Widget _auditPagination(AppLocalizations l) {
+    final from = _auditTotal == 0 ? 0 : _auditOffset + 1;
+    final to = (_auditOffset + _auditPageSize).clamp(0, _auditTotal);
+    return Row(children: [
+      Text(l.t('adm_ref_page', {'from': '$from', 'to': '$to', 'total': '$_auditTotal'}),
+          style: const TextStyle(fontSize: 11, color: AdminColors.secondary)),
+      const Spacer(),
+      IconButton(
+        onPressed: _auditOffset > 0
+            ? () { setState(() => _auditOffset -= _auditPageSize); _reload(); }
+            : null,
+        icon: const Icon(Icons.chevron_left),
+      ),
+      IconButton(
+        onPressed: (_auditOffset + _auditPageSize) < _auditTotal
+            ? () { setState(() => _auditOffset += _auditPageSize); _reload(); }
+            : null,
+        icon: const Icon(Icons.chevron_right),
+      ),
+    ]);
+  }
+
+  // Exporta al portapapeles la página cargada (compatible web + móvil).
+  void _exportAuditCsv() {
+    final l = context.l10n;
+    final buf = StringBuffer('fecha,admin,accion,objetivo,ip,detalles\n');
+    for (final g in _logs) {
+      String q(String s) => '"${s.replaceAll('"', '""')}"';
+      final admin = ((g['admin'] as Map?)?['email'] as String?) ?? '';
+      final target = '${g['target_type'] ?? ''} ${g['target_id'] ?? ''}'.trim();
+      final det = g['details'] == null ? '' : jsonEncode(g['details']);
+      buf.writeln([
+        q('${g['created_at'] ?? ''}'), q(admin), q('${g['action_type'] ?? ''}'),
+        q(target), q('${g['ip_address'] ?? ''}'), q(det),
+      ].join(','));
+    }
+    Clipboard.setData(ClipboardData(text: buf.toString()));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l.t('adm_ref_csv_copied'))));
   }
 
   // ── Semáforos: log del estado de crons + servicios externos + API ─────────
@@ -582,7 +708,9 @@ class _SecurityTabState extends State<SecurityTab> {
                   Text('${g['target_type'] ?? ''} ${g['target_id'] ?? ''}'.trim(),
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 12, color: AdminColors.text)),
-                  Text('$admin · ${created != null ? df.format(created) : '—'}',
+                  Text(
+                      '$admin · ${created != null ? df.format(created) : '—'}'
+                      '${g['ip_address'] != null ? ' · ${g['ip_address']}' : ''}',
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
                   if (details != null)
@@ -621,7 +749,9 @@ class _SecurityTabState extends State<SecurityTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('$admin · ${created != null ? df.format(created) : '—'}',
+                Text(
+                    '$admin · ${created != null ? df.format(created) : '—'}'
+                    '${g['ip_address'] != null ? ' · IP ${g['ip_address']}' : ''}',
                     style: const TextStyle(
                         fontSize: 12, color: AdminColors.muted)),
                 const SizedBox(height: 4),
@@ -645,6 +775,20 @@ class _SecurityTabState extends State<SecurityTab> {
           ),
         ),
         actions: [
+          if ((g['admin_id'] as String?)?.isNotEmpty == true &&
+              _adminFilter != g['admin_id'])
+            TextButton.icon(
+              icon: const Icon(Icons.filter_alt, size: 16),
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() {
+                  _adminFilter = g['admin_id'] as String;
+                  _adminFilterLabel = admin;
+                });
+                _auditReload();
+              },
+              label: Text(l.t('adm_audit_filter_admin')),
+            ),
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
         ],

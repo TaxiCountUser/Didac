@@ -223,6 +223,14 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 > propio (kit). Pendiente (acordado, requiere tabla nueva + cron): **uptime % y tendencias
 > temporales** — hoy `markService` solo guarda la ÚLTIMA foto en `system_config`, no hay histórico.
 
+> **Auditoría — estándar de audit trail (2026-07-21):** el backend `/admin/audit/logs` ya
+> soportaba `limit/offset` (+`total`), `action_type` y `admin_id`, pero la UI cargaba 50 y filtraba
+> en local. Ahora es un trail navegable: **paginación** real, **filtro de acción y por admin en el
+> servidor** (sobre TODO el log, no la página), **rango de fechas** (nuevos params `from`/`to` en el
+> backend), **exportación CSV** (fecha·admin·acción·objetivo·IP·detalles) y la **IP** visible en la
+> fila y el detalle. Filtrar por un admin se hace desde el detalle ("Filtrar por este admin") y se
+> muestra como chip quitable. Solo lectura, append-only (la tabla solo recibe inserts).
+
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa
 > hasta que el admin lo **acepta**; al **rechazarlo**, si ya se había premiado se revierte

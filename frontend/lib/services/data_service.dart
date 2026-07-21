@@ -720,9 +720,12 @@ class DataService {
   }
 
   /// Logs de auditoría de acciones administrativas (solo admin).
-  Future<Map<String, dynamic>> adminAuditLogs({String? actionType, int limit = 50, int offset = 0}) async {
+  Future<Map<String, dynamic>> adminAuditLogs({String? actionType, String? adminId, String? from, String? to, int limit = 50, int offset = 0}) async {
     final qp = <String, String>{'limit': '$limit', 'offset': '$offset'};
     if (actionType != null && actionType.isNotEmpty) qp['action_type'] = actionType;
+    if (adminId != null && adminId.isNotEmpty) qp['admin_id'] = adminId;
+    if (from != null && from.isNotEmpty) qp['from'] = from;
+    if (to != null && to.isNotEmpty) qp['to'] = to;
     final uri = Uri.parse('$backendUrl/api/v1/admin/audit/logs').replace(queryParameters: qp);
     final res = await http.get(uri, headers: _bearer);
     final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
