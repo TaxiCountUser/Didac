@@ -156,7 +156,7 @@ Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **
 Empresas (buscador global + recuento + orden + fichas de **supervisión** + **purga definitiva** de empresas de baja, doble confirmación),
 Facturación (salud recurrente + caja + colas de acción, ver nota), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
-+ auto-refresco 20 s), Referidos (funnel + submenú **Fraude**), **Monitorización** (Métricas en
++ auto-refresco 20 s), Referidos (funnel de adquisición + coste + top referidores + submenú **Fraude**), **Monitorización** (Métricas en
 vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, Config (en caliente
 + mantenimiento).
 
@@ -204,6 +204,16 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 > mantiene (a petición). Nota: usa el kit desde antes (`AdminKpiTile`, `AdminPill`, `adminCardBox`).
 > El **Resumen** se reordenó en bloques con título (Engagement · Coste del programa · Moderación ·
 > Gráficos), con el coste de recompensas en tarjeta destacada, al estilo de Facturación.
+
+> **Referidos — estándar de programa de crecimiento (2026-07-21):** el backend YA calculaba
+> métricas estándar que la UI no mostraba (funnel, K-factor, CPA); ahora se surgen. El Resumen se
+> reordenó en bloques: **Adquisición** (funnel invitaciones→referidos→validados→hitos, con barras,
+> + conversión + **coeficiente viral K** = válidos/referidor), **Coste del programa** (tarjeta con
+> € regalados `reward_cost_eur` + días + **CPA** en días/adquisición, mismo criterio que Retos),
+> **Top referidores** (leaderboard nuevo, backend `top_referrers` = válidos por referidor) y la
+> **lista** con filtros/CSV/paginación. La cola de **fraude** muestra la **antigüedad** de cada
+> alerta abierta (el motivo al resolver ya existía vía notas). Limpieza: clave i18n huérfana
+> `adm_ref_kpi_days`.
 
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa

@@ -113,14 +113,35 @@ class _ReferralsTabState extends State<ReferralsTab> {
     ]);
   }
 
+  // Resumen por bloques (estándar de programa de referidos): funnel de adquisición,
+  // coste del programa, top referidores y la lista.
   Widget _referralsBody(AppLocalizations l) {
+    final k = _kpis ?? {};
+    num n(String key) => (k[key] as num?) ?? 0;
+    final conv = (n('conversion_rate') * 100).toStringAsFixed(1);
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _kpisRow(l),
-          const SizedBox(height: 16),
+          adminSectionTitle(l.t('adm_ref_sec_funnel'), color: AdminColors.pink),
+          _funnel(l),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            _kpiCard(Icons.trending_up, l.t('adm_ref_kpi_conv'), '$conv%',
+                AdminColors.teal),
+            _kpiCard(Icons.auto_graph, l.t('adm_ref_kfactor'),
+                '${n('k_factor')}', AdminColors.pink),
+            _kpiCard(Icons.hourglass_top, l.t('adm_ref_kpi_pending'),
+                '${n('pending_validation')}', AdminColors.amber),
+            _kpiCard(Icons.cancel, l.t('adm_ref_kpi_rejected'),
+                '${n('rejected')}', AdminColors.red),
+          ]),
+          adminSectionTitle(l.t('adm_ref_sec_cost'), color: AdminColors.teal),
+          _rewardCard(l),
+          adminSectionTitle(l.t('adm_ref_sec_top'), color: AdminColors.amber),
+          _topReferrers(l),
+          adminSectionTitle(l.t('adm_ref_sec_list'), color: AdminColors.blue),
           _filtersBar(l),
           const SizedBox(height: 12),
           _table(l),
@@ -128,6 +149,117 @@ class _ReferralsTabState extends State<ReferralsTab> {
           _pagination(l),
         ],
       ),
+    );
+  }
+
+  // Funnel de adquisición: invitaciones → referidos → validados → hitos.
+  Widget _funnel(AppLocalizations l) {
+    num n(String key) => (_kpis ?? {})[key] as num? ?? 0;
+    final steps = [
+      (l.t('adm_ref_invites'), n('shares_total').toInt(), AdminColors.pink),
+      (l.t('adm_ref_kpi_total'), n('total_referrals').toInt(), AdminColors.purple),
+      (l.t('adm_ref_kpi_valid'), n('valid').toInt(), AdminColors.teal),
+      (l.t('adm_ref_kpi_milestones'), n('milestones_achieved').toInt(), AdminColors.amber),
+    ];
+    final maxV = steps.map((s) => s.$2).fold<int>(1, (a, b) => b > a ? b : a);
+    return Container(
+      decoration: adminCardBox(),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(children: [
+        for (final s in steps) _bar(s.$1, s.$2, maxV, s.$3),
+      ]),
+    );
+  }
+
+  // Barra proporcional (funnel / leaderboard), sin dependencias.
+  Widget _bar(String label, int value, int max, Color color) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          SizedBox(
+            width: 92,
+            child: Text(label,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: AdminColors.secondary)),
+          ),
+          Expanded(
+            child: LayoutBuilder(builder: (ctx, bc) {
+              final w = max <= 0 ? 0.0 : (value / max) * bc.maxWidth;
+              return Stack(children: [
+                Container(
+                    height: 16,
+                    decoration: BoxDecoration(
+                        color: AdminColors.hairline,
+                        borderRadius: BorderRadius.circular(4))),
+                Container(
+                    height: 16, width: w.clamp(2.0, bc.maxWidth),
+                    decoration: BoxDecoration(
+                        color: color.withValues(alpha: .55),
+                        borderRadius: BorderRadius.circular(4))),
+              ]);
+            }),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 34,
+            child: Text('$value',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600,
+                    color: AdminColors.text)),
+          ),
+        ]),
+      );
+
+  // Coste del programa destacado: € regalados + días + CPA (días/adquisición).
+  Widget _rewardCard(AppLocalizations l) {
+    num n(String key) => (_kpis ?? {})[key] as num? ?? 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: adminCardBox(),
+      child: Row(children: [
+        const Icon(Icons.card_giftcard, size: 18, color: AdminColors.teal),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(l.t('adm_ref_reward_cost'),
+              style: const TextStyle(
+                  fontSize: 10.5, color: AdminColors.secondary)),
+        ),
+        Text('${n('reward_cost_eur').toStringAsFixed(2)}€',
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.w700,
+                color: AdminColors.text)),
+        const SizedBox(width: 6),
+        Text(
+            '${l.t('fd_days', {'n': '${n('days_awarded').toInt()}'})} · '
+            '${l.t('adm_ref_cpa')} ${n('cpa_days')}',
+            style: const TextStyle(fontSize: 9, color: AdminColors.muted)),
+      ]),
+    );
+  }
+
+  // Leaderboard: top referidores por validados.
+  Widget _topReferrers(AppLocalizations l) {
+    final top = (((_kpis ?? {})['top_referrers'] as List?) ?? [])
+        .cast<Map<String, dynamic>>();
+    if (top.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+            child: Text(l.t('adm_ref_no_top'),
+                style: const TextStyle(fontSize: 12, color: AdminColors.muted))),
+      );
+    }
+    final maxV = top
+        .map((t) => (t['valid'] as num?)?.toInt() ?? 0)
+        .fold<int>(1, (a, b) => b > a ? b : a);
+    return Container(
+      decoration: adminCardBox(),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(children: [
+        for (final t in top)
+          _bar((t['name'] as String?) ?? '—',
+              (t['valid'] as num?)?.toInt() ?? 0, maxV, AdminColors.amber),
+      ]),
     );
   }
 
@@ -182,6 +314,15 @@ class _ReferralsTabState extends State<ReferralsTab> {
     );
   }
 
+  // Antigüedad de una alerta abierta (cuánto lleva sin resolver).
+  String _ageLabel(AppLocalizations l, DateTime? dt) {
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inDays >= 1) return '${diff.inDays}d';
+    if (diff.inHours >= 1) return '${diff.inHours}h';
+    return l.t('adm_age_now');
+  }
+
   Widget _alertTile(AppLocalizations l, Map<String, dynamic> a, DateFormat df) {
     final severity = (a['severity'] as String?) ?? 'medium';
     final status = (a['status'] as String?) ?? 'open';
@@ -201,8 +342,10 @@ class _ReferralsTabState extends State<ReferralsTab> {
         leading: Icon(Icons.flag, color: sevColor),
         title: Text('$type · ${l.t('adm_sec_$severity')}',
             style: const TextStyle(fontSize: 13)),
-        subtitle: Text('${l.t('adm_sec_src_$source')} · '
-            '${created != null ? df.format(created) : ''}',
+        subtitle: Text(
+            '${l.t('adm_sec_src_$source')} · '
+            '${created != null ? df.format(created) : ''}'
+            '${!resolved && created != null ? ' · ⏱ ${_ageLabel(l, created)}' : ''}',
             style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
         trailing: AdminTag(l.t('adm_sec_$status'),
             fg: resolved ? AdminColors.teal : AdminColors.amber,
@@ -264,26 +407,6 @@ class _ReferralsTabState extends State<ReferralsTab> {
             ),
         ],
       ),
-    );
-  }
-
-  // ── KPIs ────────────────────────────────────────────────────────────────
-  Widget _kpisRow(AppLocalizations l) {
-    final k = _kpis ?? {};
-    num n(String key) => (k[key] as num?) ?? 0;
-    final conv = (n('conversion_rate') * 100).toStringAsFixed(1);
-    return Wrap(
-      spacing: 8, runSpacing: 8,
-      children: [
-        _kpiCard(Icons.group, l.t('adm_ref_kpi_total'), '${n('total_referrals')}', AdminColors.pink),
-        _kpiCard(Icons.hourglass_top, l.t('adm_ref_kpi_pending'), '${n('pending_validation')}', AdminColors.amber),
-        _kpiCard(Icons.check_circle, l.t('adm_ref_kpi_valid'), '${n('valid')}', AdminColors.teal),
-        _kpiCard(Icons.cancel, l.t('adm_ref_kpi_rejected'), '${n('rejected')}', AdminColors.red),
-        _kpiCard(Icons.trending_up, l.t('adm_ref_kpi_conv'), '$conv%', AdminColors.teal),
-        _kpiCard(Icons.emoji_events, l.t('adm_ref_kpi_milestones'), '${n('milestones_achieved')}', AdminColors.amber),
-        _kpiCard(Icons.card_giftcard, l.t('adm_ref_kpi_days'), l.t('fd_days', {'n': '${n('days_awarded').toInt()}'}), AdminColors.blue),
-        _kpiCard(Icons.warning_amber, l.t('adm_ref_kpi_fraud'), '${n('fraud_alerts')}', AdminColors.red),
-      ],
     );
   }
 

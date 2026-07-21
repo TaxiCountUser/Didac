@@ -4558,6 +4558,24 @@ export async function buildApp(options = {}) {
       .select('days_awarded').limit(5000);
     const daysAwarded = (rewardRows ?? []).reduce((s, r) => s + (r.days_awarded ?? 0), 0);
     const milestonesAchieved = (rewardRows ?? []).length;
+    // COSTE del programa (lo que REGALAMOS): días gratis × precio asiento/día
+    // (250 céntimos-mes / 30 ≈ 8,33 c/día). En €. Mismo criterio que Retos.
+    const rewardCostEur = +((daysAwarded * (250 / 30)) / 100).toFixed(2);
+    // Top referidores por nº de referidos VÁLIDOS (leaderboard de crecimiento).
+    const validByReferrer = {};
+    for (const r of validRows ?? []) {
+      validByReferrer[r.referrer_user_id] = (validByReferrer[r.referrer_user_id] ?? 0) + 1;
+    }
+    const topIds = Object.entries(validByReferrer)
+      .sort((a, b) => b[1] - a[1]).slice(0, 10);
+    let topReferrers = [];
+    if (topIds.length) {
+      const { data: us } = await supabase.from('users')
+        .select('id, name, email').in('id', topIds.map(([id]) => id));
+      const nameById = {};
+      for (const u of us ?? []) nameById[u.id] = u.name || u.email || '—';
+      topReferrers = topIds.map(([id, count]) => ({ name: nameById[id] ?? '—', valid: count }));
+    }
     const { count: openAlerts } = await supabase.from('referral_fraud_alerts')
       .select('id', { count: 'exact', head: true }).eq('status', 'open');
     // Pendientes de validar: en la cola de los 15 días (aún sin procesar).
@@ -4574,6 +4592,8 @@ export async function buildApp(options = {}) {
       k_factor: distinctReferrers ? +(valid / distinctReferrers).toFixed(2) : 0, // válidos por referidor
       milestones_achieved: milestonesAchieved,
       days_awarded: daysAwarded,
+      reward_cost_eur: rewardCostEur,                                  // € regalados
+      top_referrers: topReferrers,                                     // leaderboard
       open_alerts: openAlerts ?? 0,
       fraud_alerts: openAlerts ?? 0,                                   // alias spec
     });
