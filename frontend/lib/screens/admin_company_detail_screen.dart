@@ -430,6 +430,31 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             onPressed: _resetWelcomeCoupon,
           ),
         ),
+        // Pruebas (solo admin): dispara las recompensas SOLO de esta empresa, sin
+        // tocar la config global ni los crons globales -> seguro con usuarios reales.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(spacing: 8, children: [
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                  foregroundColor: AdminColors.amber,
+                  visualDensity: VisualDensity.compact),
+              icon: const Icon(Icons.science, size: 15),
+              label: Text(l.t('adm_test_challenge'),
+                  style: const TextStyle(fontSize: 11)),
+              onPressed: () => _testRewards('challenge'),
+            ),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                  foregroundColor: AdminColors.amber,
+                  visualDensity: VisualDensity.compact),
+              icon: const Icon(Icons.science, size: 15),
+              label: Text(l.t('adm_test_referrals'),
+                  style: const TextStyle(fontSize: 11)),
+              onPressed: () => _testRewards('referrals'),
+            ),
+          ]),
+        ),
         const SizedBox(height: 8),
         _dangerZone(l, status, t['closed_at'] != null),
       ],
@@ -456,6 +481,29 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     if (ok != true) return;
     await _guard(() => _service.adminResetWelcomeCoupon(widget.tenantId),
         l.t('adm_reset_welcome_done'));
+  }
+
+  // Prueba scoped: dispara la recompensa SOLO de esta empresa y muestra el crédito
+  // aplicado y el saldo Stripe resultante (negativo = crédito pendiente de consumir).
+  Future<void> _testRewards(String mode) async {
+    final l = context.l10n;
+    try {
+      final r = await _service.adminTestRewards(widget.tenantId, mode);
+      final bal = (r['customer_balance_cents'] as num?)?.toInt() ?? 0;
+      final n = mode == 'challenge'
+          ? ((r['challenge'] as Map?)?['rewarded'] as num?)?.toInt() ?? 0
+          : ((r['referral'] as Map?)?['validated'] as num?)?.toInt() ?? 0;
+      final deferred = mode == 'challenge'
+          ? ((r['challenge'] as Map?)?['deferred'] as num?)?.toInt() ?? 0
+          : 0;
+      final balEur = (-bal / 100).toStringAsFixed(2);
+      await _toast(deferred > 0
+          ? l.t('adm_test_deferred')
+          : l.t('adm_test_done', {'n': '$n', 'bal': balEur}));
+      _reload();
+    } catch (e) {
+      await _toast('Error: ${e.toString().replaceFirst('Exception: ', '')}');
+    }
   }
 
   Widget _stat(String v, String label) => Column(

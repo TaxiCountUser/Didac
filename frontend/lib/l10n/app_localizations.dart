@@ -906,6 +906,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_coup_edit_note':
         'Stripe no permite mutar un cupón: al guardar se crea uno nuevo con estos parámetros y se retira el anterior (los descuentos ya aplicados conservan sus condiciones).',
     'adm_reset_welcome': 'Reiniciar cupón de bienvenida',
+    'adm_test_challenge': 'Probar reto',
+    'adm_test_referrals': 'Probar referido',
+    'adm_test_done': 'Recompensa aplicada ({n}). Saldo Stripe: {bal}€ de crédito.',
+    'adm_test_deferred': 'Diferido: la empresa aún no paga, se aplicará al primer pago.',
     'adm_reset_welcome_confirm':
         'Borra la marca de cupón usado de esta empresa; volverá a ver el aviso del cupón activo. Útil para pruebas y soporte.',
     'adm_reset_welcome_done': 'Cupón de bienvenida reiniciado',
@@ -1967,6 +1971,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_coup_edit_note':
         'Stripe can\'t mutate a coupon: saving creates a new one with these parameters and retires the previous one (already-applied discounts keep their terms).',
     'adm_reset_welcome': 'Reset welcome coupon',
+    'adm_test_challenge': 'Test challenge',
+    'adm_test_referrals': 'Test referral',
+    'adm_test_done': 'Reward applied ({n}). Stripe balance: {bal}€ credit.',
+    'adm_test_deferred': 'Deferred: company is not paying yet, applies on first payment.',
     'adm_reset_welcome_confirm':
         'Clears the used-coupon flag for this company; it will see the active coupon notice again. Useful for testing and support.',
     'adm_reset_welcome_done': 'Welcome coupon reset',
@@ -3043,6 +3051,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_coup_edit_note':
         'Stripe no permet mutar un cupó: en desar es crea un de nou amb aquests paràmetres i es retira l\'anterior (els descomptes ja aplicats conserven les seves condicions).',
     'adm_reset_welcome': 'Reiniciar cupó de benvinguda',
+    'adm_test_challenge': 'Provar repte',
+    'adm_test_referrals': 'Provar referit',
+    'adm_test_done': 'Recompensa aplicada ({n}). Saldo Stripe: {bal}€ de crèdit.',
+    'adm_test_deferred': 'Diferit: l\'empresa encara no paga, s\'aplicarà al primer pagament.',
     'adm_reset_welcome_confirm':
         'Esborra la marca de cupó usat d\'aquesta empresa; tornarà a veure l\'avís del cupó actiu. Útil per a proves i suport.',
     'adm_reset_welcome_done': 'Cupó de benvinguda reiniciat',

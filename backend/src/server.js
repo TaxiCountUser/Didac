@@ -2212,6 +2212,63 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
+  // ── PRUEBAS (solo admin): dispara la recompensa de UNA empresa, SIN tocar la
+  // config global ni ejecutar los crons globales -> seguro con usuarios reales
+  // dentro. mode 'challenge' siembra un reto completado y aplica su crédito; mode
+  // 'referrals' valida AHORA (ignorando los 15d) los referidos de su owner y
+  // recalcula hitos. Requiere que la empresa YA PAGUE (si no, se difiere).
+  app.post('/api/v1/admin/company/:id/test-rewards', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+    const mode = String((request.body ?? {}).mode ?? '').trim();
+    const out = { ok: true, mode };
+
+    const { data: tenant } = await supabase.from('tenants')
+      .select('id, stripe_customer_id').eq('id', id).maybeSingle();
+    if (!tenant) return reply.code(404).send({ error: 'Empresa no encontrada' });
+
+    if (mode === 'challenge') {
+      // 1) Sembrar un reto COMPLETADO (rewarded) para un conductor/owner de esta empresa.
+      const { data: member } = await supabase.from('users')
+        .select('id').eq('tenant_id', id).order('role', { ascending: true }).limit(1).maybeSingle();
+      if (!member?.id) return reply.code(400).send({ error: 'La empresa no tiene usuarios' });
+      const challenge = 'money_100k';
+      const { data: prev } = await supabase.from('challenge_claims')
+        .select('level, status, metric_value').eq('user_id', member.id).eq('challenge', challenge);
+      const st = levelState(prev ?? []);
+      const ins = await supabase.from('challenge_claims').insert({
+        tenant_id: id, user_id: member.id, challenge, level: st.level,
+        baseline: st.baseline, target: 1, metric_value: st.baseline + 1, active_days: 0,
+        suspicious: false, status: 'rewarded', reviewed_at: new Date().toISOString(),
+      });
+      out.seeded = !ins.error;
+      if (ins.error) out.seed_error = ins.error.message;
+      // 2) Aplicar el crédito SOLO de esta empresa.
+      out.challenge = await applyPendingChallengeCredits(id);
+    } else if (mode === 'referrals') {
+      // Validar AHORA (ignorando los 15d) los referidos pendientes cuyo padrino sea
+      // el owner de esta empresa, y recalcular sus hitos. Todo scoped a este owner.
+      const { data: owner } = await supabase.from('users')
+        .select('id').eq('tenant_id', id).eq('role', 'owner').maybeSingle();
+      if (!owner?.id) return reply.code(400).send({ error: 'La empresa no tiene owner' });
+      out.referral = await processReferralValidationQueue({ referrerUserId: owner.id, force: true });
+      await recomputeReferrerMilestones(owner.id); // por si ya había válidos sin hito aplicado
+    } else {
+      return reply.code(400).send({ error: 'mode debe ser challenge o referrals' });
+    }
+
+    // Saldo actual del cliente en Stripe (negativo = crédito pendiente de consumir).
+    if (stripe && tenant.stripe_customer_id) {
+      try {
+        const cust = await stripe.customers.retrieve(tenant.stripe_customer_id);
+        out.customer_balance_cents = cust?.balance ?? 0;
+      } catch { /* sin balance */ }
+    }
+    await logAdminAction(request, g.caller?.id ?? null, 'test_rewards', 'tenant', id, out);
+    return reply.send(out);
+  });
+
   app.post('/api/v1/admin/company/:id/reactivate', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
@@ -2367,13 +2424,15 @@ export async function buildApp(options = {}) {
     }
   }
 
-  async function applyPendingChallengeCredits() {
-    const { data: claims } = await supabase
+  async function applyPendingChallengeCredits(onlyTenantId = null) {
+    let cq = supabase
       .from('challenge_claims')
-      .select('id, tenant_id, user_id')
+      .select('id, tenant_id, user_id, challenge')
       .eq('status', 'rewarded')
       .is('reward_redeemed_at', null)
       .limit(1000);
+    if (onlyTenantId) cq = cq.eq('tenant_id', onlyTenantId);
+    const { data: claims } = await cq;
     let rewarded = 0;
     let deferred = 0;
     let skipped = 0;
@@ -5146,15 +5205,20 @@ export async function buildApp(options = {}) {
   // Si el invitado sigue de alta -> el referido pasa a 'valid' y se recalculan
   // los HITOS del referidor (días gratis según su nº de referidos válidos). Si
   // canceló -> 'rejected'. Marca la cola como procesada.
-  async function processReferralValidationQueue() {
+  async function processReferralValidationQueue(opts = {}) {
+    const { referrerUserId = null, force = false } = opts;
     const nowIso = new Date().toISOString();
-    const { data: due } = await supabase.from('referral_validation_queue')
+    let vq = supabase.from('referral_validation_queue')
       .select('id, referral_id, referrals:referral_id(id, referred_tenant_id, validation_status, referrer_user_id)')
-      .eq('processed', false).lte('scheduled_for', nowIso).limit(500);
+      .eq('processed', false).limit(500);
+    if (!force) vq = vq.lte('scheduled_for', nowIso); // en modo test se ignora la espera de 15d
+    const { data: due } = await vq;
     let validated = 0;
     let rejected = 0;
     for (const q of due ?? []) {
       const ref = q.referrals;
+      // Modo scoped (prueba de UNA empresa): saltar los que no son de este owner.
+      if (referrerUserId && ref?.referrer_user_id !== referrerUserId) continue;
       if (!ref || ref.validation_status !== 'pending') {
         // Ya resuelto por otra vía (p. ej. cancelación): solo cerrar la cola.
         await supabase.from('referral_validation_queue').update({ processed: true }).eq('id', q.id);

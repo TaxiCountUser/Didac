@@ -268,6 +268,13 @@ mantenimiento + administradores).
 > **clawback (b)**: al revertir un referido/reto se retira el crédito NO consumido; si ya se
 > gastó, se asume (nunca se cobra de más al cliente). Nota: la comisión de Stripe no se
 > descuenta de las cifras de Facturación (se muestra el bruto cobrado).
+>
+> **Prueba segura (con usuarios reales dentro):** `POST /admin/company/:id/test-rewards`
+> (solo admin) dispara la recompensa SOLO de esa empresa — `mode:'challenge'` siembra un
+> reto `rewarded` y aplica su crédito; `mode:'referrals'` valida ya (ignorando los 15d) los
+> referidos de su owner y recalcula hitos — sin tocar la config global ni ejecutar los crons
+> globales. Botón "Probar reto/referido" en la ficha de empresa. `applyPendingChallengeCredits`
+> y `processReferralValidationQueue` aceptan filtro por tenant/owner para ello.
 
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa

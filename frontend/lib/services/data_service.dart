@@ -794,6 +794,22 @@ class DataService {
     }
   }
 
+  /// PRUEBAS (admin): dispara la recompensa de UNA empresa (mode 'challenge' |
+  /// 'referrals'), sin tocar config global ni crons globales. Devuelve el resultado
+  /// (crédito aplicado + saldo Stripe actual) para mostrarlo.
+  Future<Map<String, dynamic>> adminTestRewards(String tenantId, String mode) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/company/$tenantId/test-rewards'),
+      headers: _bearer,
+      body: jsonEncode({'mode': mode}),
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    }
+    return body;
+  }
+
   /// Crea un cupón en Stripe (coupon + promotion code) y lo deja activo (admin).
   /// duration: 'once' | 'forever' | 'repeating' (+ durationInMonths).
   Future<void> adminCreateCoupon({
