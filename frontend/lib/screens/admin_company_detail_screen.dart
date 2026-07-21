@@ -416,10 +416,47 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
+        // Acción de soporte/pruebas: reinicia el cupón de bienvenida (borra
+        // coupon_redeemed_code) para que la empresa vuelva a ver el aviso.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+                foregroundColor: AdminColors.secondary,
+                visualDensity: VisualDensity.compact),
+            icon: const Icon(Icons.restart_alt, size: 15),
+            label: Text(l.t('adm_reset_welcome'),
+                style: const TextStyle(fontSize: 11)),
+            onPressed: _resetWelcomeCoupon,
+          ),
+        ),
+        const SizedBox(height: 8),
         _dangerZone(l, status, t['closed_at'] != null),
       ],
     );
+  }
+
+  Future<void> _resetWelcomeCoupon() async {
+    final l = context.l10n;
+    final ok = await showAdminDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_reset_welcome')),
+        content: Text(l.t('adm_reset_welcome_confirm')),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.t('cancel'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.t('adm_reset_welcome'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _guard(() => _service.adminResetWelcomeCoupon(widget.tenantId),
+        l.t('adm_reset_welcome_done'));
   }
 
   Widget _stat(String v, String label) => Column(

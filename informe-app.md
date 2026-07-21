@@ -243,6 +243,18 @@ mantenimiento + administradores).
 > `trial_ends_at = now()+15d` y función `purge_expired_retention()`), así que hacerlos configurables
 > requiere una migración; no se añaden hasta hacerla con cuidado (backup primero).
 
+> **Cupón de bienvenida — blindaje + edición + reinicio (2026-07-21):** el aviso in-app del cupón
+> se controla con `tenants.coupon_redeemed_code` (columna de la APP; un refund de Stripe NO la
+> toca, por eso tras devolver los cargos el aviso no reaparece). **Blindaje del hueco:** en el
+> checkout, si el tenant YA canjeó el cupón activo (mismo código), NO se ofrece el campo de código
+> promocional (`allow_promotion_codes` solo si `coupon_redeemed_code !== activeCoupon.code`), para
+> que no pueda re-escribirlo y re-canjearlo; es por código (otro cupón distinto sí se ofrece).
+> **Reinicio** (pruebas/soporte): botón en la ficha de empresa → `POST /admin/company/:id/
+> reset-welcome-coupon` borra la marca (auditado). **Edición del cupón activo:** como Stripe no
+> deja mutar un cupón, "Editar" abre el diálogo de crear pre-rellenado con TODOS los parámetros
+> (`GET /admin/active-coupon` ahora devuelve también `config`) y al guardar crea uno nuevo y retira
+> el anterior (reemplazo; los descuentos ya aplicados conservan sus condiciones).
+
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa
 > hasta que el admin lo **acepta**; al **rechazarlo**, si ya se había premiado se revierte

@@ -2193,6 +2193,20 @@ export async function buildApp(options = {}) {
   // la cuenta del owner con contraseña temporal (el trigger de alta la vincula al
   // tenant existente vía metadata). Los datos históricos (carreras, vehículos…)
   // reaparecen; los conductores deben re-invitarse (sus cuentas se eliminaron).
+  // Reinicia el cupón de bienvenida de una empresa: borra coupon_redeemed_code,
+  // así vuelve a verse el aviso del cupón activo (útil para pruebas y soporte;
+  // un refund de Stripe NO toca esta columna de la app). Auditado.
+  app.post('/api/v1/admin/company/:id/reset-welcome-coupon', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+    const { error } = await supabase.from('tenants')
+      .update({ coupon_redeemed_code: null }).eq('id', id);
+    if (error) return reply.code(500).send({ error: error.message });
+    await logAdminAction(request, g.caller?.id ?? null, 'reset_welcome_coupon', 'tenant', id, null);
+    return reply.send({ ok: true });
+  });
+
   app.post('/api/v1/admin/company/:id/reactivate', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
@@ -3004,7 +3018,7 @@ export async function buildApp(options = {}) {
 
     const { data: tenant } = await supabase
       .from('tenants')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, coupon_redeemed_code')
       .eq('id', caller.tenant_id)
       .single();
 
@@ -3027,6 +3041,13 @@ export async function buildApp(options = {}) {
     // El plan ANUAL admite cupones (bienvenida 50% 1 vez / fidelidad 20%); el
     // cliente los introduce en el checkout. El MENSUAL es precio fijo, sin cupones.
     const isYearly = !!STRIPE_PRICE_SEAT_YEARLY && priceId === STRIPE_PRICE_SEAT_YEARLY;
+    // Blindaje del cupón de bienvenida: si este tenant YA canjeó el cupón activo,
+    // NO se ofrece el campo de código promocional (si no, podría re-escribirlo y
+    // volver a canjearlo). Es por CÓDIGO: si el cupón activo es otro distinto, sí
+    // se ofrece. Un cliente que nunca lo canjeó lo sigue teniendo.
+    const activeCoupon = await readActiveCoupon();
+    const alreadyRedeemed = !!(activeCoupon && tenant?.coupon_redeemed_code
+      && tenant.coupon_redeemed_code === activeCoupon.code);
 
     try {
       const session = await stripe.checkout.sessions.create({
@@ -3040,7 +3061,7 @@ export async function buildApp(options = {}) {
         success_url: STRIPE_SUCCESS_URL,
         cancel_url: STRIPE_CANCEL_URL,
         ...(tenant?.stripe_customer_id ? { customer: tenant.stripe_customer_id } : {}),
-        ...(isYearly ? { allow_promotion_codes: true } : {}),
+        ...(isYearly && !alreadyRedeemed ? { allow_promotion_codes: true } : {}),
         metadata,
         subscription_data: { metadata },
         client_reference_id: caller.tenant_id,
@@ -3140,7 +3161,10 @@ export async function buildApp(options = {}) {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const coupon = await readActiveCoupon();
-    return reply.send({ coupon });
+    // `config` incluye TODOS los parámetros guardados (duration, meses, máx,
+    // fechas…) para poder pre-rellenar el diálogo de edición.
+    const config = await readCouponConfigRaw();
+    return reply.send({ coupon, config });
   });
 
   // Admin: DESACTIVA el cupón activo. Además de limpiar la config, desactiva el

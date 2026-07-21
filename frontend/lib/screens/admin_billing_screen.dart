@@ -318,6 +318,7 @@ class _CouponManager extends StatefulWidget {
 class _CouponManagerState extends State<_CouponManager> {
   final _service = DataService();
   Map<String, dynamic>? _coupon;
+  Map<String, dynamic>? _config; // todos los parámetros (para editar)
   bool _loading = true;
   bool _busy = false;
 
@@ -329,10 +330,11 @@ class _CouponManagerState extends State<_CouponManager> {
 
   Future<void> _load() async {
     try {
-      final c = await _service.adminActiveCoupon();
+      final body = await _service.adminActiveCoupon();
       if (mounted) {
         setState(() {
-          _coupon = c;
+          _coupon = (body?['coupon'] as Map?)?.cast<String, dynamic>();
+          _config = (body?['config'] as Map?)?.cast<String, dynamic>();
           _loading = false;
         });
       }
@@ -341,15 +343,23 @@ class _CouponManagerState extends State<_CouponManager> {
     }
   }
 
-  Future<void> _createDialog() async {
+  // Diálogo de crear/editar. Con `prefill` (config del cupón activo) queda como
+  // "Editar": Stripe no deja mutar un cupón, así que al guardar se crea uno nuevo
+  // con los parámetros y se retira el anterior (reemplazo).
+  Future<void> _createDialog({Map<String, dynamic>? prefill}) async {
     final l = context.l10n;
-    final codeCtrl = TextEditingController();
-    final pctCtrl = TextEditingController(text: '50');
-    final maxCtrl = TextEditingController();
-    final monthsCtrl = TextEditingController(text: '3');
-    String duration = 'once';
-    DateTime? startsAt;
-    DateTime? expiresAt;
+    final editing = prefill != null;
+    DateTime? parseD(Object? v) =>
+        v == null ? null : DateTime.tryParse('$v')?.toLocal();
+    final codeCtrl = TextEditingController(text: '${prefill?['code'] ?? ''}');
+    final pctCtrl = TextEditingController(text: '${prefill?['pct'] ?? 50}');
+    final maxCtrl = TextEditingController(
+        text: prefill?['max_redemptions'] == null ? '' : '${prefill!['max_redemptions']}');
+    final monthsCtrl = TextEditingController(
+        text: '${prefill?['duration_in_months'] ?? 3}');
+    String duration = (prefill?['duration'] as String?) ?? 'once';
+    DateTime? startsAt = parseD(prefill?['starts_at']);
+    DateTime? expiresAt = parseD(prefill?['expires_at']);
     String fmt(DateTime? d) => d == null
         ? '—'
         : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -357,7 +367,7 @@ class _CouponManagerState extends State<_CouponManager> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text(l.t('adm_coup_new')),
+          title: Text(l.t(editing ? 'adm_coup_edit' : 'adm_coup_new')),
           content: SizedBox(
             width: 420,
             child: SingleChildScrollView(
@@ -365,6 +375,12 @@ class _CouponManagerState extends State<_CouponManager> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (editing) ...[
+                      Text(l.t('adm_coup_edit_note'),
+                          style: const TextStyle(
+                              fontSize: 11, color: AdminColors.muted)),
+                      const SizedBox(height: 8),
+                    ],
                     TextField(
                         controller: codeCtrl,
                         autofocus: true,
@@ -572,10 +588,14 @@ class _CouponManagerState extends State<_CouponManager> {
             ),
             if (c != null &&
                 (c['code'] as String?)?.isNotEmpty == true &&
-                !_busy)
+                !_busy) ...[
+              TextButton(
+                  onPressed: () => _createDialog(prefill: _config ?? c),
+                  child: Text(l.t('edit'))),
               TextButton(
                   onPressed: _deactivate,
                   child: Text(l.t('adm_coup_deactivate'))),
+            ],
           ]),
       ]),
     );

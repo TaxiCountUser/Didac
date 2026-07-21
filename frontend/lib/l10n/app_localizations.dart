@@ -901,6 +901,13 @@ const Map<String, Map<String, String>> _values = {
     'adm_bill_pastdue': 'Impagados',
     'adm_coup_title': 'Cupón activo (aviso en Suscripción)',
     'adm_coup_new': 'Nuevo cupón',
+    'adm_coup_edit': 'Editar cupón',
+    'adm_coup_edit_note':
+        'Stripe no permite mutar un cupón: al guardar se crea uno nuevo con estos parámetros y se retira el anterior (los descuentos ya aplicados conservan sus condiciones).',
+    'adm_reset_welcome': 'Reiniciar cupón de bienvenida',
+    'adm_reset_welcome_confirm':
+        'Borra la marca de cupón usado de esta empresa; volverá a ver el aviso del cupón activo. Útil para pruebas y soporte.',
+    'adm_reset_welcome_done': 'Cupón de bienvenida reiniciado',
     'adm_coup_code': 'Código (p. ej. TAXICOUNT50)',
     'adm_coup_pct': 'Descuento',
     'adm_coup_create': 'Crear en Stripe',
@@ -1954,6 +1961,13 @@ const Map<String, Map<String, String>> _values = {
     'adm_bill_pastdue': 'Past due',
     'adm_coup_title': 'Active coupon (shown in Subscription)',
     'adm_coup_new': 'New coupon',
+    'adm_coup_edit': 'Edit coupon',
+    'adm_coup_edit_note':
+        'Stripe can\'t mutate a coupon: saving creates a new one with these parameters and retires the previous one (already-applied discounts keep their terms).',
+    'adm_reset_welcome': 'Reset welcome coupon',
+    'adm_reset_welcome_confirm':
+        'Clears the used-coupon flag for this company; it will see the active coupon notice again. Useful for testing and support.',
+    'adm_reset_welcome_done': 'Welcome coupon reset',
     'adm_coup_code': 'Code (e.g. TAXICOUNT50)',
     'adm_coup_pct': 'Discount',
     'adm_coup_create': 'Create in Stripe',
@@ -3022,6 +3036,13 @@ const Map<String, Map<String, String>> _values = {
     'adm_bill_pastdue': 'Impagats',
     'adm_coup_title': 'Cupó actiu (avís a Subscripció)',
     'adm_coup_new': 'Nou cupó',
+    'adm_coup_edit': 'Editar cupó',
+    'adm_coup_edit_note':
+        'Stripe no permet mutar un cupó: en desar es crea un de nou amb aquests paràmetres i es retira l\'anterior (els descomptes ja aplicats conserven les seves condicions).',
+    'adm_reset_welcome': 'Reiniciar cupó de benvinguda',
+    'adm_reset_welcome_confirm':
+        'Esborra la marca de cupó usat d\'aquesta empresa; tornarà a veure l\'avís del cupó actiu. Útil per a proves i suport.',
+    'adm_reset_welcome_done': 'Cupó de benvinguda reiniciat',
     'adm_coup_code': 'Codi (p. ex. TAXICOUNT50)',
     'adm_coup_pct': 'Descompte',
     'adm_coup_create': 'Crear a Stripe',

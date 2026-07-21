@@ -774,12 +774,24 @@ class DataService {
   }
 
   /// Cupón activo actual (admin, para Facturación). Devuelve {code, pct, expires_at} o null.
+  /// Cupón activo (admin). Devuelve {coupon, config}: `coupon` para mostrar y
+  /// `config` con TODOS los parámetros guardados (para pre-rellenar la edición).
   Future<Map<String, dynamic>?> adminActiveCoupon() async {
     final res = await http.get(
         Uri.parse('$backendUrl/api/v1/admin/active-coupon'), headers: _bearer);
     if (res.statusCode != 200) return null;
-    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
-    return (body['coupon'] as Map?)?.cast<String, dynamic>();
+    return (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+  }
+
+  /// Reinicia el cupón de bienvenida de una empresa (borra coupon_redeemed_code).
+  Future<void> adminResetWelcomeCoupon(String tenantId) async {
+    final res = await http.post(
+        Uri.parse('$backendUrl/api/v1/admin/company/$tenantId/reset-welcome-coupon'),
+        headers: _bearer);
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    }
   }
 
   /// Crea un cupón en Stripe (coupon + promotion code) y lo deja activo (admin).
