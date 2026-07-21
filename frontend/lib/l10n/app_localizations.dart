@@ -1059,6 +1059,8 @@ const Map<String, Map<String, String>> _values = {
     'adm_km_src_trip': 'Carrera',
     'adm_km_src_vehicle': 'Vehículo (km inicial)',
     'adm_ch_kpi_completion': 'Compleción',
+    'adm_ch_sec_engagement': 'Engagement', 'adm_ch_sec_cost': 'Coste del programa',
+    'adm_ch_sec_moderation': 'Moderación', 'adm_ch_sec_charts': 'Gráficos',
     'adm_ch_kpi_reward_cost': 'Coste recompensas',
     'adm_ch_reject_title': 'Rechazar por fraude',
     'adm_ch_reject_help':
@@ -2090,6 +2092,8 @@ const Map<String, Map<String, String>> _values = {
     'adm_km_src_trip': 'Trip',
     'adm_km_src_vehicle': 'Vehicle (initial km)',
     'adm_ch_kpi_completion': 'Completion',
+    'adm_ch_sec_engagement': 'Engagement', 'adm_ch_sec_cost': 'Program cost',
+    'adm_ch_sec_moderation': 'Moderation', 'adm_ch_sec_charts': 'Charts',
     'adm_ch_kpi_reward_cost': 'Reward cost',
     'adm_ch_reject_title': 'Reject as fraud',
     'adm_ch_reject_help':
@@ -3154,6 +3158,8 @@ const Map<String, Map<String, String>> _values = {
     'adm_km_src_trip': 'Cursa',
     'adm_km_src_vehicle': 'Vehicle (km inicial)',
     'adm_ch_kpi_completion': 'Compleció',
+    'adm_ch_sec_engagement': 'Engagement', 'adm_ch_sec_cost': 'Cost del programa',
+    'adm_ch_sec_moderation': 'Moderació', 'adm_ch_sec_charts': 'Gràfics',
     'adm_ch_kpi_reward_cost': 'Cost recompenses',
     'adm_ch_reject_title': 'Rebutjar per frau',
     'adm_ch_reject_help':

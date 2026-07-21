@@ -202,6 +202,8 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 > pendiente muestra su **antigüedad** (cuánto lleva esperando) y **rechazar pide un MOTIVO**
 > (opcional, se guarda en `admin_actions_log`/Auditoría; sin migración). El leaderboard top-10 se
 > mantiene (a petición). Nota: usa el kit desde antes (`AdminKpiTile`, `AdminPill`, `adminCardBox`).
+> El **Resumen** se reordenó en bloques con título (Engagement · Coste del programa · Moderación ·
+> Gráficos), con el coste de recompensas en tarjeta destacada, al estilo de Facturación.
 
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa

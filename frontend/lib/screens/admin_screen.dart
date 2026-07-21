@@ -397,18 +397,68 @@ class _ChallengesTabState extends State<_ChallengesTab> {
     ]);
   }
 
-  // Tab 0: KPIs + gráficos (km/día primero, luego evolución).
+  // Tab 0: bloques con título (engagement · coste · moderación · gráficos), al
+  // estilo de Facturación, para que el módulo se lea por secciones.
   Widget _summaryView(AppLocalizations l) {
+    num n(String k) => (_summary[k] as num?) ?? 0;
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          _summaryCards(l),
-          const SizedBox(height: 16),
+          adminSectionTitle(l.t('adm_ch_sec_engagement'),
+              color: AdminColors.amber),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'),
+                '${n('total_completed')}', AdminColors.amber),
+            _kpi(Icons.calendar_month, l.t('adm_ch_kpi_month'),
+                '${n('completed_this_month')}', AdminColors.blue),
+            _kpi(Icons.groups, l.t('adm_ch_kpi_drivers'),
+                '${n('drivers_with_challenge')}%', AdminColors.blue),
+            _kpi(Icons.percent, l.t('adm_ch_kpi_completion'),
+                '${n('completion_rate')}%', AdminColors.purple),
+          ]),
+          adminSectionTitle(l.t('adm_ch_sec_cost'), color: AdminColors.teal),
+          _rewardCard(l),
+          adminSectionTitle(l.t('adm_ch_sec_moderation'),
+              color: AdminColors.red),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            _kpi(Icons.hourglass_bottom, l.t('adm_ch_kpi_pending'),
+                '${n('pending_approvals')}', AdminColors.coral),
+            _kpi(Icons.gpp_maybe, l.t('adm_ch_kpi_fraud'),
+                '${n('fraud_rate')}%', AdminColors.red),
+          ]),
+          adminSectionTitle(l.t('adm_ch_sec_charts'),
+              color: AdminColors.purple),
           _charts(l),
         ],
       ),
+    );
+  }
+
+  // Coste del programa de recompensas destacado (lo que REGALAMOS): € + días + %.
+  Widget _rewardCard(AppLocalizations l) {
+    num n(String k) => (_summary[k] as num?) ?? 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: adminCardBox(),
+      child: Row(children: [
+        const Icon(Icons.savings, size: 18, color: AdminColors.teal),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(l.t('adm_ch_kpi_reward_cost'),
+              style: const TextStyle(
+                  fontSize: 10.5, color: AdminColors.secondary)),
+        ),
+        Text('${n('reward_cost_eur').toStringAsFixed(2)}€',
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.w700,
+                color: AdminColors.text)),
+        const SizedBox(width: 6),
+        Text(
+            '${l.t('fd_days', {'n': '${n('days_challenges').toInt()}'})} · ${n('reward_pct')}%',
+            style: const TextStyle(fontSize: 9, color: AdminColors.muted)),
+      ]),
     );
   }
 
@@ -458,26 +508,9 @@ class _ChallengesTabState extends State<_ChallengesTab> {
   }
 
   // ── Resumen (KPIs) ─────────────────────────────────────────────────────
-  Widget _summaryCards(AppLocalizations l) {
-    num n(String k) => (_summary[k] as num?) ?? 0;
-    final rewardEur = (n('reward_cost_eur')).toStringAsFixed(2);
-    return Wrap(spacing: 8, runSpacing: 8, children: [
-      _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'), '${n('total_completed')}', AdminColors.amber),
-      _kpi(Icons.calendar_month, l.t('adm_ch_kpi_month'), '${n('completed_this_month')}', AdminColors.blue),
-      _kpi(Icons.groups, l.t('adm_ch_kpi_drivers'), '${n('drivers_with_challenge')}%', AdminColors.blue),
-      _kpi(Icons.percent, l.t('adm_ch_kpi_completion'), '${n('completion_rate')}%', AdminColors.purple),
-      // Coste del programa: lo que REGALAMOS (€), con los días y el % sobre el bruto.
-      _kpi(Icons.savings, l.t('adm_ch_kpi_reward_cost'), '$rewardEur€', AdminColors.teal,
-          sub: '${l.t('fd_days', {'n': '${n('days_challenges').toInt()}'})} · ${n('reward_pct')}%'),
-      _kpi(Icons.hourglass_bottom, l.t('adm_ch_kpi_pending'), '${n('pending_approvals')}', AdminColors.coral),
-      _kpi(Icons.gpp_maybe, l.t('adm_ch_kpi_fraud'), '${n('fraud_rate')}%', AdminColors.red),
-    ]);
-  }
-
-  Widget _kpi(IconData icon, String label, String value, Color color,
-          {String sub = ''}) =>
+  Widget _kpi(IconData icon, String label, String value, Color color) =>
       AdminKpiTile(
-          width: 150, icon: icon, label: label, value: value, color: color, sub: sub);
+          width: 150, icon: icon, label: label, value: value, color: color);
 
   // ── Gráficos (sin dependencias: barras con Containers) ─────────────────────
   Widget _charts(AppLocalizations l) {
