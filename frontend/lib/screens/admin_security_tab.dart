@@ -213,43 +213,89 @@ class _SecurityTabState extends State<SecurityTab> {
         _ => AdminColors.gray,
       };
 
+  // Gravedad para ordenar "peor primero": problemas > avisos > desconocido > ok.
+  int _semaRank(String? s) => switch (s) {
+        'stale' || 'error' || 'dead' => 0,
+        'slow' => 1,
+        'ok' || 'live' => 3,
+        _ => 2,
+      };
+
+  // Resumen tipo status page: "todos operativos" o "N con problemas · M avisos".
+  Widget _statusSummary(AppLocalizations l) {
+    var problems = 0, warns = 0;
+    for (final s in _semaphores) {
+      final r = _semaRank(s['status'] as String?);
+      if (r == 0) {
+        problems++;
+      } else if (r == 1) {
+        warns++;
+      }
+    }
+    final ok = problems == 0 && warns == 0;
+    final color = problems > 0
+        ? AdminColors.red
+        : (warns > 0 ? AdminColors.amber : AdminColors.teal);
+    final text = ok
+        ? l.t('adm_sema_all_ok')
+        : [
+            if (problems > 0) l.t('adm_sema_problems', {'n': '$problems'}),
+            if (warns > 0) l.t('adm_sema_warns', {'n': '$warns'}),
+          ].join(' · ');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        border: Border.all(color: color.withValues(alpha: .5)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(children: [
+        Icon(ok ? Icons.check_circle : Icons.error_outline, size: 16, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+        ),
+        Text('${_semaphores.length}',
+            style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+      ]),
+    );
+  }
+
   Widget _semaphoresView(AppLocalizations l) {
     final df = DateFormat('dd/MM/yyyy HH:mm');
+    // Peor primero: lo que falla, arriba (status pages son "incident-first").
+    final sorted = [..._semaphores]..sort((a, b) => _semaRank(a['status'] as String?)
+        .compareTo(_semaRank(b['status'] as String?)));
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          _statusSummary(l),
           if (_flags.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6, left: 4),
-              child: Text(l.t('adm_flags_title'),
-                  style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
-            ),
+            adminSectionTitle(l.t('adm_flags_title'), color: AdminColors.gray),
             Container(
               decoration: adminCardBox(),
-              margin: const EdgeInsets.only(bottom: 16),
               child: Column(children: [
                 for (final e in _flags.entries) _flagRow(l, e.key, e.value as Map),
               ]),
             ),
           ],
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8, left: 4),
-            child: Text(l.t('adm_sema_intro'),
-                style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
-          ),
-          if (_semaphores.isEmpty)
+          adminSectionTitle(l.t('adm_sec_sema'), color: AdminColors.teal),
+          if (sorted.isEmpty)
             Padding(padding: const EdgeInsets.all(24),
                 child: Center(child: Text(l.t('adm_audit_none'))))
           else
             Container(
               decoration: adminCardBox(),
               child: Column(children: [
-                for (var i = 0; i < _semaphores.length; i++) ...[
+                for (var i = 0; i < sorted.length; i++) ...[
                   if (i > 0)
                     const Divider(height: 1, color: AdminColors.hairline),
-                  _semaRow(l, _semaphores[i], df),
+                  _semaRow(l, sorted[i], df),
                 ],
               ]),
             ),
@@ -349,13 +395,13 @@ class _SecurityTabState extends State<SecurityTab> {
         padding: const EdgeInsets.all(12),
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 8, left: 4),
+            padding: const EdgeInsets.only(bottom: 4, left: 4),
             child: Text(l.t('adm_metrics_intro'),
                 style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
           ),
-          // Groq/IA: % disponible por MODELO (parser + Whisper tienen su propio
+          // IA / quota: % disponible por MODELO (parser + Whisper tienen su propio
           // rate-limit). Bajo = cerca del límite.
-          _metricsCard(l.t('adm_metrics_groq_title'), [
+          _metricsBlock(l.t('adm_metrics_sec_ia'), AdminColors.purple, [
             if (!groqAvail || groqModels.isEmpty)
               _nodataRow(l, l.t('adm_metrics_groq_hint'))
             else
@@ -368,9 +414,8 @@ class _SecurityTabState extends State<SecurityTab> {
                 if (_hasPair(m['tokens'])) _kvRow(l.t('adm_metrics_tokens'), _fmtPair(m['tokens'])),
               ],
           ]),
-          const SizedBox(height: 12),
-          // Supabase: BD (RPC, siempre) + CPU/RAM/disco (scrape, best-effort).
-          _metricsCard(l.t('adm_metrics_supa_title'), [
+          // Saturación: CPU/RAM/disco/carga del servidor (scrape, best-effort).
+          _metricsBlock(l.t('adm_metrics_sec_sat'), AdminColors.blue, [
             if (sysAvail) ...[
               _bar(l, l.t('adm_metrics_cpu'), (sys['cpu_pct'] as num?)?.toInt()),
               _bar(l, l.t('adm_metrics_ram'), (sys['ram_pct'] as num?)?.toInt()),
@@ -380,8 +425,10 @@ class _SecurityTabState extends State<SecurityTab> {
                     '${_num1(sys['load1'])} · ${_num1(sys['load5'])} · ${_num1(sys['load15'])}'),
             ] else
               _nodataRow(l, l.t('adm_metrics_supa_hint')),
-            if (db.isNotEmpty) ...[
-              const Divider(height: 14, color: AdminColors.hairline),
+          ]),
+          // Base de datos (RPC, siempre disponible).
+          if (db.isNotEmpty)
+            _metricsBlock(l.t('adm_metrics_sec_db'), AdminColors.teal, [
               _kvRow(l.t('adm_metrics_db_size'),
                   (db['db_size_pretty'] ?? '—').toString()),
               _kvRow(l.t('adm_metrics_conns'),
@@ -399,25 +446,24 @@ class _SecurityTabState extends State<SecurityTab> {
                     '${_compact(db['commits'])} ✓ · ${_compact(db['rollbacks'])} ✗'),
               if (db['deadlocks'] != null && (db['deadlocks'] as num) > 0)
                 _kvRow(l.t('adm_metrics_deadlocks'), '${db['deadlocks']}'),
-            ],
-          ]),
+            ]),
         ],
       ),
     );
   }
 
-  Widget _metricsCard(String title, List<Widget> rows) => Container(
-        decoration: adminCardBox(),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-            child: Text(title,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700, color: AdminColors.text)),
+  // Bloque de métricas: título con acento (kit) + tarjeta con las filas.
+  Widget _metricsBlock(String title, Color color, List<Widget> rows) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          adminSectionTitle(title, color: color),
+          Container(
+            decoration: adminCardBox(),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [...rows, const SizedBox(height: 6)]),
           ),
-          ...rows,
-          const SizedBox(height: 6),
-        ]),
+        ],
       );
 
   // Barra de uso con umbral. Uso (CPU/RAM/disco): >80% rojo, >60% ámbar.

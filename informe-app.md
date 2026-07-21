@@ -215,6 +215,14 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 > alerta abierta (el motivo al resolver ya existía vía notas). Limpieza: clave i18n huérfana
 > `adm_ref_kpi_days`.
 
+> **Monitorización — estándar de observabilidad (2026-07-21):** ya cubría bien el PRESENTE
+> (semáforos de estado, saturación CPU/RAM/disco/conexiones, cuota Groq, kill-switches). Añadido:
+> un **resumen tipo status page** arriba de Semáforos ("Todos los sistemas operativos" / "N con
+> problemas · M avisos") y **orden peor-primero** (lo que falla, arriba, incident-first); y las
+> **Métricas en bloques con título** (IA/cuota · Saturación · Base de datos) + Flags como bloque
+> propio (kit). Pendiente (acordado, requiere tabla nueva + cron): **uptime % y tendencias
+> temporales** — hoy `markService` solo guarda la ÚLTIMA foto en `system_config`, no hay histórico.
+
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa
 > hasta que el admin lo **acepta**; al **rechazarlo**, si ya se había premiado se revierte
