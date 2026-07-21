@@ -156,9 +156,10 @@ Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **
 Empresas (buscador global + recuento + orden + fichas de **supervisión** + **purga definitiva** de empresas de baja, doble confirmación),
 Facturación (salud recurrente + caja + colas de acción, ver nota), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
-+ auto-refresco 20 s), Referidos (funnel de adquisición + coste + top referidores + submenú **Fraude**), **Monitorización** (Métricas en
-vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, Config (en caliente
-+ mantenimiento).
++ auto-refresco 20 s + submenú **Configuración**), Referidos (funnel de adquisición + coste + top
+referidores + submenús **Fraude** y **Configuración**), **Monitorización** (Métricas en vivo +
+Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, Config (**sistema**:
+mantenimiento + administradores).
 
 > **Reorganización (2026-07-13):** la antigua tarjeta "Seguridad" se dividió en **Monitorización**
 > y **Auditoría**; las alertas de fraude (que son de referidos) pasaron a la tarjeta **Referidos**.
@@ -230,6 +231,17 @@ vivo + Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, 
 > backend), **exportación CSV** (fecha·admin·acción·objetivo·IP·detalles) y la **IP** visible en la
 > fila y el detalle. Filtrar por un admin se hace desde el detalle ("Filtrar por este admin") y se
 > muestra como chip quitable. Solo lectura, append-only (la tabla solo recibe inserts).
+
+> **Config — la config vive CON su funcionalidad (2026-07-21):** siguiendo el estándar (settings
+> contextuales), las reglas de **Retos** y **Referidos** se movieron a una sub-pestaña
+> **"Configuración"** dentro de su propio módulo; el módulo Config central queda como **sistema**
+> (mantenimiento + administradores). Técnicamente es un panel único reutilizable `ConfigTab(section:
+> 'challenges'|'referrals'|'system')` que renderiza y **guarda solo las claves de su sección** (y
+> solo las cambiadas), con **estado "sucio"** (Guardar activo solo si hay cambios) y **validación
+> numérica** (bloquea + marca el campo malo). Pendiente/aparcado: **duración de prueba por defecto**
+> y **ventana de retención RGPD** como ajustes editables — HOY viven en la BD (default de columna
+> `trial_ends_at = now()+15d` y función `purge_expired_retention()`), así que hacerlos configurables
+> requiere una migración; no se añaden hasta hacerla con cuidado (backup primero).
 
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa

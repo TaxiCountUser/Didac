@@ -387,11 +387,17 @@ class _ChallengesTabState extends State<_ChallengesTab> {
                   : l.t('adm_ch_tab_suspicious'),
               selected: _tab == 2, color: AdminColors.red,
               onTap: () => setState(() => _tab = 2)),
+          const SizedBox(width: 6),
+          AdminPill(
+              label: l.t('adm_tab_config'), selected: _tab == 3,
+              color: AdminColors.gray,
+              onTap: () => setState(() => _tab = 3)),
         ]),
       ),
       Expanded(child: switch (_tab) {
         1 => _achievementsView(l),
         2 => _suspiciousView(l, suspicious),
+        3 => const ConfigTab(section: 'challenges'),
         _ => _summaryView(l),
       }),
     ]);

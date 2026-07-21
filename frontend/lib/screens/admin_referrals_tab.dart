@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_config_tab.dart';
 import 'admin_theme.dart';
 
 /// Loop #5 — Pestaña "Referidos" del panel de Super Admin.
@@ -100,15 +101,23 @@ class _ReferralsTabState extends State<ReferralsTab> {
               label: fraudN > 0 ? '${l.t('adm_sec_alerts')} ($fraudN)' : l.t('adm_sec_alerts'),
               selected: _tab == 1, color: AdminColors.red,
               onTap: () { setState(() => _tab = 1); _reload(); }),
+          const SizedBox(width: 6),
+          AdminPill(
+              label: l.t('adm_tab_config'), selected: _tab == 2,
+              color: AdminColors.gray,
+              onTap: () => setState(() => _tab = 2)),
         ]),
       ),
       Expanded(
-        child: _error != null
-            ? Center(child: Padding(padding: const EdgeInsets.all(16),
-                child: Text('${l.t('error')}: $_error', style: const TextStyle(color: Colors.red))))
-            : _loading
-                ? const Center(child: CircularProgressIndicator())
-                : (_tab == 1 ? _fraudView(l) : _referralsBody(l)),
+        // La config trae su propia carga; no depende de los KPIs de referidos.
+        child: _tab == 2
+            ? const ConfigTab(section: 'referrals')
+            : _error != null
+                ? Center(child: Padding(padding: const EdgeInsets.all(16),
+                    child: Text('${l.t('error')}: $_error', style: const TextStyle(color: Colors.red))))
+                : _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : (_tab == 1 ? _fraudView(l) : _referralsBody(l)),
       ),
     ]);
   }

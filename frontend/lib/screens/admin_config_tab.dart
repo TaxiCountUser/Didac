@@ -4,11 +4,16 @@ import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import 'admin_theme.dart';
 
-/// Pestaña "Configuración" del panel de admin: edita en un solo sitio los
-/// parámetros de RETOS y de REFERIDOS, con etiquetas claras y explicaciones
-/// (separado de las estadísticas). Todo se guarda en system_config.
+/// Panel de configuración reutilizable, parametrizado por `section`:
+///   - 'challenges' → reglas de RETOS   (embebido en el módulo Retos)
+///   - 'referrals'  → reglas de REFERIDOS (embebido en el módulo Referidos)
+///   - 'system'     → mantenimiento + administradores (módulo Config central)
+/// Cada sección tiene su PROPIO guardado (solo sus claves y solo las cambiadas),
+/// con estado "sucio" (Guardar solo si hay cambios) y validación numérica.
+/// Todo se persiste en system_config.
 class ConfigTab extends StatefulWidget {
-  const ConfigTab({super.key});
+  final String section;
+  const ConfigTab({super.key, this.section = 'system'});
 
   @override
   State<ConfigTab> createState() => _ConfigTabState();
@@ -29,6 +34,15 @@ class _ConfigTabState extends State<ConfigTab> {
   bool _kmOn = true;
   bool _daysOn = true;
   bool _maintenanceOn = false;
+  bool _dirty = false; // hay cambios sin guardar
+  Set<String> _invalid = {}; // claves numéricas con valor inválido (tras Guardar)
+
+  void _markDirty() { if (!_dirty) setState(() => _dirty = true); }
+
+  // Marca un switch como cambiado (activa el estado "sucio").
+  void _setSwitch(void Function() apply) {
+    setState(() { apply(); _dirty = true; });
+  }
 
   @override
   void initState() {
@@ -47,7 +61,15 @@ class _ConfigTabState extends State<ConfigTab> {
   String _g(String key, [String def = '']) => _cfg[key] ?? def;
 
   TextEditingController _c(String key, String value) =>
-      _ctrls.putIfAbsent(key, () => TextEditingController(text: value));
+      _ctrls.putIfAbsent(key, () {
+        final ctrl = TextEditingController(text: value);
+        // Cualquier edición marca "sucio" y limpia el error de ese campo.
+        ctrl.addListener(() {
+          if (_invalid.contains(key)) setState(() => _invalid.remove(key));
+          _markDirty();
+        });
+        return ctrl;
+      });
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
@@ -71,22 +93,69 @@ class _ConfigTabState extends State<ConfigTab> {
     }
   }
 
+  // ¿La clave (de un controlador) pertenece a la sección actual?
+  bool _keyInSection(String key) => switch (widget.section) {
+        'challenges' => key.startsWith('challenge_'),
+        'referrals' => key.startsWith('referral_'),
+        _ => key == 'maintenance_message',
+      };
+
+  // Switches de la sección actual → su valor string.
+  Map<String, String> _sectionSwitches() => switch (widget.section) {
+        'challenges' => {
+            'challenge_100k_euros_enabled': _eurosOn ? 'true' : 'false',
+            'challenge_km_enabled': _kmOn ? 'true' : 'false',
+            'challenge_days_enabled': _daysOn ? 'true' : 'false',
+          },
+        'referrals' => {'referral_enabled': _refOn ? 'true' : 'false'},
+        _ => {'maintenance_mode': _maintenanceOn ? 'true' : 'false'},
+      };
+
+  // Valor con el que se cargó un switch (para detectar cambios reales).
+  String _switchLoaded(String key) => switch (key) {
+        'challenge_km_enabled' ||
+        'challenge_days_enabled' =>
+          _g(key, 'true') != 'false' ? 'true' : 'false',
+        'challenge_100k_euros_enabled' =>
+          _g(key, 'false') == 'true' ? 'true' : 'false',
+        'referral_enabled' => _g(key, 'true') == 'true' ? 'true' : 'false',
+        'maintenance_mode' => _g(key, 'false') == 'true' ? 'true' : 'false',
+        _ => _g(key, 'false'),
+      };
+
   Future<void> _save() async {
     final l = context.l10n;
-    setState(() => _saving = true);
+    // 1) Validación: los campos numéricos de la sección deben ser enteros >= 0
+    //    (el mensaje de mantenimiento es texto libre y se excluye).
+    final invalid = <String>{};
+    _ctrls.forEach((key, ctrl) {
+      if (!_keyInSection(key) || key == 'maintenance_message') return;
+      final t = ctrl.text.trim();
+      final n = int.tryParse(t);
+      if (t.isEmpty || n == null || n < 0) invalid.add(key);
+    });
+    if (invalid.isNotEmpty) {
+      setState(() => _invalid = invalid);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.t('cfg_invalid'))));
+      return;
+    }
+    // 2) Solo las claves de la sección que han cambiado.
     final changes = <String, String>{};
-    // Campos de texto (números).
-    _ctrls.forEach((key, ctrl) => changes[key] = ctrl.text.trim());
-    // Switches.
-    changes['challenge_100k_euros_enabled'] = _eurosOn ? 'true' : 'false';
-    changes['referral_enabled'] = _refOn ? 'true' : 'false';
-    changes['challenge_km_enabled'] = _kmOn ? 'true' : 'false';
-    changes['challenge_days_enabled'] = _daysOn ? 'true' : 'false';
-    changes['maintenance_mode'] = _maintenanceOn ? 'true' : 'false';
+    _ctrls.forEach((key, ctrl) {
+      if (!_keyInSection(key)) return;
+      final v = ctrl.text.trim();
+      if (v != (_cfg[key] ?? '')) changes[key] = v;
+    });
+    _sectionSwitches().forEach((key, v) {
+      if (v != _switchLoaded(key)) changes[key] = v;
+    });
+    if (changes.isEmpty) { setState(() => _dirty = false); return; }
+    setState(() => _saving = true);
     try {
       await _service.adminSystemConfigUpdate(changes);
       if (!mounted) return;
-      setState(() => _saving = false);
+      setState(() { _saving = false; _dirty = false; _cfg = {..._cfg, ...changes}; });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('cfg_saved'))));
     } catch (e) {
       if (!mounted) return;
@@ -95,6 +164,12 @@ class _ConfigTabState extends State<ConfigTab> {
           SnackBar(content: Text('${l.t('error')}: ${e.toString().replaceFirst('Exception: ', '')}')));
     }
   }
+
+  List<Widget> _sectionCards(AppLocalizations l) => switch (widget.section) {
+        'challenges' => [_challengesCard(l)],
+        'referrals' => [_referralsCard(l)],
+        _ => [_generalCard(l), const SizedBox(height: 16), _adminsCard(l)],
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -105,24 +180,17 @@ class _ConfigTabState extends State<ConfigTab> {
       children: [
         ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-          children: [
-            _challengesCard(l),
-            const SizedBox(height: 16),
-            _referralsCard(l),
-            const SizedBox(height: 16),
-            _generalCard(l),
-            const SizedBox(height: 16),
-            _adminsCard(l),
-          ],
+          children: _sectionCards(l),
         ),
         Positioned(
           left: 16, right: 16, bottom: 16,
           child: FilledButton.icon(
-            onPressed: _saving ? null : _save,
+            // Solo activo si hay cambios sin guardar.
+            onPressed: (_saving || !_dirty) ? null : _save,
             icon: _saving
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.save),
-            label: Text(l.t('cfg_save_all')),
+            label: Text(_dirty ? l.t('cfg_save_dirty') : l.t('cfg_save_all')),
           ),
         ),
       ],
@@ -139,16 +207,16 @@ class _ConfigTabState extends State<ConfigTab> {
       children: [
         // Los 3 retos, cada uno con activar/desactivar, objetivo base y preview.
         _challengeBlock(l, l.t('cfg_ch_km'), Icons.speed, _kmOn,
-            (v) => setState(() => _kmOn = v),
+            (v) => _setSwitch(() => _kmOn = v),
             'challenge_km_target', _g('challenge_km_target', '100000'), 'km', mult, cycle),
         const Divider(height: 20),
         _challengeBlock(l, l.t('cfg_ch_days'), Icons.calendar_today, _daysOn,
-            (v) => setState(() => _daysOn = v),
+            (v) => _setSwitch(() => _daysOn = v),
             'challenge_days_required', _g('challenge_days_required', '365'),
             l.t('ch_days_unit'), 1, 1), // días no escalan por ciclo (target fijo)
         const Divider(height: 20),
         _challengeBlock(l, l.t('cfg_ch_money'), Icons.euro, _eurosOn,
-            (v) => setState(() => _eurosOn = v),
+            (v) => _setSwitch(() => _eurosOn = v),
             'challenge_money_target', _g('challenge_money_target', '100000'), '€', mult, cycle),
         const Divider(height: 24),
         // Fórmula de niveles (aplica a km e ingresos).
@@ -246,7 +314,7 @@ class _ConfigTabState extends State<ConfigTab> {
           title: Text(l.t('cfg_maintenance')),
           subtitle: Text(l.t('cfg_maintenance_help'), style: _help),
           value: _maintenanceOn,
-          onChanged: (v) => setState(() => _maintenanceOn = v),
+          onChanged: (v) => _setSwitch(() => _maintenanceOn = v),
         ),
         if (_maintenanceOn)
           Padding(
@@ -275,7 +343,7 @@ class _ConfigTabState extends State<ConfigTab> {
           contentPadding: EdgeInsets.zero,
           title: Text(l.t('cfg_ref_on')),
           value: _refOn,
-          onChanged: (v) => setState(() => _refOn = v),
+          onChanged: (v) => _setSwitch(() => _refOn = v),
         ),
         const SizedBox(height: 8),
         Text(l.t('cfg_ref_milestones'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -478,6 +546,7 @@ class _ConfigTabState extends State<ConfigTab> {
   // Fila de ajuste estilo panel: etiqueta y ayuda a la izquierda, campo
   // numérico compacto a la derecha (como los settings modernos).
   Widget _numField(String key, String label, String help, String value, {String? suffix, bool livePreview = false}) {
+    final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -513,6 +582,7 @@ class _ConfigTabState extends State<ConfigTab> {
                     fontSize: 11, color: AdminColors.muted),
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 9),
+                errorText: _invalid.contains(key) ? l.t('cfg_bad') : null,
               ),
             ),
           ),
@@ -522,11 +592,13 @@ class _ConfigTabState extends State<ConfigTab> {
   }
 
   Widget _plainNumField(String key, String value, String hint) {
+    final l = context.l10n;
     return TextField(
       controller: _c(key, value),
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
         isDense: true, hintText: hint, border: const OutlineInputBorder(),
+        errorText: _invalid.contains(key) ? l.t('cfg_bad') : null,
       ),
     );
   }
