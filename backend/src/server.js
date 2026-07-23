@@ -2262,10 +2262,13 @@ export async function buildApp(options = {}) {
     // aportación mensual, para verificar el cálculo del crédito.
     if (stripe && tenant.stripe_customer_id) {
       const fleetDbg = [];
-      out.fleet_monthly_eur = +(
-        (await fleetMonthlyCents(tenant.stripe_customer_id, tenant.stripe_subscription_id, fleetDbg)) / 100
-      ).toFixed(2);
-      out.seats = (await subscriptionSeats(tenant.stripe_subscription_id)) || tenant.drivers_limit;
+      const rate = await fleetRate(tenant.stripe_customer_id, tenant.stripe_subscription_id, fleetDbg);
+      const subSeats = await subscriptionSeats(tenant.stripe_subscription_id);
+      const seats = subSeats || rate.seatsCounted || tenant.drivers_limit || 0;
+      out.per_seat_eur = +(rate.perSeatCents / 100).toFixed(2);
+      out.fleet_monthly_eur = +((rate.perSeatCents * seats) / 100).toFixed(2);
+      out.seats = seats;
+      out.seats_counted = rate.seatsCounted;
       out.drivers_limit = tenant.drivers_limit;
       out.fleet_lines = fleetDbg;
       // Saldo actual del cliente (negativo = crédito pendiente de consumir).
@@ -2377,10 +2380,17 @@ export async function buildApp(options = {}) {
   // prorrateo), se SUMAN automáticamente sin reconstruir historial por asiento. Es la
   // base de las recompensas: reto = 1 asiento·mes; referido = N días de flota.
   // Devuelve 0 si no hay factura vigente (p. ej. en prueba, sin suscripción todavía).
-  async function fleetMonthlyCents(customerId, subscriptionId = null, details = null) {
-    if (!stripe || !customerId) return 0;
+  // Tarifa EFECTIVA por asiento (céntimos/mes), neta de cupón, derivada de las
+  // líneas de factura de la suscripción activa: Σ(aportación mensual) / Σ(asientos
+  // de esas líneas). Consistente por construcción (el € y los asientos salen de las
+  // MISMAS líneas), así no importa que drivers_limit o la quantity actual estén
+  // desincronizados ni que haya facturas manuales sueltas. Devuelve
+  // { perSeatCents, monthlyCents, seatsCounted }. 0 si no hay factura atribuible.
+  async function fleetRate(customerId, subscriptionId = null, details = null) {
+    if (!stripe || !customerId) return { perSeatCents: 0, monthlyCents: 0, seatsCounted: 0 };
     const nowS = Math.floor(Date.now() / 1000);
     let monthly = 0;
+    let seatsCounted = 0;
     try {
       for await (const inv of stripe.invoices.list({ customer: customerId, status: 'paid', limit: 100 })) {
         // `subscription` a nivel factura está deprecado en API nuevas: la suscripción
@@ -2407,21 +2417,24 @@ export async function buildApp(options = {}) {
           if (snap >= 1 && Math.abs(months - snap) / snap < 0.08) months = snap;
           const contrib = (covers && months > 0) ? ((line.amount || 0) * netRatio) / months : 0;
           monthly += contrib;
+          // Asientos que representa esta línea (solo cargos positivos: los
+          // prorrateos de crédito no suman plazas).
+          if (contrib > 0) seatsCounted += (line.quantity ?? 0);
           if (details) details.push(`  ln qty=${line.quantity ?? '?'} amt=${((line.amount || 0) / 100).toFixed(2)} covers=${covers} m=${months.toFixed(1)} -> ${(contrib / 100).toFixed(2)}`);
         }
       }
     } catch (e) {
-      app.log.warn(`[reward] fleetMonthlyCents ${customerId}: ${e.message}`);
+      app.log.warn(`[reward] fleetRate ${customerId}: ${e.message}`);
       if (details) details.push(`ERROR ${e.message}`);
-      return 0;
+      return { perSeatCents: 0, monthlyCents: 0, seatsCounted: 0 };
     }
-    return Math.round(monthly);
+    const perSeatCents = seatsCounted > 0 ? Math.round(monthly / seatsCounted) : 0;
+    return { perSeatCents, monthlyCents: Math.round(monthly), seatsCounted };
   }
 
   // Nº de asientos REALES de la suscripción activa (fuente de verdad = Stripe, no
   // drivers_limit, que en cuentas de prueba puede quedar desincronizado). Se usa
-  // para el reto (1 asiento medio = coste_flota / asientos), consistente con lo que
-  // fleetMonthlyCents cuenta de esa misma suscripción.
+  // para escalar el referido (N días de la flota = tarifa/asiento × asientos × N/30).
   async function subscriptionSeats(subscriptionId) {
     if (!stripe || !subscriptionId) return 0;
     try {
@@ -2490,11 +2503,10 @@ export async function buildApp(options = {}) {
       // usa el asiento MEDIO: coste_mensual_flota / asientos. Se aplica como crédito
       // Stripe que se consume en la PRÓXIMA factura (no extiende trial_ends_at).
       const { data: tRow } = await supabase.from('tenants')
-        .select('stripe_customer_id, stripe_subscription_id, drivers_limit').eq('id', c.tenant_id).maybeSingle();
-      const subSeats = await subscriptionSeats(tRow?.stripe_subscription_id);
-      const seats = Math.max(1, subSeats || Number(tRow?.drivers_limit ?? 1));
-      const fleetM = await fleetMonthlyCents(tRow?.stripe_customer_id, tRow?.stripe_subscription_id);
-      const creditCents = Math.round(fleetM / seats);
+        .select('stripe_customer_id, stripe_subscription_id').eq('id', c.tenant_id).maybeSingle();
+      // Reto = 1 asiento medio · 1 mes = tarifa efectiva por asiento.
+      const { perSeatCents } = await fleetRate(tRow?.stripe_customer_id, tRow?.stripe_subscription_id);
+      const creditCents = perSeatCents;
       try {
         const now = new Date();
         const txnId = creditCents > 0
@@ -5119,7 +5131,10 @@ export async function buildApp(options = {}) {
       ? await supabase.from('tenants').select('stripe_customer_id, stripe_subscription_id').eq('id', refUser.tenant_id).maybeSingle()
       : { data: null };
     const customerId = refTenant?.stripe_customer_id ?? null;
-    const fleetM = paying ? await fleetMonthlyCents(customerId, refTenant?.stripe_subscription_id) : 0;
+    // Referido = N días de la FLOTA = tarifa efectiva/asiento × asientos actuales × N/30.
+    const refRate = paying ? await fleetRate(customerId, refTenant?.stripe_subscription_id) : { perSeatCents: 0 };
+    const refSeats = paying ? (await subscriptionSeats(refTenant?.stripe_subscription_id) || refRate.seatsCounted || 1) : 0;
+    const fleetM = refRate.perSeatCents * refSeats;
 
     // Conceder hitos alcanzados que aún no se hayan concedido (solo si de pago).
     for (const m of milestones) {

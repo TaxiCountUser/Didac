@@ -491,7 +491,9 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       final r = await _service.adminTestRewards(widget.tenantId, mode);
       final bal = (r['customer_balance_cents'] as num?)?.toInt() ?? 0;
       final fleet = (r['fleet_monthly_eur'] as num?)?.toDouble() ?? 0;
+      final perSeat = (r['per_seat_eur'] as num?)?.toDouble() ?? 0;
       final seats = (r['seats'] as num?)?.toInt() ?? 0;
+      final seatsCounted = (r['seats_counted'] as num?)?.toInt() ?? 0;
       final lines = ((r['fleet_lines'] as List?) ?? []).map((e) => '$e').toList();
       final deferred = mode == 'challenge'
           ? ((r['challenge'] as Map?)?['deferred'] as num?)?.toInt() ?? 0
@@ -506,7 +508,9 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
             width: double.maxFinite,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Cost flota: ${fleet.toStringAsFixed(2)}€/mes · $seats seients (Stripe)'),
+                Text('Tarifa: ${perSeat.toStringAsFixed(2)}€/seient·mes  (de $seatsCounted seients facturats)',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Cost flota: ${fleet.toStringAsFixed(2)}€/mes · $seats seients'),
                 if (r['drivers_limit'] != null && (r['drivers_limit'] as num).toInt() != seats)
                   Text('drivers_limit: ${r['drivers_limit']} (desincronitzat)',
                       style: const TextStyle(fontSize: 11, color: Colors.orange)),

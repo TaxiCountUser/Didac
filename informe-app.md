@@ -258,15 +258,18 @@ mantenimiento + administradores).
 > **Recompensas = CRÉDITO real en Stripe (mig. 075), no días de trial.** Antes las
 > recompensas extendían `trial_ends_at`, lo que para un cliente de PAGO no reducía nada
 > (Stripe factura igual). Ahora se aplican como **crédito al saldo del cliente** (customer
-> balance, negativo) que Stripe consume en su **próxima factura**. Valor a la **tarifa
-> efectiva por asiento del último pago** (neta de cupón), calculada con `fleetMonthlyCents`
-> = Σ de las LÍNEAS de factura pagadas cuyo `line.period` cubre hoy (`line.amount` ×
-> amount_paid/subtotal, / meses del tramo); si hay asientos a precios distintos, se suman
-> solos. OJO: el periodo de servicio vive en `line.period`, NO en el period_start/end de la
-> factura (en la 1a factura es un instante y perdía los asientos con cupón — bug corregido).
-> Además se filtra por la **suscripción activa** (`inv.subscription`): en cuentas de prueba
-> (subscribir/cancelar/resuscribir) quedaban facturas de subs viejas cuyo periodo aún cubría
-> hoy y, sumadas, inflaban el coste. El botón de prueba devuelve `fleet_lines` (desglose). **Reto** = 1 asiento·mes (`coste_flota/asientos`, asiento medio).
+> balance, negativo) que Stripe consume en su **próxima factura**. Valor vía `fleetRate`,
+> que devuelve la **tarifa efectiva por asiento** = Σ(aportación mensual de cada LÍNEA de
+> factura vigente de la suscripción activa: `line.amount`×`amount_paid/subtotal`/meses del
+> tramo) ÷ Σ(asientos de esas líneas). Es **consistente por construcción** (€ y asientos
+> salen de las MISMAS líneas), así que no importa que `drivers_limit`/quantity estén
+> desincronizados ni que haya facturas manuales sueltas (`reason=manual`, `sub=none`, que se
+> ignoran). **Reto** = tarifa/asiento. **Referido** = tarifa/asiento × asientos actuales
+> (`subscriptionSeats`, quantity real de Stripe) × N/30. Sutilezas Stripe aprendidas: el
+> periodo de servicio vive en `line.period` (no en `invoice.period_*`), `invoice.subscription`
+> está deprecado (se mira también `parent.subscription_details`), y sólo cuenta la suscripción
+> ACTIVA (las canceladas dejan facturas con periodo que aún cubre hoy). El botón de prueba
+> devuelve una traza (`fleet_lines`) factura a factura para verificar el cálculo. **Reto** = 1 asiento·mes (`coste_flota/asientos`, asiento medio).
 > **Referido** = N días de flota (`coste_flota × N/30`). Solo se aplican si el tenant ya PAGA
 > (en prueba se difieren hasta el primer pago). Se guarda `credit_cents` + `stripe_txn_id` por
 > recompensa (en `subscription_extensions` y `referral_milestone_rewards`) para idempotencia y
