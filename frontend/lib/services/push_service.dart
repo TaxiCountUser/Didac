@@ -177,6 +177,7 @@ class PushService {
           'token': token,
           'tenant_id': tenantId.isEmpty ? null : tenantId,
           'platform': defaultTargetPlatform.name,
+          'locale': localeController.value.languageCode,
         }),
       );
     } catch (_) {}

@@ -12,6 +12,7 @@ import { llmMapColumns } from './llm_parser.js';
 import { correctTranscript } from './corrections.js';
 import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
+import { pushText } from './push_i18n.js';
 import { handleStripeEvent, planForPrice } from './billing.js';
 import {
   fetchReportData,
@@ -1145,6 +1146,7 @@ export async function buildApp(options = {}) {
     const token = String(b.token ?? '').trim();
     if (!token) return reply.code(400).send({ error: 'Falta el token' });
     const platform = b.platform ? String(b.platform).slice(0, 40) : null;
+    const locale = b.locale ? String(b.locale).slice(0, 5).toLowerCase() : null;
     // El tenant SIEMPRE es el del llamante (no se acepta del body: evitar que se
     // marque el token con un tenant ajeno).
     const tenantId = caller.tenant_id ?? null;
@@ -1153,6 +1155,7 @@ export async function buildApp(options = {}) {
       tenant_id: tenantId,
       token,
       platform,
+      ...(locale ? { locale } : {}),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'token' });
     if (error) return reply.code(400).send({ error: error.message });
@@ -1184,7 +1187,7 @@ export async function buildApp(options = {}) {
       const preview = description.length > 120 ? `${description.slice(0, 117)}…` : description;
       const { data: admins } = await supabase.from('users').select('id').eq('is_admin', true);
       for (const a of admins ?? []) {
-        await notifyUser(a.id, '🐞 Nuevo informe de error', `${reporter}: ${preview}`,
+        await notifyUser(a.id, 'error_report_admin', { reporter, preview },
           { type: 'error_report', report_id: String(row?.id ?? '') });
       }
       if (caller.tenant_id) {
@@ -1192,8 +1195,7 @@ export async function buildApp(options = {}) {
           .select('id').eq('tenant_id', caller.tenant_id).eq('role', 'owner');
         for (const o of owners ?? []) {
           if (o.id === caller.id) continue;
-          await notifyUser(o.id, 'Informe de error enviado',
-            `${reporter} ha reportado un problema. El equipo de TaxiCount lo revisará.`,
+          await notifyUser(o.id, 'error_report_sent', { reporter },
             { type: 'error_report_copy', report_id: String(row?.id ?? '') });
         }
       }
@@ -1238,8 +1240,7 @@ export async function buildApp(options = {}) {
     await logAdminAction(request, g.caller.id, 'error_report_status', 'error_reports', row.id, { status });
     if (status === 'resolved' && row.user_id) {
       try {
-        await notifyUser(row.user_id, '✅ Informe resuelto',
-          'El problema que reportaste ha sido resuelto. ¡Gracias por avisar!',
+        await notifyUser(row.user_id, 'error_resolved', {},
           { type: 'error_report_resolved', report_id: String(row.id) });
       } catch { /* no-op */ }
     }
@@ -1702,7 +1703,7 @@ export async function buildApp(options = {}) {
     if (error) return reply.code(400).send({ error: error.message });
     // Avisa al autor del ticket (usuario de la empresa) de la respuesta de soporte.
     if (inc.user_id && inc.user_id !== g.caller.id) {
-      await notifyUser(inc.user_id, 'Respuesta de soporte', String(body).trim().slice(0, 140),
+      await notifyUser(inc.user_id, 'support_response', { text: String(body).trim().slice(0, 140) },
         { type: 'support', incidentId: request.params.id });
     }
     return reply.send({ ok: true });
@@ -2562,7 +2563,6 @@ export async function buildApp(options = {}) {
     if (kmLeft <= 1000) return 'km1000';
     return null;
   }
-  const _cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const _fmtD = (iso) => { const p = String(iso).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; };
 
   // Registra un aviso (vehicle,kind,ref,milestone). Devuelve true si es NUEVO
@@ -2622,18 +2622,10 @@ export async function buildApp(options = {}) {
         const m = dateMilestone(daysLeft);
         if (!m) continue;
         if (!await recordMaintReminder(v.id, kind, dueDate, m)) continue;
-        let title, body;
-        if (m === 'expired') {
-          title = '⚠️ Mantenimiento caducado';
-          body = `${label}: ${_cap(kindLabel)} venció el ${_fmtD(dueDate)}. Conviene renovarlo.`;
-        } else if (m === '0') {
-          title = '⏰ Mantenimiento: vence hoy';
-          body = `${label}: ${_cap(kindLabel)} vence hoy (${_fmtD(dueDate)}).`;
-        } else {
-          title = '⏰ Mantenimiento próximo';
-          body = `${label}: ${_cap(kindLabel)} vence en ${daysLeft} día(s) (${_fmtD(dueDate)}).`;
-        }
-        await notifyUsers(ownerIds, title, body, { type: 'maintenance', vehicleId: v.id });
+        const mKey = m === 'expired' ? 'maint_expired' : (m === '0' ? 'maint_today' : 'maint_soon');
+        await notifyUsers(ownerIds, mKey,
+          { label, kindKey: kind, date: _fmtD(dueDate), days: daysLeft },
+          { type: 'maintenance', vehicleId: v.id });
         sent++;
       }
 
@@ -2644,11 +2636,8 @@ export async function buildApp(options = {}) {
           const kmLeft = target - current;
           const m = kmMilestone(kmLeft);
           if (m && await recordMaintReminder(v.id, 'revision_km', String(target), m)) {
-            const title = '🔧 Revisión de mantenimiento';
-            const body = kmLeft > 0
-              ? `${label}: faltan ~${kmLeft} km para la próxima revisión (a los ${target} km).`
-              : `${label}: toca revisión (has superado los ${target} km).`;
-            await notifyUsers(ownerIds, title, body, { type: 'maintenance', vehicleId: v.id });
+            await notifyUsers(ownerIds, kmLeft > 0 ? 'maint_revision_soon' : 'maint_revision_due',
+              { label, km: kmLeft, target }, { type: 'maintenance', vehicleId: v.id });
             sent++;
           }
         }
@@ -2818,22 +2807,23 @@ export async function buildApp(options = {}) {
     const senderName = me?.display_name || me?.name || me?.email || '';
 
     let recipientIds;
-    let title;
+    let chatKey;
     if (caller.role === 'owner') {
       // Jefe -> ese conductor. Muestra el NOMBRE del jefe, no "tu jefe".
       recipientIds = [driverId];
-      title = senderName ? `Mensaje de ${senderName}` : 'Mensaje de tu jefe';
+      chatKey = senderName ? 'chat_from' : 'chat_from_boss';
     } else {
       // Conductor -> jefe(s) de su tenant.
       const { data: owners } = await supabase.from('users')
         .select('id').eq('tenant_id', caller.tenant_id).eq('role', 'owner');
       recipientIds = (owners || []).map((o) => o.id);
-      title = senderName ? `Mensaje de ${senderName}` : 'Mensaje de un conductor';
+      chatKey = senderName ? 'chat_from' : 'chat_from_driver';
     }
     recipientIds = (recipientIds || []).filter((id) => id && id !== caller.id);
-    // driverName solo es útil cuando escribe el conductor (para que el jefe abra
-    // el chat con su nombre); el conductor que recibe lo ignora.
-    await notifyUsers(recipientIds, title, text,
+    // El cuerpo es el texto tal cual escrito (no se traduce); el título sí. driverName
+    // solo es útil cuando escribe el conductor (para que el jefe abra el chat con su
+    // nombre); el conductor que recibe lo ignora.
+    await notifyUsers(recipientIds, chatKey, { name: senderName, text },
       { type: 'fleet', driverId, driverName: caller.role === 'owner' ? '' : senderName });
     return reply.send({ ok: true, push: true });
   });
@@ -5012,12 +5002,35 @@ export async function buildApp(options = {}) {
   // ============================================================
 
   // Envía una notificación push a un usuario (busca sus tokens en device_tokens).
-  async function notifyUser(userId, title, body, data = {}) {
-    return notifyUsers([userId], title, body, data);
+  async function notifyUser(userId, key, args = {}, data = {}) {
+    return notifyUsers([userId], key, args, data);
   }
 
-  // Igual pero a varios usuarios a la vez (p. ej. todos los admins de plataforma).
-  async function notifyUsers(userIds, title, body, data = {}) {
+  // Notificación LOCALIZADA: `key` + `args` (ver push_i18n.js). Agrupa los tokens
+  // de los destinatarios por idioma (device_tokens.locale) y traduce el texto para
+  // cada grupo, porque el SO muestra la push con la app cerrada (traducción en el
+  // servidor). Para textos ya construidos que NO se traducen, usar notifyUsersRaw.
+  async function notifyUsers(userIds, key, args = {}, data = {}) {
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    if (!ids.length || !pushEnabled()) return;
+    const { data: toks } = await supabase.from('device_tokens').select('token, locale').in('user_id', ids);
+    if (!toks?.length) return;
+    const byLocale = {};
+    for (const t of toks) (byLocale[t.locale || 'es'] ||= []).push(t.token);
+    let anyAttempt = false; let anyOk = true; const invalid = [];
+    for (const [loc, tokens] of Object.entries(byLocale)) {
+      const { title, body } = pushText(loc, key, args);
+      const result = await sendToTokens(tokens, { title, body, data }, app.log);
+      if (result.attempted) { anyAttempt = true; anyOk = anyOk && result.ok; }
+      if (result.invalidTokens?.length) invalid.push(...result.invalidTokens);
+    }
+    if (anyAttempt) markService('push', anyOk);
+    if (invalid.length) await supabase.from('device_tokens').delete().in('token', invalid);
+  }
+
+  // Igual pero con title/body YA construidos (sin traducir): para avisos internos
+  // de plataforma (alertas de límites a los admins), donde el texto es dinámico.
+  async function notifyUsersRaw(userIds, title, body, data = {}) {
     const ids = [...new Set((userIds || []).filter(Boolean))];
     if (!ids.length || !pushEnabled()) return;
     const { data: toks } = await supabase.from('device_tokens').select('token').in('user_id', ids);
@@ -5025,7 +5038,7 @@ export async function buildApp(options = {}) {
     if (!tokens.length) return;
     const result = await sendToTokens(tokens, { title, body, data }, app.log);
     if (result.attempted) markService('push', result.ok);
-    if (result.invalidTokens.length) {
+    if (result.invalidTokens?.length) {
       await supabase.from('device_tokens').delete().in('token', result.invalidTokens);
     }
   }
@@ -5053,7 +5066,7 @@ export async function buildApp(options = {}) {
       if (Date.now() - last < 6 * 60 * 60 * 1000) return;
       await supabase.from('system_config').upsert(
         { key: mark, value: String(Date.now()) }, { onConflict: 'key' });
-      await notifyUsers(await platformAdminIds(), title, bodyFn(s), { type: 'limit', metric: key });
+      await notifyUsersRaw(await platformAdminIds(), title, bodyFn(s), { type: 'limit', metric: key });
     } catch (e) { app.log.warn(`[alert-limit ${key}] ${e.message}`); }
   }
 
@@ -5110,8 +5123,8 @@ export async function buildApp(options = {}) {
         });
         if (award > 0) {
           annualDays += award;
-          await notifyUser(referrerUserId, '🎉 ¡Has ganado un descuento!',
-            `Hito ${m.level} conseguido: ${(creditCents / 100).toFixed(2)}€ de descuento en tu próxima factura. ¡Sigue invitando!`,
+          await notifyUser(referrerUserId, 'referral_discount',
+            { level: m.level, eur: (creditCents / 100).toFixed(2) },
             { type: 'referral_milestone', level: m.level });
         }
         app.log.info(`[referral] hito ${m.level} concedido a ${referrerUserId} (+${award} días, ${creditCents}c)`);
@@ -5258,8 +5271,7 @@ export async function buildApp(options = {}) {
           app.log.warn(`[referral] hitos de ${ref.id}: ${e.message}`);
         }
         if (ref.referrer_user_id) {
-          await notifyUser(ref.referrer_user_id, '🎉 ¡Invitación validada!',
-            'Tu invitado sigue de alta tras 15 días. Revisa tus días gratis por referidos.',
+          await notifyUser(ref.referrer_user_id, 'referral_validated', {},
             { type: 'referral_validated' });
         }
         validated++;
