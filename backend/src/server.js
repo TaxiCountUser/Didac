@@ -2383,45 +2383,36 @@ export async function buildApp(options = {}) {
     let monthly = 0;
     try {
       for await (const inv of stripe.invoices.list({ customer: customerId, status: 'paid', limit: 100 })) {
-        // Solo la suscripción ACTIVA actual: en cuentas de prueba (subscribir /
-        // cancelar / resuscribir) quedan facturas de subs VIEJAS cuyo periodo aún
-        // "cubre hoy" y, sumadas, inflaban el coste (bug: daba 23,75 en vez de 10).
-        const invSub = typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id;
-        if (subscriptionId && invSub && invSub !== subscriptionId) continue;
-        // Factor neto: cuánto se pagó de verdad respecto al subtotal. Recoge el
-        // cupón, que en Stripe es a nivel de FACTURA (no de línea), repartido
-        // proporcionalmente entre sus líneas.
+        // `subscription` a nivel factura está deprecado en API nuevas: la suscripción
+        // real puede vivir en inv.parent.subscription_details.subscription o en las
+        // líneas (line.subscription / line.parent...). Miramos todas las fuentes.
+        const invSub = (typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id)
+          ?? inv.parent?.subscription_details?.subscription
+          ?? (inv.lines?.data ?? []).map((l) => (typeof l.subscription === 'string' ? l.subscription : l.subscription?.id)
+              ?? l.parent?.subscription_item_details?.subscription).find(Boolean);
+        // Solo la suscripción ACTIVA: en cuentas de prueba quedan facturas de subs
+        // viejas cuyo periodo aún "cubre hoy" y, sumadas, inflaban el coste.
+        const subOk = !subscriptionId || !invSub || invSub === subscriptionId;
         const subtotal = inv.subtotal || 0;
         const netRatio = subtotal > 0 ? (inv.amount_paid || 0) / subtotal : 0;
-        if (netRatio <= 0) continue;
-        // OJO: el periodo de SERVICIO vive en las LÍNEAS (line.period). El
-        // period_start/end a nivel de factura NO sirve: en la 1a factura de una
-        // suscripción es un instante (start==end) y la descartaría (bug real:
-        // con 2 asientos con cupón + 3 a precio pleno solo contaba los 3).
+        if (details) details.push(`INV ${inv.number ?? inv.id} paid=${((inv.amount_paid || 0) / 100).toFixed(2)} reason=${inv.billing_reason ?? '?'} sub=${invSub ? invSub.slice(-6) : 'none'} subOk=${subOk} net=${netRatio.toFixed(2)}`);
+        if (!subOk || netRatio <= 0) continue;
         for (const line of inv.lines?.data ?? []) {
+          // El periodo de SERVICIO vive en las LÍNEAS (line.period), no en la factura.
           const ps = line.period?.start;
           const pe = line.period?.end;
-          if (!ps || !pe || pe <= ps) continue;
-          if (!(ps <= nowS && nowS < pe)) continue; // solo tramos VIGENTES hoy
-          // Meses del tramo: exacto por fechas, redondeado al entero si está
-          // cerca (mes de 28-31 días -> 1, año 365-366 -> 12) para que las
-          // cifras cuadren con lo que el usuario calcula a mano.
-          let months = (pe - ps) / (30.44 * 86400);
+          const covers = !!(ps && pe && pe > ps && ps <= nowS && nowS < pe);
+          let months = (ps && pe && pe > ps) ? (pe - ps) / (30.44 * 86400) : 0;
           const snap = Math.round(months);
           if (snap >= 1 && Math.abs(months - snap) / snap < 0.08) months = snap;
-          if (months <= 0) continue;
-          const contrib = ((line.amount || 0) * netRatio) / months;
+          const contrib = (covers && months > 0) ? ((line.amount || 0) * netRatio) / months : 0;
           monthly += contrib;
-          if (details) details.push({
-            inv: inv.number ?? inv.id, sub: invSub ?? null, qty: line.quantity ?? null,
-            line_amount_eur: +((line.amount || 0) / 100).toFixed(2),
-            net_ratio: +netRatio.toFixed(3), months: +months.toFixed(2),
-            contrib_eur: +(contrib / 100).toFixed(2),
-          });
+          if (details) details.push(`  ln qty=${line.quantity ?? '?'} amt=${((line.amount || 0) / 100).toFixed(2)} covers=${covers} m=${months.toFixed(1)} -> ${(contrib / 100).toFixed(2)}`);
         }
       }
     } catch (e) {
       app.log.warn(`[reward] fleetMonthlyCents ${customerId}: ${e.message}`);
+      if (details) details.push(`ERROR ${e.message}`);
       return 0;
     }
     return Math.round(monthly);
