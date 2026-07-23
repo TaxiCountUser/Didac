@@ -258,18 +258,17 @@ mantenimiento + administradores).
 > **Recompensas = CRÉDITO real en Stripe (mig. 075), no días de trial.** Antes las
 > recompensas extendían `trial_ends_at`, lo que para un cliente de PAGO no reducía nada
 > (Stripe factura igual). Ahora se aplican como **crédito al saldo del cliente** (customer
-> balance, negativo) que Stripe consume en su **próxima factura**. Valor vía `fleetRate`,
-> que devuelve la **tarifa efectiva por asiento** = Σ(aportación mensual de cada LÍNEA de
-> factura vigente de la suscripción activa: `line.amount`×`amount_paid/subtotal`/meses del
-> tramo) ÷ Σ(asientos de esas líneas). Es **consistente por construcción** (€ y asientos
-> salen de las MISMAS líneas), así que no importa que `drivers_limit`/quantity estén
-> desincronizados ni que haya facturas manuales sueltas (`reason=manual`, `sub=none`, que se
-> ignoran). **Reto** = tarifa/asiento. **Referido** = tarifa/asiento × asientos actuales
-> (`subscriptionSeats`, quantity real de Stripe) × N/30. Sutilezas Stripe aprendidas: el
-> periodo de servicio vive en `line.period` (no en `invoice.period_*`), `invoice.subscription`
-> está deprecado (se mira también `parent.subscription_details`), y sólo cuenta la suscripción
-> ACTIVA (las canceladas dejan facturas con periodo que aún cubre hoy). El botón de prueba
-> devuelve una traza (`fleet_lines`) factura a factura para verificar el cálculo. **Reto** = 1 asiento·mes (`coste_flota/asientos`, asiento medio).
+> balance, negativo) que Stripe consume en su **próxima factura**. Valor vía `seatBaseRate`,
+> que lee el **precio BASE por asiento** de la suscripción (`item.price.unit_amount`,
+> normalizado a mes) y su `quantity`. **Reto** = 1 asiento·mes a precio base. **Referido** =
+> precio base/asiento × asientos × N/30. **Decisión de diseño (justicia + margen):** el valor
+> es a precio BASE e **INDEPENDIENTE de cupones** (el cupón reduce la factura del cliente
+> aparte). Motivo: si se valorara neto de cupón, quien pusiera el cupón DESPUÉS de ganar la
+> recompensa saldría mejor que quien ya lo tenía → exploit de timing. A precio base la
+> recompensa vale lo mismo para todos y cuesta a la plataforma un asiento·mes fijo y
+> predecible. Como lee `unit_amount`, **subir el precio no requiere cambios**: cada cliente
+> usa el suyo (Stripe lo mantiene hasta migrar; los nuevos cogen el nuevo). Nota de negocio
+> pendiente: la comisión de Stripe no se descuenta de las cifras de Facturación (bruto). **Reto** = 1 asiento·mes (`coste_flota/asientos`, asiento medio).
 > **Referido** = N días de flota (`coste_flota × N/30`). Solo se aplican si el tenant ya PAGA
 > (en prueba se difieren hasta el primer pago). Se guarda `credit_cents` + `stripe_txn_id` por
 > recompensa (en `subscription_extensions` y `referral_milestone_rewards`) para idempotencia y

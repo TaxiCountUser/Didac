@@ -493,8 +493,6 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       final fleet = (r['fleet_monthly_eur'] as num?)?.toDouble() ?? 0;
       final perSeat = (r['per_seat_eur'] as num?)?.toDouble() ?? 0;
       final seats = (r['seats'] as num?)?.toInt() ?? 0;
-      final seatsCounted = (r['seats_counted'] as num?)?.toInt() ?? 0;
-      final lines = ((r['fleet_lines'] as List?) ?? []).map((e) => '$e').toList();
       final deferred = mode == 'challenge'
           ? ((r['challenge'] as Map?)?['deferred'] as num?)?.toInt() ?? 0
           : 0;
@@ -504,25 +502,13 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(mode == 'challenge' ? l.t('adm_test_challenge') : l.t('adm_test_referrals')),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Tarifa: ${perSeat.toStringAsFixed(2)}€/seient·mes  (de $seatsCounted seients facturats)',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('Cost flota: ${fleet.toStringAsFixed(2)}€/mes · $seats seients'),
-                if (r['drivers_limit'] != null && (r['drivers_limit'] as num).toInt() != seats)
-                  Text('drivers_limit: ${r['drivers_limit']} (desincronitzat)',
-                      style: const TextStyle(fontSize: 11, color: Colors.orange)),
-                Text('Saldo Stripe: ${(-bal / 100).toStringAsFixed(2)}€ de crèdit'),
-                if (deferred > 0) Text(l.t('adm_test_deferred')),
-                const SizedBox(height: 8),
-                const Text('Traça (factures/línies):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                for (final ln in lines)
-                  Text(ln, style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
-              ]),
-            ),
-          ),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Preu base: ${perSeat.toStringAsFixed(2)}€/seient·mes',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('Flota: ${fleet.toStringAsFixed(2)}€/mes · $seats seients'),
+            Text('Saldo Stripe: ${(-bal / 100).toStringAsFixed(2)}€ de crèdit'),
+            if (deferred > 0) Text(l.t('adm_test_deferred')),
+          ]),
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close')))],
         ),
       );
