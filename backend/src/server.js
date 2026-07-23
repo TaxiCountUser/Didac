@@ -2225,7 +2225,7 @@ export async function buildApp(options = {}) {
     const out = { ok: true, mode };
 
     const { data: tenant } = await supabase.from('tenants')
-      .select('id, stripe_customer_id').eq('id', id).maybeSingle();
+      .select('id, stripe_customer_id, stripe_subscription_id, drivers_limit').eq('id', id).maybeSingle();
     if (!tenant) return reply.code(404).send({ error: 'Empresa no encontrada' });
 
     if (mode === 'challenge') {
@@ -2258,8 +2258,16 @@ export async function buildApp(options = {}) {
       return reply.code(400).send({ error: 'mode debe ser challenge o referrals' });
     }
 
-    // Saldo actual del cliente en Stripe (negativo = crédito pendiente de consumir).
+    // Desglose de la tarifa de flota (debug): qué líneas de factura cuenta y su
+    // aportación mensual, para verificar el cálculo del crédito.
     if (stripe && tenant.stripe_customer_id) {
+      const fleetDbg = [];
+      out.fleet_monthly_eur = +(
+        (await fleetMonthlyCents(tenant.stripe_customer_id, tenant.stripe_subscription_id, fleetDbg)) / 100
+      ).toFixed(2);
+      out.seats = tenant.drivers_limit;
+      out.fleet_lines = fleetDbg;
+      // Saldo actual del cliente (negativo = crédito pendiente de consumir).
       try {
         const cust = await stripe.customers.retrieve(tenant.stripe_customer_id);
         out.customer_balance_cents = cust?.balance ?? 0;
@@ -2368,12 +2376,17 @@ export async function buildApp(options = {}) {
   // prorrateo), se SUMAN automáticamente sin reconstruir historial por asiento. Es la
   // base de las recompensas: reto = 1 asiento·mes; referido = N días de flota.
   // Devuelve 0 si no hay factura vigente (p. ej. en prueba, sin suscripción todavía).
-  async function fleetMonthlyCents(customerId) {
+  async function fleetMonthlyCents(customerId, subscriptionId = null, details = null) {
     if (!stripe || !customerId) return 0;
     const nowS = Math.floor(Date.now() / 1000);
     let monthly = 0;
     try {
       for await (const inv of stripe.invoices.list({ customer: customerId, status: 'paid', limit: 100 })) {
+        // Solo la suscripción ACTIVA actual: en cuentas de prueba (subscribir /
+        // cancelar / resuscribir) quedan facturas de subs VIEJAS cuyo periodo aún
+        // "cubre hoy" y, sumadas, inflaban el coste (bug: daba 23,75 en vez de 10).
+        const invSub = typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id;
+        if (subscriptionId && invSub && invSub !== subscriptionId) continue;
         // Factor neto: cuánto se pagó de verdad respecto al subtotal. Recoge el
         // cupón, que en Stripe es a nivel de FACTURA (no de línea), repartido
         // proporcionalmente entre sus líneas.
@@ -2396,7 +2409,14 @@ export async function buildApp(options = {}) {
           const snap = Math.round(months);
           if (snap >= 1 && Math.abs(months - snap) / snap < 0.08) months = snap;
           if (months <= 0) continue;
-          monthly += ((line.amount || 0) * netRatio) / months;
+          const contrib = ((line.amount || 0) * netRatio) / months;
+          monthly += contrib;
+          if (details) details.push({
+            inv: inv.number ?? inv.id, sub: invSub ?? null,
+            line_amount_eur: +((line.amount || 0) / 100).toFixed(2),
+            net_ratio: +netRatio.toFixed(3), months: +months.toFixed(2),
+            contrib_eur: +(contrib / 100).toFixed(2),
+          });
         }
       }
     } catch (e) {
@@ -2463,9 +2483,9 @@ export async function buildApp(options = {}) {
       // usa el asiento MEDIO: coste_mensual_flota / asientos. Se aplica como crédito
       // Stripe que se consume en la PRÓXIMA factura (no extiende trial_ends_at).
       const { data: tRow } = await supabase.from('tenants')
-        .select('stripe_customer_id, drivers_limit').eq('id', c.tenant_id).maybeSingle();
+        .select('stripe_customer_id, stripe_subscription_id, drivers_limit').eq('id', c.tenant_id).maybeSingle();
       const seats = Math.max(1, Number(tRow?.drivers_limit ?? 1));
-      const fleetM = await fleetMonthlyCents(tRow?.stripe_customer_id);
+      const fleetM = await fleetMonthlyCents(tRow?.stripe_customer_id, tRow?.stripe_subscription_id);
       const creditCents = Math.round(fleetM / seats);
       try {
         const now = new Date();
@@ -5088,10 +5108,10 @@ export async function buildApp(options = {}) {
       .select('tenant_id').eq('id', referrerUserId).maybeSingle();
     const paying = refUser?.tenant_id ? await tenantIsPaying(refUser.tenant_id) : false;
     const { data: refTenant } = refUser?.tenant_id
-      ? await supabase.from('tenants').select('stripe_customer_id').eq('id', refUser.tenant_id).maybeSingle()
+      ? await supabase.from('tenants').select('stripe_customer_id, stripe_subscription_id').eq('id', refUser.tenant_id).maybeSingle()
       : { data: null };
     const customerId = refTenant?.stripe_customer_id ?? null;
-    const fleetM = paying ? await fleetMonthlyCents(customerId) : 0;
+    const fleetM = paying ? await fleetMonthlyCents(customerId, refTenant?.stripe_subscription_id) : 0;
 
     // Conceder hitos alcanzados que aún no se hayan concedido (solo si de pago).
     for (const m of milestones) {

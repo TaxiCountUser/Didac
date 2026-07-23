@@ -490,17 +490,31 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     try {
       final r = await _service.adminTestRewards(widget.tenantId, mode);
       final bal = (r['customer_balance_cents'] as num?)?.toInt() ?? 0;
-      final n = mode == 'challenge'
-          ? ((r['challenge'] as Map?)?['rewarded'] as num?)?.toInt() ?? 0
-          : ((r['referral'] as Map?)?['validated'] as num?)?.toInt() ?? 0;
+      final fleet = (r['fleet_monthly_eur'] as num?)?.toDouble() ?? 0;
+      final seats = (r['seats'] as num?)?.toInt() ?? 0;
+      final lines = ((r['fleet_lines'] as List?) ?? []).cast<Map<String, dynamic>>();
       final deferred = mode == 'challenge'
           ? ((r['challenge'] as Map?)?['deferred'] as num?)?.toInt() ?? 0
           : 0;
-      final balEur = (-bal / 100).toStringAsFixed(2);
-      await _toast(deferred > 0
-          ? l.t('adm_test_deferred')
-          : l.t('adm_test_done', {'n': '$n', 'bal': balEur}));
       _reload();
+      if (!mounted) return;
+      await showAdminDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(mode == 'challenge' ? l.t('adm_test_challenge') : l.t('adm_test_referrals')),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Cost flota: ${fleet.toStringAsFixed(2)}€/mes · $seats seients'),
+            Text('Saldo Stripe: ${(-bal / 100).toStringAsFixed(2)}€ de crèdit'),
+            if (deferred > 0) Text(l.t('adm_test_deferred')),
+            const SizedBox(height: 8),
+            const Text('Línies comptades:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            for (final ln in lines)
+              Text('· ${ln['line_amount_eur']}€ ×${ln['net_ratio']} /${ln['months']}m = ${ln['contrib_eur']}€/mes',
+                  style: const TextStyle(fontSize: 11)),
+          ]),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close')))],
+        ),
+      );
     } catch (e) {
       await _toast('Error: ${e.toString().replaceFirst('Exception: ', '')}');
     }
