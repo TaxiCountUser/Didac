@@ -2265,7 +2265,8 @@ export async function buildApp(options = {}) {
       out.fleet_monthly_eur = +(
         (await fleetMonthlyCents(tenant.stripe_customer_id, tenant.stripe_subscription_id, fleetDbg)) / 100
       ).toFixed(2);
-      out.seats = tenant.drivers_limit;
+      out.seats = (await subscriptionSeats(tenant.stripe_subscription_id)) || tenant.drivers_limit;
+      out.drivers_limit = tenant.drivers_limit;
       out.fleet_lines = fleetDbg;
       // Saldo actual del cliente (negativo = crédito pendiente de consumir).
       try {
@@ -2412,7 +2413,7 @@ export async function buildApp(options = {}) {
           const contrib = ((line.amount || 0) * netRatio) / months;
           monthly += contrib;
           if (details) details.push({
-            inv: inv.number ?? inv.id, sub: invSub ?? null,
+            inv: inv.number ?? inv.id, sub: invSub ?? null, qty: line.quantity ?? null,
             line_amount_eur: +((line.amount || 0) / 100).toFixed(2),
             net_ratio: +netRatio.toFixed(3), months: +months.toFixed(2),
             contrib_eur: +(contrib / 100).toFixed(2),
@@ -2424,6 +2425,21 @@ export async function buildApp(options = {}) {
       return 0;
     }
     return Math.round(monthly);
+  }
+
+  // Nº de asientos REALES de la suscripción activa (fuente de verdad = Stripe, no
+  // drivers_limit, que en cuentas de prueba puede quedar desincronizado). Se usa
+  // para el reto (1 asiento medio = coste_flota / asientos), consistente con lo que
+  // fleetMonthlyCents cuenta de esa misma suscripción.
+  async function subscriptionSeats(subscriptionId) {
+    if (!stripe || !subscriptionId) return 0;
+    try {
+      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      return (sub.items?.data ?? []).reduce((s, it) => s + (it.quantity ?? 0), 0);
+    } catch (e) {
+      app.log.warn(`[reward] subscriptionSeats ${subscriptionId}: ${e.message}`);
+      return 0;
+    }
   }
 
   // Crédito de recompensa: aplica un saldo NEGATIVO al cliente en Stripe, que se
@@ -2484,7 +2500,8 @@ export async function buildApp(options = {}) {
       // Stripe que se consume en la PRÓXIMA factura (no extiende trial_ends_at).
       const { data: tRow } = await supabase.from('tenants')
         .select('stripe_customer_id, stripe_subscription_id, drivers_limit').eq('id', c.tenant_id).maybeSingle();
-      const seats = Math.max(1, Number(tRow?.drivers_limit ?? 1));
+      const subSeats = await subscriptionSeats(tRow?.stripe_subscription_id);
+      const seats = Math.max(1, subSeats || Number(tRow?.drivers_limit ?? 1));
       const fleetM = await fleetMonthlyCents(tRow?.stripe_customer_id, tRow?.stripe_subscription_id);
       const creditCents = Math.round(fleetM / seats);
       try {

@@ -503,13 +503,16 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         builder: (ctx) => AlertDialog(
           title: Text(mode == 'challenge' ? l.t('adm_test_challenge') : l.t('adm_test_referrals')),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Cost flota: ${fleet.toStringAsFixed(2)}€/mes · $seats seients'),
+            Text('Cost flota: ${fleet.toStringAsFixed(2)}€/mes · $seats seients (Stripe)'),
+            if (r['drivers_limit'] != null && (r['drivers_limit'] as num).toInt() != seats)
+              Text('drivers_limit: ${r['drivers_limit']} (desincronitzat)',
+                  style: const TextStyle(fontSize: 11, color: Colors.orange)),
             Text('Saldo Stripe: ${(-bal / 100).toStringAsFixed(2)}€ de crèdit'),
             if (deferred > 0) Text(l.t('adm_test_deferred')),
             const SizedBox(height: 8),
             const Text('Línies comptades:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             for (final ln in lines)
-              Text('· ${ln['line_amount_eur']}€ ×${ln['net_ratio']} /${ln['months']}m = ${ln['contrib_eur']}€/mes',
+              Text('· ${ln['line_amount_eur']}€ (×${ln['qty']} pl) ×${ln['net_ratio']} /${ln['months']}m = ${ln['contrib_eur']}€/mes',
                   style: const TextStyle(fontSize: 11)),
           ]),
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close')))],
