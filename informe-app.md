@@ -260,8 +260,10 @@ mantenimiento + administradores).
 > (Stripe factura igual). Ahora se aplican como **crédito al saldo del cliente** (customer
 > balance, negativo) que Stripe consume en su **próxima factura**. Valor a la **tarifa
 > efectiva por asiento del último pago** (neta de cupón), calculada con `fleetMonthlyCents`
-> = Σ de las facturas pagadas VIGENTES hoy (`amount_paid`/meses); si hay asientos a precios
-> distintos, se suman solos. **Reto** = 1 asiento·mes (`coste_flota/asientos`, asiento medio).
+> = Σ de las LÍNEAS de factura pagadas cuyo `line.period` cubre hoy (`line.amount` ×
+> amount_paid/subtotal, / meses del tramo); si hay asientos a precios distintos, se suman
+> solos. OJO: el periodo de servicio vive en `line.period`, NO en el period_start/end de la
+> factura (en la 1a factura es un instante y perdía los asientos con cupón — bug corregido). **Reto** = 1 asiento·mes (`coste_flota/asientos`, asiento medio).
 > **Referido** = N días de flota (`coste_flota × N/30`). Solo se aplican si el tenant ya PAGA
 > (en prueba se difieren hasta el primer pago). Se guarda `credit_cents` + `stripe_txn_id` por
 > recompensa (en `subscription_extensions` y `referral_milestone_rewards`) para idempotencia y

@@ -2374,12 +2374,30 @@ export async function buildApp(options = {}) {
     let monthly = 0;
     try {
       for await (const inv of stripe.invoices.list({ customer: customerId, status: 'paid', limit: 100 })) {
-        const ps = inv.period_start ?? inv.lines?.data?.[0]?.period?.start;
-        const pe = inv.period_end ?? inv.lines?.data?.[0]?.period?.end;
-        if (!ps || !pe || pe <= ps) continue;
-        if (!(ps <= nowS && nowS < pe)) continue; // solo facturas VIGENTES hoy
-        const months = Math.max(1, Math.round((pe - ps) / (30.44 * 86400)));
-        monthly += (inv.amount_paid || 0) / months;
+        // Factor neto: cuánto se pagó de verdad respecto al subtotal. Recoge el
+        // cupón, que en Stripe es a nivel de FACTURA (no de línea), repartido
+        // proporcionalmente entre sus líneas.
+        const subtotal = inv.subtotal || 0;
+        const netRatio = subtotal > 0 ? (inv.amount_paid || 0) / subtotal : 0;
+        if (netRatio <= 0) continue;
+        // OJO: el periodo de SERVICIO vive en las LÍNEAS (line.period). El
+        // period_start/end a nivel de factura NO sirve: en la 1a factura de una
+        // suscripción es un instante (start==end) y la descartaría (bug real:
+        // con 2 asientos con cupón + 3 a precio pleno solo contaba los 3).
+        for (const line of inv.lines?.data ?? []) {
+          const ps = line.period?.start;
+          const pe = line.period?.end;
+          if (!ps || !pe || pe <= ps) continue;
+          if (!(ps <= nowS && nowS < pe)) continue; // solo tramos VIGENTES hoy
+          // Meses del tramo: exacto por fechas, redondeado al entero si está
+          // cerca (mes de 28-31 días -> 1, año 365-366 -> 12) para que las
+          // cifras cuadren con lo que el usuario calcula a mano.
+          let months = (pe - ps) / (30.44 * 86400);
+          const snap = Math.round(months);
+          if (snap >= 1 && Math.abs(months - snap) / snap < 0.08) months = snap;
+          if (months <= 0) continue;
+          monthly += ((line.amount || 0) * netRatio) / months;
+        }
       }
     } catch (e) {
       app.log.warn(`[reward] fleetMonthlyCents ${customerId}: ${e.message}`);
