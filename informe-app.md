@@ -151,6 +151,7 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 | `importer.js` | Importación de Excel/CSV heredado. |
 | `push.js` | Envío FCM (`sendToTokens`, con estado `attempted/ok` para el semáforo). |
 | `push_i18n.js` | i18n de las notificaciones push (es/en/ca). El SO muestra la push con la app cerrada → **el texto se traduce en el backend**: `notifyUsers(ids, key, args, data)` agrupa los tokens por `device_tokens.locale` (que la app sincroniza al registrar el token) y llama `pushText(locale, key, args)` por grupo. `notifyUsersRaw` para avisos internos ya construidos (límites a admins). Mig. 076 añade `device_tokens.locale`. |
+| **Logs de seguridad (capa B)** | `logSecurityEvent(request, type, opts)` → tabla `security_events` (mig. 077): escalada de privilegios (403 en `adminGuard`), rate-limit 429, token inválido (`getCaller`), login por usuario fallido. Guarda **metadatos** (ip, user_agent, method, path, status, `trace_id` = `request.id`, details) — **NUNCA el cuerpo/headers** (evita secretos/PII). Throttle por IP para no inundar. Lista en `GET /admin/security/events` (filtros type/from/to + paginación). UI: pestaña **Logs** dentro del módulo Auditoría. Logins de email/Google (Supabase Auth) → **2ª fase**. WAF (Cloudflare) → pendiente para cuando haya tenants de pago. |
 
 ### 4.3 Panel de administración (tema oscuro "N")
 Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),

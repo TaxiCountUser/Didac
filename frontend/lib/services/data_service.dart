@@ -733,6 +733,19 @@ class DataService {
     return body;
   }
 
+  /// Logs de SEGURIDAD (capa B): escaladas, rate-limit, tokens, logins (solo admin).
+  Future<Map<String, dynamic>> adminSecurityEvents({String? eventType, String? from, String? to, int limit = 50, int offset = 0}) async {
+    final qp = <String, String>{'limit': '$limit', 'offset': '$offset'};
+    if (eventType != null && eventType.isNotEmpty) qp['event_type'] = eventType;
+    if (from != null && from.isNotEmpty) qp['from'] = from;
+    if (to != null && to.isNotEmpty) qp['to'] = to;
+    final uri = Uri.parse('$backendUrl/api/v1/admin/security/events').replace(queryParameters: qp);
+    final res = await http.get(uri, headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
   /// Estado (log) de todos los semáforos de la plataforma (solo admin).
   Future<List<Map<String, dynamic>>> adminSemaphores() async {
     final res = await http.get(

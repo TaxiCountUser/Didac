@@ -20,7 +20,7 @@ El graf del projecte viu a `graphify-out/`. En lloc d'obrir fitxers per entendre
 - APK: **NOMÉS quan l'usuari ho demani explícitament**. No fer builds per iniciativa.
 
 ## Backend — `backend/src/`
-Mòduls germans ja extrets (llegeix-los directes, són petits): `billing.js` (webhook Stripe / `handleStripeEvent`), `parser.js`, `llm_parser.js`, `push.js`, `reports.js`, `importer.js`, `corrections.js`.
+Mòduls germans ja extrets (llegeix-los directes, són petits): `billing.js` (webhook Stripe / `handleStripeEvent`), `parser.js`, `llm_parser.js`, `push.js`, `push_i18n.js` (traduccions de les push, es/en/ca), `reports.js`, `importer.js`, `corrections.js`.
 Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (estables; les línies deriven):
 | Domini | Àncora `grep` |
 |---|---|
@@ -36,13 +36,15 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Stripe Customer Portal | `Stripe Customer Portal` |
 | Reptes | `INCREMENTAL: el progreso` |
 | Referits | `Solo invitan owners` |
-| Push (incidència / xat) | `Notificación push` |
+| Push (localitzada) | `notifyUsers` · `logSecurityEvent` (events seguretat) |
+| Recompenses (crèdit Stripe) | `seatBaseRate` · `applyRewardCredit` · `test-rewards` |
+| Logs de seguretat (capa B) | `logSecurityEvent` · `/admin/security/events` |
 | Informes Excel/PDF · Import | `Informes Excel` · `Importar Excel/CSV` |
 
 ## Frontend — `frontend/lib/`
 - **i18n**: `app_localizations.dart` és un mapa `_values` (es/en/ca). NO el llegeixis sencer — `Grep` la clau (p.ex. `adm_coup_edit`) i edita el bloc. Ús: `context.l10n.t('key',{args})`. Apòstrofs catalans escapats `\'`.
 - **Kit UI admin**: `screens/admin_theme.dart` (`AdminColors`, `adminAppBar`, `adminRowsCard`, `adminSectionTitle`, `AdminKpiTile`, `AdminPill`…). Reutilitza'l, no reinventis estils.
-- **Mòduls admin**: `AdminModuleScreen(module: 0..5)` = 0 Suport · 1 Retos · 2 Referits · 3 Monitorització · 4 Config · 5 Auditoria. Empreses i Facturació són pantalles pròpies.
+- **Mòduls admin**: `AdminModuleScreen(module: 0..5)` = 0 Suport · 1 Retos · 2 Referits · 3 Monitorització · 4 Config · 5 Auditoria (amb sub-pestanya **Logs** = events de seguretat). Empreses i Facturació són pantalles pròpies.
 - **Dades**: `services/data_service.dart` (`DataService` + `FutureBuilder`; no Provider/Riverpod).
 
 ## Estil de codi

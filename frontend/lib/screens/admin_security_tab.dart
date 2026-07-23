@@ -41,6 +41,11 @@ class _SecurityTabState extends State<SecurityTab> {
   int _auditOffset = 0;
   final int _auditPageSize = 50;
   int _auditTotal = 0;
+  // Logs de seguridad (capa B): eventos + filtro por tipo + paginación propia.
+  List<Map<String, dynamic>> _secEvents = [];
+  String _secFilter = '';
+  int _secOffset = 0;
+  int _secTotal = 0;
 
   @override
   void initState() {
@@ -63,6 +68,16 @@ class _SecurityTabState extends State<SecurityTab> {
         );
         _logs = ((r['logs'] as List?) ?? []).cast<Map<String, dynamic>>();
         _auditTotal = (r['total'] as num?)?.toInt() ?? _logs.length;
+      } else if (_view == 4) {
+        final r = await _service.adminSecurityEvents(
+          eventType: _secFilter,
+          from: _from?.toUtc().toIso8601String(),
+          to: _to?.add(const Duration(days: 1)).toUtc().toIso8601String(),
+          limit: _auditPageSize,
+          offset: _secOffset,
+        );
+        _secEvents = ((r['events'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _secTotal = (r['total'] as num?)?.toInt() ?? _secEvents.length;
       } else if (_view == 2) {
         _semaphores = await _service.adminSemaphores();
         _flags = await _service.adminFlags();
@@ -114,6 +129,21 @@ class _SecurityTabState extends State<SecurityTab> {
                   color: AdminColors.teal,
                   onTap: () { setState(() => _view = 2); _reload(); }),
             ]),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+            child: Row(children: [
+              AdminPill(
+                  label: l.t('adm_audit_tab'), selected: _view == 1,
+                  color: AdminColors.blue,
+                  onTap: () { setState(() => _view = 1); _reload(); }),
+              const SizedBox(width: 6),
+              AdminPill(
+                  label: l.t('adm_logs'), selected: _view == 4,
+                  color: AdminColors.red,
+                  onTap: () { setState(() => _view = 4); _reload(); }),
+            ]),
           ),
         Expanded(
           child: _error != null
@@ -123,9 +153,11 @@ class _SecurityTabState extends State<SecurityTab> {
                   ? const Center(child: CircularProgressIndicator())
                   : (_view == 1
                       ? _auditView(l)
-                      : _view == 2
-                          ? _semaphoresView(l)
-                          : _metricsView(l)),
+                      : _view == 4
+                          ? _securityView(l)
+                          : _view == 2
+                              ? _semaphoresView(l)
+                              : _metricsView(l)),
         ),
       ],
     );
@@ -304,6 +336,152 @@ class _SecurityTabState extends State<SecurityTab> {
       buf.writeln([
         q('${g['created_at'] ?? ''}'), q(admin), q('${g['action_type'] ?? ''}'),
         q(target), q('${g['ip_address'] ?? ''}'), q(det),
+      ].join(','));
+    }
+    Clipboard.setData(ClipboardData(text: buf.toString()));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l.t('adm_ref_csv_copied'))));
+  }
+
+  // ── Logs de seguridad (capa B): escaladas 403, rate-limit, tokens, logins ──
+  Color _secColor(String t) {
+    switch (t) {
+      case 'privilege_escalation': return AdminColors.red;
+      case 'rate_limit': return AdminColors.amber;
+      case 'invalid_token': return AdminColors.coral;
+      case 'login_failed': return AdminColors.purple;
+      default: return AdminColors.gray;
+    }
+  }
+  String _secLabel(AppLocalizations l, String t) {
+    const known = {'privilege_escalation', 'rate_limit', 'invalid_token', 'login_failed'};
+    return known.contains(t) ? l.t('adm_sec_ev_$t') : t;
+  }
+  void _secReload() { _secOffset = 0; _reload(); }
+
+  Future<void> _pickSecDate(bool isFrom) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context, initialDate: (isFrom ? _from : _to) ?? now,
+      firstDate: DateTime(2024), lastDate: now);
+    if (picked == null) return;
+    setState(() { if (isFrom) { _from = picked; } else { _to = picked; } });
+    _secReload();
+  }
+
+  Widget _securityView(AppLocalizations l) {
+    final df = DateFormat('dd/MM/yyyy HH:mm');
+    final dfd = DateFormat('dd/MM/yy');
+    const types = ['privilege_escalation', 'rate_limit', 'invalid_token', 'login_failed'];
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Row(children: [
+            Expanded(child: _dateChip(l, l.t('adm_audit_from'),
+                _from == null ? null : dfd.format(_from!), () => _pickSecDate(true))),
+            const SizedBox(width: 6),
+            Expanded(child: _dateChip(l, l.t('adm_audit_to'),
+                _to == null ? null : dfd.format(_to!), () => _pickSecDate(false))),
+            IconButton(
+              tooltip: l.t('adm_ref_export_csv'),
+              icon: const Icon(Icons.download, size: 19, color: AdminColors.secondary),
+              onPressed: _secEvents.isEmpty ? null : _exportSecCsv,
+            ),
+          ]),
+          const SizedBox(height: 8),
+          SizedBox(height: 30, child: ListView(scrollDirection: Axis.horizontal, children: [
+            Padding(padding: const EdgeInsets.only(right: 6),
+                child: AdminPill(label: l.t('adm_ref_all'), selected: _secFilter.isEmpty,
+                    color: AdminColors.gray, onTap: () { setState(() => _secFilter = ''); _secReload(); })),
+            for (final t in types)
+              Padding(padding: const EdgeInsets.only(right: 6),
+                  child: AdminPill(label: _secLabel(l, t), selected: _secFilter == t,
+                      color: _secColor(t), onTap: () { setState(() => _secFilter = t); _secReload(); })),
+          ])),
+          const SizedBox(height: 8),
+          if (_secEvents.isEmpty)
+            Padding(padding: const EdgeInsets.all(24),
+                child: Center(child: Text(l.t('adm_logs_none'))))
+          else ...[
+            Container(decoration: adminCardBox(), child: Column(children: [
+              for (var i = 0; i < _secEvents.length; i++) ...[
+                if (i > 0) const Divider(height: 1, color: AdminColors.hairline),
+                _secRow(l, _secEvents[i], df),
+              ],
+            ])),
+            const SizedBox(height: 10),
+            _secPagination(l),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _secPagination(AppLocalizations l) {
+    final from = _secTotal == 0 ? 0 : _secOffset + 1;
+    final to = (_secOffset + _auditPageSize).clamp(0, _secTotal);
+    return Row(children: [
+      Text(l.t('adm_ref_page', {'from': '$from', 'to': '$to', 'total': '$_secTotal'}),
+          style: const TextStyle(fontSize: 11, color: AdminColors.secondary)),
+      const Spacer(),
+      IconButton(onPressed: _secOffset > 0
+          ? () { setState(() => _secOffset -= _auditPageSize); _reload(); } : null,
+          icon: const Icon(Icons.chevron_left)),
+      IconButton(onPressed: (_secOffset + _auditPageSize) < _secTotal
+          ? () { setState(() => _secOffset += _auditPageSize); _reload(); } : null,
+          icon: const Icon(Icons.chevron_right)),
+    ]);
+  }
+
+  Widget _secRow(AppLocalizations l, Map<String, dynamic> e, DateFormat df) {
+    final type = (e['event_type'] as String?) ?? '';
+    final color = _secColor(type);
+    final actor = ((e['actor'] as Map?)?['email'] as String?) ?? '';
+    final ip = (e['ip_address'] as String?) ?? '';
+    final method = (e['method'] as String?) ?? '';
+    final path = (e['path'] as String?) ?? '';
+    final status = e['status_code'];
+    final at = DateTime.tryParse('${e['created_at']}')?.toLocal();
+    final det = e['details'] == null ? '' : jsonEncode(e['details']);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          AdminTag(_secLabel(l, type), fg: color, bg: color.withValues(alpha: .16)),
+          const Spacer(),
+          if (status != null)
+            Text('$status', style: const TextStyle(fontSize: 11, color: AdminColors.secondary)),
+          const SizedBox(width: 8),
+          Text(at == null ? '' : df.format(at),
+              style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+        ]),
+        const SizedBox(height: 3),
+        Text('$method $path'.trim(),
+            style: const TextStyle(fontSize: 11, color: AdminColors.text),
+            maxLines: 1, overflow: TextOverflow.ellipsis),
+        if (actor.isNotEmpty || ip.isNotEmpty)
+          Text([if (actor.isNotEmpty) actor, if (ip.isNotEmpty) 'IP $ip'].join(' · '),
+              style: const TextStyle(fontSize: 10, color: AdminColors.secondary)),
+        if (det.isNotEmpty && det != '{}')
+          Text(det, style: const TextStyle(fontSize: 10, color: AdminColors.muted),
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+      ]),
+    );
+  }
+
+  void _exportSecCsv() {
+    final l = context.l10n;
+    final buf = StringBuffer('fecha,tipo,actor,ip,metodo,ruta,status,trace,detalles\n');
+    for (final e in _secEvents) {
+      String q(String s) => '"${s.replaceAll('"', '""')}"';
+      final actor = ((e['actor'] as Map?)?['email'] as String?) ?? '';
+      final det = e['details'] == null ? '' : jsonEncode(e['details']);
+      buf.writeln([
+        q('${e['created_at'] ?? ''}'), q('${e['event_type'] ?? ''}'), q(actor),
+        q('${e['ip_address'] ?? ''}'), q('${e['method'] ?? ''}'), q('${e['path'] ?? ''}'),
+        q('${e['status_code'] ?? ''}'), q('${e['trace_id'] ?? ''}'), q(det),
       ].join(','));
     }
     Clipboard.setData(ClipboardData(text: buf.toString()));

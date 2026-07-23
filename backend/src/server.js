@@ -349,9 +349,14 @@ export async function buildApp(options = {}) {
     }
     b.count += 1;
     if (b.count > RL_MAX) {
+      if (!b.logged) { b.logged = true; logSecurityEvent(request, 'rate_limit', { status: 429 }); }
       return reply.code(429).send({ error: 'Demasiadas peticiones, prueba en un minuto' });
     }
   });
+
+  // Trace ID por petición (Fastify lo genera): al header de respuesta y a los logs
+  // de seguridad, para poder correlacionar una petición con Better Stack/Sentry.
+  app.addHook('onRequest', async (request, reply) => { reply.header('x-trace-id', request.id); });
 
   // Parser de JSON que además conserva el cuerpo en crudo (req.rawBody) para
   // poder verificar la firma del webhook de Stripe sobre los bytes exactos.
@@ -403,7 +408,14 @@ export async function buildApp(options = {}) {
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
     if (!token || !supabase) return null;
     const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) return null;
+    if (error || !data?.user) {
+      // Token presente pero inválido/caducado/manipulado: señal de seguridad
+      // (con throttle por IP para no inundar si un cliente reintenta un caducado).
+      if (!secThrottled(`invtok:${request.ip}`)) {
+        logSecurityEvent(request, 'invalid_token', { status: 401, details: { reason: (error?.message ?? 'no user').slice(0, 120) } });
+      }
+      return null;
+    }
     const { data: prof } = await supabase
       .from('users')
       .select('id, role, tenant_id, is_admin, daily_transcription_count, transcription_count_date')
@@ -593,10 +605,14 @@ export async function buildApp(options = {}) {
     if (!u || !password) return reply.code(400).send({ error: 'Faltan credenciales' });
     if (rateLimited(`loginu:ip:${request.ip}`, 30, 60000) ||
         rateLimited(`loginu:u:${u.toLowerCase()}`, 10, 60000)) {
+      logSecurityEvent(request, 'rate_limit', { status: 429, details: { scope: 'login_brute_force', username: u.slice(0, 60) } });
       return reply.code(429).send({ error: 'Demasiados intentos, prueba en un minuto' });
     }
     // Respuesta genérica para no revelar si el usuario existe.
-    const genErr = () => reply.code(401).send({ error: 'Usuario o contraseña incorrectos' });
+    const genErr = () => {
+      logSecurityEvent(request, 'login_failed', { status: 401, details: { username: u.slice(0, 60) } });
+      return reply.code(401).send({ error: 'Usuario o contraseña incorrectos' });
+    };
     const { data: row } = await supabase
       .from('users').select('email').ilike('username', u).maybeSingle();
     if (!row?.email) return genErr();
@@ -825,8 +841,11 @@ export async function buildApp(options = {}) {
     else {
       const caller = await getCaller(request);
       if (!caller) result = { code: 401, error: 'No autenticado' };
-      else if (!caller.is_admin) result = { code: 403, error: 'Solo un administrador puede acceder' };
-      else result = { caller };
+      else if (!caller.is_admin) {
+        result = { code: 403, error: 'Solo un administrador puede acceder' };
+        // Usuario autenticado NO admin que toca una ruta admin: escalada.
+        logSecurityEvent(request, 'privilege_escalation', { status: 403, actorId: caller.id, tenantId: caller.tenant_id });
+      } else result = { caller };
     }
     request._adminGuard = result;
     return result;
@@ -1120,6 +1139,37 @@ export async function buildApp(options = {}) {
       });
     } catch (e) {
       app.log.warn(`[audit] no se pudo registrar acción ${actionType}: ${e.message}`);
+    }
+  }
+
+  // Registro de un evento de SEGURIDAD (capa B) en security_events. Best-effort y
+  // NUNCA guarda cuerpo/headers de la petición (evita secretos/PII). El throttle
+  // evita inundar la tabla con repeticiones (p. ej. un cliente con token caducado).
+  const _secThrottle = new Map();
+  function secThrottled(key, ms = 300000) {
+    const now = Date.now();
+    const last = _secThrottle.get(key);
+    if (last && now - last < ms) return true;
+    _secThrottle.set(key, now);
+    return false;
+  }
+  async function logSecurityEvent(request, eventType, opts = {}) {
+    if (!supabase) return;
+    try {
+      await supabase.from('security_events').insert({
+        event_type: eventType,
+        actor_id: opts.actorId ?? null,
+        tenant_id: opts.tenantId ?? null,
+        ip_address: request?.ip ?? null,
+        user_agent: (request?.headers?.['user-agent'] ?? '').slice(0, 300) || null,
+        method: request?.method ?? null,
+        path: (request?.url || '').split('?')[0].slice(0, 200) || null,
+        status_code: opts.status ?? null,
+        trace_id: request?.id ?? null,
+        details: opts.details ?? null,
+      });
+    } catch (e) {
+      app.log.warn(`[security] no se pudo registrar ${eventType}: ${e.message}`);
     }
   }
 
@@ -4132,6 +4182,26 @@ export async function buildApp(options = {}) {
     const { data, count, error } = await q.range(offset, offset + limit - 1);
     if (error) return reply.code(500).send({ error: error.message });
     return reply.send({ logs: data ?? [], total: count ?? (data ?? []).length, limit, offset });
+  });
+
+  // Logs de SEGURIDAD (capa B) para la pestaña "Logs" de Auditoría. Filtros:
+  // ?event_type= &from= &to= + paginación. Solo admin.
+  app.get('/api/v1/admin/security/events', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const qp = request.query ?? {};
+    const limit = Math.min(Math.max(parseInt(qp.limit ?? '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(qp.offset ?? '0', 10) || 0, 0);
+    let q = supabase.from('security_events')
+      .select('id, event_type, actor_id, tenant_id, ip_address, user_agent, method, path, '
+        + 'status_code, trace_id, details, created_at, actor:actor_id(email, name)', { count: 'exact' })
+      .order('created_at', { ascending: false });
+    if (qp.event_type) q = q.eq('event_type', String(qp.event_type));
+    if (qp.from) q = q.gte('created_at', qp.from);
+    if (qp.to) q = q.lte('created_at', qp.to);
+    const { data, count, error } = await q.range(offset, offset + limit - 1);
+    if (error) return reply.code(500).send({ error: error.message });
+    return reply.send({ events: data ?? [], total: count ?? (data ?? []).length, limit, offset });
   });
 
   // Estado (log) de TODOS los semáforos de la plataforma, para el apartado de
