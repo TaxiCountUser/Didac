@@ -631,6 +631,26 @@ export async function buildApp(options = {}) {
     }
   });
 
+  // --- Reporte de login FALLIDO de email/Google (capa B, fase 2). Estos logins
+  // pasan por Supabase Auth DIRECTAMENTE desde el frontend, así que el backend no
+  // los ve; el cliente los reporta aquí para que salgan en la pestaña "Logs". Es
+  // ADVISORY (reportado por el cliente): la fuente autoritativa son los logs de
+  // Auth de Supabase. PÚBLICO (el login ha fallado, no hay sesión), pero acotado
+  // por IP y con throttle para no inundar la tabla. Solo metadatos: NUNCA la
+  // contraseña. Reutiliza el tipo 'login_failed' con details.method (coherente
+  // con el login por usuario, que ya lo registra). Siempre 200 (no es un oráculo).
+  app.post('/api/v1/security/auth-failed', async (request, reply) => {
+    const b = request.body ?? {};
+    const method = ['email', 'google'].includes(String(b.method)) ? String(b.method) : 'email';
+    if (rateLimited(`authfail:${request.ip}`, 20, 60000)) return reply.send({ ok: true });
+    if (!secThrottled(`authfail:${request.ip}:${method}`, 60000)) {
+      const email = (b.email == null ? '' : String(b.email)).trim().slice(0, 80) || null;
+      const reason = (b.reason == null ? '' : String(b.reason)).slice(0, 120) || null;
+      logSecurityEvent(request, 'login_failed', { status: 401, details: { method, email, reason } });
+    }
+    return reply.send({ ok: true });
+  });
+
   // --- Invitar conductor (Fase 1) ---
   app.post('/api/v1/drivers', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });

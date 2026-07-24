@@ -150,6 +150,11 @@ class _LoginScreenState extends State<LoginScreen> {
       // AuthGate reaccionará al cambio de sesión.
     } on AuthException catch (e) {
       setState(() => _error = e.message);
+      // Login por EMAIL fallido (no signup): avisa al backend para el log de
+      // seguridad (capa B). El login por usuario ya lo registra el servidor.
+      if (!_isSignUp && _email.text.trim().contains('@')) {
+        DataService().reportAuthFailed('email', email: _email.text.trim(), reason: e.message);
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -263,6 +268,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
+      // Login con Google fallido: avisa al backend para el log de seguridad
+      // (capa B). Sin email (viene del proveedor OAuth).
+      DataService().reportAuthFailed('google', reason: e.message);
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {

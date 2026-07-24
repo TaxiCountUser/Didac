@@ -69,7 +69,7 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Anti-frau de referits | `Anti-fraude de referidos` · `Centro de fraude` |
 | Push localitzada / chat flota | `notifyUsers` · `Notificación push de una incidencia` · `chat de flota` |
 | Recompenses (crèdit Stripe) | `seatBaseRate` · `applyRewardCredit` · `applyPendingChallengeCredits` · `recomputeReferrerMilestones` · `test-rewards` |
-| Logs de seguretat (capa B) | `logSecurityEvent` · `/admin/security/events` |
+| Logs de seguretat (capa B) | `logSecurityEvent` · `/admin/security/events` · `/security/auth-failed` (email/Google, reportat pel client) |
 | Semàfors / uptime | `computeSemaphores` · `markService` · `readServiceUptime` · `/cron/semaphores` |
 | Informes d'error (app) | `Informes de error` |
 | Informes Excel/PDF · Import | `Informes Excel` · `Importar Excel/CSV` |

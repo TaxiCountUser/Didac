@@ -2242,6 +2242,25 @@ class DataService {
     await _c.auth.setSession(body['refresh_token'] as String);
   }
 
+  /// Reporta un login FALLIDO de email/Google al backend (capa B) para que salga
+  /// en la pestaña "Logs" de Auditoría. Estos logins pasan por Supabase Auth
+  /// directamente (el backend no los ve), así que el cliente los avisa. Es
+  /// fire-and-forget: nunca bloquea ni lanza. Solo metadatos (método, motivo,
+  /// email); JAMÁS la contraseña.
+  Future<void> reportAuthFailed(String method, {String? email, String? reason}) async {
+    try {
+      await http.post(
+        Uri.parse('$backendUrl/api/v1/security/auth-failed'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({
+          'method': method,
+          if (email != null && email.isNotEmpty) 'email': email,
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+        }),
+      );
+    } catch (_) {}
+  }
+
   /// Define el nombre de usuario del propio usuario (único; null para quitarlo).
   Future<void> updateUsername(String? username) async {
     final uid = _c.auth.currentUser?.id;
