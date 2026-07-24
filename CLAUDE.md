@@ -17,6 +17,13 @@ El graf del projecte viu a `graphify-out/`. En lloc d'obrir fitxers per entendre
 - `python -m graphify path "A" "B"` — camí més curt entre dos nodes
 - Intèrpret: `graphify-out/.graphify_python` (té BOM; treu-lo). Cost en tokens ≈ 0.
 
+## Higiene de sessió i cache (estalvi de tokens)
+El cost dominant és el **context acumulat** (cada torn reenvia tot l'històric), no cap fitxer concret:
+- **1 tema = 1 sessió.** `/clear` en canviar de tema (deixa anar tot el context acumulat); `/compact` quan la sessió es fa llarga.
+- **Cache-aware:** editar un fitxer sempre-carregat (`CLAUDE.md`, `MEMORY.md`) al mig de la sessió invalida el *prompt cache* i cada torn següent el torna a pagar. **Agrupar les actualitzacions de docs al final de la feina** (coincideix amb la norma "en acabar la feina").
+- **Filtrar sortida sorollosa:** `npm test`/`flutter test`/`flutter build` escupen logs enormes → `... 2>&1 | tail -20` o `| grep -iE "pass|fail|error"`. `node --check` i `flutter analyze` ja són petits.
+- **Editar `informe-app.md` quirúrgicament:** `grep` la capçalera (té TOC) → `Read`/`Edit` la secció; mai rellegir-lo sencer.
+
 ## Subagents (estalvi de tokens en cerques amples)
 Per a QUALSEVOL cerca ampla (localitzar codi, auditar un mòdul, traçar un flux entre
 fitxers) usa un subagent: ell llegeix els bolcats grossos al **seu** context i torna
