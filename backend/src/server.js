@@ -873,6 +873,9 @@ export async function buildApp(options = {}) {
     ).then(({ error }) => {
       if (error) app.log.warn(`[svc] no se pudo registrar svc_${name}: ${error.message}`);
     }, (e) => app.log.warn(`[svc] svc_${name}: ${e.message}`));
+    // Histórico para uptime % (mig. 079). Best-effort: si la tabla no está, se ignora.
+    supabase.from('service_status_log').insert({ service: name, ok })
+      .then(() => {}, () => {});
   }
 
   // Guarda la última "foto" de rate-limit de Groq/OpenAI a partir de las cabeceras
@@ -4293,7 +4296,39 @@ export async function buildApp(options = {}) {
   //   live   verde (API: si respondemos, está viva)
   // Calcula el estado de todos los semáforos (compartido por el endpoint de
   // admin y el del vigía externo).
-  async function computeSemaphores() {
+  // Uptime % por servicio desde service_status_log (mig. 079): ok/total en 24h y 7d.
+  // Una sola consulta (7d) y se agrega en JS. Limpieza oportunista de >90 días.
+  async function readServiceUptime() {
+    const out = {};
+    try {
+      const now = Date.now();
+      const since7 = new Date(now - 7 * 24 * 3600 * 1000).toISOString();
+      const since24 = now - 24 * 3600 * 1000;
+      const { data } = await supabase.from('service_status_log')
+        .select('service, ok, checked_at').gte('checked_at', since7).limit(50000);
+      const agg = {};
+      for (const r of data ?? []) {
+        const a = (agg[r.service] ??= { ok7: 0, n7: 0, ok24: 0, n24: 0 });
+        a.n7 += 1; if (r.ok) a.ok7 += 1;
+        if (new Date(r.checked_at).getTime() >= since24) { a.n24 += 1; if (r.ok) a.ok24 += 1; }
+      }
+      for (const [svc, a] of Object.entries(agg)) {
+        out[svc] = {
+          up24: a.n24 ? +((a.ok24 / a.n24) * 100).toFixed(1) : null,
+          up7: a.n7 ? +((a.ok7 / a.n7) * 100).toFixed(1) : null,
+          n7: a.n7,
+        };
+      }
+      supabase.from('service_status_log')
+        .delete().lt('checked_at', new Date(now - 90 * 24 * 3600 * 1000).toISOString())
+        .then(() => {}, () => {});
+    } catch (e) {
+      app.log.warn(`[uptime] ${e.message}`);
+    }
+    return out;
+  }
+
+  async function computeSemaphores({ logHistory = false } = {}) {
     const cfg = {};
     for (const pat of ['cron_last_%', 'svc_%']) {
       const { data: rows } = await supabase.from('system_config')
@@ -4396,7 +4431,14 @@ export async function buildApp(options = {}) {
     } catch { /* svc_supabase_res ausente */ }
 
     const db = await probeDb();
-    return [
+    // Muestra periódica del estado (la vigía cada 15 min) → uptime temporal de BD y API.
+    if (logHistory) {
+      supabase.from('service_status_log').insert([
+        { service: 'database', ok: db.ok },
+        { service: 'api', ok: true },
+      ]).then(() => {}, () => {});
+    }
+    const arr = [
       { key: 'api', kind: 'live', ok: true, at: new Date().toISOString(), status: 'live' },
       { key: 'database', kind: 'db', ok: db.ok, at: db.at, status: db.status, latency_ms: db.latency_ms },
       cronSema('challenge_credits'),
@@ -4411,6 +4453,13 @@ export async function buildApp(options = {}) {
       webhookSema,
       supaResSema,
     ];
+    // Añade uptime 24h/7d a cada semáforo que tenga histórico.
+    const uptime = await readServiceUptime();
+    for (const s of arr) {
+      const u = uptime[s.key];
+      if (u) { s.up24 = u.up24; s.up7 = u.up7; s.samples7 = u.n7; }
+    }
+    return arr;
   }
 
   app.get('/api/v1/admin/semaphores', async (request, reply) => {
@@ -4440,7 +4489,8 @@ export async function buildApp(options = {}) {
     // supabase_res del vigía no quede obsoleto si nadie abre el panel.
     await supabaseMetrics().catch(() => {});
     await syncScheduledCoupon().catch(() => {});
-    const semaphores = await computeSemaphores();
+    // logHistory: la vigía (cada 15 min) registra la muestra en service_status_log.
+    const semaphores = await computeSemaphores({ logHistory: true });
     // Avisos de LÍMITE al admin (push): Groq bajo o recursos de Supabase altos.
     await alertLimit('groq', semaphores, '⚠ Groq cerca del límite',
       (s) => `Queda ${s.remaining_pct ?? '?'}% de la API de Groq disponible.`);

@@ -233,8 +233,12 @@ mantenimiento + administradores).
 > un **resumen tipo status page** arriba de Semáforos ("Todos los sistemas operativos" / "N con
 > problemas · M avisos") y **orden peor-primero** (lo que falla, arriba, incident-first); y las
 > **Métricas en bloques con título** (IA/cuota · Saturación · Base de datos) + Flags como bloque
-> propio (kit). Pendiente (acordado, requiere tabla nueva + cron): **uptime % y tendencias
-> temporales** — hoy `markService` solo guarda la ÚLTIMA foto en `system_config`, no hay histórico.
+> propio (kit). **Uptime % y tendencias — HECHO (mig. 079):** tabla `service_status_log` (histórico
+> service/ok/checked_at); `markService` añade una fila por check (push/whisper/stripe = tasa de éxito),
+> y la **vigía** (cada 15 min, `computeSemaphores({logHistory:true})`) registra BD y API → uptime
+> temporal. `readServiceUptime` calcula ok/total en **24h y 7d** por servicio (1 consulta + agregación
+> en JS, limpieza oportunista >90 días) y se muestra en cada semáforo (verde ≥99 / ámbar ≥95 / rojo).
+> El backend es tolerante si la tabla no está (inserts y read protegidos).
 
 > **Auditoría — estándar de audit trail (2026-07-21):** el backend `/admin/audit/logs` ya
 > soportaba `limit/offset` (+`total`), `action_type` y `admin_id`, pero la UI cargaba 50 y filtraba

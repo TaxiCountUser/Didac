@@ -647,6 +647,8 @@ class _SecurityTabState extends State<SecurityTab> {
     final at = DateTime.tryParse((s['at'] as String?) ?? '');
     final latency = (s['latency_ms'] as num?)?.toInt();
     final count = (s['count'] as num?)?.toInt();
+    final up24 = (s['up24'] as num?)?.toDouble();
+    final up7 = (s['up7'] as num?)?.toDouble();
     final color = _semaColor(status);
     final sub = at != null
         ? l.t('adm_sema_last', {'d': df.format(at)})
@@ -655,6 +657,10 @@ class _SecurityTabState extends State<SecurityTab> {
                 ? ' · ${l.t('adm_sema_errcount', {'n': '$count'})}'
                 : '')
         : l.t('adm_sema_nodata');
+    // Color del uptime: verde ≥99%, ámbar ≥95%, rojo por debajo.
+    Color upColor(double? v) => v == null
+        ? AdminColors.muted
+        : (v >= 99 ? AdminColors.teal : (v >= 95 ? AdminColors.amber : AdminColors.red));
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       child: Row(
@@ -672,6 +678,14 @@ class _SecurityTabState extends State<SecurityTab> {
                 Text(sub,
                   style: const TextStyle(fontSize: 10.5, color: AdminColors.muted),
                 ),
+                if (up7 != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Text(
+                      '${l.t('adm_sema_uptime')} 24h ${up24?.toStringAsFixed(1) ?? '—'}% · 7d ${up7.toStringAsFixed(1)}%',
+                      style: TextStyle(fontSize: 10, color: upColor(up7), fontWeight: FontWeight.w600),
+                    ),
+                  ),
               ],
             ),
           ),
