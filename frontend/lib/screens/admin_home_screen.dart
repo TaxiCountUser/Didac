@@ -57,6 +57,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _reload();
   }
 
+  // Abre Empresas ya FILTRADAS (nivel B: KPI accionables "proves acabant" /
+  // "en risc"). filter = 'trial' | 'risk' | 'paying' | null (todas).
+  Future<void> _openCompanies(String? filter) async {
+    await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AdminCompaniesScreen(initialFilter: filter)));
+    _reload();
+  }
+
   // Reorganización del dashboard: "Seguridad" se dividió en Monitorización
   // (métricas+semáforos+flags) y Auditoría; el fraude vive ahora en Referidos.
   // 0 Soporte · 1 Retos · 2 Referidos · 3 Monitorización · 4 Config · 5 Auditoría.
@@ -177,9 +185,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     // Totales de plataforma (recuentos). El dinero (MRR/facturado/cupones) vive
     // en el módulo Facturación, no aquí.
     final globalTiles = <Widget>[
-      _mTile(l.t('adm_kpi_companies'), _numStr(k['tenants']), AdminColors.purple),
-      _mTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal', AdminColors.blue),
-      _mTile(l.t('adm_co_paying'), _numStr(k['paying']), AdminColors.teal),
+      _mTile(l.t('adm_kpi_companies'), _numStr(k['tenants']), AdminColors.purple,
+          onTap: () => _openTab(-2)),
+      _mTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal', AdminColors.blue,
+          onTap: () => _openTab(-2)),
+      _mTile(l.t('adm_co_paying'), _numStr(k['paying']), AdminColors.teal,
+          onTap: () => _openTab(-3)),
     ];
 
     return Column(
@@ -213,16 +224,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             final rate = pr['activation_rate'];
             final refunds = (biz['refunds_today'] as num?)?.toDouble() ?? 0;
             final tiles = <Widget>[
-              _mTile(l.t('adm_dm_rev_today'), _eurStr(biz['revenue_today']), AdminColors.teal),
+              _mTile(l.t('adm_dm_rev_today'), _eurStr(biz['revenue_today']), AdminColors.teal,
+                  onTap: () => _openTab(-3)),
               _mTile(l.t('adm_dm_rides'), _numStr(us['rides_today']), AdminColors.amber),
               _mTile(l.t('adm_dm_dau'), _numStr(us['dau']), AdminColors.blue),
-              _mTile(l.t('adm_dm_voice'), _numStr(us['transcriptions_today']), AdminColors.purple),
-              _mTile(l.t('adm_dm_new_co'), _numStr(gr['new_companies_today']), AdminColors.teal),
-              _mTile(l.t('adm_dm_new_dr'), _numStr(gr['new_drivers_today']), AdminColors.blue),
-              _mTile(l.t('adm_dm_trials_end'), _numStr(gr['trials_ending']), AdminColors.amber),
+              _mTile(l.t('adm_dm_voice'), _numStr(us['transcriptions_today']), AdminColors.purple,
+                  onTap: () => _openTab(3)),
+              _mTile(l.t('adm_dm_new_co'), _numStr(gr['new_companies_today']), AdminColors.teal,
+                  onTap: () => _openTab(-2)),
+              _mTile(l.t('adm_dm_new_dr'), _numStr(gr['new_drivers_today']), AdminColors.blue,
+                  onTap: () => _openTab(-2)),
+              _mTile(l.t('adm_dm_trials_end'), _numStr(gr['trials_ending']), AdminColors.amber,
+                  onTap: () => _openCompanies('trial')),
               _mTile(l.t('adm_dm_activation'), rate == null ? '—' : '$rate%', AdminColors.teal),
-              _mTile(l.t('adm_dm_at_risk'), _numStr(pr['at_risk']), AdminColors.red),
-              if (refunds > 0) _mTile(l.t('adm_dm_refunds'), _eurStr(biz['refunds_today']), AdminColors.red),
+              _mTile(l.t('adm_dm_at_risk'), _numStr(pr['at_risk']), AdminColors.red,
+                  onTap: () => _openCompanies('risk')),
+              if (refunds > 0) _mTile(l.t('adm_dm_refunds'), _eurStr(biz['refunds_today']), AdminColors.red,
+                  onTap: () => _openTab(-3)),
             ];
             return Wrap(spacing: 8, runSpacing: 8, children: tiles);
           },
@@ -231,27 +249,43 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _mTile(String label, String value, Color color) => Container(
-        width: 112,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          color: AdminColors.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: .28)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: color)),
-            const SizedBox(height: 2),
-            Text(label,
-                maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 9.5, color: AdminColors.secondary, height: 1.15)),
-          ],
-        ),
-      );
+  // KPI. Si recibe onTap, se vuelve clicable: borde más marcado + chevron
+  // arriba a la derecha + ripple (affordance). Las métricas puras (carreras,
+  // DAU, activación) se dejan ESTÁTICAS (sin onTap) a propósito.
+  Widget _mTile(String label, String value, Color color, {VoidCallback? onTap}) {
+    final tappable = onTap != null;
+    final tile = Container(
+      width: 112,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: AdminColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: tappable ? .5 : .28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(height: 2),
+          Text(label,
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 9.5, color: AdminColors.secondary, height: 1.15)),
+        ],
+      ),
+    );
+    if (!tappable) return tile;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Stack(children: [
+        tile,
+        Positioned(right: 5, top: 5,
+            child: Icon(Icons.chevron_right, size: 13, color: color.withValues(alpha: .55))),
+      ]),
+    );
+  }
 
   // --- Semáforos: API (si hay datos, está viva) + crons + servicios externos. ---
   Widget _statusRow(AppLocalizations l, Map<String, dynamic> d) {

@@ -11,7 +11,11 @@ import 'admin_theme.dart';
 /// matrícula — resuelto en el backend), filtros de estado, recuento y orden.
 /// Toca una empresa para abrir su ficha (AdminCompanyDetailScreen).
 class AdminCompaniesScreen extends StatefulWidget {
-  const AdminCompaniesScreen({super.key});
+  const AdminCompaniesScreen({super.key, this.initialFilter});
+
+  /// Filtro inicial opcional ('paying'|'trial'|'risk'), para llegar desde las
+  /// KPI del panel ya filtrado (nivel B). Null = todas.
+  final String? initialFilter;
 
   @override
   State<AdminCompaniesScreen> createState() => _AdminCompaniesScreenState();
@@ -34,6 +38,17 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
   Map<String, String> _remoteMatches = {};
 
   void _reload() => setState(() => _future = _service.adminOverview());
+
+  @override
+  void initState() {
+    super.initState();
+    _filter = switch (widget.initialFilter) {
+      'paying' => _Filter.paying,
+      'trial' => _Filter.trial,
+      'risk' => _Filter.risk,
+      _ => _Filter.all,
+    };
+  }
 
   @override
   void dispose() {
