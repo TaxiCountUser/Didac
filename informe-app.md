@@ -154,6 +154,9 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 | **Logs de seguridad (capa B)** | `logSecurityEvent(request, type, opts)` → tabla `security_events` (mig. 077): escalada de privilegios (403 en `adminGuard`), rate-limit 429, token inválido (`getCaller`), login por usuario fallido. Guarda **metadatos** (ip, user_agent, method, path, status, `trace_id` = `request.id`, details) — **NUNCA el cuerpo/headers** (evita secretos/PII). Throttle por IP para no inundar. Lista en `GET /admin/security/events` (filtros type/from/to + paginación). UI: pestaña **Logs** dentro del módulo Auditoría. Logins de email/Google (Supabase Auth) → **2ª fase**. WAF (Cloudflare) → pendiente para cuando haya tenants de pago. |
 
 ### 4.3 Panel de administración (tema oscuro "N")
+**Responsive (2026-07-24):** `adminConstrained` (usado por TODAS las pantallas admin) ensancha el
+contenido en web/desktop (≤760px móvil→720; ≥1200px→1160) en vez de dejarlo en una columna estrecha;
+los grids ya son `Wrap`/`GridView` de columnas automáticas y refluyen solos. Un único punto.
 Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),
 Empresas (buscador global + recuento + orden + fichas de **supervisión** + **purga definitiva** de empresas de baja, doble confirmación),
 Facturación (salud recurrente + caja + colas de acción, ver nota), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:

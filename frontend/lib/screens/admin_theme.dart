@@ -151,11 +151,24 @@ Future<T?> showAdminDialog<T>({
 
 /// Limita el ancho del contenido en pantallas anchas (web/PC) y lo centra, para
 /// que las tarjetas no se vuelvan enormes. En móvil ocupa todo el ancho.
-Widget adminConstrained(Widget child, {double maxWidth = 720}) => Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: child,
-      ),
+// Centra y limita el ancho del contenido del panel. RESPONSIVE: en móvil/estrecho
+// respeta `maxWidth` (columna legible); en web/desktop ancho se ensancha para USAR
+// el espacio en vez de dejar el contenido en una columna estrecha con mucho negro a
+// los lados (los grids del panel son Wrap/GridView de columnas automáticas y refluyen
+// solos a más columnas). Un único punto -> responsive en todas las pantallas admin.
+Widget adminConstrained(Widget child, {double maxWidth = 720}) => LayoutBuilder(
+      builder: (context, c) {
+        final avail = c.maxWidth;
+        final target = avail <= 760
+            ? maxWidth
+            : (avail >= 1200 ? 1160.0 : 920.0);
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: target),
+            child: child,
+          ),
+        );
+      },
     );
 
 /// Decoración estándar de "tarjeta oscura" del panel.
