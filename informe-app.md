@@ -155,7 +155,7 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 
 ### 4.3 Panel de administración (tema oscuro "N")
 **Responsive (2026-07-24):** `adminConstrained` (usado por TODAS las pantallas admin) ensancha el
-contenido en web/desktop (≤760px móvil→720; ≥1200px→1160) en vez de dejarlo en una columna estrecha;
+contenido en web/desktop (≤760px móvil→720; ≥1200px→1360) en vez de dejarlo en una columna estrecha;
 los grids ya son `Wrap`/`GridView` de columnas automáticas y refluyen solos. Un único punto.
 Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**),
 Empresas (buscador global + recuento + orden + fichas de **supervisión** + **purga definitiva** de empresas de baja, doble confirmación),
