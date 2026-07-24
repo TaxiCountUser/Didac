@@ -114,7 +114,7 @@ jobs:
         run: flutter build apk --release --target-platform android-arm64 --build-number=${{ steps.version.outputs.code }} --build-name=${{ steps.version.outputs.name }} ${{ steps.defines.outputs.args }}
 
       - name: Upload APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: taxicount-apk
           path: frontend/build/app/outputs/flutter-apk/app-release.apk
@@ -156,7 +156,7 @@ jobs:
 
       - name: Upload AAB
         if: ${{ inputs.build_aab && steps.signing.outputs.signed == 'true' }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: taxicount-aab
           path: frontend/build/app/outputs/bundle/release/app-release.aab
