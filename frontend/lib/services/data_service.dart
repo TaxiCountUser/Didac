@@ -807,6 +807,16 @@ class DataService {
     }
   }
 
+  /// Facturas de Stripe de una empresa (desglose del "Total pagado"), solo admin.
+  Future<List<Map<String, dynamic>>> adminCompanyInvoices(String tenantId) async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/company/$tenantId/invoices'),
+        headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['invoices'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
   /// PRUEBAS (admin): dispara la recompensa de UNA empresa (mode 'challenge' |
   /// 'referrals'), sin tocar config global ni crons globales. Devuelve el resultado
   /// (crédito aplicado + saldo Stripe actual) para mostrarlo.

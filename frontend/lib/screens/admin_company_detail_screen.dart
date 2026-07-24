@@ -229,33 +229,43 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         ? '—'
         : '${created.month.toString().padLeft(2, '0')}/${created.year % 100}';
 
-    Widget tile(String label, String value, Color color) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-            decoration: BoxDecoration(
-              border: Border.all(color: color.withValues(alpha: .28)),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label.toUpperCase(),
+    Widget tile(String label, String value, Color color, {VoidCallback? onTap}) {
+      final inner = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withValues(alpha: .28)),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(
+                child: Text(label.toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         fontSize: 8, letterSpacing: 1.1, color: color)),
-                const SizedBox(height: 2),
-                Text(value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AdminColors.text)),
-              ],
-            ),
-          ),
-        );
+              ),
+              if (onTap != null) Icon(Icons.receipt_long, size: 11, color: color),
+            ]),
+            const SizedBox(height: 2),
+            Text(value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AdminColors.text)),
+          ],
+        ),
+      );
+      return Expanded(
+        child: onTap == null
+            ? inner
+            : InkWell(onTap: onTap, borderRadius: BorderRadius.circular(9), child: inner),
+      );
+    }
 
     String eur(double v) => '${v.toStringAsFixed(2).replaceAll('.', ',')}€';
     return Column(
@@ -275,7 +285,8 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         // ha descontado con cupones. No son sus finanzas internas (sus carreras).
         Row(
           children: [
-            tile(l.t('adm_kpi_paid_total'), eur(paidTotal), AdminColors.teal),
+            tile(l.t('adm_kpi_paid_total'), eur(paidTotal), AdminColors.teal,
+                onTap: () => _showInvoices()),
             const SizedBox(width: 7),
             tile(l.t('adm_kpi_coupons'), eur(couponTotal), AdminColors.amber),
             if (refundTotal > 0) ...[
@@ -530,6 +541,68 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     } catch (e) {
       await _toast('Error: ${e.toString().replaceFirst('Exception: ', '')}');
     }
+  }
+
+  // Desglose del "Total pagado": lista las facturas de Stripe (fecha, concepto,
+  // importe, estado) para que el acumulado deje de ser opaco.
+  String _invReason(AppLocalizations l, String r) {
+    switch (r) {
+      case 'subscription_create': return l.t('adm_inv_r_create');
+      case 'subscription_cycle': return l.t('adm_inv_r_cycle');
+      case 'subscription_update': return l.t('adm_inv_r_update');
+      case 'manual': return l.t('adm_inv_r_manual');
+      default: return l.t('adm_inv_r_other');
+    }
+  }
+
+  Future<void> _showInvoices() async {
+    final l = context.l10n;
+    List<Map<String, dynamic>> invoices;
+    try {
+      invoices = await _service.adminCompanyInvoices(widget.tenantId);
+    } catch (e) {
+      await _toast('Error: ${e.toString().replaceFirst('Exception: ', '')}');
+      return;
+    }
+    if (!mounted) return;
+    String fmtDate(int? ts) {
+      if (ts == null || ts == 0) return '';
+      final d = DateTime.fromMillisecondsSinceEpoch(ts * 1000).toLocal();
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    }
+    String eur(num? v) => '${(v ?? 0).toStringAsFixed(2).replaceAll('.', ',')}€';
+    Color stColor(String s) => s == 'paid'
+        ? AdminColors.teal
+        : (s == 'void' || s == 'uncollectible' ? AdminColors.red : AdminColors.amber);
+    await showAdminDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('adm_inv_title')),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: invoices.isEmpty
+              ? Padding(padding: const EdgeInsets.all(16), child: Text(l.t('adm_inv_none')))
+              : SingleChildScrollView(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    for (final inv in invoices)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(eur(inv['amount_paid'] as num?),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                        subtitle: Text(
+                            '${fmtDate((inv['date'] as num?)?.toInt())} · ${_invReason(l, '${inv['reason'] ?? ''}')}'
+                            '${'${inv['description'] ?? ''}'.isNotEmpty ? ' · ${inv['description']}' : ''}',
+                            style: const TextStyle(fontSize: 11)),
+                        trailing: Text('${inv['status'] ?? ''}',
+                            style: TextStyle(fontSize: 10, color: stColor('${inv['status'] ?? ''}'))),
+                      ),
+                  ]),
+                ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close')))],
+      ),
+    );
   }
 
   Widget _stat(String v, String label) => Column(

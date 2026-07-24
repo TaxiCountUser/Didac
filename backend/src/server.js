@@ -2029,6 +2029,7 @@ export async function buildApp(options = {}) {
     return reply.send({
       totals: {
         mrr, arr, arpa,              // salud recurrente (€/mes, €/año, €/empresa·mes)
+        mrr_subs: mrrData?.subs ?? 0, // nº de subscripciones que forman el MRR
         cash_today: cashToday,       // € cobrados hoy (bruto)
         cash_mtd: cashMtd,           // € cobrados este mes (bruto)
         cash_total: cashTotal,       // € cobrados neto de reembolsos (acumulado)
@@ -2372,6 +2373,37 @@ export async function buildApp(options = {}) {
     }
     await logAdminAction(request, g.caller?.id ?? null, 'test_rewards', 'tenant', id, out);
     return reply.send(out);
+  });
+
+  // Desglose del "Total pagado" de una empresa: lista sus facturas de Stripe (fecha,
+  // concepto, importe, estado) leídas EN VIVO, para que el acumulado deje de ser opaco.
+  app.get('/api/v1/admin/company/:id/invoices', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const { data: t } = await supabase.from('tenants')
+      .select('stripe_customer_id').eq('id', request.params.id).maybeSingle();
+    const cust = t?.stripe_customer_id;
+    if (!stripe || !cust) return reply.send({ invoices: [] });
+    try {
+      const out = [];
+      for await (const inv of stripe.invoices.list({ customer: cust, limit: 100 })) {
+        const line = inv.lines?.data?.[0];
+        const nLines = inv.lines?.data?.length ?? 0;
+        out.push({
+          date: (inv.status_transitions?.paid_at ?? inv.created ?? 0),
+          number: inv.number ?? inv.id,
+          amount_paid: Number(((inv.amount_paid ?? 0) / 100).toFixed(2)),
+          discount: Number((((inv.total_discount_amounts ?? []).reduce((s, d) => s + (d.amount || 0), 0)) / 100).toFixed(2)),
+          status: inv.status,               // paid | open | void | draft | uncollectible
+          reason: inv.billing_reason,       // subscription_create | subscription_cycle | subscription_update | manual
+          description: line?.description ?? (nLines > 1 ? `${nLines} líneas` : ''),
+        });
+      }
+      return reply.send({ invoices: out });
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(502).send({ error: 'No se pudieron leer las facturas' });
+    }
   });
 
   app.post('/api/v1/admin/company/:id/reactivate', async (request, reply) => {

@@ -95,7 +95,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                       _kpiTile(
                           l.t('adm_bill_mrr'),
                           eur(t['mrr']),
-                          '${l.t('adm_bill_arr')} ${eur(t['arr'])}',
+                          '${l.t('adm_bill_arr')} ${eur(t['arr'])} · ${l.t('adm_bill_subs', {'n': '${(t['mrr_subs'] as num?)?.toInt() ?? 0}'})}',
                           AdminColors.teal),
                       const SizedBox(width: 7),
                       _kpiTile(

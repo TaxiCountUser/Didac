@@ -192,6 +192,10 @@ mantenimiento + administradores).
 > asientos/nombre). Gestor de cupón (dominio nuestro) sin cambios. Migrado al kit
 > (`adminAppBar`/`AdminKpiTile`/`adminSectionTitle`/`adminRowsCard`/`AdminListRow`). Recordatorio:
 > **la ficha de empresa muestra el REAL pagado por ESE cliente; el módulo global, MRR + caja**.
+> **Transparencia (2026-07-24):** el KPI de MRR muestra "de N subs" (`mrr_subs`, de `readMrr`),
+> y en la ficha de empresa el KPI **"Total pagado" es pulsable** → abre el desglose de las
+> facturas Stripe de ese cliente (fecha · concepto · importe · estado), leídas en vivo
+> (`GET /admin/company/:id/invoices`). El acumulado deja de ser opaco (incidente Taxi Puji 44,99€).
 >
 > Los **asientos** (`drivers_limit` = cantidad pagada en Stripe) **ya NO se editan desde la ficha**:
 > se gestionan desde **Facturación** (que cobra y sincroniza Stripe), para no desincronizar la
