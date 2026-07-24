@@ -1632,6 +1632,15 @@ export async function buildApp(options = {}) {
     // cupones. En euros. Best-effort: si Stripe no responde, revenue = null.
     const revenue = await readGlobalRevenue();
 
+    // Total histórico de carreras (income), para el KPI de plataforma (portada)
+    // y la cabecera de Empresas. Best-effort (recuento, sin importes).
+    let ridesTotal = 0;
+    try {
+      const { count } = await supabase.from('transactions')
+        .select('id', { count: 'exact', head: true }).eq('type', 'income');
+      ridesTotal = count ?? 0;
+    } catch { /* best-effort */ }
+
     return reply.send({
       tenants: rows,
       totals: {
@@ -1647,6 +1656,7 @@ export async function buildApp(options = {}) {
         drivers_total: driversTotal,
         drivers_active: driversActive,
         mrr_estimate: Number(mrr.toFixed(2)),
+        rides_total: ridesTotal,
       },
       revenue: revenue ? {
         // Neto REAL en caja: facturado pagado menos lo devuelto (reembolsos).
@@ -4503,19 +4513,8 @@ export async function buildApp(options = {}) {
           .gte('created_at', iso).eq('source', src);
         return count ?? 0;
       };
-      // Total histórico de carreras (income), dato COMPLETO (todo el historial, no
-      // depende de source). Se enlazará también con la web más adelante.
-      const ridesTotalP = (async () => {
-        const { count } = await supabase.from('transactions')
-          .select('id', { count: 'exact', head: true }).eq('type', 'income');
-        return count ?? 0;
-      })();
-      const [voice, manual, ridesTotal] = await Promise.all([
-        countSrc('voice'), countSrc('manual'), ridesTotalP,
-      ]);
-      return {
-        available: true, voice_today: voice, manual_today: manual, rides_total: ridesTotal,
-      };
+      const [voice, manual] = await Promise.all([countSrc('voice'), countSrc('manual')]);
+      return { available: true, voice_today: voice, manual_today: manual };
     } catch { return { available: false }; }
   }
 

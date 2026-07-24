@@ -736,15 +736,6 @@ class _SecurityTabState extends State<SecurityTab> {
                   '${((vToday * 100) / (vToday + mToday)).round()}%'),
             ],
           ]),
-          // Total histórico de carreras (income): dato COMPLETO. Se enlazará también
-          // con la web más adelante.
-          _metricsBlock(l.t('adm_metrics_sec_total'), AdminColors.teal, [
-            if (!actAvail)
-              _nodataRow(l, l.t('adm_metrics_input_none'))
-            else
-              _kvRow(l.t('adm_metrics_rides_total'),
-                  '${(act['rides_total'] as num?)?.toInt() ?? 0}'),
-          ]),
           // IA / quota: % disponible por MODELO (parser + Whisper tienen su propio
           // rate-limit). Bajo = cerca del límite.
           _metricsBlock(l.t('adm_metrics_sec_ia'), AdminColors.purple, [

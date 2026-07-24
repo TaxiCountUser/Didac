@@ -76,22 +76,29 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     });
   }
 
-  bool _matchesFilter(Map<String, dynamic> t) {
+  bool _isTrial(Map<String, dynamic> t) {
     final s = t['subscription_status'] as String?;
-    final trialEnds = DateTime.tryParse('${t['trial_ends_at']}');
-    final inTrial = s != 'active' && s != 'past_due' &&
-        trialEnds != null && trialEnds.isAfter(DateTime.now());
+    final te = DateTime.tryParse('${t['trial_ends_at']}');
+    return s != 'active' && s != 'past_due' && te != null && te.isAfter(DateTime.now());
+  }
+
+  bool _isRisk(Map<String, dynamic> t) {
+    final s = t['subscription_status'] as String?;
+    final te = DateTime.tryParse('${t['trial_ends_at']}');
+    return s == 'past_due' || s == 'canceled' ||
+        (te != null && !te.isAfter(DateTime.now()) && s != 'active');
+  }
+
+  bool _matchesFilter(Map<String, dynamic> t) {
     switch (_filter) {
       case _Filter.all:
         return true;
       case _Filter.paying:
-        return s == 'active';
+        return t['subscription_status'] == 'active';
       case _Filter.trial:
-        return inTrial;
+        return _isTrial(t);
       case _Filter.risk:
-        return s == 'past_due' || s == 'canceled' ||
-            (trialEnds != null && !trialEnds.isAfter(DateTime.now()) &&
-                s != 'active');
+        return _isRisk(t);
     }
   }
 
@@ -158,6 +165,11 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                 .where(_matchesQuery)
                 .toList();
             _sortList(visible);
+            final ridesTotal = ((((snap.data ?? const {})['kpis'] as Map?)
+                ?? const {})['rides_total'] as num?)?.toInt() ?? 0;
+            final payingN = tenants.where((t) => t['subscription_status'] == 'active').length;
+            final trialN = tenants.where(_isTrial).length;
+            final riskN = tenants.where(_isRisk).length;
             return adminConstrained(Column(
               children: [
                 Padding(
@@ -174,16 +186,20 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                     },
                   ),
                 ),
+                // Cabecera de KPI pertinentes (a la vez filtros): total · pagament ·
+                // prova · risc con recuento, + carreres totals. El filtro activo se
+                // resalta al tocar la tarjeta.
                 SizedBox(
-                  height: 34,
+                  height: 56,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      _pill(l.t('adm_co_all'), _Filter.all, AdminColors.purple),
-                      _pill(l.t('adm_co_paying'), _Filter.paying, AdminColors.teal),
-                      _pill(l.t('adm_co_trial'), _Filter.trial, AdminColors.amber),
-                      _pill(l.t('adm_co_risk'), _Filter.risk, AdminColors.red),
+                      _kpiCard(l.t('adm_co_all'), '${tenants.length}', AdminColors.purple, filter: _Filter.all),
+                      _kpiCard(l.t('adm_co_paying'), '$payingN', AdminColors.teal, filter: _Filter.paying),
+                      _kpiCard(l.t('adm_co_trial'), '$trialN', AdminColors.amber, filter: _Filter.trial),
+                      _kpiCard(l.t('adm_co_risk'), '$riskN', AdminColors.red, filter: _Filter.risk),
+                      _kpiCard(l.t('adm_kpi_rides'), '$ridesTotal', AdminColors.blue),
                     ],
                   ),
                 ),
@@ -227,14 +243,42 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     );
   }
 
-  Widget _pill(String label, _Filter f, Color color) => Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: AdminPill(
-            label: label,
-            selected: _filter == f,
-            color: color,
-            onTap: () => setState(() => _filter = f)),
-      );
+  // Tarjeta KPI de Empresas: valor + etiqueta. Si lleva filter, filtra la lista
+  // y se resalta cuando está seleccionada; 'carreres totals' va sin filter.
+  Widget _kpiCard(String label, String value, Color color, {_Filter? filter}) {
+    final selected = filter != null && _filter == filter;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: filter == null ? null : () => setState(() => _filter = filter),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 104,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: .14) : AdminColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+                color: color.withValues(alpha: selected ? .9 : .3),
+                width: selected ? 1.4 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(value,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+              const SizedBox(height: 1),
+              Text(label,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10, color: AdminColors.secondary)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _sortButton(AppLocalizations l) {
     String label(_Sort s) => switch (s) {

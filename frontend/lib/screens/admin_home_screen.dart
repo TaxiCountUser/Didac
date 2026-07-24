@@ -186,11 +186,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     // en el módulo Facturación, no aquí.
     final globalTiles = <Widget>[
       _mTile(l.t('adm_kpi_companies'), _numStr(k['tenants']), AdminColors.purple,
-          onTap: () => _openTab(-2)),
+          onTap: () => _openTab(-2), fill: true),
       _mTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal', AdminColors.blue,
-          onTap: () => _openTab(-2)),
+          onTap: () => _openTab(-2), fill: true),
       _mTile(l.t('adm_co_paying'), _numStr(k['paying']), AdminColors.teal,
-          onTap: () => _openTab(-3)),
+          onTap: () => _openTab(-3), fill: true),
+      _mTile(l.t('adm_kpi_rides'), _numStr(k['rides_total']), AdminColors.amber,
+          onTap: () => _openTab(-2), fill: true),
     ];
 
     return Column(
@@ -200,7 +202,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                 letterSpacing: 1.5, color: AdminColors.text)),
         _subLabel(l.t('adm_dm_global')),
-        Wrap(spacing: 8, runSpacing: 8, children: globalTiles),
+        // Graella responsive: 2×2 al mòbil, 1×N en pantalles amples (sense orfes).
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 180, mainAxisExtent: 62,
+            crossAxisSpacing: 8, mainAxisSpacing: 8,
+          ),
+          itemCount: globalTiles.length,
+          itemBuilder: (_, i) => globalTiles[i],
+        ),
         _subLabel(l.t('adm_dm_today')),
         FutureBuilder<Map<String, dynamic>>(
           future: _dailyFuture,
@@ -252,10 +264,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   // KPI. Si recibe onTap, se vuelve clicable: borde más marcado + chevron
   // arriba a la derecha + ripple (affordance). Las métricas puras (carreras,
   // DAU, activación) se dejan ESTÁTICAS (sin onTap) a propósito.
-  Widget _mTile(String label, String value, Color color, {VoidCallback? onTap}) {
+  // fill=false: chip de ancho fijo (112) para el Wrap del "pulso diario".
+  // fill=true: ocupa la celda que le da el padre (grid responsive del resumen).
+  Widget _mTile(String label, String value, Color color, {VoidCallback? onTap, bool fill = false}) {
     final tappable = onTap != null;
     final tile = Container(
-      width: 112,
+      width: fill ? double.infinity : 112,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
         color: AdminColors.card,
@@ -263,6 +277,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         border: Border.all(color: color.withValues(alpha: tappable ? .5 : .28)),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(value,
@@ -279,7 +294,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: Stack(children: [
+      child: Stack(fit: fill ? StackFit.expand : StackFit.loose, children: [
         tile,
         Positioned(right: 5, top: 5,
             child: Icon(Icons.chevron_right, size: 13, color: color.withValues(alpha: .55))),
