@@ -161,7 +161,7 @@ Widget adminConstrained(Widget child, {double maxWidth = 720}) => LayoutBuilder(
         final avail = c.maxWidth;
         final target = avail <= 760
             ? maxWidth
-            : (avail >= 1200 ? 1160.0 : 920.0);
+            : (avail >= 1200 ? 1360.0 : 920.0);
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: target),
