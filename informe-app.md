@@ -378,10 +378,37 @@ superficie anon minimizada (mig. 042). **Config de producción a verificar:** `C
 ## 6. Recomendaciones de mejora y refactorización
 
 ### 6.1 Prioridad alta
-1. **Modularizar `server.js` (~3.500 líneas).** Extraer routers por dominio
-   (`routes/admin.js`, `routes/billing.js`, `routes/transcribe.js`, `routes/referrals.js`)
-   y una capa de servicios. El monolito funciona, pero el coste de cambio y el riesgo de
-   regresión crecen con cada feature. Es la deuda técnica más rentable de pagar.
+1. **Modularizar `server.js` (5.876 líneas) — PLAN DE EXTRACCIÓN (2026-07-24).**
+   Estructura real: casi todo (rutas + helpers) vive dentro de un único *closure*
+   `export async function buildApp()` (L286), compartiendo `app`, `supabase`, `stripe`
+   y las constantes. 98 endpoints (67 bajo `/api/v1/admin/*`). Ya extraídos como
+   funciones puras: `billing.js parser.js llm_parser.js corrections.js push.js
+   push_i18n.js reports.js importer.js`. Patrón a seguir: **plugin de rutas**
+   `export function registerXxxRoutes(app, deps)` con `deps = { supabase, stripe,
+   helpers… }` inyectadas. Orden por dependencia y riesgo:
+
+   **Fase A — helpers puros (riesgo bajo, hacer primero, los comparten varios dominios):**
+   - `rewards.js` ← `seatBaseRate`, `applyRewardCredit`, `reverseRewardCredit`,
+     `applyPendingChallengeCredits`, `recomputeReferrerMilestones` (los usan Retos Y
+     Referidos → extraerlos ANTES desbloquea las dos rutas).
+   - `monitoring.js` ← `computeSemaphores`, `markService`, `readServiceUptime`,
+     `readIncomeReal`/fees/MRR helpers.
+   - `security_log.js` ← `logSecurityEvent`, `secThrottled`.
+
+   **Fase B — grupos de rutas como plugin (riesgo medio):**
+   | Candidato | Líneas | Notas |
+   |---|---|---|
+   | **Retos** | ~548 (3589–4137) | contiguo y cohesivo → **mejor 1er candidato** |
+   | **Fraude** | ~485 (4138–4623) | contiguo, cohesivo → **2º candidato** |
+   | **Referidos** | ~1080 (4624–5704, 5 bloques dispersos) | mayor botín pero disperso; hacer tras Fase A |
+   | Informes | ~171 (5705–5876) | ya delegan en `reports.js`; extracción fina |
+   | Incidencias/push | ~418 (2857–3275) | usa `notifyUsers` |
+   | Checkout/Portal | ~313 (3275–3588) | usa `stripe`+`billing.js` |
+   | Panel admin (overview/ingresos/pols) | ~700 (831–1179, 1303–1654) | núcleo, extraer al final |
+
+   El monolito funciona, pero el coste de cambio y el riesgo de regresión crecen con
+   cada feature. Cada extracción: `node --check` + tests de integración verdes antes de
+   commit. Es la deuda técnica más rentable de pagar.
 2. ✅ **Cobertura de tests de la lógica crítica de webhooks — RESUELTO (2026-07-08).**
    Nuevo job de CI `test-backend-integration` (ci.yml) que levanta el stack Supabase con
    docker compose y ejecuta de verdad webhook/billing_endpoints/excel/pdf. Con
