@@ -2,8 +2,49 @@
 
 > **Documento vivo y único** de arquitectura del proyecto (unifica el antiguo
 > `ARQUITECTURA.md`). Debe actualizarse con cada cambio relevante en el código.
-> Última actualización: 2026-07-05. Ámbito: monorepo completo (frontend Flutter,
+> Última actualización: 2026-07-24. Ámbito: monorepo completo (frontend Flutter,
 > backend Fastify, base de datos Supabase, CI/CD).
+
+---
+
+## Índice
+
+> **Navegación (ahorro de tokens):** no leas este documento entero. Salta a la sección
+> con `grep -nE "^#{2,3} " informe-app.md` para ver los números de línea actuales y
+> luego `Read` con `offset`/`limit`. El nº de sección (1–7, A) es estable aunque las
+> líneas deriven.
+
+1. **[Resumen ejecutivo](#1-resumen-ejecutivo)** — qué es, estado de madurez, métricas clave.
+2. **[Stack tecnológico](#2-stack-tecnológico)**
+   - 2.1 Frontend (cliente) · 2.2 Backend · 2.3 Datos, autenticación e infraestructura
+3. **[Arquitectura y flujo de datos](#3-arquitectura-y-flujo-de-datos)**
+   - 3.1 Visión general (monorepo, 3 piezas de despliegue) · 3.2 Doble ruta de datos ·
+     3.3 Arranque y enrutado · 3.4 Flujo end-to-end (registro por voz) · 3.5 Puente auth↔datos
+4. **[Módulos y componentes principales](#4-módulos-y-componentes-principales)**
+   - 4.1 Frontend (`frontend/lib/`) · 4.2 Backend (`backend/src/`) · 4.3 Panel de
+     administración (tema "N") · 4.4 Observabilidad (semáforos + métricas) · 4.5 Base de datos
+5. **[Dependencias y servicios externos](#5-dependencias-y-servicios-externos)**
+6. **[Recomendaciones de mejora y refactorización](#6-recomendaciones-de-mejora-y-refactorización)**
+   - 6.1 Prioridad alta (**incl. plan de troceado de `server.js`**) · 6.2 Media ·
+     6.3 Baja/evolutivo · 6.4 Fortalezas a preservar
+7. **[Conclusión](#7-conclusión)**
+- **[Anexo A — Configuración y esquema de BD](#anexo-a--configuración-y-esquema-de-base-de-datos-detalle)**
+  - A.1 Configuración (stack Supabase) · A.2 Modelo de datos (tablas por dominio) ·
+    A.3 Seguridad en la BD (RLS + RPCs)
+
+**Mapa de navegación rápida** (para orientarse sin abrir ficheros):
+
+| Busco… | Dónde |
+|---|---|
+| Cómo fluyen los datos cliente↔servidor | §3.2 (doble ruta) |
+| Qué hace cada pantalla/servicio del front | §4.1 |
+| Módulos del backend ya extraídos de `server.js` | §4.2 |
+| Cómo está montado el panel admin (kit, módulos) | §4.3 · y el `CLAUDE.md` |
+| Semáforos de salud / uptime | §4.4 |
+| Tablas de la BD y su dominio | §4.5 y Anexo A.2 |
+| RLS / RPCs / seguridad en BD | §A.3 |
+| **Plan para trocear `server.js`** | §6.1 (Prioridad alta #1) |
+| Plan producción MVP→prod (meses 1–3, CERRADO) | §6.1 (blockquote) |
 
 ---
 
