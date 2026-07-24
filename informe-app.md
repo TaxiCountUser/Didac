@@ -207,8 +207,10 @@ Empresas (buscador global + recuento + orden + fichas de **supervisión** + **pu
 Facturación (salud recurrente + caja + colas de acción, ver nota), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
 + auto-refresco 20 s + submenú **Configuración**), Referidos (funnel de adquisición + coste + top
-referidores + submenús **Fraude** y **Configuración**), **Monitorización** (Métricas en vivo +
-Semáforos + Flags), **Auditoría** (log de acciones), Soporte, Errores, Config (**sistema**:
+referidores + submenús **Fraude** y **Configuración**), **Monitorización** (Métricas en vivo:
+**Entrada de datos hoy — voz vs manual** (`transactions.source`, mig. 080, adopción de voz; solo
+recuentos), IA/cuota Groq (rate-limit = margen, no actividad), saturación y BD + Semáforos + Flags),
+**Auditoría** (log de acciones), Soporte, Errores, Config (**sistema**:
 mantenimiento + administradores).
 
 > **Reorganización (2026-07-13):** la antigua tarjeta "Seguridad" se dividió en **Monitorización**

@@ -1144,6 +1144,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_metrics_intro':
         'Uso en vivo de los servicios. Aviso cuando se supera el 80%.',
     'adm_metrics_sec_ia': 'IA / cuota', 'adm_metrics_sec_sat': 'Saturación',
+    'adm_metrics_sec_input': 'Entrada de datos (hoy)',
+    'adm_metrics_input_voice': 'Por voz', 'adm_metrics_input_manual': 'A mano',
+    'adm_metrics_input_voicepct': '% por voz',
+    'adm_metrics_input_none': 'Aún sin registros hoy',
     'adm_metrics_sec_db': 'Base de datos',
     'adm_metrics_groq_avail': 'Disponible (rate-limit)',
     'adm_metrics_groq_hint':
@@ -2220,6 +2224,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_metrics': 'Metrics',
     'adm_metrics_intro': 'Live service usage. Alert when it goes over 80%.',
     'adm_metrics_sec_ia': 'AI / quota', 'adm_metrics_sec_sat': 'Saturation',
+    'adm_metrics_sec_input': 'Data entry (today)',
+    'adm_metrics_input_voice': 'By voice', 'adm_metrics_input_manual': 'Manual',
+    'adm_metrics_input_voicepct': '% by voice',
+    'adm_metrics_input_none': 'No entries yet today',
     'adm_metrics_sec_db': 'Database',
     'adm_metrics_groq_avail': 'Available (rate-limit)',
     'adm_metrics_groq_hint': 'Updates after each voice transcription or parse.',
@@ -3333,6 +3341,10 @@ const Map<String, Map<String, String>> _values = {
     'adm_metrics': 'Mètriques',
     'adm_metrics_intro': 'Ús en viu dels serveis. Avís quan se supera el 80%.',
     'adm_metrics_sec_ia': 'IA / quota', 'adm_metrics_sec_sat': 'Saturació',
+    'adm_metrics_sec_input': 'Entrada de dades (avui)',
+    'adm_metrics_input_voice': 'Per veu', 'adm_metrics_input_manual': 'A mà',
+    'adm_metrics_input_voicepct': '% per veu',
+    'adm_metrics_input_none': 'Encara sense registres avui',
     'adm_metrics_sec_db': 'Base de dades',
     'adm_metrics_groq_avail': 'Disponible (rate-limit)',
     'adm_metrics_groq_hint':

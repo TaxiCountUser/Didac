@@ -707,6 +707,12 @@ class _SecurityTabState extends State<SecurityTab> {
     final groqModels = ((groq['models'] as List?) ?? []).cast<Map<String, dynamic>>();
     final sysAvail = sys['available'] == true;
 
+    // Actividad de entrada HOY: carreras/gastos creados por voz vs a mano (mig. 080).
+    final act = (_metrics['activity'] as Map?)?.cast<String, dynamic>() ?? {};
+    final actAvail = act['available'] == true;
+    final vToday = (act['voice_today'] as num?)?.toInt() ?? 0;
+    final mToday = (act['manual_today'] as num?)?.toInt() ?? 0;
+
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
@@ -717,6 +723,19 @@ class _SecurityTabState extends State<SecurityTab> {
             child: Text(l.t('adm_metrics_intro'),
                 style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
           ),
+          // Entrada de datos HOY: carreras/gastos creados por VOZ vs a MANO (mig.
+          // 080). Es la ACTIVIDAD real; el rate-limit de Groq (abajo) es solo
+          // margen y siempre está casi lleno, no sirve para medir actividad.
+          _metricsBlock(l.t('adm_metrics_sec_input'), AdminColors.blue, [
+            if (!actAvail || (vToday + mToday) == 0)
+              _nodataRow(l, l.t('adm_metrics_input_none'))
+            else ...[
+              _kvRow(l.t('adm_metrics_input_voice'), '$vToday'),
+              _kvRow(l.t('adm_metrics_input_manual'), '$mToday'),
+              _kvRow(l.t('adm_metrics_input_voicepct'),
+                  '${((vToday * 100) / (vToday + mToday)).round()}%'),
+            ],
+          ]),
           // IA / quota: % disponible por MODELO (parser + Whisper tienen su propio
           // rate-limit). Bajo = cerca del límite.
           _metricsBlock(l.t('adm_metrics_sec_ia'), AdminColors.purple, [

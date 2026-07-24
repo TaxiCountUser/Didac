@@ -247,6 +247,8 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         clientName: client,
         createdAt: _when,
         vehicleId: _vehicleId,
+        // isPreview = el formulario viene de un parseo de VOZ; si no, es manual.
+        source: widget.isPreview ? 'voice' : 'manual',
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

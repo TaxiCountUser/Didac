@@ -4488,13 +4488,36 @@ export async function buildApp(options = {}) {
     return reply.send({ semaphores: await computeSemaphores() });
   });
 
-  // Monitor de uso: Groq (rate-limit en vivo) + recursos de Supabase (CPU/RAM/
-  // disco + tamaño BD y conexiones). Refresca el scrape en cada consulta.
+  // Adopción de la ENTRADA de datos HOY: cuántas transacciones se crearon por VOZ
+  // vs a MANO (columna transactions.source, mig. 080). Es el indicador de ACTIVIDAD
+  // real (a diferencia del rate-limit de Groq, que es margen y siempre está casi
+  // lleno). Solo RECUENTOS agregados de plataforma (nunca importes): coherente con
+  // la protección de datos del panel. 'unknown' = filas previas a la mig. 080.
+  async function inputActivity() {
+    try {
+      const startToday = new Date(); startToday.setUTCHours(0, 0, 0, 0);
+      const iso = startToday.toISOString();
+      const countSrc = async (src) => {
+        const { count } = await supabase.from('transactions')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', iso).eq('source', src);
+        return count ?? 0;
+      };
+      const [voice, manual] = await Promise.all([countSrc('voice'), countSrc('manual')]);
+      return { available: true, voice_today: voice, manual_today: manual };
+    } catch { return { available: false }; }
+  }
+
+  // Monitor de uso: actividad de entrada (voz/manual) + Groq (rate-limit en vivo) +
+  // recursos de Supabase (CPU/RAM/disco + tamaño BD y conexiones). Refresca el
+  // scrape en cada consulta.
   app.get('/api/v1/admin/metrics', async (request, reply) => {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
-    const [groq, supa] = await Promise.all([groqUsage(), supabaseMetrics()]);
-    return reply.send({ groq, supabase: supa });
+    const [groq, supa, activity] = await Promise.all([
+      groqUsage(), supabaseMetrics(), inputActivity(),
+    ]);
+    return reply.send({ groq, supabase: supa, activity });
   });
 
   // Vigía externo (T11): igual que el anterior pero accesible con x-cron-secret

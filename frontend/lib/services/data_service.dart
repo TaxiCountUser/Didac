@@ -1340,6 +1340,7 @@ class DataService {
     String? clientName,
     DateTime? createdAt,
     String? vehicleId,
+    String? source, // 'voice' | 'manual' (adopción de voz, mig. 080)
   }) async {
     final row = <String, dynamic>{
       'tenant_id': tenantId,
@@ -1354,6 +1355,7 @@ class DataService {
       'destination': destination,
       'odometer_km': odometerKm,
       'client_name': clientName,
+      if (source != null) 'source': source,
     };
     // Si no se indica, la BD pone now() por defecto.
     if (createdAt != null) row['created_at'] = createdAt.toUtc().toIso8601String();
