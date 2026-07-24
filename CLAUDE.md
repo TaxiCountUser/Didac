@@ -26,9 +26,13 @@ només la conclusió, sense omplir el fil principal.
   per defecte d'aquest repo.
 - Integrats: `Explore` (cerques amples), `Plan` (dissenyar plans), `general-purpose`.
 
-## Després de CADA canvi de codi (obligatori)
+## En ACABAR cada feina (obligatori)
+Norma: cap `.md` pot quedar desfasat. En acabar cada tasca/feature:
 1. Validar: `flutter analyze lib/` i/o `node --check backend/src/server.js`
-2. Actualitzar `informe-app.md` (doc viu únic a la raíz)
+2. Actualitzar **tots els `.md` afectats** perquè no quedin desactualitzats:
+   `informe-app.md` (sempre que canviï arquitectura/mòduls/esquema/deps) i **`CLAUDE.md`**
+   (quan canviï el mapa d'àncores, l'estructura, els números o el frontend), més qualsevol
+   `docs/…` tocat.
 3. Commit + push (backend→Render, web→Pages es despleguen sols)
 4. Actualitzar el graf: `python -m graphify update .` (AST, **sense LLM**, cost ~0)
 - APK: **NOMÉS quan l'usuari ho demani explícitament**. No fer builds per iniciativa.
