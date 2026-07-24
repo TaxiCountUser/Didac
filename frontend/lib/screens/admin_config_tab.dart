@@ -97,7 +97,9 @@ class _ConfigTabState extends State<ConfigTab> {
   bool _keyInSection(String key) => switch (widget.section) {
         'challenges' => key.startsWith('challenge_'),
         'referrals' => key.startsWith('referral_'),
-        _ => key == 'maintenance_message',
+        _ => key == 'maintenance_message' ||
+            key == 'default_trial_days' ||
+            key == 'retention_years',
       };
 
   // Switches de la sección actual → su valor string.
@@ -329,6 +331,13 @@ class _ConfigTabState extends State<ConfigTab> {
               ),
             ),
           ),
+        const Divider(height: 22),
+        // Duración de prueba (nuevos tenants) y ventana de retención RGPD de la purga
+        // (mig. 078: el default de columna y la función de purga leen estas claves).
+        _numField('default_trial_days', l.t('cfg_trial_days'), l.t('cfg_trial_days_help'),
+            _g('default_trial_days', '15'), suffix: l.t('ch_days_unit')),
+        _numField('retention_years', l.t('cfg_retention_years'), l.t('cfg_retention_years_help'),
+            _g('retention_years', '5'), suffix: l.t('cfg_years_unit')),
       ],
     );
   }

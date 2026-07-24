@@ -278,6 +278,11 @@ const Map<String, Map<String, String>> _values = {
     'cfg_maintenance_help':
         'Muestra un aviso a todos los usuarios al abrir la app.',
     'cfg_maintenance_msg': 'Mensaje de mantenimiento',
+    'cfg_trial_days': 'Duración de la prueba (empresas nuevas)',
+    'cfg_trial_days_help': 'Días de prueba gratis al registrarse una empresa nueva. No afecta a las que ya están en prueba.',
+    'cfg_retention_years': 'Retención RGPD',
+    'cfg_retention_years_help': 'Años que se conservan las empresas dadas de baja antes de la purga definitiva.',
+    'cfg_years_unit': 'años',
     'cfg_maintenance_msg_hint':
         'Estamos haciendo mejoras, vuelve en unos minutos.',
     'cfg_euros_on': 'Reto de 100.000 € activado',
@@ -1417,6 +1422,11 @@ const Map<String, Map<String, String>> _values = {
     'cfg_maintenance_help':
         'Shows a notice to all users when they open the app.',
     'cfg_maintenance_msg': 'Maintenance message',
+    'cfg_trial_days': 'Trial length (new companies)',
+    'cfg_trial_days_help': 'Free trial days when a new company signs up. Does not affect companies already on trial.',
+    'cfg_retention_years': 'GDPR retention',
+    'cfg_retention_years_help': 'Years that closed companies are kept before the final purge.',
+    'cfg_years_unit': 'years',
     'cfg_maintenance_msg_hint': 'We are making improvements, come back soon.',
     'cfg_euros_on': '100,000 € challenge enabled',
     'cfg_euros_on_help':
@@ -2488,6 +2498,11 @@ const Map<String, Map<String, String>> _values = {
     'cfg_maintenance_help':
         'Mostra un avís a tots els usuaris en obrir l\'app.',
     'cfg_maintenance_msg': 'Missatge de manteniment',
+    'cfg_trial_days': 'Durada de la prova (empreses noves)',
+    'cfg_trial_days_help': 'Dies de prova gratis en registrar-se una empresa nova. No afecta les que ja estan en prova.',
+    'cfg_retention_years': 'Retenció RGPD',
+    'cfg_retention_years_help': 'Anys que es conserven les empreses donades de baixa abans de la purga definitiva.',
+    'cfg_years_unit': 'anys',
     'cfg_maintenance_msg_hint':
         'Estem fent millores, torna d\'aquí una estona.',
     'cfg_euros_on': 'Repte de 100.000 € activat',

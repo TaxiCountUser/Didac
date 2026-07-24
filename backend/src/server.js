@@ -4936,9 +4936,10 @@ export async function buildApp(options = {}) {
     const g = await adminGuard(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
     const body = request.body ?? {};
+    const SYSTEM_KEYS = new Set(['default_trial_days', 'retention_years']);
     const updates = Object.entries(body)
-      .filter(([k]) => k.startsWith('referral_') || k.startsWith('challenge_') || k.startsWith('maintenance_'));
-    if (!updates.length) return reply.code(400).send({ error: 'Nada que actualizar (claves referral_*/challenge_*/maintenance_*)' });
+      .filter(([k]) => k.startsWith('referral_') || k.startsWith('challenge_') || k.startsWith('maintenance_') || SYSTEM_KEYS.has(k));
+    if (!updates.length) return reply.code(400).send({ error: 'Nada que actualizar (claves referral_*/challenge_*/maintenance_*/sistema)' });
     for (const [key, value] of updates) {
       await supabase.from('system_config')
         .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });

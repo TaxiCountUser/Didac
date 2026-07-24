@@ -250,10 +250,12 @@ mantenimiento + administradores).
 > (mantenimiento + administradores). Técnicamente es un panel único reutilizable `ConfigTab(section:
 > 'challenges'|'referrals'|'system')` que renderiza y **guarda solo las claves de su sección** (y
 > solo las cambiadas), con **estado "sucio"** (Guardar activo solo si hay cambios) y **validación
-> numérica** (bloquea + marca el campo malo). Pendiente/aparcado: **duración de prueba por defecto**
-> y **ventana de retención RGPD** como ajustes editables — HOY viven en la BD (default de columna
-> `trial_ends_at = now()+15d` y función `purge_expired_retention()`), así que hacerlos configurables
-> requiere una migración; no se añaden hasta hacerla con cuidado (backup primero).
+> numérica** (bloquea + marca el campo malo). **Duración de prueba por defecto** y **ventana de
+> retención RGPD** editables desde Config (sección sistema) — **HECHO (mig. 078)**: SIN tocar el
+> trigger `handle_new_auth_user`, el DEFAULT de `trial_ends_at` pasa a leer `default_trial_days()`
+> (config `default_trial_days`, fallback 15, sanitiza+clamp 1..90) y `purge_expired_retention()` lee
+> `retention_years` (fallback 5, clamp 1..10). Las funciones nunca lanzan → un valor inválido no
+> rompe el alta ni la purga. El endpoint de config acepta ahora `default_trial_days`/`retention_years`.
 
 > **Cupón de bienvenida — blindaje + edición + reinicio (2026-07-21):** el aviso in-app del cupón
 > se controla con `tenants.coupon_redeemed_code` (columna de la APP; un refund de Stripe NO la
