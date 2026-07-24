@@ -2305,8 +2305,20 @@ export async function buildApp(options = {}) {
       if (!owner?.id) return reply.code(400).send({ error: 'La empresa no tiene owner' });
       out.referral = await processReferralValidationQueue({ referrerUserId: owner.id, force: true });
       await recomputeReferrerMilestones(owner.id); // por si ya había válidos sin hito aplicado
+    } else if (mode === 'reset_balance') {
+      // Poner el saldo del cliente a 0 (limpiar créditos acumulados en pruebas).
+      // Sin confusión de signos: el backend calcula la transacción que lo anula.
+      if (!stripe || !tenant.stripe_customer_id) return reply.code(400).send({ error: 'La empresa no tiene cliente Stripe' });
+      const cust = await stripe.customers.retrieve(tenant.stripe_customer_id);
+      const bal = cust?.balance ?? 0;
+      out.reset_from_cents = bal;
+      if (bal !== 0) {
+        await stripe.customers.createBalanceTransaction(tenant.stripe_customer_id, {
+          amount: -bal, currency: 'eur', description: 'Reset de saldo (pruebas)',
+        });
+      }
     } else {
-      return reply.code(400).send({ error: 'mode debe ser challenge o referrals' });
+      return reply.code(400).send({ error: 'mode debe ser challenge, referrals o reset_balance' });
     }
 
     // Desglose de la tarifa de flota (debug): qué líneas de factura cuenta y su

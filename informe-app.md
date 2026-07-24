@@ -281,9 +281,11 @@ mantenimiento + administradores).
 > **Prueba segura (con usuarios reales dentro):** `POST /admin/company/:id/test-rewards`
 > (solo admin) dispara la recompensa SOLO de esa empresa — `mode:'challenge'` siembra un
 > reto `rewarded` y aplica su crédito; `mode:'referrals'` valida ya (ignorando los 15d) los
-> referidos de su owner y recalcula hitos — sin tocar la config global ni ejecutar los crons
-> globales. Botón "Probar reto/referido" en la ficha de empresa. `applyPendingChallengeCredits`
-> y `processReferralValidationQueue` aceptan filtro por tenant/owner para ello.
+> referidos de su owner y recalcula hitos; `mode:'reset_balance'` pone el saldo Stripe del
+> cliente a 0 (limpiar créditos de pruebas sin pelearse con el signo del dashboard) — todo sin
+> tocar la config global ni los crons globales. Botones "Probar reto / referido / Reiniciar
+> saldo" en la ficha. `applyPendingChallengeCredits` y `processReferralValidationQueue` aceptan
+> filtro por tenant/owner para ello.
 
 > **Anti-fraude de retos:** un logro con señales sospechosas (salto de km / carrera
 > desmesurada) entra como `pending` y **no** cuenta como completado ni cobra recompensa

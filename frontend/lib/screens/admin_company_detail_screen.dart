@@ -453,6 +453,15 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                   style: const TextStyle(fontSize: 11)),
               onPressed: () => _testRewards('referrals'),
             ),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                  foregroundColor: AdminColors.secondary,
+                  visualDensity: VisualDensity.compact),
+              icon: const Icon(Icons.account_balance_wallet, size: 15),
+              label: Text(l.t('adm_test_reset_balance'),
+                  style: const TextStyle(fontSize: 11)),
+              onPressed: () => _testRewards('reset_balance'),
+            ),
           ]),
         ),
         const SizedBox(height: 8),
@@ -490,6 +499,12 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     try {
       final r = await _service.adminTestRewards(widget.tenantId, mode);
       final bal = (r['customer_balance_cents'] as num?)?.toInt() ?? 0;
+      if (mode == 'reset_balance') {
+        final was = (r['reset_from_cents'] as num?)?.toInt() ?? 0;
+        _reload();
+        await _toast(l.t('adm_test_reset_done', {'was': (-was / 100).toStringAsFixed(2)}));
+        return;
+      }
       final fleet = (r['fleet_monthly_eur'] as num?)?.toDouble() ?? 0;
       final perSeat = (r['per_seat_eur'] as num?)?.toDouble() ?? 0;
       final seats = (r['seats'] as num?)?.toInt() ?? 0;
