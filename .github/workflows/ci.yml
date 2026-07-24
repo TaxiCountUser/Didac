@@ -19,7 +19,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -32,7 +32,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -48,7 +48,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-backend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -131,7 +131,7 @@ jobs:
   secrets-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # historial completo para detectar secretos ya commiteados
       - name: Gitleaks (secretos)
@@ -142,7 +142,7 @@ jobs:
   sast:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Semgrep (OWASP + JS)
         # Informe (no bloquea): los findings quedan en el log del job. Sin
         # --error semgrep sale 0 aunque haya findings. continue-on-error cubre
@@ -158,7 +158,7 @@ jobs:
     # Informe (no bloquea): incluye transitivas Dart (pubspec.lock) sin fix.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: osv-scanner (vulns de dependencias)
         run: |
           docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:latest -r /src
@@ -169,7 +169,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -183,7 +183,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
