@@ -179,7 +179,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final globalTiles = <Widget>[
       _mTile(l.t('adm_kpi_companies'), _numStr(k['tenants']), AdminColors.purple),
       _mTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal', AdminColors.blue),
-      _mTile(l.t('adm_kpi_trials'), _numStr(k['trialing']), AdminColors.amber),
+      _mTile(l.t('adm_co_paying'), _numStr(k['paying']), AdminColors.teal),
     ];
 
     return Column(
@@ -494,7 +494,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
     final modules = <_Module>[
       _Module(l.t('admin_companies'), Icons.business, AdminColors.purple,
-          '${k['tenants'] ?? 0} · ${l.t('adm_kpi_trials').toLowerCase()}: ${k['trialing'] ?? 0}',
+          '${k['tenants'] ?? 0} · ${l.t('adm_co_paying').toLowerCase()}: ${k['paying'] ?? 0}',
           0, -2),
       _Module(l.t('adm_mod_support'), Icons.forum, AdminColors.blue,
           l.t('adm_pending_n', {'n': '${pi('tickets')}'}), pi('tickets'), 0),
