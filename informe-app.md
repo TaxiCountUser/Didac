@@ -209,7 +209,8 @@ Facturación (salud recurrente + caja + colas de acción, ver nota), Retos (subm
 + auto-refresco 20 s + submenú **Configuración**), Referidos (funnel de adquisición + coste + top
 referidores + submenús **Fraude** y **Configuración**), **Monitorización** (Métricas en vivo:
 **Entrada de datos hoy — voz vs manual** (`transactions.source`, mig. 080, adopción de voz; solo
-recuentos), IA/cuota Groq (rate-limit = margen, no actividad), saturación y BD + Semáforos + Flags),
+recuentos) + **Carreras totales** (histórico completo, `inputActivity.rides_total`; se enlazará con
+la web más adelante), IA/cuota Groq (rate-limit = margen, no actividad), saturación y BD + Semáforos + Flags),
 **Auditoría** (log de acciones), Soporte, Errores, Config (**sistema**:
 mantenimiento + administradores).
 

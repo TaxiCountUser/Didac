@@ -4503,8 +4503,19 @@ export async function buildApp(options = {}) {
           .gte('created_at', iso).eq('source', src);
         return count ?? 0;
       };
-      const [voice, manual] = await Promise.all([countSrc('voice'), countSrc('manual')]);
-      return { available: true, voice_today: voice, manual_today: manual };
+      // Total histórico de carreras (income), dato COMPLETO (todo el historial, no
+      // depende de source). Se enlazará también con la web más adelante.
+      const ridesTotalP = (async () => {
+        const { count } = await supabase.from('transactions')
+          .select('id', { count: 'exact', head: true }).eq('type', 'income');
+        return count ?? 0;
+      })();
+      const [voice, manual, ridesTotal] = await Promise.all([
+        countSrc('voice'), countSrc('manual'), ridesTotalP,
+      ]);
+      return {
+        available: true, voice_today: voice, manual_today: manual, rides_total: ridesTotal,
+      };
     } catch { return { available: false }; }
   }
 
