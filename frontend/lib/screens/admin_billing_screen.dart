@@ -211,31 +211,53 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
 
   // Tarjeta con la caja real cobrada del periodo elegido.
   Widget _cashCard(AppLocalizations l, Map<String, dynamic> t) {
-    final (value, note) = switch (_period) {
-      _CashPeriod.today => (t['cash_today'], l.t('adm_bill_today')),
-      _CashPeriod.mtd => (t['cash_mtd'], l.t('adm_bill_month')),
-      _CashPeriod.total => (t['cash_total'], l.t('adm_bill_total')),
+    final (value, fee, note) = switch (_period) {
+      _CashPeriod.today => (t['cash_today'], t['fee_today'], l.t('adm_bill_today')),
+      _CashPeriod.mtd => (t['cash_mtd'], t['fee_mtd'], l.t('adm_bill_month')),
+      _CashPeriod.total => (t['cash_total'], t['fee_total'], l.t('adm_bill_total')),
     };
+    final v = (value as num?)?.toDouble() ?? 0;
+    final f = (fee as num?)?.toDouble() ?? 0;
+    final net = v - f;
+    String eur(double x) => '${x.toStringAsFixed(2)}€';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: adminCardBox(),
-      child: Row(
+      child: Column(
         children: [
-          const Icon(Icons.payments, size: 18, color: AdminColors.teal),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(l.t('adm_bill_cash_sub'),
-                style: const TextStyle(
-                    fontSize: 10.5, color: AdminColors.secondary)),
+          Row(
+            children: [
+              const Icon(Icons.payments, size: 18, color: AdminColors.teal),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(l.t('adm_bill_cash_sub'),
+                    style: const TextStyle(
+                        fontSize: 10.5, color: AdminColors.secondary)),
+              ),
+              Text(eur(v),
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AdminColors.text)),
+              const SizedBox(width: 6),
+              Text(note.toUpperCase(),
+                  style: const TextStyle(fontSize: 8.5, color: AdminColors.muted)),
+            ],
           ),
-          Text('${(value as num?)?.toStringAsFixed(2) ?? '0'}€',
-              style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AdminColors.text)),
-          const SizedBox(width: 6),
-          Text(note.toUpperCase(),
-              style: const TextStyle(fontSize: 8.5, color: AdminColors.muted)),
+          const SizedBox(height: 6),
+          // Bruto − comisión Stripe = neto (payout real). El MRR/ARR se dejan brutos.
+          Row(
+            children: [
+              const SizedBox(width: 28),
+              Expanded(
+                child: Text('${l.t('adm_bill_fee')} −${eur(f)}',
+                    style: const TextStyle(fontSize: 11, color: AdminColors.coral)),
+              ),
+              Text('${l.t('adm_bill_net')} ${eur(net)}',
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600, color: AdminColors.teal)),
+            ],
+          ),
         ],
       ),
     );

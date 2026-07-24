@@ -1372,6 +1372,33 @@ export async function buildApp(options = {}) {
     }
   }
 
+  // Comisiones REALES de Stripe (céntimos), de las balance transactions (campo
+  // `fee` de los cargos), por hoy / mes (MTD) / total. Es un COSTE: el MRR/ARR se
+  // dejan brutos (estándar), pero la CAJA muestra bruto − comisión = neto (payout).
+  let _feesCache = null;
+  async function readGlobalFees() {
+    if (!stripe) return { feeToday: 0, feeMtd: 0, feeTotal: 0 };
+    if (_feesCache && Date.now() - _feesCache.at < 60000) return _feesCache.data;
+    try {
+      const { startTodayS, startMonthS } = dayBounds();
+      let feeToday = 0; let feeMtd = 0; let feeTotal = 0;
+      for await (const bt of stripe.balanceTransactions.list({ limit: 100 })) {
+        if (bt.type !== 'charge' && bt.type !== 'payment') continue;
+        const fee = bt.fee || 0;
+        feeTotal += fee;
+        const at = bt.created ?? 0;
+        if (at >= startTodayS) feeToday += fee;
+        if (at >= startMonthS) feeMtd += fee;
+      }
+      const data = { feeToday, feeMtd, feeTotal };
+      _feesCache = { at: Date.now(), data };
+      return data;
+    } catch (e) {
+      app.log.warn(`[fees] global: ${e.message}`);
+      return _feesCache?.data ?? { feeToday: 0, feeMtd: 0, feeTotal: 0 };
+    }
+  }
+
   async function readTenantRevenue(customerId) {
     if (!stripe || !customerId) return { paid: 0, discount: 0, count: 0, refunded: 0, currency: 'eur' };
     try {
@@ -1961,6 +1988,7 @@ export async function buildApp(options = {}) {
     // activos): aquí solo hay lo que se ha cobrado de verdad.
     const rev = await readGlobalRevenue();
     const mrrData = await readMrr();
+    const fees = await readGlobalFees();
     const byCustomer = rev?.byCustomer ?? {};
     const rows = (tenants ?? []).map((t) => {
       const paying = t.subscription_status === 'active' || t.subscription_status === 'past_due';
@@ -1993,13 +2021,20 @@ export async function buildApp(options = {}) {
     const cashToday = Number(((rev?.paidToday ?? 0) / 100).toFixed(2));
     const cashMtd = Number(((rev?.paidMtd ?? 0) / 100).toFixed(2));
     const cashTotal = Number((((rev?.paid ?? 0) - (rev?.refunded ?? 0)) / 100).toFixed(2));
+    // Comisiones REALES de Stripe (coste), por periodo. La UI muestra bruto − comisión = neto.
+    const feeToday = Number(((fees?.feeToday ?? 0) / 100).toFixed(2));
+    const feeMtd = Number(((fees?.feeMtd ?? 0) / 100).toFixed(2));
+    const feeTotal = Number(((fees?.feeTotal ?? 0) / 100).toFixed(2));
 
     return reply.send({
       totals: {
         mrr, arr, arpa,              // salud recurrente (€/mes, €/año, €/empresa·mes)
-        cash_today: cashToday,       // € cobrados hoy
-        cash_mtd: cashMtd,           // € cobrados este mes
-        cash_total: cashTotal,       // € cobrados neto (acumulado histórico)
+        cash_today: cashToday,       // € cobrados hoy (bruto)
+        cash_mtd: cashMtd,           // € cobrados este mes (bruto)
+        cash_total: cashTotal,       // € cobrados neto de reembolsos (acumulado)
+        fee_today: feeToday,         // comisión Stripe hoy
+        fee_mtd: feeMtd,             // comisión Stripe este mes
+        fee_total: feeTotal,         // comisión Stripe total
         paying: payingCount,
         past_due: rows.filter((r) => r.status === 'past_due').length,
         trialing: rows.filter((r) => r.trial_days_left != null).length,

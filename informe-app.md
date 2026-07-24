@@ -183,7 +183,10 @@ mantenimiento + administradores).
 > (no proyección: foto de las subscripciones vivas de Stripe, `readMrr()`, active+past_due,
 > unit×cantidad normalizado a mes), **ARR** (MRR×12), **ARPA** (MRR/empresas que pagan) y **churn**;
 > **(B) CAJA real cobrada** con selector **Hoy / Este mes / Total** (de las facturas pagadas de
-> Stripe, `readGlobalRevenue` paidToday/paidMtd/neto); y **(C) colas de acción** (impagados/dunning,
+> Stripe, `readGlobalRevenue` paidToday/paidMtd/neto), mostrando **bruto − comisión Stripe = neto**
+> (payout real): la comisión es REAL, de las balance transactions (`readGlobalFees`, campo `fee` de
+> los cargos). El **MRR/ARR se dejan BRUTOS** (estándar: no se netea la comisión del run-rate; la
+> comisión es un coste, y donde tiene sentido verla es en la caja); y **(C) colas de acción** (impagados/dunning,
 > pruebas que acaban). Se retiró el titular de "total facturado acumulado" y la "media/empresa"
 > (acumulados opacos, poco accionables). Lista de empresas que pagan con recuento + orden (€/
 > asientos/nombre). Gestor de cupón (dominio nuestro) sin cambios. Migrado al kit
