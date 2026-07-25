@@ -78,7 +78,8 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       _waveTimer = Timer.periodic(const Duration(milliseconds: 90), _tickWave);
       setState(() => _recording = true);
     } catch (e) {
-      setState(() => _error = '${context.l10n.t('vc_start_fail')}: $e');
+      setState(() => _error = context.l10n.t('vc_start_fail'));
+      DataService().reportClientError('voice start: $e', screen: 'VoiceCapture');
     }
   }
 
@@ -151,10 +152,17 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       widget.onParsed(parsed);
     } catch (e) {
       if (!mounted) return;
+      // La transcripción necesita RED (Whisper en el backend). Si el error es de
+      // conexión, se avisa claro y se sugiere el modo manual, en vez del error crudo.
+      final s = e.toString().toLowerCase();
+      final offline = s.contains('socketexception') || s.contains('clientexception') ||
+          s.contains('failed host lookup') || s.contains('connection') ||
+          s.contains('network') || s.contains('unreachable');
       setState(() {
         _busy = false;
-        _error = '${context.l10n.t('vc_transcribe_err')}: $e';
+        _error = context.l10n.t(offline ? 'vc_offline' : 'vc_transcribe_err');
       });
+      DataService().reportClientError('voice transcribe: $e', screen: 'VoiceCapture');
     }
   }
 

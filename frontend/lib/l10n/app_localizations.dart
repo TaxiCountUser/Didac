@@ -501,6 +501,7 @@ const Map<String, Map<String, String>> _values = {
     'dictate_start': 'Dictar mensaje', 'dictate_stop': 'Parar y transcribir',
     'vc_no_audio': 'No se grabó audio',
     'vc_transcribe_err': 'Error al transcribir',
+    'vc_offline': 'Sin conexión: la voz necesita internet. Escríbelo a mano mientras tanto.',
     'vc_mock': 'Transcripción de ejemplo (configura OpenAI para la voz real)',
     // Dashboard / panel
     'od_summary': 'Resumen de la flota', 'od_export': 'Exportar',
@@ -1648,6 +1649,7 @@ const Map<String, Map<String, String>> _values = {
     'dictate_start': 'Dictate message', 'dictate_stop': 'Stop and transcribe',
     'vc_no_audio': 'No audio recorded',
     'vc_transcribe_err': 'Transcription error',
+    'vc_offline': 'No connection: voice needs internet. Type it manually meanwhile.',
     'vc_mock': 'Sample transcription (set up OpenAI for real voice)',
     'od_summary': 'Fleet summary', 'od_export': 'Export', 'od_import': 'Import',
     'sav_title': 'Free days earned',
@@ -2753,6 +2755,7 @@ const Map<String, Map<String, String>> _values = {
     'dictate_start': 'Dictar missatge', 'dictate_stop': 'Atura i transcriu',
     'vc_no_audio': 'No s’ha gravat àudio',
     'vc_transcribe_err': 'Error en transcriure',
+    'vc_offline': 'Sense connexió: la veu necessita internet. Escriu-ho a mà mentrestant.',
     'vc_mock': "Transcripció d'exemple (configura OpenAI per a la veu real)",
     'od_summary': 'Resum de la flota', 'od_export': 'Exporta',
     'od_import': 'Importa',
