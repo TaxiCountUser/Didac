@@ -666,6 +666,7 @@ const Map<String, Map<String, String>> _values = {
     'cp_solo_help':
         'Llevarás tu empresa y tus carreras desde la misma cuenta. Podrás cambiar entre la vista de Empresa y la de Chófer cuando quieras.',
     'cp_solo_name': 'Nombre (tu negocio)', 'cp_solo_btn': 'Empezar',
+    'cp_referral_optional': 'Código de referido (opcional)',
     'cp_create_card': 'Crear mi empresa',
     'cp_create_card_sub': 'Soy titular de una flota de taxis',
     'cp_create_title': 'Crear empresa', 'cp_create_btn': 'Crear',
@@ -1784,6 +1785,7 @@ const Map<String, Map<String, String>> _values = {
     'cp_solo_help':
         'You will run your company and your rides from the same account. You can switch between the Company and Driver views anytime.',
     'cp_solo_name': 'Name (your business)', 'cp_solo_btn': 'Start',
+    'cp_referral_optional': 'Referral code (optional)',
     'cp_create_card': 'Create my company',
     'cp_create_card_sub': 'I own a taxi fleet',
     'cp_create_title': 'Create company', 'cp_create_btn': 'Create',
@@ -2883,6 +2885,7 @@ const Map<String, Map<String, String>> _values = {
     'cp_solo_help':
         'Portaràs la teva empresa i les teves carreres des del mateix compte. Podràs canviar entre la vista d\'Empresa i la de Xofer quan vulguis.',
     'cp_solo_name': 'Nom (el teu negoci)', 'cp_solo_btn': 'Comença',
+    'cp_referral_optional': 'Codi de referit (opcional)',
     'cp_create_card': 'Crear la meva empresa',
     'cp_create_card_sub': 'Soc titular d\'una flota de taxis',
     'cp_create_title': 'Crear empresa', 'cp_create_btn': 'Crea',

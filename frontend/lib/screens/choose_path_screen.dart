@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
@@ -19,19 +20,44 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
   final _service = DataService();
   bool _loading = false;
 
+  // Guarda el código de referido (opcional) para que AuthGate lo aplique cuando
+  // la empresa ya exista (mismo mecanismo `pending_referral_code` que el registro
+  // por email). El referido es a nivel de OWNER: solo al crear empresa/autónomo.
+  Future<void> _savePendingReferral(String code) async {
+    final c = code.trim();
+    if (c.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pending_referral_code', c.toUpperCase());
+  }
+
   Future<void> _createCompany() async {
-    final ctrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final refCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(ctx.l10n.t('cp_create_title')),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: ctx.l10n.t('login_company_fleet'),
-            border: const OutlineInputBorder(),
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: ctx.l10n.t('login_company_fleet'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: refCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                labelText: ctx.l10n.t('cp_referral_optional'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
@@ -39,12 +65,14 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
         ],
       ),
     );
-    if (ok != true || ctrl.text.trim().isEmpty) return;
-    await _run(() => _service.createOwnerCompany(ctrl.text.trim()));
+    if (ok != true || nameCtrl.text.trim().isEmpty) return;
+    await _savePendingReferral(refCtrl.text);
+    await _run(() => _service.createOwnerCompany(nameCtrl.text.trim()));
   }
 
   Future<void> _createSolo() async {
-    final ctrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final refCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -55,10 +83,19 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
             Text(ctx.l10n.t('cp_solo_help'), style: Theme.of(ctx).textTheme.bodySmall),
             const SizedBox(height: 12),
             TextField(
-              controller: ctrl,
+              controller: nameCtrl,
               autofocus: true,
               decoration: InputDecoration(
                 labelText: ctx.l10n.t('cp_solo_name'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: refCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                labelText: ctx.l10n.t('cp_referral_optional'),
                 border: const OutlineInputBorder(),
               ),
             ),
@@ -70,8 +107,9 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
         ],
       ),
     );
-    if (ok != true || ctrl.text.trim().isEmpty) return;
-    await _run(() => _service.createSoloCompany(ctrl.text.trim()));
+    if (ok != true || nameCtrl.text.trim().isEmpty) return;
+    await _savePendingReferral(refCtrl.text);
+    await _run(() => _service.createSoloCompany(nameCtrl.text.trim()));
   }
 
   Future<void> _joinFleet() async {
