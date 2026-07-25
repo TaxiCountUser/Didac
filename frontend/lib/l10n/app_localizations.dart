@@ -694,6 +694,8 @@ const Map<String, Map<String, String>> _values = {
     'sub_current_period': 'Ya facturas {period}',
     'sub_switch_period': 'Cambiar a facturación {period}',
     'sub_have_coupon': '¿Tienes un cupón?',
+    'sub_coupon_band': 'con el cupón {code}',
+    'sub_coupon_dur_once': 'solo el 1er año', 'sub_coupon_dur_months': 'los primeros {n} meses',
     'sub_coupon_hint':
         'El descuento se aplicará a tu PRÓXIMA renovación (se cobra sola con el descuento; no hace falta adelantar el pago). Solo un cupón por renovación: no se acumulan ni se puede cambiar por otro.',
     'sub_coupon_code': 'Código del cupón', 'sub_coupon_apply': 'Aplicar cupón',
@@ -1819,6 +1821,8 @@ const Map<String, Map<String, String>> _values = {
     'sub_current_period': 'Already billed {period}',
     'sub_switch_period': 'Switch to {period} billing',
     'sub_have_coupon': 'Have a coupon?',
+    'sub_coupon_band': 'with coupon {code}',
+    'sub_coupon_dur_once': '1st year only', 'sub_coupon_dur_months': 'first {n} months',
     'sub_coupon_hint':
         'The discount applies to your NEXT renewal (it is charged automatically with the discount; no need to pay early). Only one coupon per renewal: they do not stack and cannot be swapped.',
     'sub_coupon_code': 'Coupon code', 'sub_coupon_apply': 'Apply coupon',
@@ -2929,6 +2933,8 @@ const Map<String, Map<String, String>> _values = {
     'sub_current_period': 'Ja factures {period}',
     'sub_switch_period': 'Canviar a facturació {period}',
     'sub_have_coupon': 'Tens un cupó?',
+    'sub_coupon_band': 'amb el cupó {code}',
+    'sub_coupon_dur_once': 'només el 1r any', 'sub_coupon_dur_months': 'els primers {n} mesos',
     'sub_coupon_hint':
         'El descompte s\'aplicarà a la teva PROPERA renovació (es cobra sola amb el descompte; no cal avançar el pagament). Només un cupó per renovació: no s\'acumulen ni es pot canviar per un altre.',
     'sub_coupon_code': 'Codi del cupó', 'sub_coupon_apply': 'Aplicar cupó',

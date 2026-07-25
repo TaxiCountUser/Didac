@@ -70,6 +70,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   bool _yearly = true; // periodo elegido para suscribirse (anual por defecto: se promociona)
   String? _error;
   bool _couponShown = false; // el aviso del cupón se muestra una vez por entrada
+  Map<String, dynamic>? _coupon; // cupón activo {show, code, pct, duration, ...} para la banda
 
   @override
   void initState() {
@@ -104,18 +105,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _loading = false;
         _error = null;
       });
-      // Aviso del cupón activo (con "copiar"), una sola vez por entrada.
-      if (!_couponShown) {
-        _couponShown = true;
-        try {
-          final c = await _service.tenantActiveCoupon();
-          if (mounted && c['show'] == true && (c['code'] as String?)?.isNotEmpty == true) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _showCouponDialog(c['code'] as String, (c['pct'] as num?)?.toInt() ?? 0);
-            });
-          }
-        } catch (_) {/* sin aviso de cupón */}
-      }
+      // Cupón activo: se guarda en estado (para la banda del plan anual) y, además,
+      // se muestra el aviso con "copiar" una sola vez por entrada.
+      try {
+        final c = await _service.tenantActiveCoupon();
+        if (mounted) setState(() => _coupon = c);
+        if (!_couponShown && mounted &&
+            c['show'] == true && (c['code'] as String?)?.isNotEmpty == true) {
+          _couponShown = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showCouponDialog(c['code'] as String, (c['pct'] as num?)?.toInt() ?? 0);
+          });
+        }
+      } catch (_) {/* sin cupón */}
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -888,7 +890,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final est = estimatedCost(_activeDrivers, _yearly);
     final perDriver = _yearly ? kSeatYearly : kSeatMonthly;
     final period = _yearly ? l.t('sub_per_year') : l.t('sub_per_month');
-    return Card(
+    // Banda de descuento: solo si es ANUAL y hay cupón activo aplicable (no canjeado).
+    final couponShow = _coupon?['show'] == true;
+    final couponPct = (_coupon?['pct'] as num?)?.toInt() ?? 0;
+    final showBand = _yearly && couponShow && couponPct > 0;
+    return Stack(children: [
+      Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -896,7 +903,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           children: [
             Text(l.t('sub_seat_plan_name'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
-            _row(Icons.person, l.t('sub_seat_per_driver', {'price': _eur(perDriver), 'period': period})),
+            if (showBand)
+              _discPriceRow(l, perDriver, perDriver * (1 - couponPct / 100), period)
+            else
+              _row(Icons.person, l.t('sub_seat_per_driver', {'price': _eur(perDriver), 'period': period})),
             _row(Icons.info_outline, l.t('sub_seat_max', {'max': '$kMaxDrivers'})),
             const Divider(height: 20),
             // La estimación "para N conductores" y la nota SOLO al suscribirse
@@ -926,6 +936,57 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ],
         ),
       ),
+      ),
+      if (showBand)
+        Positioned(top: 6, right: 6, child: _discountBadge(couponPct)),
+    ]);
+  }
+
+  // Badge de descuento (verde) en la esquina de la tarjeta anual.
+  Widget _discountBadge(int pct) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF2E7D32), // verde estalvi
+          borderRadius: BorderRadius.only(
+              topRight: Radius.circular(12), bottomLeft: Radius.circular(12)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        child: Text('−$pct%',
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+      );
+
+  // Precio por conductor con el cupón: precio actual TACHADO + precio con cupón al
+  // lado (verde) + nota con el código y la DURACIÓN (honesto si el cupón es 'once').
+  Widget _discPriceRow(AppLocalizations l, double full, double disc, String period) {
+    final code = (_coupon?['code'] as String?) ?? '';
+    final dur = (_coupon?['duration'] as String?) ?? 'once';
+    final months = (_coupon?['duration_in_months'] as num?)?.toInt();
+    final durTxt = dur == 'once'
+        ? l.t('sub_coupon_dur_once')
+        : (dur == 'repeating' && months != null
+            ? l.t('sub_coupon_dur_months', {'n': '$months'})
+            : '');
+    final note = [l.t('sub_coupon_band', {'code': code}), if (durTxt.isNotEmpty) durTxt].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.person, size: 18, color: Colors.grey),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, children: [
+              Text(_eur(full),
+                  style: const TextStyle(
+                      fontSize: 13, color: Colors.grey,
+                      decoration: TextDecoration.lineThrough)),
+              Text(l.t('sub_seat_per_driver', {'price': _eur(disc), 'period': period}),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+            ]),
+            Text(note, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          ]),
+        ),
+      ]),
     );
   }
 

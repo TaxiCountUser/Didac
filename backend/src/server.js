@@ -3459,6 +3459,8 @@ export async function buildApp(options = {}) {
       return {
         code: promo.code,
         pct: Math.round(promo.coupon.percent_off || 0),
+        duration: promo.coupon.duration || 'once', // once | forever | repeating
+        duration_in_months: promo.coupon.duration_in_months ?? null,
         coupon_id: promo.coupon.id,
         promo_id: promo.id,
         expires_at: promo.expires_at ? new Date(promo.expires_at * 1000).toISOString() : null,
@@ -3485,7 +3487,10 @@ export async function buildApp(options = {}) {
     const { data: t } = await supabase.from('tenants')
       .select('coupon_redeemed_code').eq('id', caller.tenant_id).maybeSingle();
     const redeemed = t?.coupon_redeemed_code || '';
-    return reply.send({ code: coupon.code, pct: coupon.pct, show: redeemed !== coupon.code });
+    return reply.send({
+      code: coupon.code, pct: coupon.pct, show: redeemed !== coupon.code,
+      duration: coupon.duration, duration_in_months: coupon.duration_in_months,
+    });
   });
 
   // Admin: cupón activo actual (para la pantalla de Facturación).
