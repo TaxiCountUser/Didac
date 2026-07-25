@@ -2797,3 +2797,160 @@ create policy system_config_read_auth on public.system_config
   using (left(key, 9) = 'referral_' or left(key, 10) = 'challenge_');
 
 notify pgrst, 'reload schema';
+
+
+-- ============================================================
+-- Migraciones 077-081 (resincronización cloud_setup, 2026-07-25)
+-- ============================================================
+
+-- 077_security_events.sql
+-- Registro de eventos de SEGURIDAD (capa B) para la pestaña "Logs" de Auditoría:
+-- escalada de privilegios (403 a rutas admin), abuso de API (rate-limit 429), token
+-- inválido/manipulado y login por usuario fallido. Distinto del audit trail de
+-- negocio (admin_actions_log): aquí van señales de seguridad con metadatos técnicos
+-- (method, path, status, trace_id). NUNCA se guarda el cuerpo/headers de la petición
+-- (evita almacenar contraseñas/tokens/PII). Solo el backend (service_role) inserta/lee.
+
+create table if not exists public.security_events (
+  id          uuid primary key default gen_random_uuid(),
+  event_type  text not null,   -- privilege_escalation | rate_limit | invalid_token | login_failed
+  actor_id    uuid references public.users(id)   on delete set null,
+  tenant_id   uuid references public.tenants(id) on delete set null,
+  ip_address  text,
+  user_agent  text,
+  method      text,
+  path        text,
+  status_code int,
+  trace_id    text,
+  details     jsonb,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_security_events_created on public.security_events(created_at desc);
+create index if not exists idx_security_events_type    on public.security_events(event_type);
+
+grant select, insert on public.security_events to service_role;
+alter table public.security_events enable row level security;
+-- Sin políticas para authenticated: solo el backend con service_role accede.
+
+-- 078_configurable_trial_retention.sql
+-- Hace configurables desde el panel (Config): la DURACIÓN DE PRUEBA por defecto de
+-- los nuevos tenants y la VENTANA DE RETENCIÓN RGPD de la purga. Antes eran valores
+-- fijos (default de columna 15 días, e interval '5 years' en la función de purga).
+--
+-- IMPORTANTE: NO se toca el trigger handle_new_auth_user (crítico para el alta). En su
+-- lugar, el DEFAULT de la columna trial_ends_at pasa a leer la config. Las funciones
+-- lectoras SANITIZAN el valor y tienen fallback, así que un valor inválido en config
+-- NUNCA rompe el alta de usuarios ni la purga.
+
+-- 1) Semillas de config (no pisar si ya existen).
+insert into public.system_config (key, value)
+values ('default_trial_days', '15'), ('retention_years', '5')
+on conflict (key) do nothing;
+
+-- 2) Días de prueba por defecto: lee config, saca solo dígitos, fallback 15, clamp 1..90.
+--    stable + security definer (bypassa RLS de system_config). Nunca lanza excepción.
+create or replace function public.default_trial_days()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select greatest(1, least(90, coalesce(
+    nullif(regexp_replace(coalesce((select value from public.system_config where key = 'default_trial_days'), ''), '\D', '', 'g'), '')::int,
+    15)));
+$$;
+
+-- 3) El DEFAULT de trial_ends_at pasa a usar la config (sin tocar el trigger de alta).
+alter table public.tenants
+  alter column trial_ends_at set default (now() + (public.default_trial_days() || ' days')::interval);
+
+-- 4) Purga de retención: la ventana pasa a leerse de config (fallback 5, clamp 1..10 años).
+create or replace function public.purge_expired_retention()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+  v_years int;
+begin
+  v_years := greatest(1, least(10, coalesce(
+    nullif(regexp_replace(coalesce((select value from public.system_config where key = 'retention_years'), ''), '\D', '', 'g'), '')::int,
+    5)));
+  delete from public.tenants
+   where closed_at is not null
+     and closed_at < now() - (v_years || ' years')::interval;
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+-- La purga sigue siendo solo para service_role (como antes).
+revoke all on function public.purge_expired_retention() from public, anon, authenticated;
+grant execute on function public.purge_expired_retention() to service_role;
+
+notify pgrst, 'reload schema';
+
+-- 079_service_status_log.sql
+-- Histórico de estado de los SERVICIOS (push, webhooks, groq, BD, API…) para calcular
+-- UPTIME % y tendencias en Monitorización. Hasta ahora markService() solo guardaba la
+-- ÚLTIMA foto en system_config (svc_<name>), sin histórico. Ahora, además, se añade una
+-- fila aquí en cada check. Solo el backend (service_role) escribe/lee.
+
+create table if not exists public.service_status_log (
+  id         bigint generated always as identity primary key,
+  service    text        not null,
+  ok         boolean     not null,
+  checked_at timestamptz not null default now()
+);
+create index if not exists idx_service_status_log_svc_at
+  on public.service_status_log(service, checked_at desc);
+
+grant select, insert, delete on public.service_status_log to service_role;
+alter table public.service_status_log enable row level security;
+-- Sin políticas para authenticated: solo el backend con service_role accede.
+
+-- 080_transaction_source.sql
+-- Origen de ENTRADA de cada transacción: 'voice' (dictado por voz) | 'manual'
+-- (escrito a mano). NULL = desconocido (filas creadas antes de esta migración).
+-- Sirve para la métrica de ADOPCIÓN DE VOZ del panel admin (solo RECUENTOS
+-- agregados de plataforma; nunca importes). Idempotente.
+--
+-- Nota RLS/grants: NO hace falta grant nuevo. transactions tiene grant a nivel de
+-- TABLA, que cubre automáticamente las columnas futuras; el cliente ya inserta
+-- bajo su política RLS (tenant/usuario), que esta columna no altera.
+
+alter table public.transactions
+  add column if not exists source text;
+
+-- Integridad: solo 'voice' | 'manual' (NULL permitido = desconocido).
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'transactions_source_chk'
+  ) then
+    alter table public.transactions
+      add constraint transactions_source_chk
+      check (source is null or source in ('voice', 'manual'));
+  end if;
+end $$;
+
+-- Índice para contar por origen del día sin escanear toda la tabla.
+create index if not exists idx_transactions_source_created
+  on public.transactions (created_at, source)
+  where source is not null;
+
+-- 081_error_reports_owner_rls.sql
+-- Limpieza (2026-07-25): quita el acceso de OWNER a error_reports. Era el residuo
+-- del "copia al jefe" ya eliminado del backend: NINGÚN screen no-admin lee
+-- error_reports, así que la política de owner no la usa nadie. El AUTOR sigue
+-- pudiendo ver los suyos; el ADMIN lee vía service_role (no depende de esta RLS).
+-- Idempotente (drop if exists + create, como la 047).
+
+drop policy if exists error_reports_select on public.error_reports;
+create policy error_reports_select on public.error_reports
+  for select to authenticated
+  using (user_id = auth.uid());
+
+notify pgrst, 'reload schema';
