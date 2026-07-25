@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import '../util/format.dart';
 import 'incident_chat_screen.dart';
 
@@ -79,7 +80,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
-            return Center(child: Text('${l.t('error')}: ${snap.error}'));
+            return errorRetry(context, _reload);
           }
           final tickets = snap.data ?? [];
           if (tickets.isEmpty) {

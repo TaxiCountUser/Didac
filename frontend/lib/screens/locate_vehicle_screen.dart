@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import '../util/format.dart';
 
 /// Localizar vehículo (Owner): última ubicación conocida de cada conductor,
@@ -73,7 +74,7 @@ class _LocateVehicleScreenState extends State<LocateVehicleScreen> {
           if (snap.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snap.hasError) return Center(child: Text('${l.t('error')}: ${snap.error}'));
+          if (snap.hasError) return errorRetry(context, _reload);
           final items = snap.data ?? [];
           if (items.isEmpty) {
             return Center(child: Padding(

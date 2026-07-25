@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 
 /// Retos / metas — vista del EMPRESARIO (jefe). Por cada conductor, su progreso
 /// en los retos activos (km y días de uso). Al alcanzar un reto se auto-registra
@@ -56,11 +57,8 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
-            return Center(child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('${l.t('error')}: ${snap.error.toString().replaceFirst('Exception: ', '')}',
-                  textAlign: TextAlign.center),
-            ));
+            return errorRetry(
+                context, () => setState(() => _future = DataService().companyChallenges()));
           }
           final drivers = (((snap.data ?? {})['drivers'] as List?) ?? []).cast<Map<String, dynamic>>();
           return RefreshIndicator(

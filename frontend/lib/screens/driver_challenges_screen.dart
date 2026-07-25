@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 
 /// Retos del propio conductor: su progreso en km y días de uso, con nivel y
 /// objetivo actual. Al completar un reto, su jefe gana 1 mes gratis del asiento.
@@ -52,11 +53,8 @@ class _DriverChallengesScreenState extends State<DriverChallengesScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
-            return Center(child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('${l.t('error')}: ${snap.error.toString().replaceFirst('Exception: ', '')}',
-                  textAlign: TextAlign.center),
-            ));
+            return errorRetry(
+                context, () => setState(() => _future = DataService().myChallenges()));
           }
           final challenges = (((snap.data ?? {})['challenges'] as List?) ?? []).cast<Map<String, dynamic>>();
           return RefreshIndicator(

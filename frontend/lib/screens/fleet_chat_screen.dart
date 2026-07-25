@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import '../util/format.dart';
 import '../widgets/dictate_button.dart';
 
@@ -114,7 +115,7 @@ class _FleetChatScreenState extends State<FleetChatScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snap.hasError) {
-          return Center(child: Text('${l.t('error')}: ${snap.error}'));
+          return errorRetry(context, _reload);
         }
         final msgs = snap.data ?? [];
         if (msgs.isEmpty) {

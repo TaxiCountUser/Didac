@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import 'fleet_chat_screen.dart';
 
 /// Panel del jefe: lista de sus conductores. Cada uno abre un chat 1:1.
@@ -58,7 +59,7 @@ class _FleetChatsScreenState extends State<FleetChatsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
-            return Center(child: Text('${l.t('error')}: ${snap.error}'));
+            return errorRetry(context, _reload);
           }
           final drivers = snap.data ?? [];
           if (drivers.isEmpty) {
