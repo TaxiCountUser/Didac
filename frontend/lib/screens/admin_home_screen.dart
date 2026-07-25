@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -186,18 +185,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     // en el módulo Facturación, no aquí.
     final globalTiles = <Widget>[
       _mTile(l.t('adm_kpi_companies'), _numStr(k['tenants']), AdminColors.purple,
-          onTap: () => _openTab(-2), fill: true),
+          onTap: () => _openTab(-2)),
       _mTile(l.t('adm_kpi_drivers'), '$driversActive/$driversTotal', AdminColors.blue,
-          onTap: () => _openTab(-2), fill: true),
+          onTap: () => _openTab(-2)),
       _mTile(l.t('adm_co_paying'), _numStr(k['paying']), AdminColors.teal,
-          onTap: () => _openTab(-3), fill: true),
+          onTap: () => _openTab(-3)),
       _mTile(l.t('adm_bill_mrr'), _eurStr(k['mrr']), AdminColors.teal,
-          onTap: () => _openTab(-3), fill: true),
+          onTap: () => _openTab(-3)),
       _mTile(l.t('adm_bill_churn'),
           '${(k['churn'] as num?)?.toStringAsFixed(1) ?? '0'}%', AdminColors.red,
-          onTap: () => _openTab(-3), fill: true),
+          onTap: () => _openTab(-3)),
       _mTile(l.t('adm_kpi_rides'), _numStr(k['rides_total']), AdminColors.amber,
-          onTap: () => _openTab(-2), fill: true),
+          onTap: () => _openTab(-2)),
     ];
 
     return Column(
@@ -207,17 +206,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                 letterSpacing: 1.5, color: AdminColors.text)),
         _subLabel(l.t('adm_dm_global')),
-        // Graella responsive: 2×2 al mòbil, 1×N en pantalles amples (sense orfes).
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 180, mainAxisExtent: 62,
-            crossAxisSpacing: 8, mainAxisSpacing: 8,
-          ),
-          itemCount: globalTiles.length,
-          itemBuilder: (_, i) => globalTiles[i],
-        ),
+        // Chips del mismo tamaño que el "pulso diario" (con 6 KPI quedan 3+3 en móvil).
+        Wrap(spacing: 8, runSpacing: 8, children: globalTiles),
         _subLabel(l.t('adm_dm_today')),
         FutureBuilder<Map<String, dynamic>>(
           future: _dailyFuture,
@@ -263,13 +253,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // KPI. Si recibe onTap, se vuelve clicable: borde más marcado + chevron
   // arriba a la derecha + ripple (affordance). Las métricas puras (carreras,
-  // DAU, activación) se dejan ESTÁTICAS (sin onTap) a propósito.
-  // fill=false: chip de ancho fijo (112) para el Wrap del "pulso diario".
-  // fill=true: ocupa la celda que le da el padre (grid responsive del resumen).
-  Widget _mTile(String label, String value, Color color, {VoidCallback? onTap, bool fill = false}) {
+  // DAU, activación) se dejan ESTÁTICAS (sin onTap) a propósito. Chip de ancho fijo
+  // (112) para el Wrap, tanto en el resumen global como en el pulso diario.
+  Widget _mTile(String label, String value, Color color, {VoidCallback? onTap}) {
     final tappable = onTap != null;
     final tile = Container(
-      width: fill ? double.infinity : 112,
+      width: 112,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
         color: AdminColors.card,
@@ -277,7 +266,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         border: Border.all(color: color.withValues(alpha: tappable ? .5 : .28)),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(value,
@@ -294,7 +282,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: Stack(fit: fill ? StackFit.expand : StackFit.loose, children: [
+      child: Stack(children: [
         tile,
         Positioned(right: 5, top: 5,
             child: Icon(Icons.chevron_right, size: 13, color: color.withValues(alpha: .55))),
@@ -374,38 +362,39 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // --- Anillo de salud CENTRADO + estado en una línea. Las métricas viven en
   // el bloque de Resumen; el nº de la bandeja tiene su propia sección. ---
-  // Salud en formato COMPACTO: anillo pequeño (48px) + estado en línea, en vez de
-  // un círculo grande centrado que ocupaba una banda entera.
+  // Salud como BARRA (compacta): etiqueta + puntuación + estado en una línea y una
+  // barra de progreso coloreada debajo (verde ≥90, ámbar ≥50, rojo).
   Widget _controlCenter(AppLocalizations l, Map<String, dynamic> d) {
     final health = (d['health'] as num?)?.toInt() ?? 100;
     final ok = health >= 90;
-    return Row(
+    final color = health >= 90
+        ? AdminColors.teal
+        : (health >= 50 ? AdminColors.amber : AdminColors.red);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 48, height: 48,
-          child: CustomPaint(
-            painter: _RingPainter(health / 100, stroke: 5),
-            child: Center(
-              child: Text('$health',
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700, color: AdminColors.text)),
-            ),
+        Row(children: [
+          Text(l.t('adm_home_health').toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 9, letterSpacing: 1.5, color: AdminColors.secondary)),
+          const Spacer(),
+          Text('$health',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(width: 8),
+          Text(ok ? l.t('adm_home_ok') : l.t('adm_home_attention'),
+              style: TextStyle(
+                  fontSize: 11.5, fontWeight: FontWeight.w500,
+                  color: ok ? AdminColors.teal : AdminColors.amber)),
+        ]),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: health / 100,
+            minHeight: 7,
+            backgroundColor: AdminColors.hairline,
+            valueColor: AlwaysStoppedAnimation(color),
           ),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(l.t('adm_home_health').toUpperCase(),
-                style: const TextStyle(
-                    fontSize: 9, letterSpacing: 1.5, color: AdminColors.secondary)),
-            const SizedBox(height: 2),
-            Text(ok ? l.t('adm_home_ok') : l.t('adm_home_attention'),
-                style: TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600,
-                    color: ok ? AdminColors.teal : AdminColors.amber)),
-          ],
         ),
       ],
     );
@@ -635,37 +624,4 @@ class _Module {
   final int badge;
   final int tab; // pestaña del AdminScreen; -1 = deshabilitado (próxima fase)
   const _Module(this.title, this.icon, this.color, this.subtitle, this.badge, this.tab);
-}
-
-/// Anillo de salud: pista gris + arco de progreso con extremos redondeados.
-class _RingPainter extends CustomPainter {
-  final double fraction; // 0..1
-  final double stroke;   // grosor del anillo (proporcional al tamaño)
-  _RingPainter(this.fraction, {this.stroke = 8});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - stroke * 0.75;
-    final track = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..color = AdminColors.hairline;
-    canvas.drawCircle(center, radius, track);
-
-    final color = fraction >= .8
-        ? AdminColors.teal
-        : (fraction >= .5 ? AdminColors.amber : AdminColors.red);
-    final arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round
-      ..color = color;
-    canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        -math.pi / 2, 2 * math.pi * fraction.clamp(0, 1), false, arc);
-  }
-
-  @override
-  bool shouldRepaint(_RingPainter old) => old.fraction != fraction || old.stroke != stroke;
 }

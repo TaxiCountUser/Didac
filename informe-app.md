@@ -198,13 +198,13 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 **Responsive (2026-07-24):** `adminConstrained` (usado por TODAS las pantallas admin) ensancha el
 contenido en web/desktop (≤760px móvil→720; ≥1200px→1360) en vez de dejarlo en una columna estrecha;
 los grids ya son `Wrap`/`GridView` de columnas automáticas y refluyen solos. Un único punto.
-Portada (**salud COMPACTA** —anillo pequeño 48px + estado en línea, 2026-07-25, ya no una banda
-grande— + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**;
-las **KPI son pulsables** y llevan al sitio que corresponde — Empresas / Facturación /
+Portada (**salud como BARRA** —etiqueta + puntuación + estado en línea y barra de progreso coloreada,
+2026-07-25, ya no un círculo grande ni anillo— + KPIs + bandeja de trabajo + módulos en tarjetas +
+**12 semáforos**; las **KPI son pulsables** y llevan al sitio que corresponde — Empresas / Facturación /
 Monitorización, y "proves acabant"/"en risc" abren **Empresas ya filtrada** vía `initialFilter`;
-affordance: borde marcado + chevron + ripple. **Resumen global** en **grid responsive** (2×3 móvil /
-fila en PC) con Empresas · Conductores · De pagament · **MRR** · **Churn** (`kpis.mrr`/`kpis.churn`,
-reales de Stripe) · **Carreres totals**. **Pulso diario** depurado —se quitaron DAU, voz y activación
+affordance: borde marcado + chevron + ripple. **Resumen global**: chips del **mismo tamaño que el pulso
+diario** (Wrap; con 6 KPI quedan 3+3 en móvil) — Empresas · Conductores · De pagament · **MRR** ·
+**Churn** (`kpis.mrr`/`kpis.churn`, reales de Stripe) · **Carreres totals**. **Pulso diario** depurado —se quitaron DAU, voz y activación
 (vanity/redundantes); quedan ingresos·carreras·nuevas empresas·nuevos conductores·pruebas acabando·en
 riesgo·reembolsos—),
 Empresas (buscador global + **pills de filtro (BOTONES)** all/pagament/prova/risc, y **debajo KPI de
