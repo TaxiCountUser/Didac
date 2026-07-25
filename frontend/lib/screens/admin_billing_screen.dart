@@ -87,8 +87,9 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 children: [
-                  // ── KPI primero (KPI-first): salud recurrente + colas de acción,
-                  // agrupadas arriba; luego la caja y el resto. ──
+                  // KPI-first bajo su título de sección (modelo Retos): salud
+                  // recurrente + colas de acción arriba; luego la caja y el resto.
+                  adminSectionTitle(l.t('adm_bill_health'), color: AdminColors.teal),
                   Row(
                     children: [
                       _kpiTile(

@@ -197,12 +197,16 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                     ],
                   ),
                 ),
-                // KPI (display) después: recuentos + carreres totals.
+                // KPI (display) bajo su título de sección (modelo Retos).
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: adminSectionTitle(l.t('adm_sec_summary'), color: AdminColors.purple),
+                ),
                 SizedBox(
                   height: 54,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
                     children: [
                       _kpiCard(l.t('adm_co_all'), '${tenants.length}', AdminColors.purple),
                       _kpiCard(l.t('adm_co_paying'), '$payingN', AdminColors.teal),

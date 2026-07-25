@@ -131,9 +131,10 @@ class _ReferralsTabState extends State<ReferralsTab> {
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
-          // KPI primero (KPI-first); el funnel (visualización) va después.
+          // KPI-first bajo su título de sección (modelo Retos); el funnel después.
+          adminSectionTitle(l.t('adm_sec_summary'), color: AdminColors.teal),
           Wrap(spacing: 8, runSpacing: 8, children: [
             _kpiCard(Icons.trending_up, l.t('adm_ref_kpi_conv'), '$conv%',
                 AdminColors.teal),

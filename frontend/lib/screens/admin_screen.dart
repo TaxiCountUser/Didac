@@ -132,11 +132,15 @@ class _IncidentsTabState extends State<_IncidentsTab> {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: adminSectionTitle(l.t('adm_sup_queue'), color: AdminColors.blue),
+            ),
             SizedBox(
               height: 54,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
                 children: [
                   _supKpi(l.t('adm_sup_open'), '$open', AdminColors.blue),
                   _supKpi(l.t('adm_sup_resolved'), '$resolved', AdminColors.teal),
