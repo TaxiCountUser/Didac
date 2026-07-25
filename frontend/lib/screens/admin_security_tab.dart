@@ -774,6 +774,14 @@ class _SecurityTabState extends State<SecurityTab> {
                 if (_hasPair(m['requests'])) _kvRow(l.t('adm_metrics_reqs'), _fmtPair(m['requests'])),
                 if (_hasPair(m['tokens'])) _kvRow(l.t('adm_metrics_tokens'), _fmtPair(m['tokens'])),
               ],
+            // Aclaración: es el MARGEN del rate-limit de Groq, no el uso (para
+            // actividad real, mirar "Entrada de datos" arriba).
+            if (groqAvail && groqModels.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
+                child: Text(l.t('adm_metrics_groq_note'),
+                    style: const TextStyle(fontSize: 10, color: AdminColors.muted)),
+              ),
           ]),
           // Saturación: CPU/RAM/disco/carga del servidor (scrape, best-effort).
           _metricsBlock(l.t('adm_metrics_sec_sat'), AdminColors.blue, [

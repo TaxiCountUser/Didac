@@ -1157,6 +1157,8 @@ const Map<String, Map<String, String>> _values = {
     'adm_metrics_groq_avail': 'Disponible (rate-limit)',
     'adm_metrics_groq_hint':
         'Se actualiza tras cada transcripción o parseo por voz.',
+    'adm_metrics_groq_note':
+        'Margen hasta el límite de Groq (no es uso; para actividad, ver "Entrada de datos").',
     'adm_metrics_reqs': 'Peticiones', 'adm_metrics_tokens': 'Tokens',
     'adm_metrics_audio': 'Audio (s)',
     'adm_metrics_model': 'Modelo',
@@ -2242,6 +2244,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_metrics_sec_db': 'Database',
     'adm_metrics_groq_avail': 'Available (rate-limit)',
     'adm_metrics_groq_hint': 'Updates after each voice transcription or parse.',
+    'adm_metrics_groq_note': 'Margin to Groq\'s limit (not usage; for activity, see "Data entry").',
     'adm_metrics_reqs': 'Requests', 'adm_metrics_tokens': 'Tokens',
     'adm_metrics_audio': 'Audio (s)',
     'adm_metrics_model': 'Model',
@@ -3366,6 +3369,8 @@ const Map<String, Map<String, String>> _values = {
     'adm_metrics_groq_avail': 'Disponible (rate-limit)',
     'adm_metrics_groq_hint':
         'S\'actualitza després de cada transcripció o parseig per veu.',
+    'adm_metrics_groq_note':
+        'Marge fins al límit de Groq (no és ús; per a activitat, mira "Entrada de dades").',
     'adm_metrics_reqs': 'Peticions', 'adm_metrics_tokens': 'Tokens',
     'adm_metrics_audio': 'Àudio (s)',
     'adm_metrics_model': 'Model',
