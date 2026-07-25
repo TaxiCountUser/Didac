@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import '../services/file_download.dart';
 import 'comparison_screen.dart';
 import '../util/format.dart';
@@ -560,7 +561,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           .showSnackBar(SnackBar(content: Text(context.l10n.t('od_generated'))));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      showError(context, e, screen: 'OwnerDashboard');
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -661,7 +662,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _content() {
     if (_error != null && _items.isEmpty && _summary.income == 0 && _summary.expense == 0) {
-      return Center(child: Text('Error: $_error'));
+      return errorRetry(context, _reload);
     }
     return RefreshIndicator(
       onRefresh: _reload,

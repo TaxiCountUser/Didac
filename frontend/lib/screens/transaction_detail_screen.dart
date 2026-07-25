@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import '../util/format.dart';
 import 'transaction_input_screen.dart';
 
@@ -112,7 +113,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       Navigator.of(context).pop(true); // true: lista debe refrescarse
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      showError(context, e, screen: 'TransactionDetail');
     }
   }
 

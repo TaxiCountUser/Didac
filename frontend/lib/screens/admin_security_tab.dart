@@ -47,6 +47,7 @@ class _SecurityTabState extends State<SecurityTab> {
   int _secOffset = 0;
   int _secTotal = 0;
   Map<String, dynamic> _secSummary = {}; // recuento 24h por tipo (KPI de Logs)
+  List<Map<String, dynamic>> _clientErrors = []; // errores del cliente agregados
 
   @override
   void initState() {
@@ -80,6 +81,9 @@ class _SecurityTabState extends State<SecurityTab> {
         _secEvents = ((r['events'] as List?) ?? []).cast<Map<String, dynamic>>();
         _secTotal = (r['total'] as num?)?.toInt() ?? _secEvents.length;
         _secSummary = (r['summary'] as Map?)?.cast<String, dynamic>() ?? {};
+      } else if (_view == 5) {
+        final r = await _service.adminClientErrors();
+        _clientErrors = ((r['errors'] as List?) ?? []).cast<Map<String, dynamic>>();
       } else if (_view == 2) {
         _semaphores = await _service.adminSemaphores();
         _flags = await _service.adminFlags();
@@ -145,6 +149,11 @@ class _SecurityTabState extends State<SecurityTab> {
                   label: l.t('adm_logs'), selected: _view == 4,
                   color: AdminColors.red,
                   onTap: () { setState(() => _view = 4); _reload(); }),
+              const SizedBox(width: 6),
+              AdminPill(
+                  label: l.t('adm_errapp_tab'), selected: _view == 5,
+                  color: AdminColors.coral,
+                  onTap: () { setState(() => _view = 5); _reload(); }),
             ]),
           ),
         Expanded(
@@ -157,9 +166,11 @@ class _SecurityTabState extends State<SecurityTab> {
                       ? _auditView(l)
                       : _view == 4
                           ? _securityView(l)
-                          : _view == 2
-                              ? _semaphoresView(l)
-                              : _metricsView(l)),
+                          : _view == 5
+                              ? _clientErrorsView(l)
+                              : _view == 2
+                                  ? _semaphoresView(l)
+                                  : _metricsView(l)),
         ),
       ],
     );
@@ -927,6 +938,61 @@ class _SecurityTabState extends State<SecurityTab> {
   String _actionLabel(AppLocalizations l, String action) {
     final s = l.t('aud_$action');
     return s == 'aud_$action' ? action : s;
+  }
+
+  // Errores del CLIENTE agregados (Auditoría → "Errors tècnics"): recuento +
+  // pantalla + última vez, ordenados por frecuencia (los recurrentes arriba).
+  Widget _clientErrorsView(AppLocalizations l) {
+    final df = DateFormat('dd/MM/yyyy HH:mm');
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: _clientErrors.isEmpty
+          ? ListView(children: [
+              Padding(padding: const EdgeInsets.all(24),
+                  child: Center(child: Text(l.t('adm_err_none')))),
+            ])
+          : ListView(padding: const EdgeInsets.all(12), children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6, left: 4),
+                child: Text(l.t('adm_err_intro'),
+                    style: const TextStyle(fontSize: 11, color: AdminColors.muted)),
+              ),
+              Container(decoration: adminCardBox(), child: Column(children: [
+                for (var i = 0; i < _clientErrors.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, color: AdminColors.hairline),
+                  _clientErrorRow(_clientErrors[i], df),
+                ],
+              ])),
+            ]),
+    );
+  }
+
+  Widget _clientErrorRow(Map<String, dynamic> e, DateFormat df) {
+    final count = (e['count'] as num?)?.toInt() ?? 0;
+    final message = (e['message'] as String?) ?? '';
+    final screen = (e['screen'] as String?) ?? '';
+    final at = DateTime.tryParse('${e['last_at']}')?.toLocal();
+    final color = count >= 20 ? AdminColors.red : (count >= 5 ? AdminColors.amber : AdminColors.secondary);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+              color: color.withValues(alpha: .16), borderRadius: BorderRadius.circular(8)),
+          child: Text('×$count',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(message, maxLines: 3, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AdminColors.text)),
+          const SizedBox(height: 2),
+          Text([if (screen.isNotEmpty) screen, if (at != null) df.format(at)].join(' · '),
+              style: const TextStyle(fontSize: 10, color: AdminColors.secondary)),
+        ])),
+      ]),
+    );
   }
 
   Widget _auditRow(AppLocalizations l, Map<String, dynamic> g, DateFormat df) {

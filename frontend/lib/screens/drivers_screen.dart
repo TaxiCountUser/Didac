@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 
 /// Panel de conductores (solo Owner). Listar e invitar.
 class DriversScreen extends StatefulWidget {
@@ -148,8 +149,7 @@ class _DriversScreenState extends State<DriversScreen> {
         await _offerBuySeat(e.seats, doInvite);
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        showError(context, e, screen: 'DriversScreen');
       }
     }
   }
@@ -165,7 +165,7 @@ class _DriversScreenState extends State<DriversScreen> {
       selected = assigned.map((v) => v['id'] as String).toSet();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      showError(context, e, screen: 'DriversScreen');
       return;
     }
     if (!mounted) return;
@@ -221,7 +221,7 @@ class _DriversScreenState extends State<DriversScreen> {
             .showSnackBar(SnackBar(content: Text(context.l10n.t('vh_assign_saved'))));
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        showError(context, e, screen: 'DriversScreen');
       }
     }
   }
@@ -250,7 +250,7 @@ class _DriversScreenState extends State<DriversScreen> {
       _reload();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      showError(context, e, screen: 'DriversScreen');
     }
   }
 
@@ -304,8 +304,12 @@ class _DriversScreenState extends State<DriversScreen> {
       final s = e.toString().toLowerCase();
       final taken = s.contains('23505') || s.contains('duplicate') ||
           s.contains('en uso') || s.contains('already');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(taken ? context.l10n.t('set_username_taken') : 'Error: $e')));
+      if (taken) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.t('set_username_taken'))));
+      } else {
+        showError(context, e, screen: 'DriversScreen');
+      }
     }
   }
 
@@ -338,7 +342,7 @@ class _DriversScreenState extends State<DriversScreen> {
       await _offerBuySeat(e.seats, doToggle);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      showError(context, e, screen: 'DriversScreen');
     }
   }
 
@@ -367,7 +371,7 @@ class _DriversScreenState extends State<DriversScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      showError(context, e, screen: 'DriversScreen');
     }
   }
 
@@ -391,7 +395,7 @@ class _DriversScreenState extends State<DriversScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
-            return Center(child: Text('Error: ${snap.error}'));
+            return errorRetry(context, _reload);
           }
           final drivers = snap.data ?? [];
           if (drivers.isEmpty) {

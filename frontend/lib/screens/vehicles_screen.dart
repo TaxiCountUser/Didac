@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import 'vehicle_detail_screen.dart';
 
 /// Panel de vehículos (solo Owner). Listar / añadir / dar de baja / nº licencia.
@@ -196,11 +197,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     }
   }
 
-  void _showError(Object e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Error: $e')));
-  }
+  void _showError(Object e) => showError(context, e, screen: 'VehiclesScreen');
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +226,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snap.hasError) {
-                  return Center(child: Text('Error: ${snap.error}'));
+                  return errorRetry(context, _reload);
                 }
                 final vehicles = snap.data ?? [];
                 if (vehicles.isEmpty) {

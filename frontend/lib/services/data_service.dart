@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -2277,6 +2278,31 @@ class DataService {
         }),
       );
     } catch (_) {}
+  }
+
+  /// Reporta un ERROR TÉCNICO del cliente (excepción) para verlo agregado en
+  /// Auditoría (mig. 082). Fire-and-forget: nunca bloquea ni lanza. Solo metadatos
+  /// (mensaje truncado, pantalla, plataforma); el backend hace throttle por
+  /// usuario+mensaje. Se llama desde los catch imperativos (no desde build).
+  Future<void> reportClientError(String message, {String? screen}) async {
+    try {
+      await http.post(
+        Uri.parse('$backendUrl/api/v1/client-error'),
+        headers: {..._bearer, 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'message': message.length > 300 ? message.substring(0, 300) : message,
+          if (screen != null) 'screen': screen,
+          'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+        }),
+      );
+    } catch (_) {}
+  }
+
+  /// Admin: errores del cliente AGREGADOS por mensaje (recuento + última vez).
+  Future<Map<String, dynamic>> adminClientErrors() async {
+    final res = await http.get(
+      Uri.parse('$backendUrl/api/v1/admin/client-errors'), headers: _bearer);
+    return (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
   }
 
   /// Define el nombre de usuario del propio usuario (único; null para quitarlo).

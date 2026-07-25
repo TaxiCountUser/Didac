@@ -7,6 +7,7 @@ import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import 'referral_screen.dart';
 
 /// Clave i18n del estado de suscripción.
@@ -167,7 +168,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       await _openExternal(url);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        showError(context, e, screen: 'SubscriptionScreen');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -719,7 +720,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        showError(context, e, screen: 'SubscriptionScreen');
       }
     } finally {
       if (mounted) setState(() => _busySeats = false);

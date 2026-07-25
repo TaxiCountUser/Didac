@@ -652,6 +652,30 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
+  // Telemetría de errores del CLIENTE (mig. 082): la app reporta sus excepciones
+  // (fire-and-forget) para verlas AGREGADAS en Auditoría y detectar recurrentes.
+  // Autenticado (los errores ocurren dentro de la app). Throttle por usuario+mensaje
+  // (1/min) para no inundar si un error entra en bucle. Solo metadatos técnicos.
+  app.post('/api/v1/client-error', async (request, reply) => {
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    const b = request.body ?? {};
+    const message = (b.message == null ? '' : String(b.message)).trim().slice(0, 300);
+    if (!message) return reply.send({ ok: true });
+    if (secThrottled(`clienterr:${caller.id}:${message.slice(0, 60)}`, 60000)) {
+      return reply.send({ ok: true });
+    }
+    supabase.from('client_errors').insert({
+      message,
+      screen: (b.screen == null ? '' : String(b.screen)).slice(0, 80) || null,
+      platform: (b.platform == null ? '' : String(b.platform)).slice(0, 30) || null,
+      app_version: (b.app_version == null ? '' : String(b.app_version)).slice(0, 30) || null,
+      user_id: caller.id,
+      tenant_id: caller.tenant_id ?? null,
+    }).then(() => {}, (e) => app.log.warn(`[client-error] ${e.message}`));
+    return reply.send({ ok: true });
+  });
+
   // --- Invitar conductor (Fase 1) ---
   app.post('/api/v1/drivers', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
@@ -4370,6 +4394,29 @@ export async function buildApp(options = {}) {
     return reply.send({
       events: data ?? [], total: count ?? (data ?? []).length, limit, offset, summary,
     });
+  });
+
+  // Errores del CLIENTE AGREGADOS (mig. 082) para Auditoría → "Errors tècnics".
+  // Agrupa por mensaje: recuento + última vez + pantalla ejemplo (últimos 30 días),
+  // así los recurrentes suben arriba. Solo admin.
+  app.get('/api/v1/admin/client-errors', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const since = new Date(Date.now() - 30 * 86400000).toISOString();
+    const { data, error } = await supabase.from('client_errors')
+      .select('message, screen, created_at')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(5000);
+    if (error) return reply.code(500).send({ error: error.message });
+    const byMsg = {};
+    for (const r of data ?? []) {
+      const m = (byMsg[r.message] ||= { message: r.message, count: 0, last_at: r.created_at, screen: r.screen });
+      m.count++;
+      if (r.created_at > m.last_at) { m.last_at = r.created_at; m.screen = r.screen; }
+    }
+    const errors = Object.values(byMsg).sort((a, b) => b.count - a.count).slice(0, 100);
+    return reply.send({ errors, total: (data ?? []).length });
   });
 
   // Estado (log) de TODOS los semáforos de la plataforma, para el apartado de

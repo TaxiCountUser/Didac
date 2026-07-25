@@ -10,6 +10,7 @@ import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../services/location_service.dart';
 import '../services/push_service.dart';
+import '../util/error_ui.dart';
 import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
 import 'settings_screen.dart';
@@ -152,7 +153,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
       }
       await _showKmDialog(vehicles, title: context.l10n.t('dh_start_day'), barrier: true);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) showError(context, e, screen: 'DriverHome');
     }
   }
 
@@ -172,7 +173,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
       await _showKmDialog(vehicles,
           title: context.l10n.t('dh_finish_day'), preVehicleId: preId, barrier: true);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) showError(context, e, screen: 'DriverHome');
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/error_ui.dart';
 import '../util/format.dart';
 import 'incident_chat_screen.dart';
 
@@ -82,7 +83,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        showError(context, e, screen: 'IncidentsScreen');
       }
     }
   }
@@ -111,7 +112,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        showError(context, e, screen: 'IncidentsScreen');
       }
     }
   }
@@ -146,7 +147,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
-            return Center(child: Text('Error: ${snap.error}'));
+            return errorRetry(context, _reload);
           }
           final items = snap.data ?? [];
           if (items.isEmpty) {
