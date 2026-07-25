@@ -67,7 +67,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   bool _loading = true;
   bool _busy = false;
   bool _busySeats = false;
-  bool _yearly = false; // periodo elegido para suscribirse
+  bool _yearly = true; // periodo elegido para suscribirse (anual por defecto: se promociona)
   String? _error;
   bool _couponShown = false; // el aviso del cupón se muestra una vez por entrada
 
