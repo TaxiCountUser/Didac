@@ -50,8 +50,8 @@ const stripePriceSeatYearly = String.fromEnvironment(
 // facturación real la calcula Stripe). Modelo POR ASIENTO (por conductor), lineal,
 // SIN tramo plano. Máximo 100 conductores; a partir de ahí, plan a medida.
 const kMaxDrivers = 100; // tope del modelo; a partir de aquí, contactar
-const kSeatMonthly = 2.5; // €/mes por conductor (precio FIJO, sin cupones)
-const kSeatYearly = 30.0; // €/año por conductor (precio ANCLA; el cliente aplica cupón)
+const kSeatMonthly = 3.0; // €/mes por conductor (precio FIJO, sin cupones)
+const kSeatYearly = 30.0; // €/año por conductor (anual < 12× mensual → promueve anual)
 
 // Cupones ANUALES (configurados en Stripe; el cliente los introduce en el
 // checkout). El mensual nunca lleva cupón.

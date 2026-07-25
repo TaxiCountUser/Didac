@@ -820,6 +820,22 @@ class DataService {
   /// PRUEBAS (admin): dispara la recompensa de UNA empresa (mode 'challenge' |
   /// 'referrals'), sin tocar config global ni crons globales. Devuelve el resultado
   /// (crédito aplicado + saldo Stripe actual) para mostrarlo.
+  /// Migración de precios (#11): mueve las suscripciones activas al Price actual
+  /// configurado. dryRun=true solo cuenta cuántas migrarían (sin tocar nada).
+  /// Devuelve {dry_run, total, to_migrate, migrated, skipped, errors}.
+  Future<Map<String, dynamic>> adminMigratePrices({bool dryRun = false}) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/billing/migrate-prices'),
+      headers: {..._bearer, 'Content-Type': 'application/json'},
+      body: jsonEncode({'dryRun': dryRun}),
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    }
+    return body;
+  }
+
   Future<Map<String, dynamic>> adminTestRewards(String tenantId, String mode) async {
     final res = await http.post(
       Uri.parse('$backendUrl/api/v1/admin/company/$tenantId/test-rewards'),

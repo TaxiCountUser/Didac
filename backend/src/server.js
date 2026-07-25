@@ -162,6 +162,7 @@ const STRIPE_SUCCESS_URL = process.env.STRIPE_SUCCESS_URL || 'taxicount://subscr
 const STRIPE_CANCEL_URL = process.env.STRIPE_CANCEL_URL || 'taxicount://subscription-cancel';
 // Price ID anual (para saber si el checkout admite cupones: solo el anual).
 const STRIPE_PRICE_SEAT_YEARLY = process.env.STRIPE_PRICE_SEAT_YEARLY || '';
+const STRIPE_PRICE_SEAT_MONTHLY = process.env.STRIPE_PRICE_SEAT_MONTHLY || '';
 // Tope del modelo por asiento: más conductores = plan a medida (contacto).
 const MAX_SEATS = Number(process.env.MAX_SEATS || 100);
 // Eventos de Stripe que cambian el cupo de asientos -> reaplicar enforceSeatLimit.
@@ -172,7 +173,7 @@ const SEAT_EVENTS = new Set([
   'invoice.paid',
 ]);
 // Crédito (en céntimos) que se abona al jefe por cada reto completado por un
-// conductor: "1 mes-asiento gratis". Por defecto 250 = 2,50 €.
+// conductor: "1 mes-asiento gratis". Por defecto 300 = 3 € (fallback; el real lo lee seatBaseRate de Stripe).
 
 const DAILY_LIMIT = Number(process.env.TRANSCRIBE_DAILY_LIMIT || 150);
 const WHISPER_TIMEOUT_MS = Number(process.env.WHISPER_TIMEOUT_MS || 15000);
@@ -1448,7 +1449,7 @@ export async function buildApp(options = {}) {
             let unit = p.unit_amount;
             if (unit == null && p.unit_amount_decimal != null) unit = Math.round(Number(p.unit_amount_decimal));
             const interval = p.recurring?.interval || 'month';
-            if (unit == null || Number.isNaN(unit)) unit = interval === 'year' ? 3000 : 250;
+            if (unit == null || Number.isNaN(unit)) unit = interval === 'year' ? 3000 : 300;
             const qty = it.quantity ?? 1;
             mrr += interval === 'year' ? (unit * qty) / 12 : unit * qty;
           }
@@ -2549,7 +2550,7 @@ export async function buildApp(options = {}) {
       let unit = price.unit_amount;
       if (unit == null && price.unit_amount_decimal != null) unit = Math.round(Number(price.unit_amount_decimal));
       if (unit == null && plan.amount != null) unit = plan.amount;
-      if (unit == null || Number.isNaN(unit)) unit = interval === 'year' ? 3000 : 250; // fallback
+      if (unit == null || Number.isNaN(unit)) unit = interval === 'year' ? 3000 : 300; // fallback
       const perSeatCents = interval === 'year' ? Math.round(unit / 12) : unit;
       const seats = (sub.items?.data ?? []).reduce((s, it) => s + (it.quantity ?? 0), 0);
       return { perSeatCents, seats };
@@ -3046,7 +3047,7 @@ export async function buildApp(options = {}) {
       let unit = price.unit_amount;
       if (unit == null && price.unit_amount_decimal != null) unit = Math.round(Number(price.unit_amount_decimal));
       if (unit == null && plan.amount != null) unit = plan.amount;
-      if (unit == null || Number.isNaN(unit)) unit = interval === 'year' ? 3000 : 250;
+      if (unit == null || Number.isNaN(unit)) unit = interval === 'year' ? 3000 : 300;
       const currency = price.currency ?? plan.currency ?? 'eur';
       _amount = Math.round(unit * added * frac);
       _reason = `unit=${unit} added=${added} frac=${frac.toFixed(3)} cust=${!!custId}`;
@@ -3359,6 +3360,49 @@ export async function buildApp(options = {}) {
       request.log.error(e);
       return reply.code(502).send({ error: 'No se pudo crear la sesión de Checkout' });
     }
+  });
+
+  // Migración de PRECIOS (#11): mueve las suscripciones ACTIVAS al Price actual
+  // configurado (STRIPE_PRICE_SEAT_MONTHLY/YEARLY), respetando su intervalo. Las
+  // que ya están en el precio actual se saltan. proration_behavior:'none' → el
+  // precio nuevo se aplica en la PRÓXIMA factura (no cobra de golpe). Con
+  // dryRun=true solo cuenta cuántas migrarían, sin tocar nada. Solo admin.
+  app.post('/api/v1/admin/billing/migrate-prices', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    if (!stripe) return reply.code(400).send({ error: 'Stripe no configurado' });
+    const dryRun = (request.body?.dryRun ?? request.query?.dryRun) === true
+      || String(request.body?.dryRun ?? request.query?.dryRun ?? '') === 'true';
+    const target = { month: STRIPE_PRICE_SEAT_MONTHLY, year: STRIPE_PRICE_SEAT_YEARLY };
+    let total = 0, toMigrate = 0, migrated = 0, skipped = 0, errors = 0;
+    try {
+      for await (const s of stripe.subscriptions.list(
+          { status: 'active', limit: 100, expand: ['data.items.data.price'] })) {
+        total++;
+        const item = s.items?.data?.[0];
+        const interval = item?.price?.recurring?.interval; // 'month' | 'year'
+        const wantPrice = interval === 'year' ? target.year : target.month;
+        // Sin item, sin Price destino, o ya en el precio actual: saltar.
+        if (!item || !wantPrice || item.price?.id === wantPrice) { skipped++; continue; }
+        toMigrate++;
+        if (dryRun) continue;
+        try {
+          await stripe.subscriptions.update(s.id, {
+            items: [{ id: item.id, price: wantPrice }],
+            proration_behavior: 'none',
+          });
+          migrated++;
+        } catch (e) { errors++; request.log.warn(`[migrate-price] ${s.id}: ${e.message}`); }
+      }
+    } catch (e) {
+      request.log.error(e);
+      return reply.code(502).send({ error: 'No se pudo listar/migrar suscripciones' });
+    }
+    if (!dryRun && migrated > 0) {
+      await logAdminAction(request, g.caller.id, 'migrate_prices', 'subscriptions', null,
+        { total, migrated, skipped, errors });
+    }
+    return reply.send({ dry_run: dryRun, total, to_migrate: toMigrate, migrated, skipped, errors });
   });
 
   // Cupón activo para el owner: devuelve {code, pct, show}. `show` = true si hay

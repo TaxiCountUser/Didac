@@ -212,7 +212,9 @@ KPI de solo-display** Total·Pagament·Prova·Risc·Noves·**Carreres totals** �
 **badge "NOVA"** en las filas creadas hace <24 h (la KPI "empreses noves avui" de la portada abre
 Empresas filtrada a *noves* vía `initialFilter='new'`); orden + fichas de **supervisión** + **purga
 definitiva** de empresas de baja, doble confirmación),
-Facturación (**KPI-first**: salud recurrente + colas de acción JUNTAS arriba, luego caja + resto),
+Facturación (**KPI-first**: salud recurrente + colas de acción JUNTAS arriba, luego caja + resto;
+**migración de precios** `POST /admin/billing/migrate-prices` con botón "Migrar preus" —los Stripe Prices
+son inmutables; subir precio = Price nuevo + migrar subs, `proration_behavior:'none'`—; precio 3€/mes · 30€/año),
 Retos (submenús **Resumen** / **Sospechosos**; en Resumen, **KPI-first** —engagement + moderación juntos, luego coste y gráficos—:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
 + auto-refresco 20 s + submenú **Configuración**), Referidos (**KPI-first**: KPI antes del funnel;

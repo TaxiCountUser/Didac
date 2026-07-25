@@ -130,6 +130,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                   _cashCard(l, t),
                   const SizedBox(height: 10),
                   const _CouponManager(),
+                  const SizedBox(height: 10),
+                  const _MigratePricesButton(),
                   if (pastDue.isNotEmpty) ...[
                     adminSectionTitle(l.t('adm_bill_pastdue'),
                         color: AdminColors.red),
@@ -317,6 +319,87 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
           style: TextStyle(
               fontSize: 12, fontWeight: FontWeight.w600, color: trailingColor)),
       onTap: () => _openCompany(r),
+    );
+  }
+}
+
+// Migración de precios (#11): mueve las suscripciones activas al Price actual
+// configurado. Previsualiza (dry run) + pide confirmación; el precio nuevo se
+// aplica en la PRÓXIMA factura (sin cobro inmediato).
+class _MigratePricesButton extends StatefulWidget {
+  const _MigratePricesButton();
+  @override
+  State<_MigratePricesButton> createState() => _MigratePricesButtonState();
+}
+
+class _MigratePricesButtonState extends State<_MigratePricesButton> {
+  bool _loading = false;
+
+  Future<void> _run() async {
+    final l = context.l10n;
+    setState(() => _loading = true);
+    try {
+      final preview = await DataService().adminMigratePrices(dryRun: true);
+      final n = (preview['to_migrate'] as num?)?.toInt() ?? 0;
+      if (!mounted) return;
+      if (n == 0) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.t('adm_migp_none'))));
+        return;
+      }
+      final ok = await showAdminDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(ctx.l10n.t('adm_migp_title')),
+          content: Text(ctx.l10n.t('adm_migp_confirm', {'n': '$n'})),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.t('adm_migp_btn'))),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      final res = await DataService().adminMigratePrices(dryRun: false);
+      if (!mounted) return;
+      final mig = (res['migrated'] as num?)?.toInt() ?? 0;
+      final err = (res['errors'] as num?)?.toInt() ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.t('adm_migp_done', {'n': '$mig', 'e': '$err'}))));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('${l.t('error')}: ${e.toString().replaceFirst('Exception: ', '')}')));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Container(
+      decoration: adminCardBox(),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(children: [
+        const Icon(Icons.price_change, size: 18, color: AdminColors.blue),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(l.t('adm_migp_title'),
+                style: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w600, color: AdminColors.text)),
+            const SizedBox(height: 2),
+            Text(l.t('adm_migp_hint'),
+                style: const TextStyle(fontSize: 10, color: AdminColors.secondary)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        _loading
+            ? const SizedBox(
+                width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : TextButton(onPressed: _run, child: Text(l.t('adm_migp_btn'))),
+      ]),
     );
   }
 }
