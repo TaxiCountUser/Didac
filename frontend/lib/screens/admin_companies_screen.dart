@@ -182,20 +182,6 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
             final newN = tenants.where(_isNew).length;
             return adminConstrained(Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                  child: adminSearchField(
-                    fieldKey: const Key('admin_company_search'),
-                    controller: _searchCtrl,
-                    hint: l.t('adm_co_search_hint'),
-                    onChanged: _onQuery,
-                    hasQuery: _query.isNotEmpty,
-                    onClear: () {
-                      _searchCtrl.clear();
-                      _onQuery('');
-                    },
-                  ),
-                ),
                 // BOTONES de filtro (pills) primero.
                 SizedBox(
                   height: 34,
@@ -225,6 +211,21 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                       _kpiCard(l.t('adm_co_new'), '$newN', AdminColors.blue),
                       _kpiCard(l.t('adm_kpi_rides'), '$ridesTotal', AdminColors.gray),
                     ],
+                  ),
+                ),
+                // Buscador DEBAJO de las KPI.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: adminSearchField(
+                    fieldKey: const Key('admin_company_search'),
+                    controller: _searchCtrl,
+                    hint: l.t('adm_co_search_hint'),
+                    onChanged: _onQuery,
+                    hasQuery: _query.isNotEmpty,
+                    onClear: () {
+                      _searchCtrl.clear();
+                      _onQuery('');
+                    },
                   ),
                 ),
                 // Recuento + orden.
