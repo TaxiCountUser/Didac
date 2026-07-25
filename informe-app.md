@@ -198,19 +198,23 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 **Responsive (2026-07-24):** `adminConstrained` (usado por TODAS las pantallas admin) ensancha el
 contenido en web/desktop (≤760px móvil→720; ≥1200px→1360) en vez de dejarlo en una columna estrecha;
 los grids ya son `Wrap`/`GridView` de columnas automáticas y refluyen solos. Un único punto.
-Portada (anillo de salud + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**;
-las **KPI son pulsables** (2026-07-24) y llevan al sitio que corresponde — Empresas / Facturación /
-Monitorización, y "proves acabant"/"en risc" abren **Empresas ya filtrada** vía `initialFilter`; las
-métricas puras sin drill-down —carreras del día, DAU, activación— se dejan estáticas; affordance: borde
-marcado + chevron + ripple. **Resumen global** en **grid responsive** (2×2 móvil / fila en PC) con
-Empresas · Conductores · De pagament · **Carreres totals** —`kpis.rides_total`, histórico completo—),
+Portada (**salud COMPACTA** —anillo pequeño 48px + estado en línea, 2026-07-25, ya no una banda
+grande— + KPIs + bandeja de trabajo + módulos en tarjetas + **12 semáforos**;
+las **KPI son pulsables** y llevan al sitio que corresponde — Empresas / Facturación /
+Monitorización, y "proves acabant"/"en risc" abren **Empresas ya filtrada** vía `initialFilter`;
+affordance: borde marcado + chevron + ripple. **Resumen global** en **grid responsive** (2×3 móvil /
+fila en PC) con Empresas · Conductores · De pagament · **MRR** · **Churn** (`kpis.mrr`/`kpis.churn`,
+reales de Stripe) · **Carreres totals**. **Pulso diario** depurado —se quitaron DAU, voz y activación
+(vanity/redundantes); quedan ingresos·carreras·nuevas empresas·nuevos conductores·pruebas acabando·en
+riesgo·reembolsos—),
 Empresas (buscador global + **cabecera de KPI** = tarjetas Total · Pagament · Prova · Risc con recuento
 que además filtran + **Carreres totals**; recuento + orden + fichas de **supervisión** + **purga
 definitiva** de empresas de baja, doble confirmación),
-Facturación (salud recurrente + caja + colas de acción, ver nota), Retos (submenús **Resumen** / **Sospechosos**; en Resumen:
+Facturación (**KPI-first**: salud recurrente + colas de acción JUNTAS arriba, luego caja + resto),
+Retos (submenús **Resumen** / **Sospechosos**; en Resumen, **KPI-first** —engagement + moderación juntos, luego coste y gráficos—:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
-+ auto-refresco 20 s + submenú **Configuración**), Referidos (funnel de adquisición + coste + top
-referidores + submenús **Fraude** y **Configuración**), **Monitorización** (Métricas en vivo:
++ auto-refresco 20 s + submenú **Configuración**), Referidos (**KPI-first**: KPI antes del funnel;
++ coste + top referidores + submenús **Fraude** y **Configuración**), **Monitorización** (Métricas en vivo:
 **Entrada de datos hoy — voz vs manual** (`transactions.source`, mig. 080, adopción de voz; solo
 recuentos), IA/cuota Groq (rate-limit = margen, no actividad), saturación y BD + Semáforos + Flags;
 las **carreras totales** se movieron de aquí a Resumen global + Empresas, por ser dato de volumen no de salud),

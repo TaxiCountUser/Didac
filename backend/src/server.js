@@ -1641,6 +1641,14 @@ export async function buildApp(options = {}) {
       ridesTotal = count ?? 0;
     } catch { /* best-effort */ }
 
+    // MRR REAL (Stripe, cacheado 60s) + churn, para el resumen de portada (no el
+    // estimado). Churn = cancelaciones / (activas + canceladas).
+    const mrrReal = await readMrr();
+    const activeCount = rows.filter((t) => t.subscription_status === 'active').length;
+    const canceledCount = rows.filter((t) => t.subscription_status === 'canceled').length;
+    const churn = (activeCount + canceledCount) > 0
+      ? Number(((canceledCount / (activeCount + canceledCount)) * 100).toFixed(1)) : 0;
+
     return reply.send({
       tenants: rows,
       totals: {
@@ -1656,6 +1664,9 @@ export async function buildApp(options = {}) {
         drivers_total: driversTotal,
         drivers_active: driversActive,
         mrr_estimate: Number(mrr.toFixed(2)),
+        mrr: Number(((mrrReal?.mrr ?? 0) / 100).toFixed(2)),
+        mrr_subs: mrrReal?.subs ?? 0,
+        churn,
         rides_total: ridesTotal,
       },
       revenue: revenue ? {

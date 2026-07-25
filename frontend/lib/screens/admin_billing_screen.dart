@@ -89,7 +89,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 children: [
-                  // ── SALUD recurrente (estándar SaaS: MRR/ARR + churn) ──
+                  // ── KPI primero (KPI-first): salud recurrente + colas de acción,
+                  // agrupadas arriba; luego la caja y el resto. ──
                   Row(
                     children: [
                       _kpiTile(
@@ -111,12 +112,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                           AdminColors.red),
                     ],
                   ),
-                  // ── CAJA real cobrada, con selector de periodo ──
-                  adminSectionTitle(l.t('adm_bill_cash'),
-                      color: AdminColors.teal, trailing: _periodPills(l)),
-                  _cashCard(l, t),
-                  // ── Colas de acción (glance) ──
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 7),
                   Row(
                     children: [
                       _kpiTile(l.t('adm_bill_pastdue'), '${t['past_due'] ?? 0}',
@@ -132,6 +128,10 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                           AdminColors.purple),
                     ],
                   ),
+                  // ── CAJA real cobrada, con selector de periodo ──
+                  adminSectionTitle(l.t('adm_bill_cash'),
+                      color: AdminColors.teal, trailing: _periodPills(l)),
+                  _cashCard(l, t),
                   const SizedBox(height: 10),
                   const _CouponManager(),
                   if (pastDue.isNotEmpty) ...[

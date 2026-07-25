@@ -133,9 +133,7 @@ class _ReferralsTabState extends State<ReferralsTab> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          adminSectionTitle(l.t('adm_ref_sec_funnel'), color: AdminColors.pink),
-          _funnel(l),
-          const SizedBox(height: 10),
+          // KPI primero (KPI-first); el funnel (visualización) va después.
           Wrap(spacing: 8, runSpacing: 8, children: [
             _kpiCard(Icons.trending_up, l.t('adm_ref_kpi_conv'), '$conv%',
                 AdminColors.teal),
@@ -146,6 +144,9 @@ class _ReferralsTabState extends State<ReferralsTab> {
             _kpiCard(Icons.cancel, l.t('adm_ref_kpi_rejected'),
                 '${n('rejected')}', AdminColors.red),
           ]),
+          const SizedBox(height: 6),
+          adminSectionTitle(l.t('adm_ref_sec_funnel'), color: AdminColors.pink),
+          _funnel(l),
           adminSectionTitle(l.t('adm_ref_sec_cost'), color: AdminColors.teal),
           _rewardCard(l),
           adminSectionTitle(l.t('adm_ref_sec_top'), color: AdminColors.amber),

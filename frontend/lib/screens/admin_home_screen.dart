@@ -191,6 +191,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           onTap: () => _openTab(-2), fill: true),
       _mTile(l.t('adm_co_paying'), _numStr(k['paying']), AdminColors.teal,
           onTap: () => _openTab(-3), fill: true),
+      _mTile(l.t('adm_bill_mrr'), _eurStr(k['mrr']), AdminColors.teal,
+          onTap: () => _openTab(-3), fill: true),
+      _mTile(l.t('adm_bill_churn'),
+          '${(k['churn'] as num?)?.toStringAsFixed(1) ?? '0'}%', AdminColors.red,
+          onTap: () => _openTab(-3), fill: true),
       _mTile(l.t('adm_kpi_rides'), _numStr(k['rides_total']), AdminColors.amber,
           onTap: () => _openTab(-2), fill: true),
     ];
@@ -233,22 +238,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             final us = (m['usage'] as Map?) ?? const {};
             final gr = (m['growth'] as Map?) ?? const {};
             final pr = (m['product'] as Map?) ?? const {};
-            final rate = pr['activation_rate'];
             final refunds = (biz['refunds_today'] as num?)?.toDouble() ?? 0;
             final tiles = <Widget>[
               _mTile(l.t('adm_dm_rev_today'), _eurStr(biz['revenue_today']), AdminColors.teal,
                   onTap: () => _openTab(-3)),
               _mTile(l.t('adm_dm_rides'), _numStr(us['rides_today']), AdminColors.amber),
-              _mTile(l.t('adm_dm_dau'), _numStr(us['dau']), AdminColors.blue),
-              _mTile(l.t('adm_dm_voice'), _numStr(us['transcriptions_today']), AdminColors.purple,
-                  onTap: () => _openTab(3)),
               _mTile(l.t('adm_dm_new_co'), _numStr(gr['new_companies_today']), AdminColors.teal,
                   onTap: () => _openTab(-2)),
               _mTile(l.t('adm_dm_new_dr'), _numStr(gr['new_drivers_today']), AdminColors.blue,
                   onTap: () => _openTab(-2)),
               _mTile(l.t('adm_dm_trials_end'), _numStr(gr['trials_ending']), AdminColors.amber,
                   onTap: () => _openCompanies('trial')),
-              _mTile(l.t('adm_dm_activation'), rate == null ? '—' : '$rate%', AdminColors.teal),
               _mTile(l.t('adm_dm_at_risk'), _numStr(pr['at_risk']), AdminColors.red,
                   onTap: () => _openCompanies('risk')),
               if (refunds > 0) _mTile(l.t('adm_dm_refunds'), _eurStr(biz['refunds_today']), AdminColors.red,
@@ -374,39 +374,40 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // --- Anillo de salud CENTRADO + estado en una línea. Las métricas viven en
   // el bloque de Resumen; el nº de la bandeja tiene su propia sección. ---
+  // Salud en formato COMPACTO: anillo pequeño (48px) + estado en línea, en vez de
+  // un círculo grande centrado que ocupaba una banda entera.
   Widget _controlCenter(AppLocalizations l, Map<String, dynamic> d) {
     final health = (d['health'] as num?)?.toInt() ?? 100;
     final ok = health >= 90;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 112, height: 112,
-            child: CustomPaint(
-              painter: _RingPainter(health / 100),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('$health',
-                        style: const TextStyle(
-                            fontSize: 28, fontWeight: FontWeight.w600, color: AdminColors.text)),
-                    Text(l.t('adm_home_health').toUpperCase(),
-                        style: const TextStyle(
-                            fontSize: 8, letterSpacing: 1.5, color: AdminColors.secondary)),
-                  ],
-                ),
-              ),
+    return Row(
+      children: [
+        SizedBox(
+          width: 48, height: 48,
+          child: CustomPaint(
+            painter: _RingPainter(health / 100, stroke: 5),
+            child: Center(
+              child: Text('$health',
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700, color: AdminColors.text)),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(ok ? l.t('adm_home_ok') : l.t('adm_home_attention'),
-              style: TextStyle(
-                  fontSize: 12.5, fontWeight: FontWeight.w500,
-                  color: ok ? AdminColors.teal : AdminColors.amber)),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l.t('adm_home_health').toUpperCase(),
+                style: const TextStyle(
+                    fontSize: 9, letterSpacing: 1.5, color: AdminColors.secondary)),
+            const SizedBox(height: 2),
+            Text(ok ? l.t('adm_home_ok') : l.t('adm_home_attention'),
+                style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600,
+                    color: ok ? AdminColors.teal : AdminColors.amber)),
+          ],
+        ),
+      ],
     );
   }
 
@@ -639,15 +640,16 @@ class _Module {
 /// Anillo de salud: pista gris + arco de progreso con extremos redondeados.
 class _RingPainter extends CustomPainter {
   final double fraction; // 0..1
-  _RingPainter(this.fraction);
+  final double stroke;   // grosor del anillo (proporcional al tamaño)
+  _RingPainter(this.fraction, {this.stroke = 8});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 6;
+    final radius = size.width / 2 - stroke * 0.75;
     final track = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
+      ..strokeWidth = stroke
       ..color = AdminColors.hairline;
     canvas.drawCircle(center, radius, track);
 
@@ -656,7 +658,7 @@ class _RingPainter extends CustomPainter {
         : (fraction >= .5 ? AdminColors.amber : AdminColors.red);
     final arc = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
+      ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
       ..color = color;
     canvas.drawArc(
@@ -665,5 +667,5 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) => old.fraction != fraction;
+  bool shouldRepaint(_RingPainter old) => old.fraction != fraction || old.stroke != stroke;
 }

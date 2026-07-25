@@ -414,6 +414,7 @@ class _ChallengesTabState extends State<_ChallengesTab> {
         children: [
           adminSectionTitle(l.t('adm_ch_sec_engagement'),
               color: AdminColors.amber),
+          // KPI-first: engagement + moderación juntos arriba; luego coste y gráficos.
           Wrap(spacing: 8, runSpacing: 8, children: [
             _kpi(Icons.emoji_events, l.t('adm_ch_kpi_completed'),
                 '${n('total_completed')}', AdminColors.amber),
@@ -424,8 +425,6 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             _kpi(Icons.percent, l.t('adm_ch_kpi_completion'),
                 '${n('completion_rate')}%', AdminColors.purple),
           ]),
-          adminSectionTitle(l.t('adm_ch_sec_cost'), color: AdminColors.teal),
-          _rewardCard(l),
           adminSectionTitle(l.t('adm_ch_sec_moderation'),
               color: AdminColors.red),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -434,6 +433,8 @@ class _ChallengesTabState extends State<_ChallengesTab> {
             _kpi(Icons.gpp_maybe, l.t('adm_ch_kpi_fraud'),
                 '${n('fraud_rate')}%', AdminColors.red),
           ]),
+          adminSectionTitle(l.t('adm_ch_sec_cost'), color: AdminColors.teal),
+          _rewardCard(l),
           adminSectionTitle(l.t('adm_ch_sec_charts'),
               color: AdminColors.purple),
           _charts(l),
