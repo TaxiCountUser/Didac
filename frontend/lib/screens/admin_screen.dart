@@ -132,26 +132,30 @@ class _IncidentsTabState extends State<_IncidentsTab> {
         final list = _onlyOpen ? all.where((i) => st(i) == 'abierta').toList() : all;
         return Column(
           children: [
-            // BOTONES de filtro primero, luego KPI (patrón: botones → KPI → contenido).
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-              child: Row(children: [
-                AdminPill(
-                    label: l.t('admin_only_open'), selected: _onlyOpen,
-                    color: AdminColors.blue,
-                    onTap: () => setState(() => _onlyOpen = true)),
-                const SizedBox(width: 6),
-                AdminPill(
-                    label: l.t('adm_ref_all'), selected: !_onlyOpen,
-                    color: AdminColors.blue,
-                    onTap: () => setState(() => _onlyOpen = false)),
-              ]),
-            ),
+            // BOTONES de filtro primero, luego KPI (misma separación que Empresas).
             SizedBox(
-              height: 56,
+              height: 34,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: [
+                  AdminPill(
+                      label: l.t('admin_only_open'), selected: _onlyOpen,
+                      color: AdminColors.blue,
+                      onTap: () => setState(() => _onlyOpen = true)),
+                  const SizedBox(width: 6),
+                  AdminPill(
+                      label: l.t('adm_ref_all'), selected: !_onlyOpen,
+                      color: AdminColors.blue,
+                      onTap: () => setState(() => _onlyOpen = false)),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 54,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
                 children: [
                   _supKpi(l.t('adm_sup_open'), '$open', AdminColors.blue),
                   _supKpi(l.t('adm_sup_resolved'), '$resolved', AdminColors.teal),

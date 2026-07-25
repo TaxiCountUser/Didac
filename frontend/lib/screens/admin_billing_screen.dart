@@ -75,8 +75,6 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                 ((d['trials'] as List?) ?? []).cast<Map<String, dynamic>>();
             final paying =
                 ((d['paying'] as List?) ?? []).cast<Map<String, dynamic>>();
-            final rewCh = (t['reward_credit_challenges_eur'] as num?)?.toDouble() ?? 0;
-            final rewRef = (t['reward_credit_referrals_eur'] as num?)?.toDouble() ?? 0;
             final sortedPaying = _sortPaying(paying);
 
             String eur(Object? v) =>
@@ -121,11 +119,8 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
                       _kpiTile(l.t('adm_kpi_trials'), '${t['trialing'] ?? 0}',
                           '', AdminColors.amber),
                       const SizedBox(width: 7),
-                      _kpiTile(
-                          l.t('adm_kpi_rewards'),
-                          eur(t['reward_credit_total_eur']),
-                          '${l.t('sav_challenges')} ${eur(rewCh)} · ${l.t('sav_referrals')} ${eur(rewRef)}',
-                          AdminColors.purple),
+                      _kpiTile(l.t('adm_kpi_rewards'),
+                          eur(t['reward_credit_total_eur']), '', AdminColors.purple),
                     ],
                   ),
                   // ── CAJA real cobrada, con selector de periodo ──
