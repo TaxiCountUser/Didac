@@ -17,11 +17,6 @@ const PUSH = {
     ca: { title: '🐞 Nou informe d\'error', body: '{reporter}: {preview}' },
     en: { title: '🐞 New error report', body: '{reporter}: {preview}' },
   },
-  error_report_sent: {
-    es: { title: 'Informe de error enviado', body: '{reporter} ha reportado un problema. El equipo de TaxiCount lo revisará.' },
-    ca: { title: 'Informe d\'error enviat', body: '{reporter} ha reportat un problema. L\'equip de TaxiCount el revisarà.' },
-    en: { title: 'Error report sent', body: '{reporter} reported a problem. The TaxiCount team will review it.' },
-  },
   error_resolved: {
     es: { title: '✅ Informe resuelto', body: 'El problema que reportaste ha sido resuelto. ¡Gracias por avisar!' },
     ca: { title: '✅ Informe resolt', body: 'El problema que vas reportar s\'ha resolt. Gràcies per avisar!' },

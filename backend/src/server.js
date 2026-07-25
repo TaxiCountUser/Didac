@@ -1198,9 +1198,9 @@ export async function buildApp(options = {}) {
 
   // ============================================================
   // Loop #6 - Informes de error enviados desde la app.
-  // Van al ADMIN (panel completo) con COPIA por push al JEFE de la flota, que
-  // solo puede verlos (RLS de error_reports): ni modifica, ni borra, ni
-  // responde. Es una tabla aparte de incidents -> no sale en "Mensajes al jefe".
+  // Van SOLO al ADMIN (panel completo). NO hay copia al jefe: ningún screen
+  // no-admin lee error_reports (la RLS de owner quedó sin uso; limpiable por
+  // migración). Es una tabla aparte de incidents -> no sale en "Mensajes al jefe".
   // ============================================================
 
   // Cualquier usuario autenticado (conductor/jefe) envía un informe de error.
@@ -1253,7 +1253,8 @@ export async function buildApp(options = {}) {
     }).select('id').maybeSingle();
     if (error) return reply.code(400).send({ error: error.message });
 
-    // Push a todos los admins + copia al/los jefe(s) de la flota.
+    // Push SOLO a los admins (van únicamente al panel de administración; no hay
+    // copia al jefe: ningún screen no-admin lee error_reports).
     try {
       const { data: me } = await supabase.from('users').select('name, email').eq('id', caller.id).maybeSingle();
       const reporter = me?.name || me?.email || 'Un usuario';
@@ -1262,15 +1263,6 @@ export async function buildApp(options = {}) {
       for (const a of admins ?? []) {
         await notifyUser(a.id, 'error_report_admin', { reporter, preview },
           { type: 'error_report', report_id: String(row?.id ?? '') });
-      }
-      if (caller.tenant_id) {
-        const { data: owners } = await supabase.from('users')
-          .select('id').eq('tenant_id', caller.tenant_id).eq('role', 'owner');
-        for (const o of owners ?? []) {
-          if (o.id === caller.id) continue;
-          await notifyUser(o.id, 'error_report_sent', { reporter },
-            { type: 'error_report_copy', report_id: String(row?.id ?? '') });
-        }
       }
     } catch (e) {
       app.log.warn(`[error-report] push falló: ${e.message}`);
@@ -2075,8 +2067,6 @@ export async function buildApp(options = {}) {
         canceled,
         churn, // %
         reward_credit_total_eur: Number(((centsCh + centsRef) / 100).toFixed(2)),
-        reward_credit_challenges_eur: Number((centsCh / 100).toFixed(2)),
-        reward_credit_referrals_eur: Number((centsRef / 100).toFixed(2)),
       },
       past_due: rows.filter((r) => r.status === 'past_due'),
       trials: rows.filter((r) => r.trial_days_left != null)
