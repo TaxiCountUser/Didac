@@ -234,9 +234,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   onTap: () => _openTab(-3)),
               _mTile(l.t('adm_dm_rides'), _numStr(us['rides_today']), AdminColors.amber),
               _mTile(l.t('adm_dm_new_co'), _numStr(gr['new_companies_today']), AdminColors.teal,
-                  onTap: () => _openTab(-2)),
-              _mTile(l.t('adm_dm_new_dr'), _numStr(gr['new_drivers_today']), AdminColors.blue,
-                  onTap: () => _openTab(-2)),
+                  onTap: () => _openCompanies('new')),
+              // Conductores nuevos: sin pantalla propia de conductores → estática.
+              _mTile(l.t('adm_dm_new_dr'), _numStr(gr['new_drivers_today']), AdminColors.blue),
               _mTile(l.t('adm_dm_trials_end'), _numStr(gr['trials_ending']), AdminColors.amber,
                   onTap: () => _openCompanies('trial')),
               _mTile(l.t('adm_dm_at_risk'), _numStr(pr['at_risk']), AdminColors.red,

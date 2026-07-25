@@ -207,10 +207,11 @@ diario** (Wrap; con 6 KPI quedan 3+3 en móvil) — Empresas · Conductores · D
 **Churn** (`kpis.mrr`/`kpis.churn`, reales de Stripe) · **Carreres totals**. **Pulso diario** depurado —se quitaron DAU, voz y activación
 (vanity/redundantes); quedan ingresos·carreras·nuevas empresas·nuevos conductores·pruebas acabando·en
 riesgo·reembolsos—),
-Empresas (buscador global + **pills de filtro (BOTONES)** all/pagament/prova/risc, y **debajo KPI de
-solo-display** Total·Pagament·Prova·Risc·**Carreres totals** —patrón botones→KPI→contenido, no
-conflar filtro y KPI—; orden + fichas de **supervisión** + **purga definitiva** de empresas de baja,
-doble confirmación),
+Empresas (buscador global + **pills de filtro (BOTONES)** all/pagament/prova/risc/**noves**, y **debajo
+KPI de solo-display** Total·Pagament·Prova·Risc·Noves·**Carreres totals** —patrón botones→KPI→contenido—;
+**badge "NOVA"** en las filas creadas hace <24 h (la KPI "empreses noves avui" de la portada abre
+Empresas filtrada a *noves* vía `initialFilter='new'`); orden + fichas de **supervisión** + **purga
+definitiva** de empresas de baja, doble confirmación),
 Facturación (**KPI-first**: salud recurrente + colas de acción JUNTAS arriba, luego caja + resto),
 Retos (submenús **Resumen** / **Sospechosos**; en Resumen, **KPI-first** —engagement + moderación juntos, luego coste y gráficos—:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total

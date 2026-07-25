@@ -21,7 +21,7 @@ class AdminCompaniesScreen extends StatefulWidget {
   State<AdminCompaniesScreen> createState() => _AdminCompaniesScreenState();
 }
 
-enum _Filter { all, paying, trial, risk }
+enum _Filter { all, paying, trial, risk, fresh }
 
 enum _Sort { recent, name, status }
 
@@ -46,6 +46,7 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
       'paying' => _Filter.paying,
       'trial' => _Filter.trial,
       'risk' => _Filter.risk,
+      'new' => _Filter.fresh,
       _ => _Filter.all,
     };
   }
@@ -89,6 +90,12 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
         (te != null && !te.isAfter(DateTime.now()) && s != 'active');
   }
 
+  // Nueva: creada en las últimas 24 h (badge "NOVA" + filtro "Noves").
+  bool _isNew(Map<String, dynamic> t) {
+    final c = DateTime.tryParse('${t['created_at']}');
+    return c != null && DateTime.now().difference(c).inHours < 24;
+  }
+
   bool _matchesFilter(Map<String, dynamic> t) {
     switch (_filter) {
       case _Filter.all:
@@ -99,6 +106,8 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
         return _isTrial(t);
       case _Filter.risk:
         return _isRisk(t);
+      case _Filter.fresh:
+        return _isNew(t);
     }
   }
 
@@ -170,6 +179,7 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
             final payingN = tenants.where((t) => t['subscription_status'] == 'active').length;
             final trialN = tenants.where(_isTrial).length;
             final riskN = tenants.where(_isRisk).length;
+            final newN = tenants.where(_isNew).length;
             return adminConstrained(Column(
               children: [
                 Padding(
@@ -197,6 +207,7 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                       _pill(l.t('adm_co_paying'), _Filter.paying, AdminColors.teal),
                       _pill(l.t('adm_co_trial'), _Filter.trial, AdminColors.amber),
                       _pill(l.t('adm_co_risk'), _Filter.risk, AdminColors.red),
+                      _pill(l.t('adm_co_new'), _Filter.fresh, AdminColors.blue),
                     ],
                   ),
                 ),
@@ -211,7 +222,8 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                       _kpiCard(l.t('adm_co_paying'), '$payingN', AdminColors.teal),
                       _kpiCard(l.t('adm_co_trial'), '$trialN', AdminColors.amber),
                       _kpiCard(l.t('adm_co_risk'), '$riskN', AdminColors.red),
-                      _kpiCard(l.t('adm_kpi_rides'), '$ridesTotal', AdminColors.blue),
+                      _kpiCard(l.t('adm_co_new'), '$newN', AdminColors.blue),
+                      _kpiCard(l.t('adm_kpi_rides'), '$ridesTotal', AdminColors.gray),
                     ],
                   ),
                 ),
@@ -326,12 +338,20 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     final users = (t['users_count'] as num?)?.toInt() ?? 0;
     final openInc = (t['open_incidents'] as num?)?.toInt() ?? 0;
     final match = _remoteMatches[t['id']];
+    final isNew = _isNew(t);
 
     return AdminListRow(
       leading: AdminInitialsAvatar(name: name),
       title: name,
-      titleTrailing: openInc > 0
-          ? const Icon(Icons.mark_chat_unread, size: 12, color: AdminColors.amber)
+      titleTrailing: (isNew || openInc > 0)
+          ? Row(mainAxisSize: MainAxisSize.min, children: [
+              if (isNew)
+                AdminTag(l.t('adm_co_new_tag'),
+                    fg: AdminColors.teal, bg: AdminColors.tealBg),
+              if (isNew && openInc > 0) const SizedBox(width: 6),
+              if (openInc > 0)
+                const Icon(Icons.mark_chat_unread, size: 12, color: AdminColors.amber),
+            ])
           : null,
       subtitle: '$users ${l.t('admin_users').toLowerCase()}'
           '${openInc > 0 ? ' · $openInc ${l.t('admin_open').toLowerCase()}' : ''}',
