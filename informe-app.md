@@ -207,9 +207,10 @@ fila en PC) con Empresas · Conductores · De pagament · **MRR** · **Churn** (
 reales de Stripe) · **Carreres totals**. **Pulso diario** depurado —se quitaron DAU, voz y activación
 (vanity/redundantes); quedan ingresos·carreras·nuevas empresas·nuevos conductores·pruebas acabando·en
 riesgo·reembolsos—),
-Empresas (buscador global + **cabecera de KPI** = tarjetas Total · Pagament · Prova · Risc con recuento
-que además filtran + **Carreres totals**; recuento + orden + fichas de **supervisión** + **purga
-definitiva** de empresas de baja, doble confirmación),
+Empresas (buscador global + **pills de filtro (BOTONES)** all/pagament/prova/risc, y **debajo KPI de
+solo-display** Total·Pagament·Prova·Risc·**Carreres totals** —patrón botones→KPI→contenido, no
+conflar filtro y KPI—; orden + fichas de **supervisión** + **purga definitiva** de empresas de baja,
+doble confirmación),
 Facturación (**KPI-first**: salud recurrente + colas de acción JUNTAS arriba, luego caja + resto),
 Retos (submenús **Resumen** / **Sospechosos**; en Resumen, **KPI-first** —engagement + moderación juntos, luego coste y gráficos—:
 **km recorridos/día** + evolución de completados con **selector de periodo** días/meses/años/total
@@ -219,8 +220,8 @@ Retos (submenús **Resumen** / **Sospechosos**; en Resumen, **KPI-first** —eng
 recuentos), IA/cuota Groq (rate-limit = margen, no actividad), saturación y BD + Semáforos + Flags;
 las **carreras totales** se movieron de aquí a Resumen global + Empresas, por ser dato de volumen no de salud),
 **Auditoría** (log de acciones; sub-pestaña **Logs** con **cabecera KPI de posture 24h** —403·rate-limit·tokens·logins fallidos, `security/events.summary`),
-**Soporte** (**cabecera KPI**: Abiertos·Resueltos·Total, contados en cliente sobre todos los tickets), Errores, Config (**sistema**:
-mantenimiento + administradores). *(KPI-first en todos: 2026-07-25)*
+**Soporte** (pills de filtro Abiertas/Todas —BOTONES— y **debajo KPI** Abiertos·Resueltos·Total, contados en cliente sobre todos los tickets), Errores, Config (**sistema**:
+mantenimiento + administradores). *(patrón botones→KPI→contenido en todos, 2026-07-25)*
 
 > **Reorganización (2026-07-13):** la antigua tarjeta "Seguridad" se dividió en **Monitorización**
 > y **Auditoría**; las alertas de fraude (que son de referidos) pasaron a la tarjeta **Referidos**.

@@ -132,21 +132,9 @@ class _IncidentsTabState extends State<_IncidentsTab> {
         final list = _onlyOpen ? all.where((i) => st(i) == 'abierta').toList() : all;
         return Column(
           children: [
-            // KPI-first: cua de suport.
-            SizedBox(
-              height: 56,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                children: [
-                  _supKpi(l.t('adm_sup_open'), '$open', AdminColors.blue),
-                  _supKpi(l.t('adm_sup_resolved'), '$resolved', AdminColors.teal),
-                  _supKpi(l.t('adm_sup_total'), '${all.length}', AdminColors.purple),
-                ],
-              ),
-            ),
+            // BOTONES de filtro primero, luego KPI (patrón: botones → KPI → contenido).
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
               child: Row(children: [
                 AdminPill(
                     label: l.t('admin_only_open'), selected: _onlyOpen,
@@ -158,6 +146,18 @@ class _IncidentsTabState extends State<_IncidentsTab> {
                     color: AdminColors.blue,
                     onTap: () => setState(() => _onlyOpen = false)),
               ]),
+            ),
+            SizedBox(
+              height: 56,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                children: [
+                  _supKpi(l.t('adm_sup_open'), '$open', AdminColors.blue),
+                  _supKpi(l.t('adm_sup_resolved'), '$resolved', AdminColors.teal),
+                  _supKpi(l.t('adm_sup_total'), '${all.length}', AdminColors.purple),
+                ],
+              ),
             ),
             Expanded(
               child: list.isEmpty

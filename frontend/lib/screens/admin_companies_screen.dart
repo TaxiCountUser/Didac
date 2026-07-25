@@ -186,19 +186,31 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                     },
                   ),
                 ),
-                // Cabecera de KPI pertinentes (a la vez filtros): total · pagament ·
-                // prova · risc con recuento, + carreres totals. El filtro activo se
-                // resalta al tocar la tarjeta.
+                // BOTONES de filtro (pills) primero.
                 SizedBox(
-                  height: 56,
+                  height: 34,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      _kpiCard(l.t('adm_co_all'), '${tenants.length}', AdminColors.purple, filter: _Filter.all),
-                      _kpiCard(l.t('adm_co_paying'), '$payingN', AdminColors.teal, filter: _Filter.paying),
-                      _kpiCard(l.t('adm_co_trial'), '$trialN', AdminColors.amber, filter: _Filter.trial),
-                      _kpiCard(l.t('adm_co_risk'), '$riskN', AdminColors.red, filter: _Filter.risk),
+                      _pill(l.t('adm_co_all'), _Filter.all, AdminColors.purple),
+                      _pill(l.t('adm_co_paying'), _Filter.paying, AdminColors.teal),
+                      _pill(l.t('adm_co_trial'), _Filter.trial, AdminColors.amber),
+                      _pill(l.t('adm_co_risk'), _Filter.risk, AdminColors.red),
+                    ],
+                  ),
+                ),
+                // KPI (display) después: recuentos + carreres totals.
+                SizedBox(
+                  height: 54,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+                    children: [
+                      _kpiCard(l.t('adm_co_all'), '${tenants.length}', AdminColors.purple),
+                      _kpiCard(l.t('adm_co_paying'), '$payingN', AdminColors.teal),
+                      _kpiCard(l.t('adm_co_trial'), '$trialN', AdminColors.amber),
+                      _kpiCard(l.t('adm_co_risk'), '$riskN', AdminColors.red),
                       _kpiCard(l.t('adm_kpi_rides'), '$ridesTotal', AdminColors.blue),
                     ],
                   ),
@@ -243,24 +255,27 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     );
   }
 
-  // Tarjeta KPI de Empresas: valor + etiqueta. Si lleva filter, filtra la lista
-  // y se resalta cuando está seleccionada; 'carreres totals' va sin filter.
-  Widget _kpiCard(String label, String value, Color color, {_Filter? filter}) {
-    final selected = filter != null && _filter == filter;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        onTap: filter == null ? null : () => setState(() => _filter = filter),
-        borderRadius: BorderRadius.circular(10),
+  // Pill de filtro (BOTÓN): filtra la lista y se resalta cuando está activo.
+  Widget _pill(String label, _Filter f, Color color) => Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: AdminPill(
+            label: label,
+            selected: _filter == f,
+            color: color,
+            onTap: () => setState(() => _filter = f)),
+      );
+
+  // Tarjeta KPI de Empresas: solo DISPLAY (valor + etiqueta). El filtrado lo
+  // hacen los pills de arriba (patrón: botones primero, KPI después).
+  Widget _kpiCard(String label, String value, Color color) => Padding(
+        padding: const EdgeInsets.only(right: 8),
         child: Container(
           width: 104,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: .14) : AdminColors.card,
+            color: AdminColors.card,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: color.withValues(alpha: selected ? .9 : .3),
-                width: selected ? 1.4 : 1),
+            border: Border.all(color: color.withValues(alpha: .3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,9 +291,7 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
 
   Widget _sortButton(AppLocalizations l) {
     String label(_Sort s) => switch (s) {
