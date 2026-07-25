@@ -427,7 +427,15 @@ class _BigButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    // Accesibilidad: se anuncia como UN botón con label+subtítulo; se excluye la
+    // semántica interna (iconos decorativos + textos) para no leerla duplicada.
+    return Semantics(
+      button: true,
+      label: label,
+      hint: subtitle,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: Card(
       color: color,
       child: InkWell(
         onTap: onTap,
@@ -456,6 +464,7 @@ class _BigButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

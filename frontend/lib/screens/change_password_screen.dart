@@ -96,6 +96,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
+                        tooltip: context.l10n.t('a11y_pwd_toggle'),
                         icon: Icon(_show ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setState(() => _show = !_show),
                       ),

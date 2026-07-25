@@ -197,6 +197,7 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
           suffixIcon: _search.isEmpty
               ? null
               : IconButton(
+                  tooltip: context.l10n.t('a11y_clear'),
                   icon: const Icon(Icons.close),
                   onPressed: () {
                     _searchCtrl.clear();

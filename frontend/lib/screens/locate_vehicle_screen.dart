@@ -65,7 +65,7 @@ class _LocateVehicleScreenState extends State<LocateVehicleScreen> {
       appBar: AppBar(
         title: Text(l.t('set_locate_vehicle')),
         actions: [
-          IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
+          IconButton(tooltip: context.l10n.t('refresh'), onPressed: _reload, icon: const Icon(Icons.refresh)),
         ],
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
