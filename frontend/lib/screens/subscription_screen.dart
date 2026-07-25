@@ -277,8 +277,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           Center(
             child: SegmentedButton<bool>(
               segments: [
-                ButtonSegment(value: false, label: Text(l.t('sub_monthly'))),
+                // Anual PRIMERO (se promociona), luego mensual.
                 ButtonSegment(value: true, label: Text(l.t('sub_yearly'))),
+                ButtonSegment(value: false, label: Text(l.t('sub_monthly'))),
               ],
               selected: {_yearly},
               onSelectionChanged: (s) => setState(() => _yearly = s.first),
