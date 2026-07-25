@@ -1513,21 +1513,11 @@ export async function buildApp(options = {}) {
     // Conductores y MRR estimado (annual_price_paid/12 de los activos de pago).
     const { data: drivers } = await supabase.from('users')
       .select('tenant_id, active, annual_price_paid').eq('role', 'driver');
-    const activeByTenant = {};
     let driversTotal = 0;
     let driversActive = 0;
-    let mrr = 0;
     for (const d of drivers ?? []) {
       driversTotal++;
-      if (d.active !== false) {
-        driversActive++;
-        (activeByTenant[d.tenant_id] ||= []).push(Number(d.annual_price_paid ?? 15));
-      }
-    }
-    for (const t of paying) {
-      const seats = activeByTenant[t.id] ?? [];
-      if (seats.length === 0) { mrr += 15 / 12; continue; } // autónomo: su propio asiento
-      for (const p of seats) mrr += p / 12;
+      if (d.active !== false) driversActive++;
     }
 
     // Pendientes por tipo (acotados; solo lo abierto/no resuelto).
@@ -1663,7 +1653,6 @@ export async function buildApp(options = {}) {
         past_due: pastDue.length,
         drivers_total: driversTotal,
         drivers_active: driversActive,
-        mrr_estimate: Number(mrr.toFixed(2)),
         mrr: Number(((mrrReal?.mrr ?? 0) / 100).toFixed(2)),
         mrr_subs: mrrReal?.subs ?? 0,
         churn,

@@ -244,6 +244,61 @@ class AdminKpiTile extends StatelessWidget {
   }
 }
 
+/// Chip KPI compacto: valor (coloreado) arriba + etiqueta debajo. Si recibe
+/// onTap, se vuelve pulsable (borde más marcado + chevron + ripple). Es el kit
+/// único para las KPI compactas del Dashboard (portada, Empresas, Soporte, Logs).
+class AdminKpiChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final VoidCallback? onTap;
+  final double width;
+  const AdminKpiChip(
+      {super.key,
+      required this.label,
+      required this.value,
+      required this.color,
+      this.onTap,
+      this.width = 104});
+
+  @override
+  Widget build(BuildContext context) {
+    final tappable = onTap != null;
+    final tile = Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AdminColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: tappable ? .5 : .3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(value,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(height: 1),
+          Text(label,
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 9.5, color: AdminColors.secondary, height: 1.15)),
+        ],
+      ),
+    );
+    if (!tappable) return tile;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Stack(children: [
+        tile,
+        Positioned(right: 5, top: 5,
+            child: Icon(Icons.chevron_right, size: 13, color: color.withValues(alpha: .55))),
+      ]),
+    );
+  }
+}
+
 /// Píldora de filtro (seleccionada = fondo del color, texto oscuro).
 class AdminPill extends StatelessWidget {
   final String label;

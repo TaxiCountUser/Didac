@@ -253,42 +253,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   // KPI. Si recibe onTap, se vuelve clicable: borde más marcado + chevron
   // arriba a la derecha + ripple (affordance). Las métricas puras (carreras,
-  // DAU, activación) se dejan ESTÁTICAS (sin onTap) a propósito. Chip de ancho fijo
-  // (112) para el Wrap, tanto en el resumen global como en el pulso diario.
-  Widget _mTile(String label, String value, Color color, {VoidCallback? onTap}) {
-    final tappable = onTap != null;
-    final tile = Container(
-      width: 112,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: AdminColors.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: tappable ? .5 : .28)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(value,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: color)),
-          const SizedBox(height: 2),
-          Text(label,
-              maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 9.5, color: AdminColors.secondary, height: 1.15)),
-        ],
-      ),
-    );
-    if (!tappable) return tile;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Stack(children: [
-        tile,
-        Positioned(right: 5, top: 5,
-            child: Icon(Icons.chevron_right, size: 13, color: color.withValues(alpha: .55))),
-      ]),
-    );
-  }
+  // DAU, activación) se dejan ESTÁTICAS (sin onTap) a propósito. Delega en el kit
+  // (AdminKpiChip); ancho 112 para el Wrap del resumen y el pulso diario.
+  Widget _mTile(String label, String value, Color color, {VoidCallback? onTap}) =>
+      AdminKpiChip(label: label, value: value, color: color, onTap: onTap, width: 112);
 
   // --- Semáforos: API (si hay datos, está viva) + crons + servicios externos. ---
   Widget _statusRow(AppLocalizations l, Map<String, dynamic> d) {
@@ -353,10 +321,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
             dot('STRIPE', svcOk('stripe')),
             dot('WEBHOOKS', webhookOk),
-            // Todo es Groq: 'whisper' = transcripción, 'openai' = parser LLM (nombre
-            // heredado del SDK, no es OpenAI de verdad).
-            dot(l.t('adm_sema_ai_voice').toUpperCase(), svcOk('whisper')),
-            dot(l.t('adm_sema_ai_parser').toUpperCase(), svcOk('openai')),
+            // Todo es Groq (voz + parser). Un solo punto en la portada; el detalle
+            // por función vive en Monitorización.
+            dot('GROQ', svcOk('whisper') && svcOk('openai')),
             dot('PUSH', svcOk('push')),
       ],
     );
@@ -547,7 +514,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       _Module(l.t('adm_mon_tab'), Icons.monitor_heart, AdminColors.teal, '', 0, 3),
       _Module(l.t('adm_audit_tab'), Icons.receipt_long, AdminColors.gray, '', 0, 5),
       _Module(l.t('adm_mod_billing'), Icons.payments, AdminColors.teal,
-          '${(k['mrr_estimate'] as num?)?.toStringAsFixed(0) ?? '0'}€/mes',
+          '${(k['mrr'] as num?)?.toStringAsFixed(0) ?? '0'}€/mes',
           (k['past_due'] as num?)?.toInt() ?? 0, -3),
       _Module(l.t('adm_cfg_tab'), Icons.settings, AdminColors.gray, '', 0, 4),
     ];

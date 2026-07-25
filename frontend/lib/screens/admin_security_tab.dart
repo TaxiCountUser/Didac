@@ -359,29 +359,10 @@ class _SecurityTabState extends State<SecurityTab> {
     const known = {'privilege_escalation', 'rate_limit', 'invalid_token', 'login_failed'};
     return known.contains(t) ? l.t('adm_sec_ev_$t') : t;
   }
-  // Tarjeta KPI compacta de posture (Logs): recuento 24h por tipo.
+  // Tarjeta KPI compacta de posture (Logs): recuento 24h por tipo. Kit compartido.
   Widget _secKpi(String label, String value, Color color) => Padding(
         padding: const EdgeInsets.only(right: 8),
-        child: Container(
-          width: 108,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: AdminColors.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: .3)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
-              const SizedBox(height: 1),
-              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 9.5, color: AdminColors.secondary)),
-            ],
-          ),
-        ),
+        child: AdminKpiChip(label: label, value: value, color: color, width: 108),
       );
   void _secReload() { _secOffset = 0; _reload(); }
 

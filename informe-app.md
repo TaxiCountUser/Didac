@@ -251,7 +251,11 @@ mantenimiento + administradores). *(patrón botones→KPI→contenido en todos, 
 > pruebas que acaban). Se retiró el titular de "total facturado acumulado" y la "media/empresa"
 > (acumulados opacos, poco accionables). Lista de empresas que pagan con recuento + orden (€/
 > asientos/nombre). Gestor de cupón (dominio nuestro) sin cambios. Migrado al kit
-> (`adminAppBar`/`AdminKpiTile`/`adminSectionTitle`/`adminRowsCard`/`AdminListRow`). Recordatorio:
+> (`adminAppBar`/`AdminKpiTile`/`adminSectionTitle`/`adminRowsCard`/`AdminListRow`). **KPI consolidadas
+> (2026-07-25):** familia icono/sub → `AdminKpiTile`; familia chip compacto (portada/Empresas/Soporte/
+> Logs) → nuevo `AdminKpiChip` del kit (antes 4 widgets duplicados, ahora delegan). `mrr_estimate`
+> (cálculo estimado) ELIMINADO del backend y del front — la portada usa el **MRR real** (`kpis.mrr`).
+> Portada: los dos puntos Whisper/OpenAI se fusionan en uno **GROQ** (el detalle por función, en Monitorización). Recordatorio:
 > **la ficha de empresa muestra el REAL pagado por ESE cliente; el módulo global, MRR + caja**.
 > **Transparencia (2026-07-24):** el KPI de MRR muestra "de N subs" (`mrr_subs`, de `readMrr`),
 > y en la ficha de empresa el KPI **"Total pagado" es pulsable** → abre el desglose de las

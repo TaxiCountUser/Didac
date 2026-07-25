@@ -91,26 +91,7 @@ class _IncidentsTabState extends State<_IncidentsTab> {
 
   Widget _supKpi(String label, String value, Color color) => Padding(
         padding: const EdgeInsets.only(right: 8),
-        child: Container(
-          width: 104,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: AdminColors.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: .3)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
-              const SizedBox(height: 1),
-              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10, color: AdminColors.secondary)),
-            ],
-          ),
-        ),
+        child: AdminKpiChip(label: label, value: value, color: color),
       );
 
   @override
