@@ -966,6 +966,7 @@ const Map<String, Map<String, String>> _values = {
     'admin_users': 'Usuarios', 'admin_open': 'Abiertas',
     'admin_only_open': 'Solo incidencias abiertas',
     'admin_no_incidents': 'No hay incidencias',
+    'adm_sup_open': 'Abiertos', 'adm_sup_resolved': 'Resueltos', 'adm_sup_total': 'Total',
     'admin_resolve': 'Marcar resuelta', 'admin_reopen': 'Reabrir',
     'adm_ticket_delete_title': 'Borrar ticket',
     'adm_ticket_delete_msg':
@@ -1196,6 +1197,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_audit_none': 'No hay acciones registradas.',
     'adm_logs': 'Logs',
     'adm_logs_none': 'Sin eventos de seguridad.',
+    'adm_logs_24h': 'ÚLTIMAS 24H',
     'adm_sec_ev_privilege_escalation': 'Escalada de privilegios',
     'adm_sec_ev_rate_limit': 'Límite de peticiones',
     'adm_sec_ev_invalid_token': 'Token inválido',
@@ -2060,6 +2062,7 @@ const Map<String, Map<String, String>> _values = {
     'admin_users': 'Users', 'admin_open': 'Open',
     'admin_only_open': 'Only open incidents',
     'admin_no_incidents': 'No incidents',
+    'adm_sup_open': 'Open', 'adm_sup_resolved': 'Resolved', 'adm_sup_total': 'Total',
     'admin_resolve': 'Mark resolved', 'admin_reopen': 'Reopen',
     'adm_ticket_delete_title': 'Delete ticket',
     'adm_ticket_delete_msg':
@@ -2275,6 +2278,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_audit_none': 'No actions logged.',
     'adm_logs': 'Logs',
     'adm_logs_none': 'No security events.',
+    'adm_logs_24h': 'LAST 24H',
     'adm_sec_ev_privilege_escalation': 'Privilege escalation',
     'adm_sec_ev_rate_limit': 'Rate limit',
     'adm_sec_ev_invalid_token': 'Invalid token',
@@ -3170,6 +3174,7 @@ const Map<String, Map<String, String>> _values = {
     'admin_users': 'Usuaris', 'admin_open': 'Obertes',
     'admin_only_open': 'Només incidències obertes',
     'admin_no_incidents': 'No hi ha incidències',
+    'adm_sup_open': 'Oberts', 'adm_sup_resolved': 'Resolts', 'adm_sup_total': 'Total',
     'admin_resolve': 'Marca resolta', 'admin_reopen': 'Reobre',
     'adm_ticket_delete_title': 'Esborrar tiquet',
     'adm_ticket_delete_msg':
@@ -3398,6 +3403,7 @@ const Map<String, Map<String, String>> _values = {
     'adm_audit_none': 'No hi ha accions registrades.',
     'adm_logs': 'Logs',
     'adm_logs_none': 'Sense esdeveniments de seguretat.',
+    'adm_logs_24h': 'ÚLTIMES 24H',
     'adm_sec_ev_privilege_escalation': 'Escalada de privilegis',
     'adm_sec_ev_rate_limit': 'Límit de peticions',
     'adm_sec_ev_invalid_token': 'Token invàlid',

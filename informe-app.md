@@ -218,8 +218,9 @@ Retos (submenús **Resumen** / **Sospechosos**; en Resumen, **KPI-first** —eng
 **Entrada de datos hoy — voz vs manual** (`transactions.source`, mig. 080, adopción de voz; solo
 recuentos), IA/cuota Groq (rate-limit = margen, no actividad), saturación y BD + Semáforos + Flags;
 las **carreras totales** se movieron de aquí a Resumen global + Empresas, por ser dato de volumen no de salud),
-**Auditoría** (log de acciones), Soporte, Errores, Config (**sistema**:
-mantenimiento + administradores).
+**Auditoría** (log de acciones; sub-pestaña **Logs** con **cabecera KPI de posture 24h** —403·rate-limit·tokens·logins fallidos, `security/events.summary`),
+**Soporte** (**cabecera KPI**: Abiertos·Resueltos·Total, contados en cliente sobre todos los tickets), Errores, Config (**sistema**:
+mantenimiento + administradores). *(KPI-first en todos: 2026-07-25)*
 
 > **Reorganización (2026-07-13):** la antigua tarjeta "Seguridad" se dividió en **Monitorización**
 > y **Auditoría**; las alertas de fraude (que son de referidos) pasaron a la tarjeta **Referidos**.

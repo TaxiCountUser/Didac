@@ -72,8 +72,9 @@ class _IncidentsTabState extends State<_IncidentsTab> {
   bool _onlyOpen = true;
   late Future<List<Map<String, dynamic>>> _future = _load();
 
+  // Carga TODAS (para contar KPI); el filtro "solo abiertas" se aplica en cliente.
   Future<List<Map<String, dynamic>>> _load() =>
-      _service.adminIncidents(status: _onlyOpen ? 'abierta' : null);
+      _service.adminIncidents(status: null);
 
   void _reload() => setState(() => _future = _load());
 
@@ -88,51 +89,91 @@ class _IncidentsTabState extends State<_IncidentsTab> {
     }
   }
 
+  Widget _supKpi(String label, String value, Color color) => Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Container(
+          width: 104,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AdminColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: .3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+              const SizedBox(height: 1),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10, color: AdminColors.secondary)),
+            ],
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-          child: Row(children: [
-            AdminPill(
-                label: l.t('admin_only_open'), selected: _onlyOpen,
-                color: AdminColors.blue,
-                onTap: () => setState(() { _onlyOpen = true; _future = _load(); })),
-            const SizedBox(width: 6),
-            AdminPill(
-                label: l.t('adm_ref_all'), selected: !_onlyOpen,
-                color: AdminColors.blue,
-                onTap: () => setState(() { _onlyOpen = false; _future = _load(); })),
-          ]),
-        ),
-        Expanded(
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: _future,
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snap.hasError) {
-                return _ErrorRetry(error: '${snap.error}', onRetry: _reload);
-              }
-              final list = snap.data ?? [];
-              if (list.isEmpty) {
-                return Center(child: Text(l.t('admin_no_incidents')));
-              }
-              return RefreshIndicator(
-                onRefresh: () async => _reload(),
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: list.length,
-                  itemBuilder: (context, i) => _incidentTile(l, list[i]),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return _ErrorRetry(error: '${snap.error}', onRetry: _reload);
+        }
+        final all = snap.data ?? [];
+        String st(Map<String, dynamic> i) => (i['status'] as String?) ?? 'abierta';
+        final open = all.where((i) => st(i) == 'abierta').length;
+        final resolved = all.where((i) => st(i) == 'resuelta').length;
+        final list = _onlyOpen ? all.where((i) => st(i) == 'abierta').toList() : all;
+        return Column(
+          children: [
+            // KPI-first: cua de suport.
+            SizedBox(
+              height: 56,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                children: [
+                  _supKpi(l.t('adm_sup_open'), '$open', AdminColors.blue),
+                  _supKpi(l.t('adm_sup_resolved'), '$resolved', AdminColors.teal),
+                  _supKpi(l.t('adm_sup_total'), '${all.length}', AdminColors.purple),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+              child: Row(children: [
+                AdminPill(
+                    label: l.t('admin_only_open'), selected: _onlyOpen,
+                    color: AdminColors.blue,
+                    onTap: () => setState(() => _onlyOpen = true)),
+                const SizedBox(width: 6),
+                AdminPill(
+                    label: l.t('adm_ref_all'), selected: !_onlyOpen,
+                    color: AdminColors.blue,
+                    onTap: () => setState(() => _onlyOpen = false)),
+              ]),
+            ),
+            Expanded(
+              child: list.isEmpty
+                  ? Center(child: Text(l.t('admin_no_incidents')))
+                  : RefreshIndicator(
+                      onRefresh: () async => _reload(),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: list.length,
+                        itemBuilder: (context, i) => _incidentTile(l, list[i]),
+                      ),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 

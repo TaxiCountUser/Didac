@@ -46,6 +46,7 @@ class _SecurityTabState extends State<SecurityTab> {
   String _secFilter = '';
   int _secOffset = 0;
   int _secTotal = 0;
+  Map<String, dynamic> _secSummary = {}; // recuento 24h por tipo (KPI de Logs)
 
   @override
   void initState() {
@@ -78,6 +79,7 @@ class _SecurityTabState extends State<SecurityTab> {
         );
         _secEvents = ((r['events'] as List?) ?? []).cast<Map<String, dynamic>>();
         _secTotal = (r['total'] as num?)?.toInt() ?? _secEvents.length;
+        _secSummary = (r['summary'] as Map?)?.cast<String, dynamic>() ?? {};
       } else if (_view == 2) {
         _semaphores = await _service.adminSemaphores();
         _flags = await _service.adminFlags();
@@ -357,6 +359,30 @@ class _SecurityTabState extends State<SecurityTab> {
     const known = {'privilege_escalation', 'rate_limit', 'invalid_token', 'login_failed'};
     return known.contains(t) ? l.t('adm_sec_ev_$t') : t;
   }
+  // Tarjeta KPI compacta de posture (Logs): recuento 24h por tipo.
+  Widget _secKpi(String label, String value, Color color) => Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Container(
+          width: 108,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AdminColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: .3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+              const SizedBox(height: 1),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9.5, color: AdminColors.secondary)),
+            ],
+          ),
+        ),
+      );
   void _secReload() { _secOffset = 0; _reload(); }
 
   Future<void> _pickSecDate(bool isFrom) async {
@@ -378,6 +404,21 @@ class _SecurityTabState extends State<SecurityTab> {
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          // KPI-first: posture de seguretat (últimes 24h).
+          Text(l.t('adm_logs_24h'),
+              style: const TextStyle(fontSize: 10, letterSpacing: 1, color: AdminColors.muted)),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 52,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final t in types)
+                  _secKpi(_secLabel(l, t), '${(_secSummary[t] as num?)?.toInt() ?? 0}', _secColor(t)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(children: [
             Expanded(child: _dateChip(l, l.t('adm_audit_from'),
                 _from == null ? null : dfd.format(_from!), () => _pickSecDate(true))),

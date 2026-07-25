@@ -4324,7 +4324,24 @@ export async function buildApp(options = {}) {
     if (qp.to) q = q.lte('created_at', qp.to);
     const { data, count, error } = await q.range(offset, offset + limit - 1);
     if (error) return reply.code(500).send({ error: error.message });
-    return reply.send({ events: data ?? [], total: count ?? (data ?? []).length, limit, offset });
+    // Resumen de posture 24h (KPI de Auditoría → Logs): recuento por tipo.
+    let summary = null;
+    try {
+      const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const cnt = async (type) => {
+        const { count: c } = await supabase.from('security_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('event_type', type).gte('created_at', since);
+        return c ?? 0;
+      };
+      const [esc, rl, tok, login] = await Promise.all([
+        cnt('privilege_escalation'), cnt('rate_limit'), cnt('invalid_token'), cnt('login_failed'),
+      ]);
+      summary = { privilege_escalation: esc, rate_limit: rl, invalid_token: tok, login_failed: login };
+    } catch { /* best-effort */ }
+    return reply.send({
+      events: data ?? [], total: count ?? (data ?? []).length, limit, offset, summary,
+    });
   });
 
   // Estado (log) de TODOS los semáforos de la plataforma, para el apartado de
