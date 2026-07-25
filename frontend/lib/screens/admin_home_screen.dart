@@ -353,8 +353,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             dot(l.t('adm_home_backup').toUpperCase(), fresh('backup')),
             dot('STRIPE', svcOk('stripe')),
             dot('WEBHOOKS', webhookOk),
-            dot('WHISPER', svcOk('whisper')),
-            dot('OPENAI', svcOk('openai')),
+            // Todo es Groq: 'whisper' = transcripción, 'openai' = parser LLM (nombre
+            // heredado del SDK, no es OpenAI de verdad).
+            dot(l.t('adm_sema_ai_voice').toUpperCase(), svcOk('whisper')),
+            dot(l.t('adm_sema_ai_parser').toUpperCase(), svcOk('openai')),
             dot('PUSH', svcOk('push')),
       ],
     );

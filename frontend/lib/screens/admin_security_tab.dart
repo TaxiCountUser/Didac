@@ -540,8 +540,10 @@ class _SecurityTabState extends State<SecurityTab> {
         'backup' => l.t('adm_sema_backup'),
         'purge_retention' => l.t('adm_sema_purge'),
         'stripe' => 'Stripe',
-        'whisper' => 'Whisper',
-        'openai' => 'OpenAI',
+        // Todo es Groq (OPENAI_BASE_URL=api.groq.com): 'whisper' = transcripción,
+        // 'openai' = parser LLM (nombre heredado del SDK, NO es OpenAI).
+        'whisper' => l.t('adm_sema_ai_voice'),
+        'openai' => l.t('adm_sema_ai_parser'),
         'push' => l.t('adm_sema_push'),
         'webhook_errors' => l.t('adm_sema_webhooks'),
         'groq' => l.t('adm_sema_groq'),

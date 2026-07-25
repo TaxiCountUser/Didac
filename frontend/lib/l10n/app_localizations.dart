@@ -1139,7 +1139,8 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_db': 'Base de datos (Supabase)',
     'adm_sema_purge': 'Purga de retención (5 años)',
     'adm_sema_webhooks': 'Webhooks de Stripe (bandeja)',
-    'adm_sema_groq': 'API de Groq (uso)',
+    'adm_sema_groq': 'Groq · Cuota',
+    'adm_sema_ai_voice': 'Groq · Voz', 'adm_sema_ai_parser': 'Groq · Parser',
     'adm_sema_supares': 'Recursos de Supabase',
     // Panel de métricas en vivo (uso de Groq + recursos de Supabase).
     'adm_metrics': 'Métricas',
@@ -2224,7 +2225,8 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_db': 'Database (Supabase)',
     'adm_sema_purge': 'Retention purge (5 years)',
     'adm_sema_webhooks': 'Stripe webhooks (queue)',
-    'adm_sema_groq': 'Groq API (usage)',
+    'adm_sema_groq': 'Groq · Quota',
+    'adm_sema_ai_voice': 'Groq · Voice', 'adm_sema_ai_parser': 'Groq · Parser',
     'adm_sema_supares': 'Supabase resources',
     // Live metrics panel (Groq usage + Supabase resources).
     'adm_metrics': 'Metrics',
@@ -3345,7 +3347,8 @@ const Map<String, Map<String, String>> _values = {
     'adm_sema_db': 'Base de dades (Supabase)',
     'adm_sema_purge': 'Purga de retenció (5 anys)',
     'adm_sema_webhooks': 'Webhooks d\'Stripe (safata)',
-    'adm_sema_groq': 'API de Groq (ús)',
+    'adm_sema_groq': 'Groq · Quota',
+    'adm_sema_ai_voice': 'Groq · Veu', 'adm_sema_ai_parser': 'Groq · Parser',
     'adm_sema_supares': 'Recursos de Supabase',
     // Panell de mètriques en viu (ús de Groq + recursos de Supabase).
     'adm_metrics': 'Mètriques',
