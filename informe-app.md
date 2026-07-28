@@ -460,11 +460,14 @@ superficie anon minimizada (mig. 042). **Config de producción a verificar:** `C
      → `logSecurityEvent`. Se eligió como 1ª por ser la más pura (solo `supabase`+`log`,
      0 acoplamiento cruzado, 25+ llamadores). `secThrottled` se QUEDA en `server.js` (es un
      throttle genérico que usan también `/client-error` y otros, no es de seguridad).
-   - `rewards.js` ← `seatBaseRate`, `applyRewardCredit`, `reverseRewardCredit`,
-     `applyPendingChallengeCredits`, `recomputeReferrerMilestones` (los usan Retos Y
-     Referidos → extraerlos ANTES desbloquea las dos rutas). OJO: hay que inyectarle 4
-     helpers que aún viven en el closure (`tenantIsPaying`, `refConfig`, `milestonesFrom`,
-     `notifyUser`) → es el más enredado de la Fase A.
+   - ✅ **`rewards.js` HECHO (2026-07-28)** — `createRewards({ stripe, supabase, log,
+     tenantIsPaying, refConfig, milestonesFrom, notifyUser })` → `seatBaseRate`,
+     `applyRewardCredit`, `reverseRewardCredit`, `applyPendingChallengeCredits`,
+     `freeDaysForTenant`, `recomputeReferrerMilestones` (los usan Retos Y Referidos →
+     desbloquea Fase B). Se le inyectan 4 helpers que SIGUEN en el closure (`tenantIsPaying`,
+     `refConfig`, `milestonesFrom`, `notifyUser`): son `function` declarations (hoisted), por
+     eso la factory se instancia arriba en `buildApp()` sin problema aunque su código aparezca
+     después. −226 líneas en server.js. `node --check` + boot de `buildApp` (health.test) OK.
    - `monitoring.js` ← `computeSemaphores`, `markService`, `readServiceUptime`
      (depende de `probeDb`, `supabaseMetrics`, `syncScheduledCoupon`, `platformAdminIds`,
      `alertLimit`, `pushEnabled`).
