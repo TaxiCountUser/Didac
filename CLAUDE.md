@@ -45,7 +45,7 @@ Norma: cap `.md` pot quedar desfasat. En acabar cada tasca/feature:
 - APK: **NOMÉS quan l'usuari ho demani explícitament**. No fer builds per iniciativa.
 
 ## Backend — `backend/src/`
-Mòduls germans ja extrets (llegeix-los directes, són petits): `billing.js` (webhook Stripe / `handleStripeEvent`), `parser.js`, `llm_parser.js`, `push.js`, `push_i18n.js` (traduccions de les push, es/en/ca), `reports.js`, `importer.js`, `corrections.js`, `security_log.js` (`createSecurityLog({supabase,log})` → `logSecurityEvent`; Fase A #1, FET), `rewards.js` (`createRewards({stripe,supabase,log,tenantIsPaying,refConfig,milestonesFrom,notifyUser})` → seatBaseRate/applyRewardCredit/reverseRewardCredit/applyPendingChallengeCredits/freeDaysForTenant/recomputeReferrerMilestones; Fase A #2, FET).
+Mòduls germans ja extrets (llegeix-los directes, són petits): `billing.js` (webhook Stripe / `handleStripeEvent`), `parser.js`, `llm_parser.js`, `push.js`, `push_i18n.js` (traduccions de les push, es/en/ca), `reports.js`, `importer.js`, `corrections.js`, `security_log.js` (`createSecurityLog({supabase,log})` → `logSecurityEvent`; Fase A #1, FET), `rewards.js` (`createRewards({stripe,supabase,log,tenantIsPaying,refConfig,milestonesFrom,notifyUser})` → seatBaseRate/applyRewardCredit/reverseRewardCredit/applyPendingChallengeCredits/freeDaysForTenant/recomputeReferrerMilestones; Fase A #2, FET), `monitoring.js` (`createMonitoring({supabase,log,probeDb})` → markService/computeSemaphores; `readServiceUptime` privat; `pushEnabled` import directe; Fase A #3, FET).
 
 **Estructura de `server.js`:** gairebé tot (rutes + helpers) viu dins d'un únic *closure* `export async function buildApp()` (~L286), compartint `app`, `supabase`, `stripe` i les constants del capdamunt (L26–180). Les rutes es registren amb `app.get/post/put/patch/delete('/api/v1/...')`; 67 de 98 són `/api/v1/admin/*`. `async function start()` (final) arrenca el servidor. Per això extreure un domini = plugin `registerXxxRoutes(app, deps)` amb dependències injectades.
 
@@ -68,18 +68,18 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Referits | `Solo invitan owners` · `Invita y Gana` · `Validación de referidos a 15 días` |
 | Anti-frau de referits | `Anti-fraude de referidos` · `Centro de fraude` |
 | Push localitzada / chat flota | `notifyUsers` · `Notificación push de una incidencia` · `chat de flota` |
-| Recompenses (crèdit Stripe) | `seatBaseRate` · `applyRewardCredit` · `applyPendingChallengeCredits` · `recomputeReferrerMilestones` · `test-rewards` |
-| Logs de seguretat (capa B) | `logSecurityEvent` · `/admin/security/events` · `/security/auth-failed` (email/Google, reportat pel client) |
-| Semàfors / uptime | `computeSemaphores` · `markService` · `readServiceUptime` · `/cron/semaphores` |
+| Recompenses (crèdit Stripe) | **→ `rewards.js`** (helpers); a server.js: crides + `test-rewards` |
+| Logs de seguretat (capa B) | **→ `security_log.js`** (`logSecurityEvent`); a server.js: `/admin/security/events` · `/security/auth-failed` (email/Google, reportat pel client) |
+| Semàfors / uptime | **→ `monitoring.js`** (`computeSemaphores`/`markService`); a server.js: `/admin/semaphores` · `/cron/semaphores` |
 | Informes d'error (app) | `Informes de error` |
 | Informes Excel/PDF · Import | `Informes Excel` · `Importar Excel/CSV` |
 | Config sistema (trial/retenció) | `default_trial_days` · `SYSTEM_KEYS` |
 
-## Pla de troceig de `server.js` (feina PENDENT)
+## Pla de troceig de `server.js` (Fase A FETA; Fase B PENDENT)
 Detall viu a `informe-app.md §6.1`. Patró: **factory** `createXxx(deps)` que retorna els
-helpers com a closures; s'instancia dins `buildApp()`. **Fase A helpers purs**: ✅ `security_log.js`
-FET (1r) · ✅ `rewards.js` FET (2n; injecta tenantIsPaying/refConfig/milestonesFrom/notifyUser,
-que són `function` hoisted) → pendent `monitoring.js` (computeSemaphores/markService/readServiceUptime).
+helpers com a closures; s'instancia dins `buildApp()` (dalt, just després de crear app/supabase/
+stripe; els helpers injectats són `function` hoisted). **Fase A helpers purs COMPLETA**:
+✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`. server.js: ~5.9k → ~5.6k línies.
 → **Fase B rutes** (1r Retos, 2n Fraude, 3r Referits, …); agrupar rutes admin com
 `registerXxxAdminRoutes(app,{adminGuard,deps})` de cara a go-live #4 (separar dashboard admin).
 Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.

@@ -447,7 +447,7 @@ superficie anon minimizada (mig. 042). **Config de producción a verificar:** `C
    `export async function buildApp()` (L286), compartiendo `app`, `supabase`, `stripe`
    y las constantes. 98 endpoints (67 bajo `/api/v1/admin/*`). Ya extraídos como
    funciones puras: `billing.js parser.js llm_parser.js corrections.js push.js
-   push_i18n.js reports.js importer.js security_log.js`. Patrón a seguir: **plugin de rutas**
+   push_i18n.js reports.js importer.js security_log.js rewards.js monitoring.js`. Patrón a seguir: **plugin de rutas**
    `export function registerXxxRoutes(app, deps)` con `deps = { supabase, stripe,
    helpers… }` inyectadas. Orden por dependencia y riesgo:
 
@@ -468,9 +468,12 @@ superficie anon minimizada (mig. 042). **Config de producción a verificar:** `C
      `refConfig`, `milestonesFrom`, `notifyUser`): son `function` declarations (hoisted), por
      eso la factory se instancia arriba en `buildApp()` sin problema aunque su código aparezca
      después. −226 líneas en server.js. `node --check` + boot de `buildApp` (health.test) OK.
-   - `monitoring.js` ← `computeSemaphores`, `markService`, `readServiceUptime`
-     (depende de `probeDb`, `supabaseMetrics`, `syncScheduledCoupon`, `platformAdminIds`,
-     `alertLimit`, `pushEnabled`).
+   - ✅ **`monitoring.js` HECHO (2026-07-28)** — `createMonitoring({ supabase, log, probeDb })`
+     → `markService`, `computeSemaphores` (`readServiceUptime` privado). Resultó MENOS enredado
+     de lo previsto: `computeSemaphores` solo usa `probeDb` (inyectado, lo comparte /overview),
+     `pushEnabled` (import directo de push.js) y `readServiceUptime` (hermano); NO usa
+     supabaseMetrics/syncScheduledCoupon/platformAdminIds/alertLimit (esos los llaman los
+     *endpoints*, que se quedan en server.js). −192 líneas. **Fase A COMPLETA.**
 
    **Fase B — grupos de rutas como plugin (riesgo medio).** De cara a la tarea go-live #4
    (separar el Dashboard admin de la app de clientes), agrupar las rutas admin bajo un
