@@ -447,19 +447,34 @@ superficie anon minimizada (mig. 042). **Config de producción a verificar:** `C
    `export async function buildApp()` (L286), compartiendo `app`, `supabase`, `stripe`
    y las constantes. 98 endpoints (67 bajo `/api/v1/admin/*`). Ya extraídos como
    funciones puras: `billing.js parser.js llm_parser.js corrections.js push.js
-   push_i18n.js reports.js importer.js`. Patrón a seguir: **plugin de rutas**
+   push_i18n.js reports.js importer.js security_log.js`. Patrón a seguir: **plugin de rutas**
    `export function registerXxxRoutes(app, deps)` con `deps = { supabase, stripe,
    helpers… }` inyectadas. Orden por dependencia y riesgo:
 
-   **Fase A — helpers puros (riesgo bajo, hacer primero, los comparten varios dominios):**
+   **Fase A — helpers puros (riesgo bajo, hacer primero, los comparten varios dominios).**
+   Patrón de extracción (fijado en la 1ª): **factory** `export function createXxx(deps)`
+   que devuelve los helpers como closures sobre las deps inyectadas; se instancia dentro
+   de `buildApp()` en cuanto `app`/`supabase`/`stripe` están listos. Sin cambio de
+   comportamiento; `node --check` + `npm test` verdes antes del commit.
+   - ✅ **`security_log.js` HECHO (2026-07-28)** — `createSecurityLog({ supabase, log })`
+     → `logSecurityEvent`. Se eligió como 1ª por ser la más pura (solo `supabase`+`log`,
+     0 acoplamiento cruzado, 25+ llamadores). `secThrottled` se QUEDA en `server.js` (es un
+     throttle genérico que usan también `/client-error` y otros, no es de seguridad).
    - `rewards.js` ← `seatBaseRate`, `applyRewardCredit`, `reverseRewardCredit`,
      `applyPendingChallengeCredits`, `recomputeReferrerMilestones` (los usan Retos Y
-     Referidos → extraerlos ANTES desbloquea las dos rutas).
-   - `monitoring.js` ← `computeSemaphores`, `markService`, `readServiceUptime`,
-     `readIncomeReal`/fees/MRR helpers.
-   - `security_log.js` ← `logSecurityEvent`, `secThrottled`.
+     Referidos → extraerlos ANTES desbloquea las dos rutas). OJO: hay que inyectarle 4
+     helpers que aún viven en el closure (`tenantIsPaying`, `refConfig`, `milestonesFrom`,
+     `notifyUser`) → es el más enredado de la Fase A.
+   - `monitoring.js` ← `computeSemaphores`, `markService`, `readServiceUptime`
+     (depende de `probeDb`, `supabaseMetrics`, `syncScheduledCoupon`, `platformAdminIds`,
+     `alertLimit`, `pushEnabled`).
 
-   **Fase B — grupos de rutas como plugin (riesgo medio):**
+   **Fase B — grupos de rutas como plugin (riesgo medio).** De cara a la tarea go-live #4
+   (separar el Dashboard admin de la app de clientes), agrupar las rutas admin bajo un
+   namespace claro `registerXxxAdminRoutes(app, { adminGuard, deps })` — `adminGuard`
+   (L880, memoizado en `request._adminGuard`) se queda como middleware compartido en
+   `server.js`. Así el backend queda pre-cortado si algún día el frontend admin se separa
+   (no obligatorio: el mismo backend puede servir ambas apps; `adminGuard` ya protege).
    | Candidato | Líneas | Notas |
    |---|---|---|
    | **Retos** | ~548 (3589–4137) | contiguo y cohesivo → **mejor 1er candidato** |

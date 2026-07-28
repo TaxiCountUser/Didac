@@ -45,7 +45,7 @@ Norma: cap `.md` pot quedar desfasat. En acabar cada tasca/feature:
 - APK: **NOMÉS quan l'usuari ho demani explícitament**. No fer builds per iniciativa.
 
 ## Backend — `backend/src/`
-Mòduls germans ja extrets (llegeix-los directes, són petits): `billing.js` (webhook Stripe / `handleStripeEvent`), `parser.js`, `llm_parser.js`, `push.js`, `push_i18n.js` (traduccions de les push, es/en/ca), `reports.js`, `importer.js`, `corrections.js`.
+Mòduls germans ja extrets (llegeix-los directes, són petits): `billing.js` (webhook Stripe / `handleStripeEvent`), `parser.js`, `llm_parser.js`, `push.js`, `push_i18n.js` (traduccions de les push, es/en/ca), `reports.js`, `importer.js`, `corrections.js`, `security_log.js` (`createSecurityLog({supabase,log})` → `logSecurityEvent`; Fase A #1, FET).
 
 **Estructura de `server.js`:** gairebé tot (rutes + helpers) viu dins d'un únic *closure* `export async function buildApp()` (~L286), compartint `app`, `supabase`, `stripe` i les constants del capdamunt (L26–180). Les rutes es registren amb `app.get/post/put/patch/delete('/api/v1/...')`; 67 de 98 són `/api/v1/admin/*`. `async function start()` (final) arrenca el servidor. Per això extreure un domini = plugin `registerXxxRoutes(app, deps)` amb dependències injectades.
 
@@ -76,11 +76,13 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Config sistema (trial/retenció) | `default_trial_days` · `SYSTEM_KEYS` |
 
 ## Pla de troceig de `server.js` (feina PENDENT)
-Detall viu a `informe-app.md §6.1`. Ordre acordat: **Fase A helpers purs** (`rewards.js`
-← seatBaseRate/applyRewardCredit/…; `monitoring.js` ← computeSemaphores/markService/
-readServiceUptime; `security_log.js` ← logSecurityEvent) → **Fase B rutes** (1r Retos,
-2n Fraude, 3r Referits, …). `rewards.js` va abans perquè el comparteixen Retos i Referits.
-Discutir abans de cada extracció; `node --check` + tests integració verds abans del commit.
+Detall viu a `informe-app.md §6.1`. Patró: **factory** `createXxx(deps)` que retorna els
+helpers com a closures; s'instancia dins `buildApp()`. **Fase A helpers purs**: ✅ `security_log.js`
+FET (1r, el més pur) → pendents `rewards.js` (el més enredat: injectar tenantIsPaying/refConfig/
+milestonesFrom/notifyUser) i `monitoring.js` (computeSemaphores/markService/readServiceUptime).
+→ **Fase B rutes** (1r Retos, 2n Fraude, 3r Referits, …); agrupar rutes admin com
+`registerXxxAdminRoutes(app,{adminGuard,deps})` de cara a go-live #4 (separar dashboard admin).
+Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`
 - **i18n**: `app_localizations.dart` és un mapa `_values` (es/en/ca). NO el llegeixis sencer — `Grep` la clau (p.ex. `adm_coup_edit`) i edita el bloc. Ús: `context.l10n.t('key',{args})`. Apòstrofs catalans escapats `\'`.

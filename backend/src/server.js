@@ -14,6 +14,7 @@ import { llmParse, mergeParsed } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { pushText } from './push_i18n.js';
 import { handleStripeEvent, planForPrice } from './billing.js';
+import { createSecurityLog } from './security_log.js';
 import {
   fetchReportData,
   buildExcel,
@@ -399,6 +400,11 @@ export async function buildApp(options = {}) {
     }
   }
   app.decorate('supabase', supabase);
+
+  // logSecurityEvent (capa B) vive en ./security_log.js (Fase A del troceig).
+  // Se instancia aquí, en cuanto supabase/app están listos, para que esté
+  // disponible en todos los handlers/middleware; firma y comportamiento idénticos.
+  const { logSecurityEvent } = createSecurityLog({ supabase, log: app.log });
 
   // Caché de transcripciones en memoria: clave userId:hash(audio) -> {text,confidence}
   const transcriptionCache = new Map();
@@ -1200,25 +1206,6 @@ export async function buildApp(options = {}) {
     if (last && now - last < ms) return true;
     _secThrottle.set(key, now);
     return false;
-  }
-  async function logSecurityEvent(request, eventType, opts = {}) {
-    if (!supabase) return;
-    try {
-      await supabase.from('security_events').insert({
-        event_type: eventType,
-        actor_id: opts.actorId ?? null,
-        tenant_id: opts.tenantId ?? null,
-        ip_address: request?.ip ?? null,
-        user_agent: (request?.headers?.['user-agent'] ?? '').slice(0, 300) || null,
-        method: request?.method ?? null,
-        path: (request?.url || '').split('?')[0].slice(0, 200) || null,
-        status_code: opts.status ?? null,
-        trace_id: request?.id ?? null,
-        details: opts.details ?? null,
-      });
-    } catch (e) {
-      app.log.warn(`[security] no se pudo registrar ${eventType}: ${e.message}`);
-    }
   }
 
   // ============================================================
