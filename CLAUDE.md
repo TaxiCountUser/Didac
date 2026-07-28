@@ -64,7 +64,7 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Seients (comprar / reduir) | `AMPLIAR: cobrar YA` · `REDUCIR: el sobrante` |
 | Stripe Checkout / cupó | `Stripe Checkout` · `promotion code activo real` |
 | Stripe Customer Portal | `Stripe Customer Portal` |
-| Reptes | `INCREMENTAL: el progreso` |
+| Reptes | **→ `retos.js`** (`registerRetosRoutes`, 7 endpoints + helpers challengeConfig/levelState/…); a server.js queda el cron `apply-challenge-credits` i `/tenant/free-days` |
 | Referits | `Solo invitan owners` · `Invita y Gana` · `Validación de referidos a 15 días` |
 | Anti-frau de referits | `Anti-fraude de referidos` · `Centro de fraude` |
 | Push localitzada / chat flota | `notifyUsers` · `Notificación push de una incidencia` · `chat de flota` |
@@ -75,14 +75,17 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Informes Excel/PDF · Import | `Informes Excel` · `Importar Excel/CSV` |
 | Config sistema (trial/retenció) | `default_trial_days` · `SYSTEM_KEYS` |
 
-## Pla de troceig de `server.js` (Fase A FETA; Fase B PENDENT)
-Detall viu a `informe-app.md §6.1`. Patró: **factory** `createXxx(deps)` que retorna els
-helpers com a closures; s'instancia dins `buildApp()` (dalt, just després de crear app/supabase/
-stripe; els helpers injectats són `function` hoisted). **Fase A helpers purs COMPLETA**:
-✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`. server.js: ~5.9k → ~5.6k línies.
-→ **Fase B rutes** (1r Retos, 2n Fraude, 3r Referits, …); agrupar rutes admin com
-`registerXxxAdminRoutes(app,{adminGuard,deps})` de cara a go-live #4 (separar dashboard admin).
-Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
+## Pla de troceig de `server.js` (Fase A FETA; Fase B EN CURS)
+Detall viu a `informe-app.md §6.1`. Dos patrons: **helpers** = factory `createXxx(deps)` que
+retorna closures; **rutes** = plugin `registerXxxRoutes(app, deps)` que registra rutes sobre
+`app`. Tots s'instancien/criden dins `buildApp()` a dalt (després de crear app/supabase/stripe
+i els helpers de rewards/monitoring; els guards adminGuard/getCaller/logAdminAction són `function`
+hoisted). **Fase A COMPLETA**: ✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`.
+**Fase B EN CURS**: ✅ `retos.js` (7 endpoints) → pendents Fraude, Referits, …
+⚠️ **LLIÇÓ Retos:** els dominis NO sempre són contigus — verificar SEMPRE amb grep dels
+`app.get/post(...paths...)` dins el rang abans de tallar (Retos eren 2 zones separades per
+odòmetre/frau/auditoria). server.js: ~5.9k → ~5.1k línies. Agrupar rutes admin de cara a
+go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`
 - **i18n**: `app_localizations.dart` és un mapa `_values` (es/en/ca). NO el llegeixis sencer — `Grep` la clau (p.ex. `adm_coup_edit`) i edita el bloc. Ús: `context.l10n.t('key',{args})`. Apòstrofs catalans escapats `\'`.

@@ -483,8 +483,8 @@ superficie anon minimizada (mig. 042). **Config de producción a verificar:** `C
    (no obligatorio: el mismo backend puede servir ambas apps; `adminGuard` ya protege).
    | Candidato | Líneas | Notas |
    |---|---|---|
-   | **Retos** | ~548 (3589–4137) | contiguo y cohesivo → **mejor 1er candidato** |
-   | **Fraude** | ~485 (4138–4623) | contiguo, cohesivo → **2º candidato** |
+   | ✅ **Retos** HECHO (2026-07-28) | −477 | `retos.js` = `registerRetosRoutes(app, { supabase, adminGuard, getCaller, logAdminAction, reverseRewardCredit, log })`. **OJO:** NO era contiguo — los 7 endpoints estaban en 2 zonas (L3528–3945 helpers+6 endpoints, y el approve/reject L4332–4388) separadas por endpoints de odómetro/fraude/auditoría/monitorización que se quedaron. Deps reales mucho menores que lo estimado (no stripe directo, no notifyUsers). El cron apply-challenge-credits y el mixto /tenant/free-days se quedan en server.js. Validado: boot + 7/7 rutas registradas + suite de integración verde (stack Supabase levantado). |
+   | **Fraude** | ~485 (revisar líneas; interleaved con odómetro/auditoría) | **2º candidato**; OJO: verificar contigüidad real como pasó con Retos |
    | **Referidos** | ~1080 (4624–5704, 5 bloques dispersos) | mayor botín pero disperso; hacer tras Fase A |
    | Informes | ~171 (5705–5876) | ya delegan en `reports.js`; extracción fina |
    | Incidencias/push | ~418 (2857–3275) | usa `notifyUsers` |
