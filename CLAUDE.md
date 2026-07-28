@@ -66,7 +66,8 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Stripe Customer Portal | `Stripe Customer Portal` |
 | Reptes | **→ `retos.js`** (`registerRetosRoutes`, 7 endpoints + helpers challengeConfig/levelState/…); a server.js queda el cron `apply-challenge-credits` i `/tenant/free-days` |
 | Referits | `Solo invitan owners` · `Invita y Gana` · `Validación de referidos a 15 días` |
-| Anti-frau de referits | `Anti-fraude de referidos` · `Centro de fraude` |
+| Centro de fraude (visor) | **→ `fraud.js`** (`registerFraudRoutes`, 3 endpoints `/admin/fraud/alerts*`) |
+| Anti-frau de referits (scan/config) | `Anti-fraude de referidos` (queda a server.js; va amb Referits) |
 | Push localitzada / chat flota | `notifyUsers` · `Notificación push de una incidencia` · `chat de flota` |
 | Recompenses (crèdit Stripe) | **→ `rewards.js`** (helpers); a server.js: crides + `test-rewards` |
 | Logs de seguretat (capa B) | **→ `security_log.js`** (`logSecurityEvent`); a server.js: `/admin/security/events` · `/security/auth-failed` (email/Google, reportat pel client) |
@@ -81,10 +82,10 @@ retorna closures; **rutes** = plugin `registerXxxRoutes(app, deps)` que registra
 `app`. Tots s'instancien/criden dins `buildApp()` a dalt (després de crear app/supabase/stripe
 i els helpers de rewards/monitoring; els guards adminGuard/getCaller/logAdminAction són `function`
 hoisted). **Fase A COMPLETA**: ✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`.
-**Fase B EN CURS**: ✅ `retos.js` (7 endpoints) → pendents Fraude, Referits, …
+**Fase B EN CURS**: ✅ `retos.js` (7 endpoints) · ✅ `fraud.js` (Centro de fraude, 3 endpoints) → pendents Referits, …
 ⚠️ **LLIÇÓ Retos:** els dominis NO sempre són contigus — verificar SEMPRE amb grep dels
 `app.get/post(...paths...)` dins el rang abans de tallar (Retos eren 2 zones separades per
-odòmetre/frau/auditoria). server.js: ~5.9k → ~5.1k línies. Agrupar rutes admin de cara a
+odòmetre/frau/auditoria). server.js: ~5.9k → ~5.0k línies. Agrupar rutes admin de cara a
 go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`
