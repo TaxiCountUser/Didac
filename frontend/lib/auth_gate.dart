@@ -11,7 +11,6 @@ import 'config.dart';
 import 'screens/login_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/legal_accept_screen.dart';
-import 'screens/admin_home_screen.dart';
 import 'screens/owner_home_screen.dart';
 import 'screens/driver_home_screen.dart';
 import 'screens/solo_home_screen.dart';
@@ -130,11 +129,12 @@ class _ProfileRouterState extends State<ProfileRouter> {
           );
         }
 
-        // Admin de plataforma: acceso EXCLUSIVO al panel de administración, sin
-        // la app operativa (protección de datos). No ve dinero ni carreras de
-        // las empresas (enmascarado en el backend).
+        // Admin de plataforma: el panel de administración vive en una app web
+        // SEPARADA (no se incluye en esta app de operativa, por tamaño y superficie
+        // de ataque). Si un admin entra aquí, se lo indicamos (sin cargar código
+        // admin: así el tree-shaking lo excluye del APK).
         if (profile.isAdmin) {
-          return const AdminHomeScreen();
+          return const _AdminOnWebScreen();
         }
         if (profile.isInactiveDriver) {
           return const NoFleetScreen();
@@ -182,6 +182,45 @@ class _ProfileRouterState extends State<ProfileRouter> {
         }
         return OwnerHomeScreen(profile: profile);
       },
+    );
+  }
+}
+
+/// Cuenta de admin de plataforma dentro de la app de OPERATIVA: el panel de
+/// administración está en una app web separada. No importa NINGÚN código admin,
+/// para que el tree-shaking lo excluya del APK de cliente.
+class _AdminOnWebScreen extends StatelessWidget {
+  const _AdminOnWebScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.shield_outlined, size: 64, color: Colors.deepPurple),
+                const SizedBox(height: 16),
+                Text(l.t('admin_on_web_title'),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                Text(l.t('admin_on_web_body'), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  child: Text(l.t('cpw_signout')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

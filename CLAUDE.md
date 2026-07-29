@@ -87,6 +87,7 @@ va caçar `MAX_SEATS is not defined` que node --check NO veu; i `closeTenantAcco
 go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`
+- **Dues apps, un codi (go-live #4, FET codi 2026-07-28):** `main.dart` = app d'operativa (APK conductor/jefe) · `main_admin.dart` = panell admin **web** (`flutter build web --target lib/main_admin.dart`, deploy a repo separat via `deploy-admin-web.yml`). El client NO importa cap `screens/admin_*` (auth_gate mostra stub `_AdminOnWebScreen`; els admins van al web) → tree-shaking treu l'admin de l'APK. `data_service.dart` i i18n es queden compartits. Gates: `auth_gate.dart` (client) · `admin_auth_gate.dart` (admin).
 - **i18n**: `app_localizations.dart` és un mapa `_values` (es/en/ca). NO el llegeixis sencer — `Grep` la clau (p.ex. `adm_coup_edit`) i edita el bloc. Ús: `context.l10n.t('key',{args})`. Apòstrofs catalans escapats `\'`.
 - **Kit UI admin**: `screens/admin_theme.dart` (`AdminColors`, `adminAppBar`, `adminRowsCard`, `adminSectionTitle`, `AdminKpiTile`, `AdminPill`…). Reutilitza'l, no reinventis estils.
 - **Mòduls admin**: `AdminModuleScreen(module: 0..5)` = 0 Suport · 1 Retos · 2 Referits · 3 Monitorització · 4 Config · 5 Auditoria (amb sub-pestanya **Logs** = events de seguretat). Empreses i Facturació són pantalles pròpies.

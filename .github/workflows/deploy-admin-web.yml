@@ -1,0 +1,83 @@
+name: Deploy Admin Web (repo separado)
+
+# Construye la app WEB de ADMINISTRACIÓN (entry point lib/main_admin.dart) y la
+# publica en un repo/Pages SEPARADO del de la app de operativa. Así el panel admin
+# vive en su propia URL y el APK de cliente no incluye código admin.
+#
+# ── PUESTA EN MARCHA (una sola vez) ────────────────────────────────────────────
+# 1. Crea un repo NUEVO para el panel admin, p. ej. TaxiCountUser/taxicount-admin,
+#    y activa Pages (Settings -> Pages -> Source: "Deploy from a branch" -> gh-pages).
+# 2. Crea un Personal Access Token (classic, scope `repo`) con acceso a ese repo y
+#    guárdalo en ESTE repo como secret: Settings -> Secrets -> Actions ->
+#    ADMIN_DEPLOY_TOKEN.
+# 3. Rellena abajo ADMIN_REPO (owner/repo) y ADMIN_BASE_HREF (/nombre-del-repo/).
+# 4. Lanza el workflow a mano (Actions -> Deploy Admin Web -> Run workflow).
+#
+# Reutiliza los mismos secrets PROD_* que la web/APK de cliente.
+# ───────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # TODO: ajustar tras crear el repo del panel admin.
+  ADMIN_REPO: TaxiCountUser/taxicount-admin
+  ADMIN_BASE_HREF: /taxicount-admin/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+
+      - name: Preparar --dart-define
+        id: defines
+        env:
+          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+          BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+        run: |
+          D=""
+          add(){ [ -n "$2" ] && D="$D --dart-define=$1=$2"; return 0; }
+          add SUPABASE_URL "$SUPABASE_URL"
+          add SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+          add BACKEND_URL "$BACKEND_URL"
+          echo "args=$D" >> "$GITHUB_OUTPUT"
+          if [ -z "$D" ]; then
+            echo "::warning::Sin secrets PROD_*: la web apuntará a localhost."
+          fi
+
+      - name: Versionado
+        id: version
+        run: echo "name=0.1.${{ github.run_number }}-admin" >> "$GITHUB_OUTPUT"
+
+      # Build del entry point ADMIN (main_admin.dart), no el de cliente.
+      - name: Build admin web
+        run: >
+          flutter build web --release
+          --target lib/main_admin.dart
+          --base-href ${{ env.ADMIN_BASE_HREF }}
+          --build-name=${{ steps.version.outputs.name }}
+          --build-number=${{ github.run_number }}
+          ${{ steps.defines.outputs.args }}
+
+      # Publica en el repo SEPARADO (rama gh-pages) con el token dedicado.
+      - name: Deploy a repo separado
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.ADMIN_DEPLOY_TOKEN }}
+          external_repository: ${{ env.ADMIN_REPO }}
+          publish_branch: gh-pages
+          publish_dir: frontend/build/web

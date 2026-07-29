@@ -9,7 +9,6 @@ import 'auth_gate.dart';
 import 'l10n/app_localizations.dart';
 import 'services/data_service.dart';
 import 'services/push_service.dart';
-import 'screens/admin_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/fleet_chat_screen.dart';
 import 'screens/fleet_chats_screen.dart';
@@ -84,17 +83,10 @@ Future<void> main() async {
       final p = await DataService().fetchMyProfile();
       if (p == null) return;
       Widget? page;
+      // NOTA: los admins de plataforma usan el panel WEB separado, no esta app;
+      // por eso aquí no hay ruta de deep-link a pantallas admin (excluidas del APK).
       if (type.startsWith('referral')) {
         page = ReferralScreen(profile: p);
-      } else if (p.isAdmin) {
-        // Panel de admin: abrir el módulo correspondiente.
-        // 0 Soporte · 3 Monitorización.
-        final module = switch (type) {
-          'support' => 0,
-          'limit' => 3,
-          _ => null,
-        };
-        if (module != null) page = AdminModuleScreen(module: module);
       } else if (type == 'fleet') {
         // Chat de flota: el jefe abre el chat de ESE conductor; el conductor
         // abre su chat con el jefe. Títulos localizados (sin context aquí).

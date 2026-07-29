@@ -12,7 +12,6 @@ import '../services/data_service.dart';
 import '../services/push_service.dart';
 import '../widgets/lang_flag.dart';
 import 'about_screen.dart';
-import 'admin_home_screen.dart';
 import 'change_password_screen.dart';
 import 'fleet_chat_screen.dart';
 import 'fleet_chats_screen.dart';
@@ -648,15 +647,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             ),
           ],
 
-          // Panel de administrador de plataforma (solo admins).
-          if (widget.profile.isAdmin)
-            ListTile(
-              leading: const Icon(Icons.shield, color: Colors.deepPurple),
-              title: Text(l.t('admin_title')),
-              subtitle: Text(l.t('admin_sub')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _open(const AdminHomeScreen()),
-            ),
+          // El panel de administración vive en una app web SEPARADA (no se incluye
+          // en la app de operativa). Un admin que entre aquí ve la pantalla-stub del
+          // AuthGate; nunca llega a estos Ajustes.
           const Divider(height: 1),
           // "Novedades / Quant a": mejoras por versión filtradas por rol.
           ListTile(
