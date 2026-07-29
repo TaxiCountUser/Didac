@@ -81,11 +81,11 @@ retorna closures; **rutes** = plugin `registerXxxRoutes(app, deps)` que registra
 `app`. Tots s'instancien/criden dins `buildApp()` a dalt (després de crear app/supabase/stripe
 i els helpers de rewards/monitoring; els guards adminGuard/getCaller/logAdminAction són `function`
 hoisted). **Fase A COMPLETA**: ✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`.
-**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) · ✅ `incidents.js` (incidents+push) · ✅ `subscription.js` (checkout/portal/seients/cupó) · ✅ `odometer.js` (correcció km) · ✅ `audit_viewers.js` (audit/logs+security/events+client-errors) → pendent **Panel admin** (6 sub-clústers: financer/empreses/usuaris/odòmetre✅/visors✅/flags; fer per sub-clúster, el financer l'últim per diners/RGPD)…
+**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) · ✅ `incidents.js` (incidents+push) · ✅ `subscription.js` (checkout/portal/seients/cupó) · ✅ `odometer.js` (correcció km) · ✅ `audit_viewers.js` · ✅ `admin_users.js` (admins+user CRUD) → pendent **Panel admin** (sub-clústers restants: financer/empreses/flags; el financer l'últim per diners/RGPD)…
 ⚠️ **LLIÇÓ Retos:** els dominis NO sempre són contigus — verificar SEMPRE amb grep dels
 `app.get/post(...paths...)` dins el rang abans de tallar (Retos eren 2 zones separades per
 odòmetre/frau/auditoria). Injectar constants module-level també (p.ex. `MAX_SEATS`: un test
-va caçar `MAX_SEATS is not defined` que node --check NO veu). server.js: ~5.9k → ~3.45k línies. Agrupar rutes admin de cara a
+va caçar `MAX_SEATS is not defined` que node --check NO veu). server.js: ~5.9k → ~3.37k línies. Agrupar rutes admin de cara a
 go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`
