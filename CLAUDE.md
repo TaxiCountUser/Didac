@@ -73,7 +73,7 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Logs de seguretat (capa B) | **→ `security_log.js`** (`logSecurityEvent`); a server.js: `/admin/security/events` · `/security/auth-failed` (email/Google, reportat pel client) |
 | Semàfors / uptime | **→ `monitoring.js`** (`computeSemaphores`/`markService`); a server.js: `/admin/semaphores` · `/cron/semaphores` |
 | Informes d'error (app) | `Informes de error` |
-| Informes Excel/PDF · Import | `Informes Excel` · `Importar Excel/CSV` |
+| Informes Excel/PDF · Import | **→ `reports_routes.js`** (`registerReportsRoutes`; delega a `reports.js`/`importer.js`/`llm_parser.js`) |
 | Config sistema (trial/retenció) | `default_trial_days` · `SYSTEM_KEYS` |
 
 ## Pla de troceig de `server.js` (Fase A FETA; Fase B EN CURS)
@@ -82,10 +82,10 @@ retorna closures; **rutes** = plugin `registerXxxRoutes(app, deps)` que registra
 `app`. Tots s'instancien/criden dins `buildApp()` a dalt (després de crear app/supabase/stripe
 i els helpers de rewards/monitoring; els guards adminGuard/getCaller/logAdminAction són `function`
 hoisted). **Fase A COMPLETA**: ✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`.
-**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) → pendents Informes, Incidències/push, Checkout/Portal, Panel admin…
+**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) → pendents Incidències/push, Checkout/Portal (entrellaçat), Panel admin…
 ⚠️ **LLIÇÓ Retos:** els dominis NO sempre són contigus — verificar SEMPRE amb grep dels
 `app.get/post(...paths...)` dins el rang abans de tallar (Retos eren 2 zones separades per
-odòmetre/frau/auditoria). server.js: ~5.9k → ~4.5k línies. Agrupar rutes admin de cara a
+odòmetre/frau/auditoria). server.js: ~5.9k → ~4.35k línies. Agrupar rutes admin de cara a
 go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`
