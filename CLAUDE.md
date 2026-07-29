@@ -73,17 +73,17 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Informes Excel/PDF · Import | **→ `reports_routes.js`** (`registerReportsRoutes`; delega a `reports.js`/`importer.js`/`llm_parser.js`) |
 | Config sistema (trial/retenció) | `default_trial_days` · `SYSTEM_KEYS` |
 
-## Pla de troceig de `server.js` (Fase A FETA; Fase B EN CURS)
+## Pla de troceig de `server.js` (Fase A FETA; Fase B FETA — 100%)
 Detall viu a `informe-app.md §6.1`. Dos patrons: **helpers** = factory `createXxx(deps)` que
 retorna closures; **rutes** = plugin `registerXxxRoutes(app, deps)` que registra rutes sobre
 `app`. Tots s'instancien/criden dins `buildApp()` a dalt (després de crear app/supabase/stripe
 i els helpers de rewards/monitoring; els guards adminGuard/getCaller/logAdminAction són `function`
 hoisted). **Fase A COMPLETA**: ✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`.
-**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) · ✅ `incidents.js` (incidents+push) · ✅ `subscription.js` (checkout/portal/seients/cupó) · ✅ `odometer.js` (correcció km) · ✅ `audit_viewers.js` · ✅ `admin_users.js` · ✅ `companies.js` · ✅ `flags.js` · ✅ `financial.js` (Dashboard financer: overview/billing/daily-metrics + helpers financers; retorna readGlobalRevenue/readTenantRevenue). **Panel admin COMPLET** (només queda el metrics endpoint, entrellaçat). ⚠️ **LLIÇÓ:** després de cada extracció de rutes, escanejar el mòdul per identificadors cridats que no siguin params/imports/locals (van aparèixer 3 bugs latents: readGlobalRevenue/platformAdminIds/freeDaysForTenant sense injectar; node --check NO els veu).
+**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) · ✅ `incidents.js` (incidents+push) · ✅ `subscription.js` (checkout/portal/seients/cupó) · ✅ `odometer.js` (correcció km) · ✅ `audit_viewers.js` · ✅ `admin_users.js` · ✅ `companies.js` · ✅ `flags.js` · ✅ `financial.js` (Dashboard financer; retorna readGlobalRevenue/readTenantRevenue) · ✅ `metrics.js` (/admin/metrics + groqUsage/inputActivity; injecta supabaseMetrics). **TROCEIG 100% COMPLET** — tot el Panel admin repartit. ⚠️ **LLIÇÓ:** després de cada extracció de rutes, escanejar el mòdul per identificadors cridats que no siguin params/imports/locals (van aparèixer 3 bugs latents: readGlobalRevenue/platformAdminIds/freeDaysForTenant sense injectar; node --check NO els veu).
 ⚠️ **LLIÇÓ Retos:** els dominis NO sempre són contigus — verificar SEMPRE amb grep dels
 `app.get/post(...paths...)` dins el rang abans de tallar (Retos eren 2 zones separades per
 odòmetre/frau/auditoria). Injectar constants module-level també (p.ex. `MAX_SEATS`: un test
-va caçar `MAX_SEATS is not defined` que node --check NO veu; i `closeTenantAccount is not defined` quan un helper DINS la zona tallada es mou amb ella; i escanejar refs creuades no injectades). server.js: ~5.9k → ~2.36k línies (−60%). Agrupar rutes admin de cara a
+va caçar `MAX_SEATS is not defined` que node --check NO veu; i `closeTenantAccount is not defined` quan un helper DINS la zona tallada es mou amb ella; i escanejar refs creuades no injectades). server.js: ~5.9k → ~2.3k línies (−61%), 16 mòduls nous. Agrupar rutes admin de cara a
 go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`
