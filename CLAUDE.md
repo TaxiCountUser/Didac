@@ -61,9 +61,7 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Panell admin (overview) | `Panel rediseñado` |
 | Mètriques plataforma | `Pols diari` |
 | Tancar / reactivar empresa | `CIERRE LÓGICO de una empresa` · `REACTIVAR una empresa` |
-| Seients (comprar / reduir) | `AMPLIAR: cobrar YA` · `REDUCIR: el sobrante` |
-| Stripe Checkout / cupó | `Stripe Checkout` · `promotion code activo real` |
-| Stripe Customer Portal | `Stripe Customer Portal` |
+| Seients + Checkout/Portal + cupó | **→ `subscription.js`** (`registerSubscriptionRoutes`, 11 endpoints + tota la lògica de cupó; retorna `syncScheduledCoupon` per al cron). A server.js queden els helpers de seients `seatCount`/`setSeatQuantity`/`enforceSeatLimit` (injectats; enforceSeatLimit compartit amb billing.js) |
 | Reptes | **→ `retos.js`** (`registerRetosRoutes`, 7 endpoints + helpers challengeConfig/levelState/…); a server.js queda el cron `apply-challenge-credits` i `/tenant/free-days` |
 | Referits | **→ `referrals.js`** (`registerReferralsRoutes`, 15 endpoints + anti-frau `createFraudAlert`/`runFraudChecks`); a server.js queden refConfig/milestonesFrom (compartits amb rewards.js), helpers de cua/reversió (compartits amb billing.js) i el cron `process-referral-validations` |
 | Centro de fraude (visor) | **→ `fraud.js`** (`registerFraudRoutes`, 3 endpoints `/admin/fraud/alerts*`) |
@@ -83,10 +81,11 @@ retorna closures; **rutes** = plugin `registerXxxRoutes(app, deps)` que registra
 `app`. Tots s'instancien/criden dins `buildApp()` a dalt (després de crear app/supabase/stripe
 i els helpers de rewards/monitoring; els guards adminGuard/getCaller/logAdminAction són `function`
 hoisted). **Fase A COMPLETA**: ✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`.
-**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) · ✅ `incidents.js` (incidents+push) → pendents Checkout/Portal (entrellaçat), Panel admin…
+**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) · ✅ `incidents.js` (incidents+push) · ✅ `subscription.js` (checkout/portal/seients/cupó) → pendent Panel admin (nucli, al final)…
 ⚠️ **LLIÇÓ Retos:** els dominis NO sempre són contigus — verificar SEMPRE amb grep dels
 `app.get/post(...paths...)` dins el rang abans de tallar (Retos eren 2 zones separades per
-odòmetre/frau/auditoria). server.js: ~5.9k → ~4.15k línies. Agrupar rutes admin de cara a
+odòmetre/frau/auditoria). Injectar constants module-level també (p.ex. `MAX_SEATS`: un test
+va caçar `MAX_SEATS is not defined` que node --check NO veu). server.js: ~5.9k → ~3.65k línies. Agrupar rutes admin de cara a
 go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`
