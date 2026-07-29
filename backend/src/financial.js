@@ -11,6 +11,8 @@
 // porque los comparten retos.js (summary) y companies.js (ficha de empresa).
 // ============================================================
 
+import { pushEnabled } from './push.js';
+
 export function registerFinancialRoutes(app, { supabase, stripe, adminGuard, probeDb, log }) {
   // ---- Ingresos REALES cobrados (fuente de verdad = Stripe). Suma las facturas
   // pagadas: `paid` = neto cobrado (lo que han pagado los clientes), `discount` =

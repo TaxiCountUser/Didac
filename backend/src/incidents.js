@@ -10,6 +10,8 @@
 // inyectan. markService viene de monitoring.js (marca svc_push).
 // ============================================================
 
+import { sendToTokens, pushEnabled } from './push.js';
+
 export function registerIncidentsRoutes(app, {
   supabase, adminGuard, getCaller, logAdminAction,
   notifyUsers, notifyUser, markService, platformAdminIds,
