@@ -4,26 +4,23 @@ name: Deploy Admin Web (repo separado)
 # publica en un repo/Pages SEPARADO del de la app de operativa. Así el panel admin
 # vive en su propia URL y el APK de cliente no incluye código admin.
 #
-# ── PUESTA EN MARCHA (una sola vez) ────────────────────────────────────────────
-# 1. Crea un repo NUEVO para el panel admin, p. ej. TaxiCountUser/taxicount-admin,
-#    y activa Pages (Settings -> Pages -> Source: "Deploy from a branch" -> gh-pages).
-# 2. Crea un Personal Access Token (classic, scope `repo`) con acceso a ese repo y
-#    guárdalo en ESTE repo como secret: Settings -> Secrets -> Actions ->
-#    ADMIN_DEPLOY_TOKEN.
-# 3. Rellena abajo ADMIN_REPO (owner/repo) y ADMIN_BASE_HREF (/nombre-del-repo/).
-# 4. Lanza el workflow a mano (Actions -> Deploy Admin Web -> Run workflow).
-#
-# Reutiliza los mismos secrets PROD_* que la web/APK de cliente.
+# ── CONFIGURADO (2026-07-29) ───────────────────────────────────────────────────
+# Repo del panel: TaxiCountUser/taxicount-admin (Pages activo, rama gh-pages).
+# Secret ADMIN_DEPLOY_TOKEN puesto en ESTE repo (Didac). Reutiliza los PROD_*.
+# URL del panel: https://taxicountuser.github.io/taxicount-admin/
+# Se despliega solo al cambiar el frontend, y también se puede lanzar a mano.
 # ───────────────────────────────────────────────────────────────────────────────
 
 on:
+  push:
+    branches: [main]
+    paths: ['frontend/**']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  # TODO: ajustar tras crear el repo del panel admin.
   ADMIN_REPO: TaxiCountUser/taxicount-admin
   ADMIN_BASE_HREF: /taxicount-admin/
 
