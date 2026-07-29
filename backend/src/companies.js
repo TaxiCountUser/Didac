@@ -12,7 +12,7 @@
 
 export function registerCompaniesRoutes(app, {
   supabase, stripe, log, adminGuard, getCaller, logAdminAction,
-  readTenantRevenue,
+  readTenantRevenue, freeDaysForTenant,
 }) {
   // Detalle completo de una empresa: tenant + usuarios + recuentos.
   app.get('/api/v1/admin/company/:id', async (request, reply) => {

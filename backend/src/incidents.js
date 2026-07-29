@@ -12,7 +12,7 @@
 
 export function registerIncidentsRoutes(app, {
   supabase, adminGuard, getCaller, logAdminAction,
-  notifyUsers, notifyUser, markService,
+  notifyUsers, notifyUser, markService, platformAdminIds,
 }) {
   // Todas las incidencias de todas las empresas (con nombre de empresa y autor).
   app.get('/api/v1/admin/incidents', async (request, reply) => {

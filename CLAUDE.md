@@ -57,9 +57,7 @@ Dins `server.js`, salta al domini fent `Grep` d'aquestes àncores de comentari (
 | Login per usuari | `Login con NOMBRE DE USUARIO` |
 | Conductors (alta/edit/baixa) | `Invitar conductor` · `Editar conductor` · `Dar de baja` |
 | Bloc admin (tot) | `SIEMPRE verifica que el llamante es admin` · `adminGuard` |
-| Ingressos reals / MRR / comissió | `Ingresos REALES cobrados` · `MRR REAL` · `readGlobalFees` |
-| Panell admin (overview) | `Panel rediseñado` |
-| Mètriques plataforma | `Pols diari` |
+| Ingressos reals / MRR / comissió · Panell overview · Pols diari | **→ `financial.js`** (`registerFinancialRoutes`; overview/billing/daily-metrics + helpers readMrr/readGlobalFees/readGlobalRevenue/readTenantRevenue/…; retorna readGlobalRevenue+readTenantRevenue) |
 | Tancar / reactivar empresa | `CIERRE LÓGICO de una empresa` · `REACTIVAR una empresa` |
 | Seients + Checkout/Portal + cupó | **→ `subscription.js`** (`registerSubscriptionRoutes`, 11 endpoints + tota la lògica de cupó; retorna `syncScheduledCoupon` per al cron). A server.js queden els helpers de seients `seatCount`/`setSeatQuantity`/`enforceSeatLimit` (injectats; enforceSeatLimit compartit amb billing.js) |
 | Reptes | **→ `retos.js`** (`registerRetosRoutes`, 7 endpoints + helpers challengeConfig/levelState/…); a server.js queda el cron `apply-challenge-credits` i `/tenant/free-days` |
@@ -81,11 +79,11 @@ retorna closures; **rutes** = plugin `registerXxxRoutes(app, deps)` que registra
 `app`. Tots s'instancien/criden dins `buildApp()` a dalt (després de crear app/supabase/stripe
 i els helpers de rewards/monitoring; els guards adminGuard/getCaller/logAdminAction són `function`
 hoisted). **Fase A COMPLETA**: ✅ `security_log.js` · ✅ `rewards.js` · ✅ `monitoring.js`.
-**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) · ✅ `incidents.js` (incidents+push) · ✅ `subscription.js` (checkout/portal/seients/cupó) · ✅ `odometer.js` (correcció km) · ✅ `audit_viewers.js` · ✅ `admin_users.js` · ✅ `companies.js` · ✅ `flags.js` (feature flags; metrics ES QUEDA per entrellaçat amb cron semàfors/parseSmart) → pendent només **Dashboard financer** (overview/billing/daily-metrics + helpers financers admin-only; l'últim, per diners/RGPD)…
+**Fase B EN CURS**: ✅ `retos.js` (7) · ✅ `fraud.js` (3) · ✅ `referrals.js` (15 + anti-frau) · ✅ `reports_routes.js` (Excel/PDF+Import) · ✅ `incidents.js` (incidents+push) · ✅ `subscription.js` (checkout/portal/seients/cupó) · ✅ `odometer.js` (correcció km) · ✅ `audit_viewers.js` · ✅ `admin_users.js` · ✅ `companies.js` · ✅ `flags.js` · ✅ `financial.js` (Dashboard financer: overview/billing/daily-metrics + helpers financers; retorna readGlobalRevenue/readTenantRevenue). **Panel admin COMPLET** (només queda el metrics endpoint, entrellaçat). ⚠️ **LLIÇÓ:** després de cada extracció de rutes, escanejar el mòdul per identificadors cridats que no siguin params/imports/locals (van aparèixer 3 bugs latents: readGlobalRevenue/platformAdminIds/freeDaysForTenant sense injectar; node --check NO els veu).
 ⚠️ **LLIÇÓ Retos:** els dominis NO sempre són contigus — verificar SEMPRE amb grep dels
 `app.get/post(...paths...)` dins el rang abans de tallar (Retos eren 2 zones separades per
 odòmetre/frau/auditoria). Injectar constants module-level també (p.ex. `MAX_SEATS`: un test
-va caçar `MAX_SEATS is not defined` que node --check NO veu; i `closeTenantAccount is not defined` quan un helper DINS la zona tallada es mou amb ella). server.js: ~5.9k → ~2.9k línies. Agrupar rutes admin de cara a
+va caçar `MAX_SEATS is not defined` que node --check NO veu; i `closeTenantAccount is not defined` quan un helper DINS la zona tallada es mou amb ella; i escanejar refs creuades no injectades). server.js: ~5.9k → ~2.36k línies (−60%). Agrupar rutes admin de cara a
 go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds abans del commit.
 
 ## Frontend — `frontend/lib/`

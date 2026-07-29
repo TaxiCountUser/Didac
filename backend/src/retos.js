@@ -10,6 +10,7 @@
 
 export function registerRetosRoutes(app, {
   supabase, adminGuard, getCaller, logAdminAction, reverseRewardCredit, log,
+  readGlobalRevenue,
 }) {
   // ============================================================
   // Retos / metas por conductor (km_100k, money_100k, days_300), ESCALONADOS.
