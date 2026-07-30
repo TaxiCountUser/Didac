@@ -77,3 +77,13 @@ msedge --headless=new --disable-gpu --hide-scrollbars --default-background-color
 
 Ojo: cada invocación necesita su propio `--user-data-dir`, o las llamadas seguidas dicen
 que han escrito el archivo y no lo escriben.
+
+## Fondos oscuros
+
+`taxicount-marca-mixta-fondo-oscuro.svg` / `.png` — idéntica a la marca mixta pero con
+"TAXI" en crema. La versión normal lleva "TAXI" en negro cálido y **desaparece** sobre
+fondos oscuros (se detectó montando `hoja-de-marca.png`). La T del monograma sigue en
+negro en las dos versiones, porque va sobre la carrocería ámbar.
+
+`hoja-de-marca.png` es la hoja resumen de toda la identidad: sirve para ver todos los
+activos de un vistazo sin abrir archivo por archivo.
