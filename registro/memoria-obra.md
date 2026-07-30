@@ -20,9 +20,9 @@ Preparado el 30 de julio de 2026.
 | Autor | Didac Oliveras Galvez, NIF 41556654R |
 | Domicilio | Calle Tapis 37, 17600 Figueres (Girona), España |
 | Titular de los derechos | El propio autor |
-| Fecha de creación | **[PENDIENTE — pregunta 2.3]** El repositorio arranca el 19 de junio de 2026; confirmar si hubo trabajo anterior fuera de control de versiones |
-| Divulgación | **[PENDIENTE — pregunta 2.4]** Fecha del primer uso por un tercero (primer conductor real, primera publicación en Play Store o en web) |
-| Registro donde se presenta | **[PENDIENTE — pregunta 2.6]** Previsiblemente el registro territorial de Cataluña, gestionado por la Generalitat, por razón del domicilio del autor |
+| Fecha de creación | **19 de junio de 2026** (primera revisión del control de versiones, «Fase 0 completada: entorno dev validado») |
+| Divulgación | **Obra divulgada.** El repositorio de código es **público** desde su creación, el 21 de junio de 2026. La primera distribución pública de la aplicación compilada que se conserva es del **27 de junio de 2026** |
+| Registro donde se presenta | **Registro de la Propiedad Intelectual de Cataluña**, gestionado por la Generalitat |
 
 ## 2. Objeto y finalidad
 
@@ -189,19 +189,29 @@ selección y disposición de los componentes y la lógica de negocio.
 
 ## 9. Autoría
 
-**[PENDIENTE — preguntas 2.1 y 2.2]**
-
 El historial de control de versiones registra **498 revisiones, todas ellas atribuidas a un
-único autor**, entre el 19 de junio y el 30 de julio de 2026. No consta ninguna aportación
-de terceros.
+único autor**, entre el 19 de junio y el 30 de julio de 2026. No consta ninguna revisión de
+terceros, tampoco en las migraciones de base de datos ni en la documentación legal.
 
-Antes de firmar la declaración de autoría deben confirmarse dos extremos:
+**Objeto de la autoría reclamada.** El autor declara como propia la **concepción del
+producto, la arquitectura del sistema, la lógica de negocio, el modelo de datos, el diseño de
+la interfaz y la selección y disposición del conjunto**, así como la dirección, revisión e
+integración de todo el código. En la escritura material del código se empleó **asistencia de
+herramientas de inteligencia artificial contratadas por el propio autor**, bajo su dirección
+y control, del mismo modo que se emplean entornos de desarrollo, generadores de código y
+bibliotecas. La aportación creativa personal —qué construir, cómo estructurarlo, qué decidir
+en cada disyuntiva y qué integrar— corresponde íntegramente al autor.
 
-1. Que ninguna otra persona escribió, diseñó o encargó parte de la obra. En particular,
-   procede aclarar si la segunda cuenta con permisos de administración de la plataforma
-   corresponde a un mero usuario o a alguien que haya aportado contenido.
-2. El alcance de la asistencia de herramientas automáticas en la escritura del código. La
-   protección exige autoría humana, y el material generado íntegramente por una máquina sin
-   aportación creativa personal no es objeto de propiedad intelectual. La concepción del
-   producto, la arquitectura, la lógica de negocio y la selección y disposición del conjunto
-   sí constituyen aportación del autor, y son el objeto propio de este registro.
+**[PENDIENTE — pregunta 2.1]** Queda por precisar la naturaleza de la colaboración de
+**D. Jordi Pujadas Serra**, que asistió al autor en materia de seguridad de la aplicación y
+protección de datos. Debe determinarse si su aportación fue **consultiva** —recomendaciones,
+revisión y criterio, que no generan coautoría porque las ideas no son objeto de propiedad
+intelectual— o si además **redactó o escribió material** incorporado a la obra, señaladamente
+la documentación legal de `docs/legal/` (política de privacidad, evaluación de impacto,
+registro de actividades de tratamiento, contrato de encargo de tratamiento y procedimiento de
+brechas), en cuyo caso sería coautor de esos documentos concretos.
+
+Se recomienda, en cualquiera de los dos casos, recabar de él una **declaración escrita** que
+deje constancia del alcance de su colaboración y, si procede, ceda al autor cualesquiera
+derechos que pudieran corresponderle. Es un documento breve que cierra la cuestión de forma
+definitiva y sin coste.
