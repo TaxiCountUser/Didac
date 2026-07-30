@@ -1,0 +1,175 @@
+# Memoria descriptiva de la obra
+
+Documento de apoyo a la solicitud de inscripción en el **Registro de la Propiedad
+Intelectual** de un programa de ordenador.
+
+Preparado el 30 de julio de 2026.
+
+> ⚠️ Los apartados marcados **[PENDIENTE]** esperan respuesta del autor (preguntas 2.1 a
+> 2.6 del Bloque 2). No presentar la memoria sin completarlos.
+
+---
+
+## 1. Identificación de la obra
+
+| Campo | Valor |
+|---|---|
+| Título | TaxiCount — plataforma SaaS de gestión económica de flotas de taxi |
+| Clase de obra | Programa de ordenador |
+| Versión que se deposita | 1.0 |
+| Autor | Didac Oliveras Galvez, NIF 41556654R |
+| Domicilio | Calle Tapis 37, 17600 Figueres (Girona), España |
+| Titular de los derechos | El propio autor |
+| Fecha de creación | **[PENDIENTE — pregunta 2.3]** El repositorio arranca el 19 de junio de 2026; confirmar si hubo trabajo anterior fuera de control de versiones |
+| Divulgación | **[PENDIENTE — pregunta 2.4]** Fecha del primer uso por un tercero (primer conductor real, primera publicación en Play Store o en web) |
+| Registro donde se presenta | **[PENDIENTE — pregunta 2.6]** Previsiblemente el registro territorial de Cataluña, gestionado por la Generalitat, por razón del domicilio del autor |
+
+## 2. Objeto y finalidad
+
+TaxiCount es una plataforma en la nube, de arquitectura multiempresa, destinada a la
+**gestión económica y administrativa de flotas de taxi y de taxistas autónomos**. Cada
+empresa cliente opera de forma completamente aislada del resto.
+
+El programa cubre el ciclo completo de explotación de una flota:
+
+- Registro de ingresos y gastos, manual o **por voz** con transcripción automática.
+- Cuadros de mando en tiempo real para el titular de la flota.
+- Generación de informes fiscales en Excel y PDF, e importación desde hoja de cálculo,
+  fotografía o documento PDF.
+- Gestión de conductores, vehículos y asignaciones.
+- Canal de mensajería entre el titular de la flota y sus conductores.
+- Facturación por suscripción con periodo de prueba.
+- Mecanismos de fidelización: retos con recompensa y programa de recomendación.
+- Panel de administración de la plataforma, con supervisión, auditoría y observabilidad.
+
+## 3. Lenguajes de programación y entorno
+
+| Componente | Lenguaje y tecnología | Volumen |
+|---|---|---|
+| Aplicación cliente | Dart, sobre Flutter | 27.198 líneas en 84 archivos |
+| Servidor de aplicación | JavaScript, sobre Node.js y Fastify | 10.066 líneas en 39 archivos |
+| Base de datos | SQL (PostgreSQL), en migraciones versionadas | 7.085 líneas en 84 archivos |
+| Automatización e infraestructura | YAML | 1.460 líneas en 17 archivos |
+| Documentación técnica | Markdown | 4.802 líneas en 43 archivos |
+
+**Total de código original: 44.349 líneas** repartidas en 425 archivos depositados.
+
+**Sistemas operativos y plataformas de destino:** Android (distribución por archivo APK y
+por Google Play) y navegador web. El servidor de aplicación se ejecuta sobre Node.js en un
+proveedor de alojamiento en la nube.
+
+## 4. Arquitectura
+
+El sistema se compone de **tres piezas de despliegue independientes** —aplicación cliente,
+servidor de aplicación y base de datos gestionada— y su rasgo arquitectónico distintivo es
+la **doble ruta de datos**: el cliente no se comunica con un único servidor, sino que elige
+la vía según el nivel de privilegio que requiera cada operación.
+
+Por la **ruta A**, la aplicación consulta y escribe directamente contra la base de datos
+usando el testigo de sesión del propio usuario, y es la base de datos la que impone la
+autorización mediante políticas de seguridad a nivel de fila, garantizando el aislamiento
+entre empresas. Por la **ruta B**, la aplicación llama al servidor de aplicación para todo
+aquello que exige credenciales o privilegios que nunca pueden residir en el dispositivo del
+usuario: alta de conductores, transcripción de voz, operaciones de cobro, generación de
+informes y la totalidad del panel de administración.
+
+Esta decisión reduce la superficie de exposición y evita que el servidor sea un cuello de
+botella en las operaciones ordinarias.
+
+Se acompañan dos diagramas:
+
+- `diagramas/arquitectura.svg` (y su versión `.png`) — piezas de despliegue y ambas rutas.
+- `diagramas/flujo-voz.svg` (y su versión `.png`) — recorrido completo del registro de un
+  servicio dictado por voz, desde la grabación hasta la recepción en el panel del titular.
+
+## 5. Estructura de los módulos
+
+**Aplicación cliente** (`frontend/lib/`): dos puntos de entrada que comparten código —
+`main.dart` para la aplicación de explotación que usan conductores y titulares de flota, y
+`main_admin.dart` para el panel de administración de la plataforma, que se compila y
+distribuye por separado. La navegación se resuelve mediante controles de acceso declarativos
+que deciden la pantalla según el rol y el estado de la cuenta. La internacionalización es
+propia, con un diccionario en castellano, inglés y catalán.
+
+**Servidor de aplicación** (`backend/src/`): 98 puntos de entrada HTTP organizados en 17
+módulos por dominio —facturación, análisis de la voz, notificaciones, informes, importación,
+correcciones, registro de seguridad, recompensas, monitorización, retos, fraude,
+recomendaciones, incidencias, suscripción, empresas, métricas y usuarios administradores.
+
+**Base de datos** (`supabase/migrations/`): esquema versionado de 29 tablas, con
+procedimientos almacenados y 53 políticas de seguridad a nivel de fila.
+
+## 6. Descripción de la interfaz
+
+La aplicación de explotación adopta un lenguaje visual cálido, con fondo crema y acento
+ámbar, y está pensada para un uso rápido y con una sola mano dentro del vehículo: la
+pantalla principal del conductor reduce la interacción a dos acciones grandes y un botón
+flotante de dictado por voz. El panel de administración, dirigido a un público distinto,
+emplea un tema oscuro con acentos por módulo.
+
+Toda la interfaz está disponible en **castellano, inglés y catalán**, con selector visible
+mediante bandera.
+
+Se acompañan las siguientes capturas, obtenidas de la compilación de la versión que se
+deposita:
+
+| Archivo | Contenido |
+|---|---|
+| `capturas/01-cliente-login.png` | Inicio de sesión de la aplicación cliente |
+| `capturas/02-cliente-alta-empresa.png` | Alta de cuenta de titular de flota |
+| `capturas/03-cliente-recuperar-password.png` | Recuperación de contraseña |
+| `capturas/04-cliente-login-english.png` | Inicio de sesión en inglés |
+| `capturas/05-cliente-login-catala.png` | Inicio de sesión en catalán |
+| `capturas/06-admin-login-web.png` | Acceso al panel de administración |
+
+**[PENDIENTE]** Faltan las capturas de las pantallas interiores —panel del conductor, cuadro
+de mando del titular, dictado por voz, informes y módulos de administración—, que requieren
+una sesión iniciada y debe aportar el autor desde su propia cuenta.
+
+## 7. Contenido del depósito
+
+Archivo `taxicount-codigo-fuente-v1.0.zip` — 425 archivos, 1,7 MB comprimido.
+
+Contiene el **código fuente original completo**: aplicación cliente, servidor de aplicación,
+migraciones de base de datos, pruebas automatizadas, guiones de infraestructura y
+documentación técnica.
+
+Se ha excluido deliberadamente todo lo que **no** constituye obra del autor: bibliotecas de
+terceros descargadas, artefactos de compilación y copias de seguridad de datos. El paquete
+tampoco contiene credenciales ni claves: los únicos valores presentes son marcadores de
+ejemplo.
+
+## 8. Componentes de terceros
+
+La obra se apoya en bibliotecas de código abierto ampliamente difundidas, que **no forman
+parte de lo que se registra** y cuya titularidad corresponde a sus respectivos autores.
+
+En la aplicación cliente: entre otras, el propio marco de trabajo Flutter, el cliente de la
+base de datos, almacenamiento seguro, grabación de audio, gráficos, geolocalización,
+selección de archivos e imágenes, notificaciones y acceso con cuenta de Google.
+
+En el servidor: el marco web Fastify, el cliente de la base de datos, la pasarela de pagos,
+la generación de hojas de cálculo y de documentos PDF, el cliente del servicio de
+transcripción, la mensajería push y la instrumentación de errores.
+
+Lo que se registra es **la obra original del autor**: el código propio, su arquitectura, la
+selección y disposición de los componentes y la lógica de negocio.
+
+## 9. Autoría
+
+**[PENDIENTE — preguntas 2.1 y 2.2]**
+
+El historial de control de versiones registra **498 revisiones, todas ellas atribuidas a un
+único autor**, entre el 19 de junio y el 30 de julio de 2026. No consta ninguna aportación
+de terceros.
+
+Antes de firmar la declaración de autoría deben confirmarse dos extremos:
+
+1. Que ninguna otra persona escribió, diseñó o encargó parte de la obra. En particular,
+   procede aclarar si la segunda cuenta con permisos de administración de la plataforma
+   corresponde a un mero usuario o a alguien que haya aportado contenido.
+2. El alcance de la asistencia de herramientas automáticas en la escritura del código. La
+   protección exige autoría humana, y el material generado íntegramente por una máquina sin
+   aportación creativa personal no es objeto de propiedad intelectual. La concepción del
+   producto, la arquitectura, la lógica de negocio y la selección y disposición del conjunto
+   sí constituyen aportación del autor, y son el objeto propio de este registro.

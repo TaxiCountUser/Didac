@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" width="960" height="700" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>TaxiCount — flujo de registro de un servicio por voz</title>
+  <defs>
+    <marker id="f" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#5B5348"/>
+    </marker>
+  </defs>
+  <rect width="960" height="700" fill="#FFFFFF"/>
+
+  <text x="34" y="40" font-size="21" font-weight="600" fill="#1E1B16">TaxiCount — registro de un servicio por voz</text>
+  <text x="34" y="62" font-size="13" fill="#7A7266">De la voz del conductor al panel del jefe, en tiempo real</text>
+
+  <!-- Carriles -->
+  <rect x="34" y="82" width="286" height="30" rx="6" fill="#FFF9EC" stroke="#E0B84C"/>
+  <text x="177" y="102" font-size="12.5" font-weight="600" fill="#8A6400" text-anchor="middle">APP FLUTTER</text>
+  <rect x="344" y="82" width="286" height="30" rx="6" fill="#F7F6F4" stroke="#8C8375"/>
+  <text x="487" y="102" font-size="12.5" font-weight="600" fill="#4A443B" text-anchor="middle">BACKEND FASTIFY</text>
+  <rect x="654" y="82" width="272" height="30" rx="6" fill="#F0F7F3" stroke="#4E9B78"/>
+  <text x="790" y="102" font-size="12.5" font-weight="600" fill="#2F6B50" text-anchor="middle">DATOS Y SERVICIOS</text>
+
+  <line x1="332" y1="120" x2="332" y2="668" stroke="#E8E4DC" stroke-width="1.5" stroke-dasharray="4 5"/>
+  <line x1="642" y1="120" x2="642" y2="668" stroke="#E8E4DC" stroke-width="1.5" stroke-dasharray="4 5"/>
+
+  <!-- 1 -->
+  <rect x="52" y="132" width="250" height="62" rx="9" fill="#FFFDF8" stroke="#E0B84C" stroke-width="1.5"/>
+  <circle cx="74" cy="152" r="11" fill="#FFC107"/>
+  <text x="74" y="157" font-size="12" font-weight="700" fill="#1E1B16" text-anchor="middle">1</text>
+  <text x="94" y="157" font-size="13" font-weight="600" fill="#1E1B16">El conductor dicta</text>
+  <text x="70" y="178" font-size="11.5" fill="#6B6357">Graba el audio desde la pantalla de voz</text>
+
+  <!-- 2 -->
+  <rect x="362" y="216" width="250" height="62" rx="9" fill="#FBFAF8" stroke="#8C8375" stroke-width="1.5"/>
+  <circle cx="384" cy="236" r="11" fill="#8C8375"/>
+  <text x="384" y="241" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+  <text x="404" y="241" font-size="13" font-weight="600" fill="#1E1B16">POST /api/v1/transcribe</text>
+  <text x="380" y="262" font-size="11.5" fill="#6B6357">Ruta B: exige la clave de Whisper</text>
+
+  <!-- 3 -->
+  <rect x="665" y="216" width="250" height="62" rx="9" fill="#F7FBF9" stroke="#4E9B78" stroke-width="1.5"/>
+  <circle cx="687" cy="236" r="11" fill="#4E9B78"/>
+  <text x="687" y="241" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+  <text x="707" y="241" font-size="13" font-weight="600" fill="#1E1B16">Whisper transcribe</text>
+  <text x="683" y="262" font-size="11.5" fill="#6B6357">Devuelve el texto reconocido</text>
+
+  <!-- 4 -->
+  <rect x="362" y="310" width="250" height="80" rx="9" fill="#FBFAF8" stroke="#8C8375" stroke-width="1.5"/>
+  <circle cx="384" cy="330" r="11" fill="#8C8375"/>
+  <text x="384" y="335" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+  <text x="404" y="335" font-size="13" font-weight="600" fill="#1E1B16">parseSmart() interpreta</text>
+  <text x="380" y="356" font-size="11.5" fill="#6B6357">Parser LLM, con parser determinista</text>
+  <text x="380" y="373" font-size="11.5" fill="#6B6357">de respaldo si la confianza es baja</text>
+
+  <!-- 5 -->
+  <rect x="52" y="422" width="250" height="80" rx="9" fill="#FFFDF8" stroke="#E0B84C" stroke-width="1.5"/>
+  <circle cx="74" cy="442" r="11" fill="#FFC107"/>
+  <text x="74" y="447" font-size="12" font-weight="700" fill="#1E1B16" text-anchor="middle">5</text>
+  <text x="94" y="447" font-size="13" font-weight="600" fill="#1E1B16">Previsualización editable</text>
+  <text x="70" y="468" font-size="11.5" fill="#6B6357">El conductor revisa, corrige si hace</text>
+  <text x="70" y="485" font-size="11.5" fill="#6B6357">falta y confirma</text>
+
+  <!-- 6 -->
+  <rect x="665" y="530" width="250" height="80" rx="9" fill="#F7FBF9" stroke="#4E9B78" stroke-width="1.5"/>
+  <circle cx="687" cy="550" r="11" fill="#4E9B78"/>
+  <text x="687" y="555" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">6</text>
+  <text x="707" y="555" font-size="13" font-weight="600" fill="#1E1B16">Se guarda la transacción</text>
+  <text x="683" y="576" font-size="11.5" fill="#6B6357">Ruta A directa; la RLS valida el</text>
+  <text x="683" y="593" font-size="11.5" fill="#6B6357">tenant_id y la suscripción activa</text>
+
+  <!-- 7 -->
+  <rect x="52" y="618" width="250" height="62" rx="9" fill="#FFFDF8" stroke="#E0B84C" stroke-width="1.5"/>
+  <circle cx="74" cy="638" r="11" fill="#FFC107"/>
+  <text x="74" y="643" font-size="12" font-weight="700" fill="#1E1B16" text-anchor="middle">7</text>
+  <text x="94" y="643" font-size="13" font-weight="600" fill="#1E1B16">El jefe lo ve al instante</text>
+  <text x="70" y="664" font-size="11.5" fill="#6B6357">Su panel recibe el alta por realtime</text>
+
+  <!-- Flechas -->
+  <path d="M302 170 C 340 176, 340 206, 358 224" fill="none" stroke="#5B5348" stroke-width="1.8" marker-end="url(#f)"/>
+  <path d="M612 247 L 660 247" fill="none" stroke="#5B5348" stroke-width="1.8" marker-end="url(#f)"/>
+  <path d="M790 278 C 790 300, 700 296, 616 330" fill="none" stroke="#5B5348" stroke-width="1.8" marker-end="url(#f)"/>
+  <path d="M362 366 C 330 384, 330 404, 302 428" fill="none" stroke="#5B5348" stroke-width="1.8" marker-end="url(#f)"/>
+  <path d="M302 470 C 470 470, 520 500, 660 552" fill="none" stroke="#5B5348" stroke-width="1.8" marker-end="url(#f)"/>
+  <path d="M665 596 C 480 620, 420 632, 306 644" fill="none" stroke="#5B5348" stroke-width="1.8" marker-end="url(#f)"/>
+
+  <!-- nota lateral -->
+  <rect x="52" y="524" width="250" height="72" rx="9" fill="#FBFAF8" stroke="#DDD8CE" stroke-dasharray="4 4"/>
+  <text x="70" y="548" font-size="11.5" font-weight="600" fill="#4A443B">Nada se guarda sin confirmar</text>
+  <text x="70" y="568" font-size="11" fill="#6B6357">La transcripción nunca escribe sola en</text>
+  <text x="70" y="584" font-size="11" fill="#6B6357">la base: siempre pasa por el paso 5.</text>
+</svg>
