@@ -276,25 +276,46 @@ function detailTable(txs) {
       t.payment_method || '',
     ]);
   }
-  const tt = totals(txs);
-  body.push([{ text: 'Totales', bold: true, colSpan: 6 }, {}, {}, {}, {}, {}]);
-  body.push([
-    { text: `Ingresos: ${money(tt.income)} €`, colSpan: 2 },
-    {},
-    { text: `Gastos: ${money(tt.expense)} €`, colSpan: 2 },
-    {},
-    { text: `Balance: ${money(tt.balance)} €`, colSpan: 2 },
-    {},
-  ]);
   return {
     table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'], body },
     margin: [0, 4, 0, 12],
   };
 }
 
+// Resumen ampliado (mismo desglose que el Excel) para el PDF: ingresos y gastos
+// por método de pago, gastos por categoría y balance. Todo en negrita. Tabla de
+// 2 columnas sin bordes (etiqueta | importe).
+function summaryBlock(txs) {
+  const t = totals(txs);
+  const rows = [];
+  const row = (label, val) =>
+    rows.push([
+      { text: label, bold: true },
+      { text: val === undefined ? '' : `${money(val)} €`, bold: true, alignment: 'right' },
+    ]);
+  const incByPay = orderPay(groupSum(txs, 'income', (x) => x.payment_method || ''));
+  if (incByPay.length) {
+    row('Ingresos por método de pago');
+    for (const [label, v] of incByPay) row(`   ${label}`, v);
+  }
+  row('TOTAL Ingresos', t.income);
+  const expByPay = orderPay(groupSum(txs, 'expense', (x) => x.payment_method || ''));
+  if (expByPay.length) {
+    row('Gastos por método de pago');
+    for (const [label, v] of expByPay) row(`   ${label}`, v);
+  }
+  const expByCat = groupSum(txs, 'expense', (x) => x.category || 'Sin categoría');
+  if (expByCat.size) {
+    row('Gastos por categoría');
+    for (const [c, v] of expByCat) row(`   ${c}`, v);
+  }
+  row('TOTAL Gastos', t.expense);
+  row('BALANCE (Ingresos − Gastos)', t.balance);
+  return { table: { widths: ['*', 'auto'], body: rows }, layout: 'noBorders', margin: [0, 4, 0, 12] };
+}
+
 export function buildPdf(data) {
   const printer = new PdfPrinter(FONTS);
-  const t = totals(data.transactions);
   const range =
     data.startDate || data.endDate
       ? `${data.startDate ? fmtDate(data.startDate) : '—'} a ${data.endDate ? fmtDate(data.endDate) : '—'}`
@@ -306,20 +327,7 @@ export function buildPdf(data) {
     { text: `Rango de fechas: ${range}`, margin: [0, 2, 0, 8] },
 
     { text: 'Resumen', style: 'h2' },
-    {
-      table: {
-        widths: ['*', '*', '*'],
-        body: [
-          [
-            { text: 'Total ingresos', bold: true },
-            { text: 'Total gastos', bold: true },
-            { text: 'Balance', bold: true },
-          ],
-          [`${money(t.income)} €`, `${money(t.expense)} €`, `${money(t.balance)} €`],
-        ],
-      },
-      margin: [0, 4, 0, 12],
-    },
+    summaryBlock(data.transactions),
 
     { text: 'Detalle por conductor', style: 'h2' },
   ];
@@ -330,6 +338,7 @@ export function buildPdf(data) {
     for (const [, g] of data.groups) {
       content.push({ text: g.name, style: 'h3', margin: [0, 6, 0, 0] });
       content.push(detailTable(g.txs));
+      content.push(summaryBlock(g.txs));
     }
   }
 

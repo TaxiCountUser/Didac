@@ -186,7 +186,7 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 |---|---|
 | `server.js` (~3.500 líneas) | Monolito modular: 69 rutas, guards (`adminGuard`, `cronOrAdmin`), hook `preHandler` que blinda todo `/admin/*`, helpers de telemetría (`markCronRun`, `markService`, `probeDb`), orquestación. |
 | `billing.js` | Lógica de Stripe (`applyStripeEvent`: activar/past_due/cancelar). |
-| `reports.js` | Generación de Excel (`exceljs`) y PDF (`pdfmake`). El Excel cierra cada hoja con un **resumen ampliado en negrita**: ingresos por método de pago → TOTAL Ingresos; gastos por método de pago **y** por categoría → TOTAL Gastos; BALANCE (Ingresos − Gastos). (El PDF mantiene el resumen simple.) |
+| `reports.js` | Generación de Excel (`exceljs`) y PDF (`pdfmake`). El Excel cierra cada hoja con un **resumen ampliado en negrita**: ingresos por método de pago → TOTAL Ingresos; gastos por método de pago **y** por categoría → TOTAL Gastos; BALANCE (Ingresos − Gastos). El **PDF** lleva el mismo desglose (`summaryBlock`): resumen global + uno por conductor. |
 | `parser.js` | Parser determinista de transacciones (números, categoría, tipo, pago). |
 | `llm_parser.js` | Parser LLM (OpenAI/Groq) con fusión sobre el determinista. |
 | `importer.js` | Importación de Excel/CSV heredado. |
