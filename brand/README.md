@@ -32,10 +32,20 @@ porque la representación oficial no debe depender del color del soporte.
 
 ## Concepto
 
-Un taxi visto de frente cuyo rótulo de techo son **tres barras ascendentes**: el gráfico
-de barras une "Taxi" y "Count" en un solo signo y es lo que aleja el dibujo del pictograma
-genérico de taxi. En el logotipo, "TAXI" va en negro cálido y "COUNT" en ámbar, para que
-la lectura en dos partes del nombre se mantenga aunque esté todo en mayúsculas.
+Un **SUV moderno visto de frente**, con módulo de taxi plano en el techo, faros de ranura
+finos, toma de aire inferior y cristal amplio — lenguaje de coche actual, no de taxi
+antiguo. En la parrilla central va el **monograma TC**: la T en negro cálido y la C calada,
+de modo que la C toma el color de lo que haya detrás (ámbar en el icono de aplicación, que
+es el color con el que "COUNT" aparece en el logotipo).
+
+El monograma es lo que hace la marca defendible: un taxi con parrilla es genérico, un taxi
+con las iniciales en la parrilla es propio, y además refuerza el elemento denominativo.
+
+En el logotipo, "TAXI" va en negro cálido y "COUNT" en ámbar, para que la lectura en dos
+partes del nombre se mantenga aunque esté todo en mayúsculas.
+
+En la versión en blanco y negro la T también va calada, porque sobre carrocería negra un
+trazo negro no se vería.
 
 ## Colores
 
@@ -43,8 +53,8 @@ la lectura en dos partes del nombre se mantenga aunque esté todo en mayúsculas
 |---|---|---|
 | Ámbar TaxiCount | `#FFC107` | Isotipo, icono de app |
 | Ámbar logotipo | `#FFB300` | "COUNT" en el logotipo (algo más profundo, para contraste sobre blanco) |
-| Negro cálido | `#1E1B16` | "TAXI" en el logotipo |
-| Crema | `#FEF7EC` | Contraformas dentro del icono de app |
+| Negro cálido | `#1E1B16` | "TAXI" en el logotipo, T del monograma |
+| Crema | `#FEF7EC` | Carrocería dentro del icono de app |
 
 ## Construcción tipográfica
 
