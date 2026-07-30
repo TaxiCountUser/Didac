@@ -122,6 +122,10 @@ deposita:
 | `capturas/05-cliente-login-catala.png` | Inicio de sesión en catalán |
 | `capturas/06-admin-login-web.png` | Acceso al panel de administración |
 
+Las capturas corresponden a la versión ya rebautizada con la marca original: el isotipo
+sustituye al pictograma de biblioteca que se usaba antes, y el nombre aparece con el corte
+de color de la marca que se registra, "Taxi" en el color del tema y "Count" en ámbar.
+
 **[PENDIENTE]** Faltan las capturas de las pantallas interiores —panel del conductor, cuadro
 de mando del titular, dictado por voz, informes y módulos de administración—, que requieren
 una sesión iniciada y debe aportar el autor desde su propia cuenta.

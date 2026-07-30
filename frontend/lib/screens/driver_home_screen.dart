@@ -343,7 +343,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.local_taxi, size: 64, color: Colors.amber),
+                Image.asset('assets/brand/isotipo.png', height: 64),
                 const SizedBox(height: 12),
                 Text(
                   l.t('dh_hello', {'name': displayName}),

@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../util/brand.dart';
 import '../widgets/lang_flag.dart';
 
 /// Login / registro de Owners.
@@ -295,13 +296,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.local_taxi, size: 72, color: Colors.amber),
+                  Image.asset('assets/brand/isotipo.png', height: 72),
                   const SizedBox(height: 16),
-                  Text(
-                    'TaxiCount',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
+                  brandWordmark(context),
                   Text(
                     _isSignUp ? l.t('login_subtitle_signup') : l.t('login_subtitle_signin'),
                     textAlign: TextAlign.center,
