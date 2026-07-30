@@ -116,12 +116,31 @@ tiene dos meses tras la publicación para oponerse.
 
 ## 10. Expansión internacional (referencia, ~2028)
 
-Protocolo de Madrid, apoyado en esta marca española. Tasa base **903 CHF (~968 €)** por ser
-en color; sería 653 CHF (~700 €) en blanco y negro. Se paga una sola vez sin importar cuántos
-países se designen a la vez.
+⚠️ **Plazo a vigilar: 6 meses desde esta solicitud.** El Convenio de París otorga un derecho
+de prioridad de seis meses para marcas. Si dentro de ese plazo se solicita en otros países, la
+solicitud extranjera se trata como si se hubiera presentado en la fecha española, ganando
+posición frente a cualquier tercero que haya solicitado en medio. Pasado el plazo se puede
+registrar igual, pero sin retroceso de fecha.
 
-Coste por país para las tres clases: Reino Unido 394 € · México 424 € · Suiza 429 € ·
-Canadá 487 € · Colombia 592 € · Chile 675 € · Japón 683 € · Brasil 807 € · EE.UU. 1.479 €.
+**La marca no tiene protección internacional automática.** Es un derecho territorial: este
+registro ampara únicamente España. No debe confundirse con la propiedad intelectual del
+código, que sí está protegida sin trámite alguno en más de 180 países por el Convenio de Berna.
+
+Para salir de España: **Protocolo de Madrid**, apoyado en esta marca española. Es **una sola
+solicitud**, en un idioma, ante una sola oficina y con **un único pago** gestionado por la
+OMPI; no son registros nacionales separados ni hace falta agente en cada país. Lo que varía es
+el importe de ese pago, que se compone de una tasa base más una partida por cada país
+designado.
+
+Tasa base: **903 CHF (~968 €)** por ser la marca en color; sería 653 CHF (~700 €) en blanco y
+negro. Se paga una sola vez sin importar cuántos países se designen a la vez, y por eso sale
+mejor designarlos de golpe: añadir uno más tarde cuesta 300 CHF de gestión aparte de la tasa
+de ese país.
+
+Partida que suma cada país designado, para las tres clases: Reino Unido 394 € · México 424 € ·
+Suiza 429 € · Canadá 487 € · Colombia 592 € · Chile 675 € · Japón 683 € · Brasil 807 € ·
+EE.UU. 1.479 €. No son solicitudes independientes: son los conceptos que componen la factura
+de la única solicitud internacional.
 
 Para el resto de la UE **no usar Madrid**: sale mejor una marca de la Unión Europea en la
 EUIPO, ~1.050 € por las tres clases y los 27 países.
