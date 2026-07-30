@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 774 100" width="774" height="100">
+  <title>TaxiCount — logotipo (solo denominación)</title>
+  <g transform="translate(8,0)" fill="none" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#1E1B16">
+      <path d="M0,8 H70 M35,8 V92"/>
+      <path d="M90,92 L126,8 L162,92 M104,63 H148"/>
+      <path d="M182,8 L246,92 M246,8 L182,92"/>
+      <path d="M266,8 V92"/>
+    </g>
+    <g stroke="#FFB300">
+      <path d="M357.7,20.3 A42,42 0 1,0 357.7,79.7"/>
+      <path d="M390,50 A42,42 0 1,1 474,50 A42,42 0 1,1 390,50"/>
+      <path d="M494,8 V50 A42,42 0 0,0 578,50 V8"/>
+      <path d="M598,92 V8 L668,92 V8"/>
+      <path d="M688,8 H758 M723,8 V92"/>
+    </g>
+  </g>
+</svg>
