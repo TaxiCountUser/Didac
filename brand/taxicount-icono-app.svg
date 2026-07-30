@@ -1,19 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
   <title>TaxiCount — icono de aplicacion</title>
   <rect width="120" height="120" rx="26" fill="#FFC107"/>
-  <g transform="translate(60,62) scale(0.82) translate(-60,-60)">
+  <g transform="translate(60,61) scale(0.9) translate(-60,-60)">
     <g fill="#FEF7EC">
-      <rect x="44" y="14" width="32" height="11" rx="2.5"/>
-      <path d="M26 50 L33 28 Q34 25 37 25 L83 25 Q86 25 87 28 L94 50 Z"/>
-      <path d="M8 56 Q8 49 15 49 L105 49 Q112 49 112 56 L112 83 Q112 90 105 90 L102 90 L102 95 Q102 98 99 98 L91 98 Q88 98 88 95 L88 90 L32 90 L32 95 Q32 98 29 98 L21 98 Q18 98 18 95 L18 90 L15 90 Q8 90 8 83 Z"/>
+      <rect x="48" y="13" width="24" height="10" rx="2"/>
+      <path d="M16 48 L32 26 Q33 23 36 23 L84 23 Q87 23 88 26 L104 48 Z"/>
+      <path d="M10 54 Q10 48 16 48 L104 48 Q110 48 110 54 L110 84 Q110 88 106 88 L14 88 Q10 88 10 84 Z"/>
+      <path d="M14 46 L4 48 Q0 48.8 0 51 Q0 54 3 54 L14 54 Z"/>
+      <path d="M106 46 L116 48 Q120 48.8 120 51 Q120 54 117 54 L106 54 Z"/>
+      <path d="M16 84 L38 84 L38 92 Q38 97 32 97 L22 97 Q16 97 16 92 Z"/>
+      <path d="M82 84 L104 84 L104 92 Q104 97 98 97 L88 97 Q82 97 82 92 Z"/>
     </g>
     <g fill="#FFC107">
-      <path d="M31 46 L36 29 L84 29 L89 46 Z"/>
-      <rect x="14" y="57" width="20" height="6" rx="3"/>
-      <rect x="86" y="57" width="20" height="6" rx="3"/>
-      <rect x="34" y="83" width="52" height="4.5" rx="2.25"/>
+      <path d="M22 44 L36 27.5 L84 27.5 L98 44 Z"/>
+      <path d="M13 58 L33 61 L33 65 L13 64 Z"/>
+      <path d="M107 58 L87 61 L87 65 L107 64 Z"/>
+      <rect x="32" y="80.5" width="56" height="5" rx="2.5"/>
     </g>
-    <path d="M77.36,61.64 A9,9 0 1,0 77.36,74.36" fill="none" stroke="#FFC107" stroke-width="5" stroke-linecap="round"/>
-    <path d="M42,59 H54 M48,59 V77" fill="none" stroke="#1E1B16" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M77.01,62.99 A8.5,8.5 0 1,0 77.01,75.01" fill="none" stroke="#FFC107" stroke-width="5" stroke-linecap="round"/>
+    <path d="M42,60.5 H54 M48,60.5 V77.5" fill="none" stroke="#1E1B16" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>

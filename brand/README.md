@@ -32,9 +32,12 @@ porque la representación oficial no debe depender del color del soporte.
 
 ## Concepto
 
-Un **SUV moderno visto de frente**, con módulo de taxi plano en el techo, faros de ranura
-finos, toma de aire inferior y cristal amplio — lenguaje de coche actual, no de taxi
-antiguo. En la parrilla central va el **monograma TC**: la T en negro cálido y la C calada,
+Un **coche moderno visto de frente**, en el lenguaje de las ilustraciones de automoción
+actuales: parabrisas panorámico que llega casi hasta los retrovisores, montantes muy
+inclinados, retrovisores que sobresalen del hombro, faros barridos hacia dentro, toma de
+aire inferior, ruedas asomando bajo la carrocería y módulo de taxi plano en el techo. Nada
+del taxi cuadrado de siempre. En la parrilla central va el **monograma TC**: la T en negro
+cálido y la C calada,
 de modo que la C toma el color de lo que haya detrás (ámbar en el icono de aplicación, que
 es el color con el que "COUNT" aparece en el logotipo).
 
