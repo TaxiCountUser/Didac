@@ -87,3 +87,9 @@ negro en las dos versiones, porque va sobre la carrocería ámbar.
 
 `hoja-de-marca.png` es la hoja resumen de toda la identidad: sirve para ver todos los
 activos de un vistazo sin abrir archivo por archivo.
+
+## Interletraje
+
+El par **T-A** de "TAXI" lleva un ajuste de **−14 unidades**: el hueco bajo el brazo de la T
+deja aire de más y sin corregirlo la A se ve descolgada. Se probaron −8, −14 y −20; con −20
+las dos letras se agobian. Si algún día se rehace el logotipo, ese ajuste hay que mantenerlo.
