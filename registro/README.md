@@ -45,3 +45,22 @@ cd frontend && flutter build web --release --no-wasm-dry-run
 Si la compilación falla al resolver paquetes en `.dart_tool`, hay que hacer
 `flutter clean && flutter pub get` antes (queda un registrante de plugins cacheado de
 compilaciones anteriores).
+
+## PDF listos para presentar
+
+`pdf/` contiene los cuatro documentos ya maquetados en A4:
+
+| Archivo | Para qué |
+|---|---|
+| `PASO-A-PASO.pdf` | La guía de presentación de los dos expedientes |
+| `0-datos-solicitud-marca.pdf` | Los datos a copiar en el formulario de la OEPM |
+| `1-memoria-de-la-obra.pdf` | La memoria que se adjunta al Registro de la Propiedad Intelectual |
+| `2-cesion-textos-legales.pdf` | El documento a firmar con Jordi Pujadas Serra |
+
+Se regeneran con `md2pdf.js`, un conversor mínimo de Markdown a HTML escrito para esto (no
+hay ninguno instalado en el equipo):
+
+```bash
+node registro/md2pdf.js registro/memoria-obra.md salida.html
+msedge --headless=new --no-pdf-header-footer --print-to-pdf=salida.pdf salida.html
+```

@@ -5,8 +5,9 @@ Intelectual** de un programa de ordenador.
 
 Preparado el 30 de julio de 2026.
 
-> ⚠️ Los apartados marcados **[PENDIENTE]** esperan respuesta del autor (preguntas 2.1 a
-> 2.6 del Bloque 2). No presentar la memoria sin completarlos.
+> ⚠️ **Requisito previo:** antes de presentar debe estar firmado el documento de
+> reconocimiento de coautoría y cesión de derechos sobre los textos legales (apartado 9).
+> Sin él, la declaración de titularidad exclusiva carece de respaldo.
 
 ---
 
