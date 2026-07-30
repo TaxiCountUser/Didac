@@ -202,16 +202,27 @@ y control, del mismo modo que se emplean entornos de desarrollo, generadores de 
 bibliotecas. La aportación creativa personal —qué construir, cómo estructurarlo, qué decidir
 en cada disyuntiva y qué integrar— corresponde íntegramente al autor.
 
-**[PENDIENTE — pregunta 2.1]** Queda por precisar la naturaleza de la colaboración de
-**D. Jordi Pujadas Serra**, que asistió al autor en materia de seguridad de la aplicación y
-protección de datos. Debe determinarse si su aportación fue **consultiva** —recomendaciones,
-revisión y criterio, que no generan coautoría porque las ideas no son objeto de propiedad
-intelectual— o si además **redactó o escribió material** incorporado a la obra, señaladamente
-la documentación legal de `docs/legal/` (política de privacidad, evaluación de impacto,
-registro de actividades de tratamiento, contrato de encargo de tratamiento y procedimiento de
-brechas), en cuyo caso sería coautor de esos documentos concretos.
+**Textos legales redactados en colaboración.** La documentación jurídica del proyecto se
+redactó **conjuntamente con D. Jordi Pujadas Serra**, que colaboró con el autor en materia de
+seguridad de la aplicación y protección de datos. Se trata por tanto de **obra en
+colaboración** en cuanto a esos textos concretos, que son:
 
-Se recomienda, en cualquiera de los dos casos, recabar de él una **declaración escrita** que
-deje constancia del alcance de su colaboración y, si procede, ceda al autor cualesquiera
-derechos que pudieran corresponderle. Es un documento breve que cierra la cuestión de forma
-definitiva y sin coste.
+- `docs/legal/` — política de privacidad, evaluación de impacto, registro de actividades de
+  tratamiento, contrato de encargo de tratamiento y procedimiento de brechas (488 líneas).
+- `backend/src/server.js`, función `privacyHtml()` (líneas 84 a 133) — la política de
+  privacidad que el servidor publica en `/privacy`.
+- `frontend/lib/l10n/app_localizations.dart` — las 21 cadenas `legal_*` (siete textos en tres
+  idiomas) que la aplicación muestra en la pantalla de aceptación de términos.
+
+El resto de la obra —la totalidad del programa: aplicación cliente, servidor de aplicación,
+modelo de datos, interfaz y automatización— es de autoría exclusiva del autor.
+
+Conviene subrayar que estos textos legales **no son el programa de ordenador**: son
+documentación jurídica exigida por la normativa de protección de datos, incorporada al
+producto. Su presencia no altera la autoría del software.
+
+Antes de presentar debe formalizarse con el Sr. Pujadas un documento que reconozca la
+coautoría de esos textos y ceda al autor los derechos de explotación sobre su aportación. Se
+acompaña borrador en `cesion-textos-legales.md`. Los derechos morales de paternidad son
+irrenunciables, de modo que la colaboración se declara y se reconoce; lo que se cede es la
+explotación.
