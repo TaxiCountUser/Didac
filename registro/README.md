@@ -15,8 +15,12 @@ las solicitudes las presenta y firma el titular.
 El ZIP del código fuente **no se versiona** (es regenerable y pesa 1,7 MB). Para rehacerlo:
 
 ```bash
-git archive --format=zip --prefix=taxicount-v1.0/ -o registro/taxicount-codigo-fuente-v1.0.zip HEAD
+git archive --format=zip --prefix=taxicount-v1.0/ -o registro/taxicount-codigo-fuente-v1.0.zip HEAD -- . ':!registro' ':!brand'
 ```
+
+Las exclusiones importan: sin ellas el paquete se lleva dentro el propio expediente y los
+activos de marca, y pasa de 1,1 a 6,7 MB de material que no es código fuente.
+`frontend/assets/brand/` sí entra, porque el isotipo es un recurso de la aplicación.
 
 `git archive` incluye solo lo versionado, así que el paquete sale limpio de artefactos de
 compilación, dependencias descargadas y copias de seguridad.
