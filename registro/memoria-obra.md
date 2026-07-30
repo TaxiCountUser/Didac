@@ -221,8 +221,12 @@ Conviene subrayar que estos textos legales **no son el programa de ordenador**: 
 documentación jurídica exigida por la normativa de protección de datos, incorporada al
 producto. Su presencia no altera la autoría del software.
 
-Antes de presentar debe formalizarse con el Sr. Pujadas un documento que reconozca la
-coautoría de esos textos y ceda al autor los derechos de explotación sobre su aportación. Se
-acompaña borrador en `cesion-textos-legales.md`. Los derechos morales de paternidad son
-irrenunciables, de modo que la colaboración se declara y se reconoce; lo que se cede es la
-explotación.
+**Titularidad.** El solicitante concurre como **único titular** de los derechos de
+explotación de la obra. Ello es posible porque el Sr. Pujadas cede al autor, mediante el
+documento que se acompaña, la totalidad de los derechos de explotación sobre su aportación a
+los textos; su condición de coautor de esos textos se reconoce y se hace constar, por ser el
+derecho moral de paternidad irrenunciable e intransmisible.
+
+⚠️ **Requisito previo a la presentación:** este documento —borrador en
+`cesion-textos-legales.md`— **debe estar firmado antes de inscribir**. Sin él, la declaración
+de titularidad exclusiva no tendría respaldo.
