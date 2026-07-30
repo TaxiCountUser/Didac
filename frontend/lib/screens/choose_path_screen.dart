@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../util/brand.dart';
 
 /// Pantalla para un usuario que ha entrado (p. ej. con Google) pero todavía no
 /// pertenece a ninguna flota. Puede crear su propia empresa (propietario) o
@@ -170,7 +171,7 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
     final l = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TaxiCount'),
+        title: brandAppBarTitle(context),
         actions: [
           IconButton(
             tooltip: l.t('logout'),
@@ -191,8 +192,7 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
                 children: [
                   const Icon(Icons.groups, size: 64, color: Colors.amber),
                   const SizedBox(height: 12),
-                  Text(l.t('cp_title'),
-                      textAlign: TextAlign.center,
+                  brandInText(context, l.t('cp_title'),
                       style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 8),
                   Text(l.t('cp_subtitle'),

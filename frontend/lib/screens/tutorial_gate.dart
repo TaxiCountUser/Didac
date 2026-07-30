@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../util/brand.dart';
 
 /// Tutorial de bienvenida (una sola vez por usuario). El "ya visto" se guarda en
 /// la BD (users.tutorial_seen); el AuthGate decide cuándo mostrarlo y llama a
 /// [onFinish] al terminar o saltar.
 class _Slide {
-  final IconData icon;
+  /// `null` = se pinta el isotipo de la marca en vez de un icono de Material
+  /// (la primera diapositiva es la de bienvenida, ahí el taxi es el logotipo).
+  final IconData? icon;
   final String titleKey;
   final String bodyKey;
   const _Slide(this.icon, this.titleKey, this.bodyKey);
@@ -25,7 +28,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
   int _page = 0;
 
   static const _slides = <_Slide>[
-    _Slide(Icons.local_taxi, 'tut_1_title', 'tut_1_body'),
+    _Slide(null, 'tut_1_title', 'tut_1_body'),
     _Slide(Icons.mic, 'tut_2_title', 'tut_2_body'),
     _Slide(Icons.insights, 'tut_3_title', 'tut_3_body'),
     _Slide(Icons.report_problem, 'tut_4_title', 'tut_4_body'),
@@ -76,13 +79,12 @@ class _TutorialScreenState extends State<TutorialScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(s.icon, size: 96, color: Colors.amber.shade700),
+                        s.icon == null
+                            ? Image.asset('assets/brand/isotipo.png', height: 96)
+                            : Icon(s.icon, size: 96, color: Colors.amber.shade700),
                         const SizedBox(height: 32),
-                        Text(
-                          l.t(s.titleKey),
-                          style: Theme.of(context).textTheme.headlineSmall,
-                          textAlign: TextAlign.center,
-                        ),
+                        brandInText(context, l.t(s.titleKey),
+                            style: Theme.of(context).textTheme.headlineSmall),
                         const SizedBox(height: 16),
                         Text(
                           l.t(s.bodyKey),

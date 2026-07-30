@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/brand.dart';
 import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
 
@@ -22,7 +23,10 @@ class OnboardingScreen extends StatelessWidget {
     final l = context.l10n;
     final service = DataService();
     return Scaffold(
-      appBar: AppBar(title: Text(l.t('ob_title'))),
+      appBar: AppBar(
+          title: brandInText(context, l.t('ob_title'),
+              style: Theme.of(context).appBarTheme.titleTextStyle ??
+                  Theme.of(context).textTheme.titleLarge)),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

@@ -91,11 +91,20 @@ go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds
 - **i18n**: `app_localizations.dart` és un mapa `_values` (es/en/ca). NO el llegeixis sencer — `Grep` la clau (p.ex. `adm_coup_edit`) i edita el bloc. Ús: `context.l10n.t('key',{args})`. Apòstrofs catalans escapats `\'`.
 - **Marca (2026-07-30):** els actius originals viuen a `brand/` (isotip, logotip, marca mixta,
   versions BN i fons fosc; veure `brand/README.md`). A l'app: `assets/brand/isotipo.png`
-  (declarat a `pubspec.yaml`) s'usa als dos llocs on el taxi fa de **logotip** —
-  `login_screen` i `driver_home_screen`. `util/brand.dart` → `brandWordmark(context)` pinta
-  "Taxi" amb el color del tema i "Count" en ambre `#FFB300` (funciona en clar i en fosc).
-  ⚠️ La resta d'`Icons.local_taxi` (solo_home, transaction_input, tutorial_gate, format.dart)
-  són **iconografia funcional**, no marca: es queden com a icones de Material.
+  (declarat a `pubspec.yaml`) s'usa allà on el taxi fa de **logotip**: `login_screen`,
+  `driver_home_screen` i el primer slide de `tutorial_gate`.
+  `util/brand.dart` té tres ajudants: `brandWordmark(context)` (logotip solt),
+  `brandAppBarTitle(context)` (el mateix amb l'estil de títol de l'AppBar; si no li passes
+  l'estil hereta headlineMedium i surt desproporcionat) i `brandInText(context, frase)`
+  (pinta el nom dins d'una frase traduïda partint per "TaxiCount", invariable en es/en/ca).
+  Tots pinten "Taxi" amb el color del tema i "Count" en ambre `#FFB300`, així funcionen
+  igual sobre el crema del client que sobre el fosc de l'admin.
+  Aplicat a: login (hero) · driver_home i choose_path (AppBar) · tutorial_gate (slide 1) ·
+  `cp_title` · `ob_title`.
+  ⚠️ **NO** aplicar el bicolor a paràgrafs legals, avisos de subscripció ni textos per
+  compartir: allà el nom va dins de prosa i destorba.
+  ⚠️ La resta d'`Icons.local_taxi` (solo_home, transaction_input, format.dart) són
+  **iconografia funcional**, no marca: es queden com a icones de Material.
 - **Kit UI admin**: `screens/admin_theme.dart` (`AdminColors`, `adminAppBar`, `adminRowsCard`, `adminSectionTitle`, `AdminKpiTile`, `AdminPill`…). Reutilitza'l, no reinventis estils.
 - **Mòduls admin**: `AdminModuleScreen(module: 0..5)` = 0 Suport · 1 Retos · 2 Referits · 3 Monitorització · 4 Config · 5 Auditoria (amb sub-pestanya **Logs** = events de seguretat). Empreses i Facturació són pantalles pròpies.
 - **Dades**: `services/data_service.dart` (`DataService` + `FutureBuilder`; no Provider/Riverpod).

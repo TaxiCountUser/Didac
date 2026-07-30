@@ -10,6 +10,7 @@ import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../services/location_service.dart';
 import '../services/push_service.dart';
+import '../util/brand.dart';
 import '../util/error_ui.dart';
 import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
@@ -314,7 +315,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
       appBar: widget.embedded
           ? null
           : AppBar(
-              title: const Text('TaxiCount'),
+              title: brandAppBarTitle(context),
               actions: [
                 IconButton(
                   key: const Key('settings_button'),

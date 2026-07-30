@@ -128,7 +128,12 @@ de color de la marca que se registra, "Taxi" en el color del tema y "Count" en �
 
 **[PENDIENTE]** Faltan las capturas de las pantallas interiores —panel del conductor, cuadro
 de mando del titular, dictado por voz, informes y módulos de administración—, que requieren
-una sesión iniciada y debe aportar el autor desde su propia cuenta.
+una sesión iniciada.
+
+Se aportarán desde una **cuenta de demostración con datos ficticios**, no desde la cuenta
+real del autor. Es la vía correcta: las capturas de la cuenta real contenían nombre, correo,
+nombre de usuario, matrícula, modelo de vehículo y kilometraje, datos personales que no
+tienen por qué figurar en un expediente público y cuya presencia obligaría a tacharlos.
 
 ## 7. Contenido del depósito
 
