@@ -108,6 +108,8 @@ go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds
 - **Kit UI admin**: `screens/admin_theme.dart` (`AdminColors`, `adminAppBar`, `adminRowsCard`, `adminSectionTitle`, `AdminKpiTile`, `AdminPill`…). Reutilitza'l, no reinventis estils.
 - **Mòduls admin**: `AdminModuleScreen(module: 0..5)` = 0 Suport · 1 Retos · 2 Referits · 3 Monitorització · 4 Config · 5 Auditoria (amb sub-pestanya **Logs** = events de seguretat). Empreses i Facturació són pantalles pròpies.
 - **Dades**: `services/data_service.dart` (`DataService` + `FutureBuilder`; no Provider/Riverpod).
+- **Avís de salt de km**: `util/km_warning.dart` (`confirmKmJump(context, km)` + const `kmJumpWarn=700`) — diàleg NO bloquejant si `km nou − últim km > 700` (impacte possible en reptes/antiffrau). L'usen `transaction_input_screen.dart` (registrar viatge) i `driver_home_screen.dart` (tancar jornada). Claus i18n `km_jump_*`.
+- **Transaccions del conductor**: `driver_transactions_screen.dart` té periodes dia/setmana/mes/any + **`custom`** (chip "Personalitzat" → `showDateRangePicker`; `_customFrom`/`_customTo`). Clau i18n `per_custom`.
 
 ## Estil de codi
 - **NO** executar `dart format` als fitxers del repo: reflowa tot (l'estil és dens, 2 espais). Escriu amb l'estil existent i valida amb `flutter analyze lib/`.

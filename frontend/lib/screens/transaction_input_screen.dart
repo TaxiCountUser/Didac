@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
+import '../util/km_warning.dart';
 import 'voice_input_screen.dart';
 
 const kCategories = <String, String>{
@@ -200,6 +201,11 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(kmErr)));
       return;
+    }
+    // Aviso de salto grande de km (solo carreras, con último km conocido).
+    if (_isTrip && km != null && _lastKm != null && (km - _lastKm!) > kmJumpWarn) {
+      final ok = await confirmKmJump(context, km);
+      if (!ok) return;
     }
     setState(() => _saving = true);
     final desc = _description.text.trim().isEmpty ? null : _description.text.trim();

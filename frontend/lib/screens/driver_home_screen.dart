@@ -12,6 +12,7 @@ import '../services/location_service.dart';
 import '../services/push_service.dart';
 import '../util/brand.dart';
 import '../util/error_ui.dart';
+import '../util/km_warning.dart';
 import 'add_record_screen.dart';
 import 'driver_transactions_screen.dart';
 import 'settings_screen.dart';
@@ -198,9 +199,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
         ? preVehicleId
         : vehicles.first['id'] as String;
     final kmCtrl = TextEditingController();
+    int? lastKm; // último odómetro conocido del vehículo elegido (para el aviso).
 
     Future<void> prefill(String vid) async {
       final last = await _service.lastOdometer(vid);
+      lastKm = last;
       kmCtrl.text = last?.toString() ?? '';
     }
 
@@ -273,6 +276,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     if (saved == true) {
       final km = int.tryParse(kmCtrl.text.trim());
       if (km != null && km >= 0) {
+        // Aviso (no bloquea) si el salto respecto al último km es muy grande.
+        if (lastKm != null && (km - lastKm!) > kmJumpWarn) {
+          if (!mounted) return;
+          final ok = await confirmKmJump(context, km);
+          if (!ok) return;
+        }
         try {
           await _service.addOdometerReading(
             tenantId: widget.profile.tenantId,

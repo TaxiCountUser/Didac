@@ -164,12 +164,66 @@ const rowFor = (t) => ({
   descripcion: t.description || '',
 });
 
+// Etiquetas y orden de los métodos de pago (los del formulario de la app).
+const PAY_LABELS = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', bizum: 'Bizum', credito: 'Crédito' };
+const PAY_ORDER = ['efectivo', 'tarjeta', 'bizum', 'credito'];
+const payLabel = (m) => PAY_LABELS[m] || (m ? capFirst(m) : 'Sin método');
+
+// Suma importes de las transacciones de un tipo agrupadas por keyFn.
+// Devuelve pares [clave, total] con los métodos conocidos primero (PAY_ORDER)
+// y el resto por orden de aparición.
+function groupSum(txs, type, keyFn) {
+  const m = new Map();
+  for (const t of txs) {
+    if (t.type !== type) continue;
+    const k = keyFn(t);
+    m.set(k, (m.get(k) || 0) + Number(t.amount));
+  }
+  return m;
+}
+function orderPay(map) {
+  const out = [];
+  for (const k of PAY_ORDER) if (map.has(k)) out.push([payLabel(k), map.get(k)]);
+  for (const [k, v] of map) if (!PAY_ORDER.includes(k)) out.push([payLabel(k), v]);
+  return out;
+}
+
+// Resumen ampliado al final de cada hoja (todo en negrita): ingresos y gastos
+// desglosados por método de pago, gastos también por categoría, y el balance.
 function addTotals(ws, txs) {
   const t = totals(txs);
+  const bold = { bold: true };
+  const line = (fecha, importe) => {
+    const row = importe === undefined ? ws.addRow({ fecha }) : ws.addRow({ fecha, importe });
+    row.font = bold;
+  };
   ws.addRow({});
-  ws.addRow({ fecha: 'TOTAL Ingresos', importe: t.income }).font = { bold: true };
-  ws.addRow({ fecha: 'TOTAL Gastos', importe: t.expense }).font = { bold: true };
-  ws.addRow({ fecha: 'Balance', importe: t.balance }).font = { bold: true };
+
+  // Ingresos por método de pago -> TOTAL Ingresos.
+  const incByPay = orderPay(groupSum(txs, 'income', (x) => x.payment_method || ''));
+  if (incByPay.length) {
+    line('INGRESOS POR MÉTODO DE PAGO');
+    for (const [label, v] of incByPay) line(`  ${label}`, v);
+  }
+  line('TOTAL Ingresos', t.income);
+
+  // Gastos por método de pago y por categoría -> TOTAL Gastos.
+  ws.addRow({});
+  const expByPay = orderPay(groupSum(txs, 'expense', (x) => x.payment_method || ''));
+  if (expByPay.length) {
+    line('GASTOS POR MÉTODO DE PAGO');
+    for (const [label, v] of expByPay) line(`  ${label}`, v);
+  }
+  const expByCat = groupSum(txs, 'expense', (x) => x.category || 'Sin categoría');
+  if (expByCat.size) {
+    line('GASTOS POR CATEGORÍA');
+    for (const [c, v] of expByCat) line(`  ${c}`, v);
+  }
+  line('TOTAL Gastos', t.expense);
+
+  // Balance final.
+  ws.addRow({});
+  line('BALANCE (Ingresos − Gastos)', t.balance);
 }
 
 export async function buildExcel(data) {

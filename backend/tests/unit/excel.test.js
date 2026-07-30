@@ -99,15 +99,30 @@ async function run() {
     const found = {};
     cons.eachRow((row) => {
       const label = row.values.find((v) => typeof v === 'string' && v.startsWith('TOTAL'));
-      const balanceLabel = row.values.find((v) => v === 'Balance');
+      const balanceLabel = row.values.find((v) => typeof v === 'string' && v.startsWith('BALANCE'));
       const nums = row.values.filter((v) => typeof v === 'number');
       if (label === 'TOTAL Ingresos') found.income = nums[0];
       if (label === 'TOTAL Gastos') found.expense = nums[0];
-      if (balanceLabel === 'Balance') found.balance = nums[0];
+      if (balanceLabel) found.balance = nums[0];
     });
     assert.strictEqual(found.income, 100, `ingresos=${found.income}`);
     assert.strictEqual(found.expense, 50, `gastos=${found.expense}`);
     assert.strictEqual(found.balance, 50, `balance=${found.balance}`);
+  });
+
+  await check('el resumen ampliado desglosa gastos por método (tarjeta 30, efectivo 20)', async () => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    const cons = wb.getWorksheet('Consolidado');
+    const byLabel = {};
+    cons.eachRow((row) => {
+      const label = row.values.find((v) => typeof v === 'string');
+      const nums = row.values.filter((v) => typeof v === 'number');
+      if (typeof label === 'string' && nums.length) byLabel[label.trim()] = nums[0];
+    });
+    // Gasto tarjeta = 30 (Ana), efectivo = 20 (Bruno).
+    assert.strictEqual(byLabel['Tarjeta'], 30, `gasto tarjeta=${byLabel['Tarjeta']}`);
+    assert.strictEqual(byLabel['Efectivo'], 20, `gasto efectivo=${byLabel['Efectivo']}`);
   });
 
   await check('la pestaña de Ana suma sus totales (100 / 30)', async () => {

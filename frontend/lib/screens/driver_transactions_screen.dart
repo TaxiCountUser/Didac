@@ -8,10 +8,11 @@ import '../widgets/daily_report_sheet.dart';
 import '../widgets/transaction_tile.dart';
 import 'transaction_detail_screen.dart';
 
-enum DriverPeriod { day, week, month, year }
+enum DriverPeriod { day, week, month, year, custom }
 
 /// Historial de transacciones del driver: lista paginada (scroll infinito)
-/// con filtro por día / semana / mes / año. Toca una tarjeta para el detalle.
+/// con filtro por día / semana / mes / año / rango personalizado. Toca una
+/// tarjeta para el detalle.
 class DriverTransactionsScreen extends StatefulWidget {
   final Profile profile;
   const DriverTransactionsScreen({super.key, required this.profile});
@@ -28,6 +29,9 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
 
   DriverPeriod _period = DriverPeriod.day;
   DateTime _anchor = DateTime.now(); // día/periodo de referencia (seleccionable)
+  // Rango a medida (periodo custom): fechas de inicio/fin inclusivas elegidas.
+  DateTime? _customFrom;
+  DateTime? _customTo;
   bool _loading = false;
   bool _hasMore = true;
   String? _error;
@@ -61,6 +65,9 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
         return DateTime(a.year, a.month);
       case DriverPeriod.year:
         return DateTime(a.year);
+      case DriverPeriod.custom:
+        final f = _customFrom ?? a;
+        return DateTime(f.year, f.month, f.day);
     }
   }
 
@@ -75,6 +82,10 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
         return DateTime(a.year, a.month + 1);
       case DriverPeriod.year:
         return DateTime(a.year + 1);
+      case DriverPeriod.custom:
+        // Fin inclusivo -> exclusivo: el día siguiente a las 00:00.
+        final t = _customTo ?? _customFrom ?? a;
+        return DateTime(t.year, t.month, t.day).add(const Duration(days: 1));
     }
   }
 
@@ -87,6 +98,28 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
     );
     if (d != null) {
       setState(() => _anchor = d);
+      _reload();
+    }
+  }
+
+  // Selector de rango a medida: activa el periodo custom con las fechas elegidas.
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final initial = (_customFrom != null && _customTo != null)
+        ? DateTimeRange(start: _customFrom!, end: _customTo!)
+        : DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
+    final r = await showDateRangePicker(
+      context: context,
+      initialDateRange: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 1, 12, 31),
+    );
+    if (r != null) {
+      setState(() {
+        _period = DriverPeriod.custom;
+        _customFrom = r.start;
+        _customTo = r.end;
+      });
       _reload();
     }
   }
@@ -163,10 +196,9 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
         title: Text(context.l10n.t('dt_title')),
         actions: [
           TextButton.icon(
-            onPressed: _pickDate,
+            onPressed: _period == DriverPeriod.custom ? _pickRange : _pickDate,
             icon: const Icon(Icons.calendar_today, size: 18),
-            label: Text('${_anchor.day.toString().padLeft(2, '0')}/'
-                '${_anchor.month.toString().padLeft(2, '0')}'),
+            label: Text(_calendarLabel()),
           ),
         ],
       ),
@@ -219,13 +251,17 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
     final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      // Wrap (no Row) porque con el chip "Personalizado" son 5 y pueden no caber
+      // en una línea en pantallas estrechas.
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
         children: [
           _chip(l.t('per_day'), DriverPeriod.day),
           _chip(l.t('per_week'), DriverPeriod.week),
           _chip(l.t('per_month'), DriverPeriod.month),
           _chip(l.t('per_year'), DriverPeriod.year),
+          _chip(l.t('per_custom'), DriverPeriod.custom),
         ],
       ),
     );
@@ -280,7 +316,17 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
     );
   }
 
-  // Título del informe según el periodo seleccionado (día/semana/mes/año).
+  // Etiqueta del botón de fecha del AppBar: rango en modo custom, día/mes si no.
+  String _calendarLabel() {
+    String dm(DateTime x) =>
+        '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}';
+    if (_period == DriverPeriod.custom && _customFrom != null && _customTo != null) {
+      return '${dm(_customFrom!)}–${dm(_customTo!)}';
+    }
+    return dm(_anchor);
+  }
+
+  // Título del informe según el periodo seleccionado (día/semana/mes/año/rango).
   String _periodTitle(AppLocalizations l) {
     String dm(DateTime x) =>
         '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}';
@@ -295,6 +341,9 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
         return '$base · ${_from.month.toString().padLeft(2, '0')}/${_from.year}';
       case DriverPeriod.year:
         return '$base · ${_from.year}';
+      case DriverPeriod.custom:
+        final end = _to.subtract(const Duration(days: 1));
+        return '$base · ${dm(_from)}/${_from.year} – ${dm(end)}/${end.year}';
     }
   }
 
@@ -303,6 +352,11 @@ class _DriverTransactionsScreenState extends State<DriverTransactionsScreen> {
       label: Text(label),
       selected: _period == p,
       onSelected: (_) {
+        // "Personalizado" abre el selector de rango; el resto fija el periodo.
+        if (p == DriverPeriod.custom) {
+          _pickRange();
+          return;
+        }
         setState(() => _period = p);
         _reload();
       },
