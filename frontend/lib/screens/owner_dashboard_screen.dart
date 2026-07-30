@@ -285,14 +285,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(l.t('imp_source_title'), style: Theme.of(ctx).textTheme.titleMedium),
             ),
+            // Próximamente también Excel: la importación aún no está testeada.
             ListTile(
-              leading: const Icon(Icons.table_chart, color: Colors.green),
+              enabled: false,
+              leading: const Icon(Icons.table_chart),
               title: Text(l.t('imp_source_excel')),
               subtitle: Text(l.t('imp_source_excel_sub')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _importExcel();
-              },
+              trailing: _soonChip(ctx),
             ),
             const Divider(height: 1),
             // Próximamente: foto y PDF (con IA de visión/OCR).
@@ -326,6 +325,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       );
 
   // --------------- Importación de Excel/CSV antiguo ---------------
+  // Se conserva para cuando la importación esté testeada; ahora la entrada de
+  // Excel sale como "próximamente" (deshabilitada) en _chooseImportSource.
+  // ignore: unused_element
   Future<void> _importExcel() async {
     final l = context.l10n;
     // 1) Tipo por defecto si el Excel no trae columna de tipo.
