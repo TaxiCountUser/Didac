@@ -113,27 +113,50 @@ mediante bandera.
 Se acompañan las siguientes capturas, obtenidas de la compilación de la versión que se
 deposita:
 
+**Del navegador** (compilación web de la versión depositada):
+
 | Archivo | Contenido |
 |---|---|
-| `capturas/01-cliente-login.png` | Inicio de sesión de la aplicación cliente |
-| `capturas/02-cliente-alta-empresa.png` | Alta de cuenta de titular de flota |
-| `capturas/03-cliente-recuperar-password.png` | Recuperación de contraseña |
-| `capturas/04-cliente-login-english.png` | Inicio de sesión en inglés |
-| `capturas/05-cliente-login-catala.png` | Inicio de sesión en catalán |
-| `capturas/06-admin-login-web.png` | Acceso al panel de administración |
+| `01-cliente-login.png` | Inicio de sesión de la aplicación cliente |
+| `02-cliente-alta-empresa.png` | Alta de cuenta de titular de flota |
+| `03-cliente-recuperar-password.png` | Recuperación de contraseña |
+| `04-cliente-login-english.png` | Inicio de sesión en inglés |
+| `05-cliente-login-catala.png` | Inicio de sesión en catalán |
+| `06-admin-login-web.png` | Acceso al panel de administración (tema oscuro) |
+
+**Del dispositivo Android** (versión 0.1.94, cuenta de demostración con datos ficticios):
+
+| Archivo | Contenido |
+|---|---|
+| `07-tutorial-1-bienvenida.jpg` … `10-tutorial-4-avisos-e-incidencias.jpg` | Las cuatro diapositivas del tutorial de bienvenida |
+| `11-terminos-y-privacidad.jpg` | Aceptación de términos y política de privacidad |
+| `12-eleccion-de-rol.jpg` | Elección de modo de uso: flota, autónomo o conductor invitado |
+| `13-onboarding-configura-tu-flota.jpg` | Configuración inicial de la flota en dos pasos |
+| `14-portada-del-conductor.jpg` | Pantalla principal del conductor |
+| `15-empezar-jornada.jpg` · `16-finalizar-jornada.jpg` | Apertura y cierre de jornada con lectura de kilómetros |
+| `17-anadir-registro-por-voz.jpg` · `18-dictado-grabando.jpg` | Dictado por voz, en reposo y grabando con visualización de onda |
+| `19-anadir-registro-manual.jpg` · `20-anadir-registro-metodo-de-pago.jpg` | Alta manual de carrera o gasto, con métodos de cobro |
+| `21-mis-transacciones.jpg` · `22-selector-de-fecha.jpg` | Historial del conductor y filtro por periodo |
+| `23-panel-del-jefe.jpg` | Cuadro de mando de la flota, con los importes ocultos por el modo de privacidad |
+| `24-vehiculos.jpg` · `25-conductores.jpg` · `26-mensajes.jpg` | Gestión de vehículos, conductores y canal de mensajería |
+| `27-soporte-tickets.jpg` | Canal de soporte |
+| `28-cambiar-contrasena.jpg` | Cambio de contraseña |
+| `29-novedades.jpg` | Historial de versiones dentro de la aplicación |
 
 Las capturas corresponden a la versión ya rebautizada con la marca original: el isotipo
 sustituye al pictograma de biblioteca que se usaba antes, y el nombre aparece con el corte
 de color de la marca que se registra, "Taxi" en el color del tema y "Count" en ámbar.
 
-**[PENDIENTE]** Faltan las capturas de las pantallas interiores —panel del conductor, cuadro
-de mando del titular, dictado por voz, informes y módulos de administración—, que requieren
-una sesión iniciada.
+Todas las capturas de dispositivo proceden de una **cuenta de demostración con datos
+ficticios**, no de la cuenta real del autor, y ninguna muestra nombres, correos, matrículas,
+kilometrajes ni importes reales. En el cuadro de mando del titular se aprovechó el modo de
+privacidad de la propia aplicación, que enmascara los importes.
 
-Se aportarán desde una **cuenta de demostración con datos ficticios**, no desde la cuenta
-real del autor. Es la vía correcta: las capturas de la cuenta real contenían nombre, correo,
-nombre de usuario, matrícula, modelo de vehículo y kilometraje, datos personales que no
-tienen por qué figurar en un expediente público y cuya presencia obligaría a tacharlos.
+Se descartaron deliberadamente las capturas que mostraban datos identificativos: las de la
+cuenta real del autor (nombre, correo, nombre de usuario, matrícula, modelo de vehículo y
+kilometraje) y, ya en la cuenta de demostración, las pantallas de Ajustes y de Conductores,
+porque exhibían un correo electrónico real, el nombre del titular y el código de acceso a la
+flota.
 
 ## 7. Contenido del depósito
 
