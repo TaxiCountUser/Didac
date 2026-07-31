@@ -53,6 +53,29 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
     }
   }
 
+  // Cambia el tipo de cuenta autónomo<->empresa (flag tenants.solo). Solo en
+  // modo soporte; pide confirmación porque cambia qué vistas ve el propietario.
+  Future<void> _toggleSolo(AppLocalizations l, bool current) async {
+    final target = !current;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Theme(
+        data: adminDarkTheme(),
+        child: AlertDialog(
+          title: Text(l.t('admin_solo_toggle_title')),
+          content: Text(target ? l.t('admin_solo_to_solo') : l.t('admin_solo_to_fleet')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('confirm'))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    await _guard(() => _service.adminUpdateCompany(widget.tenantId, {'solo': target}),
+        l.t('admin_solo_done'));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -387,8 +410,13 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         adminRowsCard([
-          row(l.t('admin_mode_solo'),
-              solo ? l.t('admin_mode_solo') : l.t('admin_mode_fleet')),
+          // Tipo de cuenta (autónomo/flota). En modo soporte se puede cambiar:
+          // el cliente pudo equivocarse al darse de alta. Solo cambia la flag
+          // tenants.solo (no crea ni borra chóferes).
+          row(l.t('admin_account_type'),
+              solo ? l.t('admin_mode_solo') : l.t('admin_mode_fleet'),
+              action: _support ? Icons.edit : null,
+              onTap: _support ? () => _toggleSolo(l, solo) : null),
           row(l.t('admin_status'), adminStatusLabel(l, status),
               action: Icons.edit, onTap: () => _editSubscription(l, t)),
           row(l.t('admin_days_using'), daysUsing),

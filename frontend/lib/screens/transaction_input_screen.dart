@@ -342,13 +342,15 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           ],
         ),
         const SizedBox(height: 20),
-        TextField(
-          controller: _description,
-          decoration: InputDecoration(
-            labelText: l.t('ti_desc'),
-            border: const OutlineInputBorder(),
+        // En un gasto "Otros" la descripción ya se pide arriba como "¿Qué gasto?".
+        if (_isTrip || _category != 'otros')
+          TextField(
+            controller: _description,
+            decoration: InputDecoration(
+              labelText: l.t('ti_desc'),
+              border: const OutlineInputBorder(),
+            ),
           ),
-        ),
         const SizedBox(height: 28),
         FilledButton(
           key: const Key('save_transaction_button'),
@@ -512,5 +514,21 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
             );
           }).toList(),
         ),
+        // "Otros": campo libre para nombrar el gasto (p. ej. ITV, ITV taxímetro).
+        // Reutiliza el controlador de descripción; el campo genérico se oculta.
+        if (_category == 'otros') ...[
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('other_expense_field'),
+            controller: _description,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: l.t('ti_other_what'),
+              hintText: l.t('ti_other_hint'),
+              prefixIcon: const Icon(Icons.edit_note),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
       ];
 }

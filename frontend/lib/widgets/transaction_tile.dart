@@ -32,7 +32,12 @@ class TransactionTile extends StatelessWidget {
       final c = (tx['client_name'] as String?)?.trim();
       title = (c != null && c.isNotEmpty) ? capitalizeFirst(c) : l.t('particular');
     } else {
-      title = l.catLabel(tx['category'] as String?);
+      final cat = tx['category'] as String?;
+      final desc = (tx['description'] as String?)?.trim();
+      // "Otros" con texto libre: mostramos lo que escribió el usuario (p. ej. ITV).
+      title = (cat == 'otros' && desc != null && desc.isNotEmpty)
+          ? desc
+          : l.catLabel(cat);
     }
     final route = tripRoute(tx);
     // En carreras (servicio) mostramos también la hora; en gastos, solo la fecha.

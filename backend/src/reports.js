@@ -113,6 +113,8 @@ function concepto(t) {
     if (t.odometer_km != null) s += ` (${t.odometer_km} km)`;
     return s;
   }
+  // Gasto "Otros" con texto libre: mostramos lo que escribió el usuario (ITV…).
+  if (t.category === 'otros' && t.description && t.description.trim()) return t.description.trim();
   return t.category || '';
 }
 // Cliente: en carreras, empresa nombrada (1ª letra mayúscula) o "Particular".
@@ -188,6 +190,13 @@ function orderPay(map) {
   return out;
 }
 
+// Clave de categoría de un gasto para el desglose: en "Otros" con texto libre,
+// agrupamos por ese texto (p. ej. "ITV") en vez de meterlo todo en "otros".
+const expenseCatKey = (x) =>
+  (x.category === 'otros' && x.description && x.description.trim())
+    ? x.description.trim()
+    : (x.category || 'Sin categoría');
+
 // Resumen ampliado al final de cada hoja (todo en negrita): ingresos y gastos
 // desglosados por método de pago, gastos también por categoría, y el balance.
 function addTotals(ws, txs) {
@@ -214,7 +223,7 @@ function addTotals(ws, txs) {
     line('GASTOS POR MÉTODO DE PAGO');
     for (const [label, v] of expByPay) line(`  ${label}`, v);
   }
-  const expByCat = groupSum(txs, 'expense', (x) => x.category || 'Sin categoría');
+  const expByCat = groupSum(txs, 'expense', expenseCatKey);
   if (expByCat.size) {
     line('GASTOS POR CATEGORÍA');
     for (const [c, v] of expByCat) line(`  ${c}`, v);
@@ -304,7 +313,7 @@ function summaryBlock(txs) {
     row('Gastos por método de pago');
     for (const [label, v] of expByPay) row(`   ${label}`, v);
   }
-  const expByCat = groupSum(txs, 'expense', (x) => x.category || 'Sin categoría');
+  const expByCat = groupSum(txs, 'expense', expenseCatKey);
   if (expByCat.size) {
     row('Gastos por categoría');
     for (const [c, v] of expByCat) row(`   ${c}`, v);
