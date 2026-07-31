@@ -161,9 +161,9 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
               ),
             ],
           ),
-          _dateCard(l, Icons.fact_check, l.t('vh_itv'), itv),
-          _dateCard(l, Icons.speed, l.t('vh_taximeter_itv'), taxiItv),
-          _dateCard(l, Icons.shield_outlined, l.t('vh_insurance'), ins),
+          _dateCard(l, Icons.fact_check, l.t('vh_itv'), itv, (_v['itv_period_months'] as num?)?.toInt()),
+          _dateCard(l, Icons.speed, l.t('vh_taximeter_itv'), taxiItv, (_v['taximeter_itv_period_months'] as num?)?.toInt()),
+          _dateCard(l, Icons.shield_outlined, l.t('vh_insurance'), ins, (_v['insurance_period_months'] as num?)?.toInt()),
           _transportCard(l, Icons.badge_outlined, tcDate, tcNext),
           _revisionCard(l, interval, lastRev),
           if (notes != null && notes.trim().isNotEmpty) ...[
@@ -187,13 +187,15 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     );
   }
 
-  Widget _dateCard(AppLocalizations l, IconData icon, String title, DateTime? due) {
+  Widget _dateCard(AppLocalizations l, IconData icon, String title, DateTime? due, [int? period]) {
     final (color, text) = _dueStatus(l, due);
+    final base = due == null ? l.t('vh_no_data') : '${l.t('vh_next')}: ${fmtDate(due)}';
+    final sub = period == null ? base : '$base · ${l.t('vh_every_months', {'n': '$period'})}';
     return Card(
       child: ListTile(
         leading: Icon(icon, color: color),
         title: Text(title),
-        subtitle: Text(due == null ? l.t('vh_no_data') : '${l.t('vh_next')}: ${fmtDate(due)}'),
+        subtitle: Text(sub),
         trailing: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
       ),
     );
@@ -348,6 +350,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     DateTime? taxiItv = _date(_v['taximeter_itv_expiry']);
     DateTime? ins = _date(_v['insurance_expiry']);
     DateTime? tc = _date(_v['transport_card_date']);
+    // Periodo de renovación (meses); al elegirlo, calcula la próxima caducidad.
+    int? itvP = (_v['itv_period_months'] as num?)?.toInt();
+    int? taxiP = (_v['taximeter_itv_period_months'] as num?)?.toInt();
+    int? insP = (_v['insurance_period_months'] as num?)?.toInt();
     final yearsCtrl = TextEditingController(text: '${(_v['transport_card_years'] as num?)?.toInt() ?? 4}');
     final intervalCtrl = TextEditingController(text: '${(_v['revision_interval_km'] as num?)?.toInt() ?? 15000}');
     final lastRevCtrl = TextEditingController(
@@ -374,12 +380,15 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 _dateRow(ctx, l.t('vh_date_itv'), itv, () async {
                   final d = await pick(itv); if (d != null) setLocal(() => itv = d);
                 }, () => setLocal(() => itv = null)),
+                _periodField(ctx, itvP, (m) => setLocal(() { itvP = m; itv = _nextDue(itv, m); })),
                 _dateRow(ctx, l.t('vh_date_taximeter_itv'), taxiItv, () async {
                   final d = await pick(taxiItv); if (d != null) setLocal(() => taxiItv = d);
                 }, () => setLocal(() => taxiItv = null)),
+                _periodField(ctx, taxiP, (m) => setLocal(() { taxiP = m; taxiItv = _nextDue(taxiItv, m); })),
                 _dateRow(ctx, l.t('vh_date_insurance'), ins, () async {
                   final d = await pick(ins); if (d != null) setLocal(() => ins = d);
                 }, () => setLocal(() => ins = null)),
+                _periodField(ctx, insP, (m) => setLocal(() { insP = m; ins = _nextDue(ins, m); })),
                 _dateRow(ctx, l.t('vh_date_transport'), tc, () async {
                   final d = await pick(tc); if (d != null) setLocal(() => tc = d);
                 }, () => setLocal(() => tc = null)),
@@ -426,6 +435,9 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       'itv_expiry': d(itv),
       'taximeter_itv_expiry': d(taxiItv),
       'insurance_expiry': d(ins),
+      'itv_period_months': itvP,
+      'taximeter_itv_period_months': taxiP,
+      'insurance_period_months': insP,
       'transport_card_date': d(tc),
       'transport_card_years': int.tryParse(yearsCtrl.text.trim()) ?? 4,
       'revision_interval_km': int.tryParse(intervalCtrl.text.trim()) ?? 15000,
@@ -441,6 +453,37 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
     }
+  }
+
+  // Próxima caducidad a partir de un periodo en meses: base (la fecha futura
+  // actual, o hoy) + meses. Si el periodo es null, no cambia la fecha.
+  DateTime? _nextDue(DateTime? current, int? months) {
+    if (months == null) return current;
+    final now = DateTime.now();
+    final base = (current != null && current.isAfter(now)) ? current : now;
+    return DateTime(base.year, base.month + months, base.day);
+  }
+
+  // Selector de periodo de renovación (Sin periodo / 6 / 12 / 24 meses).
+  Widget _periodField(BuildContext ctx, int? value, ValueChanged<int?> onChanged) {
+    final l = ctx.l10n;
+    String opt(int? m) => m == null ? l.t('vh_period_none') : l.t('vh_every_months', {'n': '$m'});
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, bottom: 8),
+      child: DropdownButtonFormField<int?>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: l.t('vh_period'),
+          isDense: true,
+          prefixIcon: const Icon(Icons.event_repeat, size: 20),
+        ),
+        items: <int?>[null, 6, 12, 24]
+            .map((m) => DropdownMenuItem<int?>(value: m, child: Text(opt(m))))
+            .toList(),
+        onChanged: onChanged,
+      ),
+    );
   }
 
   Widget _dateRow(BuildContext ctx, String label, DateTime? value, VoidCallback onPick, VoidCallback onClear) {
