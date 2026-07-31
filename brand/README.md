@@ -43,7 +43,7 @@ archivo no necesita la fuente instalada ni arrastra su licencia.
 | `taxicount-logotipo-color.svg` / `.png` | Solo la denominación |
 | `taxicount-isotipo-color.svg` / `.png` | Solo el símbolo |
 | `taxicount-isotipo-negro.svg` | Símbolo en negro |
-| `taxicount-icono-app.svg` / `.png` | Icono de aplicación, 1024×1024 |
+| `taxicount-icono-app.svg` / `.png` | Icono de aplicación, 1024×1024: **el isotipo tal cual** sobre fondo crema, sin invertir colores |
 | `monograma-ct.svg` · `monograma-ct-oepm.png` | La ligadura suelta |
 | `hoja-de-marca.png` | Resumen visual de todo |
 

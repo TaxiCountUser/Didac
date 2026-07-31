@@ -102,13 +102,11 @@ const files = {
     `  <g transform="translate(${Math.round((PALABRA_W - 234) / 2)},0) scale(1.95)">${isotipo(AMBAR, NEGRO, false)}</g>
   <g transform="translate(0,340)">${palabra(NEGRO, AMBAR)}</g>`),
 
+  // El icono de app es el isotipo tal cual, sobre fondo crema: mismo coche
+  // ambar y mismo monograma negro, sin invertir colores.
   'taxicount-icono-app.svg': doc('0 0 120 120', 120, 120, 'TaxiCount — icono de aplicacion',
-    `  <rect width="120" height="120" rx="26" fill="${AMBAR}"/>
-  <g transform="translate(60,61) scale(0.9) translate(-60,-60)">
-    <g fill="${CREMA}">${CARRO}</g>
-    <g fill="${AMBAR}">${HUECOS}</g>
-    ${monoCoche(NEGRO)}
-  </g>`),
+    `  <rect width="120" height="120" rx="26" fill="${CREMA}"/>
+  <g transform="translate(60,61) scale(0.88) translate(-60,-60)">${isotipo(AMBAR, NEGRO, false)}</g>`),
 };
 
 for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(OUT, name), body);
