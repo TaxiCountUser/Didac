@@ -104,3 +104,17 @@ resultado de que "Taxi" medía lo mismo que "T". Nombres inequívocos.
 La ligadura como C de "Count" lleva **4 unidades de separación por la izquierda y 10 por la
 derecha** respecto a los avances tipográficos, porque su caja es más estrecha que la de la C
 de Lora y sin ese ajuste quedaba pegada a la "o".
+
+## Ritmo de "Count"
+
+"Count" va en Lora **Bold**, que abre bastante más que la Regular de "Taxi", y además la
+ligadura llevaba 10 unidades de aire por la derecha. El resultado era que la segunda mitad
+del nombre se veía visiblemente más suelta que la primera.
+
+Corregido en dos frentes: la ligadura queda **pegada** a "ount", y "ount" se genera con
+**−5 de interletraje** (`ttf-a-trazados.js` acepta ese parámetro). Así las dos mitades casan
+de ritmo.
+
+```bash
+node brand/ttf-a-trazados.js <lora-bold.ttf> "ount" brand/palabra-ount-negrita.svg 100 -5
+```

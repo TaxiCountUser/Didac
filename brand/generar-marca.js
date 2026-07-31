@@ -56,12 +56,16 @@ const MONO_W = Math.round(541 * (100 / 614));
 const monoLetra = (fill) =>
   `<g transform="translate(0,-97) scale(0.16287)"><path fill="${fill}" fill-rule="evenodd" d="${MONO}"/></g>`;
 
-// linea base en y=0
+// Linea base en y=0. La ligadura lleva 4 unidades de separacion por la
+// izquierda, y "ount" arranca pegado a ella: con mas aire, "Count" se veia
+// notablemente mas suelto que "Taxi". El interletraje de "ount" ya viene
+// apretado en -5 desde ttf-a-trazados, porque la Bold de Lora abre mas que la
+// Regular y sin corregirlo las dos mitades no casan de ritmo.
 const palabra = (colTaxi, colCount) =>
   `<path fill="${colTaxi}" d="${TAXI}"/>` +
   `<g transform="translate(${TAXI_W + 4},0)">${monoLetra(colCount)}</g>` +
-  `<g transform="translate(${TAXI_W + MONO_W + 14},0)"><path fill="${colCount}" d="${OUNT}"/></g>`;
-const PALABRA_W = TAXI_W + MONO_W + 14 + OUNT_W;
+  `<g transform="translate(${TAXI_W + MONO_W + 4},0)"><path fill="${colCount}" d="${OUNT}"/></g>`;
+const PALABRA_W = TAXI_W + MONO_W + 4 + OUNT_W;
 
 const doc = (vb, W, H, title, body) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${W}" height="${H}">

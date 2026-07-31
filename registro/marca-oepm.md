@@ -35,7 +35,7 @@ oposiciones de terceros, que tienen plazos cortos. Conviene vigilarlo.
 
 Archivo a subir: **`brand/taxicount-marca-mixta-color-oepm.png`**
 
-PNG, 1824 × 350 px, fondo blanco sólido, ~37 KB (el límite de la sede son 2 MB).
+PNG, 1774 × 350 px, fondo blanco sólido, ~36 KB (el límite de la sede son 2 MB).
 
 ## 4. Descripción del signo
 

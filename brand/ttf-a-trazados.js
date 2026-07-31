@@ -2,7 +2,10 @@
 // Lee los contornos de la tabla glyf (curvas cuadraticas) y los emite como
 // path, de modo que el resultado no depende de tener la fuente instalada.
 //
-//   node ttf-a-trazados.js <fuente.ttf> <texto> <salida.svg> [alturaMayuscula]
+//   node ttf-a-trazados.js <fuente.ttf> <texto> <salida.svg> [alturaMayuscula] [interletraje]
+//
+// El interletraje va en las mismas unidades que la altura de mayuscula y se
+// suma al avance de cada letra: negativo apreta, positivo abre.
 const fs = require('fs');
 
 const f = fs.readFileSync(process.argv[2]);
@@ -128,12 +131,15 @@ function glyphPath(g, dx, dy, scale) {
 // --- componer el texto
 const capH = f.readInt16BE(tables['OS/2'].off + 88) || 700; // sCapHeight
 const scale = CAP / capH;
+const TRACK = +(process.argv[6] || 0);
 let x = 0, d = '';
-for (const ch of TEXT) {
+const chars = [...TEXT];
+chars.forEach((ch, i) => {
   const g = gid(ch.codePointAt(0));
   d += glyphPath(g, x, 0, scale);
   x += advance(g) * scale;
-}
+  if (i < chars.length - 1) x += TRACK; // el ultimo no arrastra aire sobrante
+});
 const asc = f.readInt16BE(tables.hhea.off + 4) * scale;
 const desc = f.readInt16BE(tables.hhea.off + 6) * scale;
 const H = Math.round(asc - desc);
