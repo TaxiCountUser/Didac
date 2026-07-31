@@ -93,6 +93,12 @@ go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds
   versions BN i fons fosc; veure `brand/README.md`). A l'app: `assets/brand/isotipo.png`
   (declarat a `pubspec.yaml`) s'usa allà on el taxi fa de **logotip**: `login_screen`,
   `driver_home_screen` i el primer slide de `tutorial_gate`.
+  **La marca definitiva (2026-07-31)** és el cotxe amb la **lligadura CT del titular** a la
+  graella, i el nom compost en **Lora** vectoritzada: "Taxi" en fina, la lligadura fent de C,
+  i "ount" en negreta. Un sol ambre `#FFC107` per al cotxe i per a "Count" — mai dos.
+  `brandLogotipo(context)` pinta el logotip **com a imatge** (`assets/brand/logotipo.png`,
+  o `logotipo-oscuro.png` si el tema és fosc, perquè "Taxi" en negre desapareixeria);
+  s'usa al hero del login. Per a barres i text corrent segueixen els ajudants de text.
   `util/brand.dart` té tres ajudants: `brandWordmark(context)` (logotip solt),
   `brandAppBarTitle(context)` (el mateix amb l'estil de títol de l'AppBar; si no li passes
   l'estil hereta headlineMedium i surt desproporcionat) i `brandInText(context, frase)`

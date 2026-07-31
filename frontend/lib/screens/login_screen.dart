@@ -297,8 +297,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Image.asset('assets/brand/isotipo.png', height: 72),
-                  const SizedBox(height: 16),
-                  brandWordmark(context),
+                  const SizedBox(height: 18),
+                  brandLogotipo(context, height: 42),
                   Text(
                     _isSignUp ? l.t('login_subtitle_signup') : l.t('login_subtitle_signin'),
                     textAlign: TextAlign.center,
