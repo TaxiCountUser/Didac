@@ -1,28 +1,29 @@
-// Genera el juego completo de marca a partir del monograma del titular.
-//   node brand/generar-marca.js <negro|calado> <carpeta-destino>
-// El monograma se lee de brand/monograma-ct.svg, asi que si se retoca alli,
-// todo lo demas se regenera solo.
+// Genera el juego completo de marca TaxiCount.
+//   node brand/generar-marca.js [carpeta-destino]   (por defecto: brand/)
+//
+// Piezas de origen, todas trazados vectoriales sin dependencia de fuentes:
+//   monograma-ct.svg         ligadura CT creada por el titular
+//   palabra-taxi-regular.svg "Taxi" en Lora Regular, vectorizado
+//   palabra-ount-negrita.svg "ount" en Lora Bold, vectorizado
+//
+// El nombre se compone "Taxi" + monograma (haciendo de C) + "ount".
 const fs = require('fs');
 const path = require('path');
 
-const VAR = process.argv[2];
-const OUT = process.argv[3];
-if (!['negro', 'calado'].includes(VAR) || !OUT) {
-  console.error('uso: node generar-marca.js <negro|calado> <carpeta>'); process.exit(1);
-}
+const HERE = __dirname;
+const OUT = process.argv[2] || HERE;
 fs.mkdirSync(OUT, { recursive: true });
 
-const AMBAR = '#FFC107', AMBAR_LOGO = '#FFB300', NEGRO = '#1E1B16', CREMA = '#FEF7EC';
+const AMBAR = '#FFC107';   // unico ambar: coche y "Count" comparten color
+const NEGRO = '#1E1B16';
+const CREMA = '#FEF7EC';
 
-// --- monograma del titular
-const src = fs.readFileSync(path.join(__dirname, 'monograma-ct.svg'), 'utf8');
-const MD = src.match(/ d="([^"]+)"/)[1];
-const [, MW, MH] = src.match(/viewBox="0 0 (\d+) (\d+)"/).map(Number);
-// alto 26 en el frontal, centrado en la banda libre (carroceria 48 -> toma de aire 80.5)
-const S = (26 / MH).toFixed(5);
-const mono = (fill) =>
-  `<g transform="translate(60,64.25) scale(${S}) translate(${-MW / 2},${-MH / 2})">` +
-  `<path fill="${fill}" fill-rule="evenodd" d="${MD}"/></g>`;
+const d = (f) => fs.readFileSync(path.join(HERE, f), 'utf8').match(/ d="([^"]+)"/)[1];
+const w = (f) => +fs.readFileSync(path.join(HERE, f), 'utf8').match(/viewBox="0 -144 (\d+)/)[1];
+
+const MONO = d('monograma-ct.svg');
+const TAXI = d('palabra-taxi-regular.svg'), TAXI_W = w('palabra-taxi-regular.svg');
+const OUNT = d('palabra-ount-negrita.svg'), OUNT_W = w('palabra-ount-negrita.svg');
 
 // --- coche
 const CARRO = `<rect x="48" y="13" width="24" height="10" rx="2"/>
@@ -37,89 +38,79 @@ const HUECOS = `<path d="M22 44 L36 27.5 L84 27.5 L98 44 Z"/>
         <path d="M107 58 L87 61 L87 65 L107 64 Z"/>
         <rect x="32" y="80.5" width="56" height="5" rx="2.5"/>`;
 
-// El monograma calado se resta en la mascara; el negro se pinta encima.
-const calado = VAR === 'calado';
-const mask = (id) => `<mask id="${id}"><rect width="120" height="120" fill="#000"/>
-      <g fill="#fff">${CARRO}</g><g fill="#000">${HUECOS}</g>${calado ? mono('#000') : ''}</mask>`;
-const encima = (c) => (calado ? '' : mono(c));
+// monograma en la parrilla: alto 26, centrado en la banda libre del frontal
+const monoCoche = (fill) =>
+  `<g transform="translate(60,64.25) scale(0.04235) translate(-270.5,-307)">` +
+  `<path fill="${fill}" fill-rule="evenodd" d="${MONO}"/></g>`;
 
-// --- logotipo (interletraje T-A ya corregido)
-const word = (c1, c2) => `<g transform="translate(200,30)" fill="none" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
-    <g stroke="${c1}">
-      <path d="M0,8 H70 M35,8 V92"/>
-      <path d="M76,92 L112,8 L148,92 M90,63 H134"/>
-      <path d="M168,8 L232,92 M232,8 L168,92"/>
-      <path d="M252,8 V92"/>
-    </g>
-    <g stroke="${c2}">
-      <path d="M343.7,20.3 A42,42 0 1,0 343.7,79.7"/>
-      <path d="M376,50 A42,42 0 1,1 460,50 A42,42 0 1,1 376,50"/>
-      <path d="M480,8 V50 A42,42 0 0,0 564,50 V8"/>
-      <path d="M584,92 V8 L654,92 V8"/>
-      <path d="M674,8 H744 M709,8 V92"/>
-    </g>
-  </g>`;
+let uid = 0;
+const isotipo = (carroceria, monoFill, calado) => {
+  uid++;
+  return `<defs><mask id="m${uid}"><rect width="120" height="120" fill="#000"/>
+      <g fill="#fff">${CARRO}</g><g fill="#000">${HUECOS}</g>${calado ? monoCoche('#000') : ''}</mask></defs>
+  <rect width="120" height="120" fill="${carroceria}" mask="url(#m${uid})"/>${calado ? '' : monoCoche(monoFill)}`;
+};
 
-const svg = (vb, w, h, title, body) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${w}" height="${h}">
+// monograma haciendo de C dentro de la palabra: alto de mayuscula 100
+const MONO_W = Math.round(541 * (100 / 614));
+const monoLetra = (fill) =>
+  `<g transform="translate(0,-97) scale(0.16287)"><path fill="${fill}" fill-rule="evenodd" d="${MONO}"/></g>`;
+
+// linea base en y=0
+const palabra = (colTaxi, colCount) =>
+  `<path fill="${colTaxi}" d="${TAXI}"/>` +
+  `<g transform="translate(${TAXI_W + 4},0)">${monoLetra(colCount)}</g>` +
+  `<g transform="translate(${TAXI_W + MONO_W + 14},0)"><path fill="${colCount}" d="${OUNT}"/></g>`;
+const PALABRA_W = TAXI_W + MONO_W + 14 + OUNT_W;
+
+const doc = (vb, W, H, title, body) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${W}" height="${H}">
   <title>${title}</title>
 ${body}
 </svg>\n`;
 
+const LOCK_W = Math.round(200 + PALABRA_W + 10);
+const mixta = (title, carroceria, monoFill, calado, colTaxi, colCount) =>
+  doc(`0 0 ${LOCK_W} 175`, LOCK_W, 175, title,
+    `  <g transform="translate(0,2) scale(1.3)">${isotipo(carroceria, monoFill, calado)}</g>
+  <g transform="translate(200,130)">${palabra(colTaxi, colCount)}</g>`);
+
 const files = {
-  'taxicount-isotipo-color.svg': svg('0 0 120 120', 120, 120, 'TaxiCount — isotipo',
-    `  <defs>${mask('i')}</defs>
-  <rect width="120" height="120" fill="${AMBAR}" mask="url(#i)"/>${encima(NEGRO)}`),
+  'taxicount-isotipo-color.svg': doc('0 0 120 120', 120, 120, 'TaxiCount — isotipo',
+    `  ${isotipo(AMBAR, NEGRO, false)}`),
 
-  'taxicount-isotipo-negro.svg': svg('0 0 120 120', 120, 120, 'TaxiCount — isotipo blanco y negro',
-    // sobre carroceria negra el monograma va siempre calado, o no se veria
-    `  <defs><mask id="ibn"><rect width="120" height="120" fill="#000"/>
-      <g fill="#fff">${CARRO}</g><g fill="#000">${HUECOS}</g>${mono('#000')}</mask></defs>
-  <rect width="120" height="120" fill="#000000" mask="url(#ibn)"/>`),
+  // sobre carroceria negra el monograma va calado, o no se veria
+  'taxicount-isotipo-negro.svg': doc('0 0 120 120', 120, 120, 'TaxiCount — isotipo blanco y negro',
+    `  ${isotipo('#000000', null, true)}`),
 
-  'taxicount-marca-mixta-color.svg': svg('0 0 961 160', 961, 160, 'TaxiCount — marca mixta (color)',
-    `  <defs>${mask('m')}</defs>
-  <g transform="translate(0,2) scale(1.3)"><rect width="120" height="120" fill="${AMBAR}" mask="url(#m)"/>${encima(NEGRO)}</g>
-${word(NEGRO, AMBAR_LOGO)}`),
+  'taxicount-logotipo-color.svg': doc(`0 -144 ${PALABRA_W} 183`, PALABRA_W, 183,
+    'TaxiCount — logotipo', `  ${palabra(NEGRO, AMBAR)}`),
 
-  'taxicount-marca-mixta-negro.svg': svg('0 0 961 160', 961, 160, 'TaxiCount — marca mixta (blanco y negro)',
-    `  <defs><mask id="mbn"><rect width="120" height="120" fill="#000"/>
-      <g fill="#fff">${CARRO}</g><g fill="#000">${HUECOS}</g>${mono('#000')}</mask></defs>
-  <g transform="translate(0,2) scale(1.3)"><rect width="120" height="120" fill="#000000" mask="url(#mbn)"/></g>
-${word('#000000', '#000000')}`),
+  'taxicount-marca-mixta-color.svg':
+    mixta('TaxiCount — marca mixta (color)', AMBAR, NEGRO, false, NEGRO, AMBAR),
 
-  'taxicount-marca-mixta-fondo-oscuro.svg': svg('0 0 961 160', 961, 160, 'TaxiCount — marca mixta para fondo oscuro',
-    `  <defs>${mask('md')}</defs>
-  <g transform="translate(0,2) scale(1.3)"><rect width="120" height="120" fill="${AMBAR}" mask="url(#md)"/>${encima(NEGRO)}</g>
-${word(CREMA, AMBAR_LOGO)}`),
+  'taxicount-marca-mixta-negro.svg':
+    mixta('TaxiCount — marca mixta (blanco y negro)', '#000000', null, true, '#000000', '#000000'),
 
-  'taxicount-marca-vertical-color.svg': svg('0 0 760 300', 760, 300, 'TaxiCount — marca mixta vertical (color)',
-    `  <defs>${mask('v')}</defs>
-  <g transform="translate(300,0) scale(1.3333)"><rect width="120" height="120" fill="${AMBAR}" mask="url(#v)"/>${encima(NEGRO)}</g>
-  <g transform="translate(8,200)" fill="none" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
-    <g stroke="${NEGRO}">
-      <path d="M0,8 H70 M35,8 V92"/><path d="M76,92 L112,8 L148,92 M90,63 H134"/>
-      <path d="M168,8 L232,92 M232,8 L168,92"/><path d="M252,8 V92"/>
-    </g>
-    <g stroke="${AMBAR_LOGO}">
-      <path d="M343.7,20.3 A42,42 0 1,0 343.7,79.7"/>
-      <path d="M376,50 A42,42 0 1,1 460,50 A42,42 0 1,1 376,50"/>
-      <path d="M480,8 V50 A42,42 0 0,0 564,50 V8"/>
-      <path d="M584,92 V8 L654,92 V8"/>
-      <path d="M674,8 H744 M709,8 V92"/>
-    </g>
-  </g>`),
+  'taxicount-marca-mixta-fondo-oscuro.svg':
+    mixta('TaxiCount — marca mixta para fondo oscuro', AMBAR, NEGRO, false, CREMA, AMBAR),
 
-  // Icono de app: fondo ambar, carroceria crema. El monograma calado deja ver
-  // el ambar del fondo; el negro se pinta encima de la carroceria.
-  'taxicount-icono-app.svg': svg('0 0 120 120', 120, 120, 'TaxiCount — icono de aplicacion',
+  // En vertical el coche debe pesar mas: si va al tamaño del horizontal se
+  // queda pequeño frente a los 700 de ancho de la palabra.
+  'taxicount-marca-vertical-color.svg': doc(
+    `0 0 ${PALABRA_W} 360`, PALABRA_W, 360, 'TaxiCount — marca mixta vertical (color)',
+    `  <g transform="translate(${Math.round((PALABRA_W - 234) / 2)},0) scale(1.95)">${isotipo(AMBAR, NEGRO, false)}</g>
+  <g transform="translate(0,340)">${palabra(NEGRO, AMBAR)}</g>`),
+
+  'taxicount-icono-app.svg': doc('0 0 120 120', 120, 120, 'TaxiCount — icono de aplicacion',
     `  <rect width="120" height="120" rx="26" fill="${AMBAR}"/>
   <g transform="translate(60,61) scale(0.9) translate(-60,-60)">
     <g fill="${CREMA}">${CARRO}</g>
     <g fill="${AMBAR}">${HUECOS}</g>
-    ${mono(calado ? AMBAR : NEGRO)}
+    ${monoCoche(NEGRO)}
   </g>`),
 };
 
 for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(OUT, name), body);
-console.log(`variante "${VAR}": ${Object.keys(files).length} archivos en ${OUT}`);
+console.log(`${Object.keys(files).length} archivos en ${OUT}`);
+console.log(`logotipo ${PALABRA_W}x183 · marca mixta ${LOCK_W}x175`);

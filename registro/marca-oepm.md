@@ -1,7 +1,7 @@
 # Solicitud de marca nacional — OEPM
 
 Todo lo que hay que introducir en el formulario de la sede electrónica, listo para copiar.
-Fecha de preparación: 30 de julio de 2026.
+Fecha de preparación: 31 de julio de 2026.
 
 > Aviso: esto es material preparatorio, no asesoramiento jurídico firmado. La solicitud la
 > presenta y firma el titular.
@@ -35,26 +35,27 @@ oposiciones de terceros, que tienen plazos cortos. Conviene vigilarlo.
 
 Archivo a subir: **`brand/taxicount-marca-mixta-color-oepm.png`**
 
-PNG, 1950 × 320 px, fondo blanco sólido, ~36 KB (el límite de la sede son 2 MB).
+PNG, 1824 × 350 px, fondo blanco sólido, ~37 KB (el límite de la sede son 2 MB).
 
 ## 4. Descripción del signo
 
 > Marca mixta compuesta por un elemento gráfico situado a la izquierda y la denominación
-> TAXICOUNT a su derecha. El elemento gráfico representa la vista frontal estilizada de un
+> TaxiCount a su derecha. El elemento gráfico representa la vista frontal estilizada de un
 > automóvil en color ámbar, con módulo de taxi rectangular sobre el techo, parabrisas
 > panorámico, retrovisores laterales sobresalientes, faros alargados, toma de aire inferior
-> y ruedas asomando bajo la carrocería; en la parrilla central figura un monograma formado
-> por las letras T y C, apareciendo la T en color negro y la C calada sobre el fondo. La
-> denominación TAXICOUNT se representa en mayúsculas, con tipografía de palo seco geométrica
-> de trazo uniforme y terminaciones redondeadas, apareciendo el segmento TAXI en color negro
-> y el segmento COUNT en color ámbar.
+> y ruedas asomando bajo la carrocería; en la parrilla central figura, en color negro, un
+> monograma consistente en las letras C y T fundidas en un único signo, con el asta de la T
+> inscrita en el interior de la C y el brazo de la T integrado en el trazo superior de ésta.
+> La denominación TaxiCount se representa con tipografía romana con remates, apareciendo el
+> segmento «Taxi» en color negro y trazo fino, y el segmento «Count» en color ámbar y trazo
+> grueso; la letra C de dicho segmento se sustituye por el mismo monograma descrito, en color
+> ámbar.
 
 ## 5. Colores reivindicados
 
 | Color | Hex | RGB |
 |---|---|---|
 | Amarillo ámbar | `#FFC107` | 255, 193, 7 |
-| Ámbar oscuro | `#FFB300` | 255, 179, 0 |
 | Negro cálido | `#1E1B16` | 30, 27, 22 |
 
 ## 6. Clases y productos/servicios

@@ -1,120 +1,106 @@
 # TaxiCount — identidad de marca
 
-Activos originales de la marca TaxiCount, creados el **30 de julio de 2026** para su
-registro como marca mixta en la OEPM y como parte de la obra en el Registro de la
-Propiedad Intelectual.
+Activos de la marca TaxiCount para su registro como marca mixta en la OEPM y como parte de
+la obra en el Registro de la Propiedad Intelectual. Versión definitiva: **31 de julio de 2026**.
 
-## Por qué existe esta carpeta
+## De qué está hecha
 
-El icono anterior (`frontend/assets/icon/app_icon.png`) era el glifo `local_taxi` de
-**Material Design Icons** (Apache 2.0). Esa licencia permite usarlo, pero **no otorga
-derechos de marca** (cláusula 6) y no genera autoría propia, así que no es registrable.
-Todo lo que hay en esta carpeta es **dibujo vectorial original**: formas geométricas
-construidas a mano en SVG, sin fuentes tipográficas de terceros y sin obra derivada de
-ninguna biblioteca de iconos. Las letras del logotipo son trazos dibujados, no texto
-compuesto con una fuente, por lo que el archivo no depende de ninguna licencia externa.
+**El símbolo** es un coche moderno visto de frente —parabrisas panorámico, montantes muy
+inclinados, retrovisores que sobresalen, faros barridos, toma de aire inferior, ruedas
+asomando y módulo de taxi plano en el techo— con la **ligadura CT en la parrilla**, centrada
+en la banda libre del frontal.
+
+**La ligadura CT la creó el titular.** Es una C y una T fundidas en una sola forma. Entregada
+como PDF y vectorizada aquí (ver más abajo).
+
+**El nombre** se compone en tres piezas: `Taxi` en Lora Regular, la **misma ligadura haciendo
+de C** de "Count", y `ount` en Lora Bold. Así el símbolo y la palabra comparten literalmente
+una pieza, y el contraste de peso refuerza el corte que ya hace el color.
+
+## Por qué nada depende de fuentes ni de iconos ajenos
+
+El icono original de la app era el glifo `local_taxi` de **Material Design Icons**. Su
+licencia Apache 2.0 permite usarlo pero **no otorga derechos de marca** (cláusula 6) ni
+genera autoría propia: no era registrable.
+
+Todo lo que hay aquí es **trazado vectorial**. El coche está dibujado a mano; la ligadura es
+obra del titular; y el nombre, aunque se compuso con **Lora** —licencia SIL Open Font, que
+permite expresamente su uso en logotipos—, está **convertido a trazados**, de modo que el
+archivo no necesita la fuente instalada ni arrastra su licencia.
+
+> Se descartó **Georgia** justamente por esto: es propiedad de Microsoft y usar sus contornos
+> en una marca registrada es terreno tolerado, no autorizado. Lora no tiene esa duda.
 
 ## Archivos
 
 | Archivo | Uso |
 |---|---|
-| `taxicount-marca-mixta-color.svg` / `.png` | **Marca mixta oficial** (isotipo + logotipo), horizontal |
-| `taxicount-marca-mixta-color-oepm.png` | Igual, con fondo blanco sólido — el que se sube a la OEPM |
-| `taxicount-marca-mixta-negro.svg` / `.png` | Versión en blanco y negro (prensa, fax, grabado) |
-| `taxicount-marca-vertical-color.svg` / `.png` | Lockup vertical, para formatos cuadrados |
+| `taxicount-marca-mixta-color.svg` / `.png` | **Marca mixta oficial**, horizontal |
+| `taxicount-marca-mixta-color-oepm.png` | Igual, con fondo blanco — el que se sube a la OEPM |
+| `taxicount-marca-mixta-negro.svg` / `.png` | Blanco y negro (prensa, grabado) |
+| `taxicount-marca-mixta-fondo-oscuro.svg` / `.png` | Con "Taxi" en crema, para fondos oscuros |
+| `taxicount-marca-vertical-color.svg` / `.png` | Lockup vertical |
 | `taxicount-logotipo-color.svg` / `.png` | Solo la denominación |
-| `taxicount-isotipo-color.svg` / `.png` | Solo el símbolo, sin fondo |
+| `taxicount-isotipo-color.svg` / `.png` | Solo el símbolo |
 | `taxicount-isotipo-negro.svg` | Símbolo en negro |
-| `taxicount-icono-app.svg` / `.png` | Icono de aplicación (badge ámbar, 1024×1024) |
+| `taxicount-icono-app.svg` / `.png` | Icono de aplicación, 1024×1024 |
+| `monograma-ct.svg` · `monograma-ct-oepm.png` | La ligadura suelta |
+| `hoja-de-marca.png` | Resumen visual de todo |
 
-Los PNG con fondo transparente se generan desde los SVG; el de la OEPM lleva fondo blanco
-porque la representación oficial no debe depender del color del soporte.
-
-## Concepto
-
-Un **coche moderno visto de frente**, en el lenguaje de las ilustraciones de automoción
-actuales: parabrisas panorámico que llega casi hasta los retrovisores, montantes muy
-inclinados, retrovisores que sobresalen del hombro, faros barridos hacia dentro, toma de
-aire inferior, ruedas asomando bajo la carrocería y módulo de taxi plano en el techo. Nada
-del taxi cuadrado de siempre. En la parrilla central va el **monograma TC**: la T en negro
-cálido y la C calada,
-de modo que la C toma el color de lo que haya detrás (ámbar en el icono de aplicación, que
-es el color con el que "COUNT" aparece en el logotipo).
-
-El monograma es lo que hace la marca defendible: un taxi con parrilla es genérico, un taxi
-con las iniciales en la parrilla es propio, y además refuerza el elemento denominativo.
-
-En el logotipo, "TAXI" va en negro cálido y "COUNT" en ámbar, para que la lectura en dos
-partes del nombre se mantenga aunque esté todo en mayúsculas.
-
-En la versión en blanco y negro la T también va calada, porque sobre carrocería negra un
-trazo negro no se vería.
+**Piezas de origen** (no se usan sueltas, alimentan al generador): `palabra-taxi-regular.svg`,
+`palabra-ount-negrita.svg`, `lora-*-subconjunto.ttf`.
 
 ## Colores
 
 | Color | Hex | Uso |
 |---|---|---|
-| Ámbar TaxiCount | `#FFC107` | Isotipo, icono de app |
-| Ámbar logotipo | `#FFB300` | "COUNT" en el logotipo (algo más profundo, para contraste sobre blanco) |
-| Negro cálido | `#1E1B16` | "TAXI" en el logotipo, T del monograma |
-| Crema | `#FEF7EC` | Carrocería dentro del icono de app |
+| Ámbar | `#FFC107` | Carrocería **y** "Count" — un único ámbar, nunca dos |
+| Negro cálido | `#1E1B16` | "Taxi" y la ligadura de la parrilla |
+| Crema | `#FEF7EC` | Carrocería en el icono de app; "Taxi" sobre fondo oscuro |
 
-## Construcción tipográfica
+⚠️ Antes había dos ámbares (`#FFC107` en el coche y `#FFB300` en "Count") y se notaba. **El
+símbolo y la palabra van siempre del mismo color.**
 
-Sans geométrica monolineal dibujada a medida: altura de mayúscula 100 unidades, grosor de
-trazo 15, terminaciones y uniones redondeadas, letras redondas (C, O, U) sobre círculo
-perfecto de radio 42. Interletraje de 20 unidades entre cajas de avance.
+## Regenerar
 
-## Regenerar los PNG
+```bash
+node brand/generar-marca.js            # los ocho SVG
+```
 
-Los PNG salen de los SVG con Edge en modo headless (no hay Inkscape ni ImageMagick en el
-equipo). Un envoltorio HTML fija el tamaño y se captura la página:
+Lee `monograma-ct.svg` y las dos piezas de palabra, así que retocar el dibujo y relanzar
+basta para rehacerlo todo.
+
+Los PNG salen de los SVG con Edge headless (no hay Inkscape ni ImageMagick en el equipo):
 
 ```bash
 msedge --headless=new --disable-gpu --hide-scrollbars --default-background-color=00000000 \
   --user-data-dir=<temporal> --screenshot=<salida.png> --window-size=<W>,<H> file:///<wrapper.html>
 ```
 
-Ojo: cada invocación necesita su propio `--user-data-dir`, o las llamadas seguidas dicen
+⚠️ Cada invocación necesita su **propio** `--user-data-dir`, o las llamadas seguidas dicen
 que han escrito el archivo y no lo escriben.
 
-## Fondos oscuros
+## Las herramientas que hizo falta escribir
 
-`taxicount-marca-mixta-fondo-oscuro.svg` / `.png` — idéntica a la marca mixta pero con
-"TAXI" en crema. La versión normal lleva "TAXI" en negro cálido y **desaparece** sobre
-fondos oscuros (se detectó montando `hoja-de-marca.png`). La T del monograma sigue en
-negro en las dos versiones, porque va sobre la carrocería ámbar.
+El equipo no tiene trazador, ni extractor de PDF, ni conversor de fuentes, así que están aquí:
 
-`hoja-de-marca.png` es la hoja resumen de toda la identidad: sirve para ver todos los
-activos de un vistazo sin abrir archivo por archivo.
+| Script | Qué hace |
+|---|---|
+| `extraer-imagen-pdf.js` | Saca los mapas de bits de un PDF y los guarda como PNG |
+| `vectorizar-bitmap.js` | Traza una forma bitonal: marching squares + Douglas-Peucker |
+| `ttf-a-trazados.js` | Convierte texto compuesto con una TrueType en trazados SVG, leyendo la tabla `glyf` |
+| `generar-marca.js` | Ensambla los ocho archivos de marca |
+
+⚠️ **Douglas-Peucker colapsa los contornos cerrados**: la recta entre el primer y el último
+punto es degenerada y todas las distancias salen nulas. Hay que partir el bucle por el punto
+más lejano al inicio y simplificar cada mitad. Resuelto en el script.
+
+⚠️ **Windows no distingue mayúsculas en nombres de archivo.** Generando piezas del logotipo,
+`seg-tb.svg` y `seg-Tb.svg` eran el mismo fichero y el segundo pisaba al primero, con el
+resultado de que "Taxi" medía lo mismo que "T". Nombres inequívocos.
 
 ## Interletraje
 
-El par **T-A** de "TAXI" lleva un ajuste de **−14 unidades**: el hueco bajo el brazo de la T
-deja aire de más y sin corregirlo la A se ve descolgada. Se probaron −8, −14 y −20; con −20
-las dos letras se agobian. Si algún día se rehace el logotipo, ese ajuste hay que mantenerlo.
-
-## Monograma CT (pendiente de cerrar)
-
-`monograma-ct.svg` — ligadura de C y T **creada por el titular**, entregada como PDF y
-vectorizada aquí. Sustituirá al monograma "TC" geométrico de la parrilla cuando se cierren
-forma y color.
-
-El PDF de origen **no era vectorial**: contenía dos mapas de bits de 3500×3500, uno con el
-color y otro con la máscara de transparencia. Se extrajo la máscara —blanco puro sobre
-negro, el caso ideal— y se trazó: contornos por *marching squares*, simplificación de
-Douglas-Peucker y salida con regla de relleno par-impar para que la contraforma sea hueco
-real. Resultado: 82 puntos, 1 KB, sin dependencia de fuentes ni de programas.
-
-```bash
-node brand/extraer-imagen-pdf.js <origen.pdf> <salida>   # saca los bitmaps del PDF
-node brand/vectorizar-bitmap.js <origen.pdf> 1 salida.svg 1.2   # traza la banda 1
-```
-
-⚠️ Douglas-Peucker colapsa los contornos cerrados: la recta entre el primer y el último
-punto es degenerada y todas las distancias salen nulas. Hay que partir el bucle por el punto
-más lejano al inicio y simplificar cada mitad. Está resuelto en el script.
-
-**Decisiones pendientes:** grado de encaje ya fijado por el original; falta elegir el color
-del monograma. Descartados los ámbares (sin contraste sobre la carrocería); candidatos
-vivos: negro cálido `#1E1B16`, chocolate `#3E2F14` y calado.
+La ligadura como C de "Count" lleva **4 unidades de separación por la izquierda y 10 por la
+derecha** respecto a los avances tipográficos, porque su caja es más estrecha que la de la C
+de Lora y sin ese ajuste quedaba pegada a la "o".
