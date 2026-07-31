@@ -96,17 +96,17 @@ go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds
   **La marca definitiva (2026-07-31)** és el cotxe amb la **lligadura CT del titular** a la
   graella, i el nom compost en **Lora** vectoritzada: "Taxi" en fina, la lligadura fent de C,
   i "ount" en negreta. Un sol ambre `#FFC107` per al cotxe i per a "Count" — mai dos.
-  `brandLogotipo(context)` pinta el logotip **com a imatge** (`assets/brand/logotipo.png`,
-  o `logotipo-oscuro.png` si el tema és fosc, perquè "Taxi" en negre desapareixeria);
-  s'usa al hero del login. Per a barres i text corrent segueixen els ajudants de text.
-  `util/brand.dart` té tres ajudants: `brandWordmark(context)` (logotip solt),
-  `brandAppBarTitle(context)` (el mateix amb l'estil de títol de l'AppBar; si no li passes
-  l'estil hereta headlineMedium i surt desproporcionat) i `brandInText(context, frase)`
-  (pinta el nom dins d'una frase traduïda partint per "TaxiCount", invariable en es/en/ca).
-  Tots pinten "Taxi" amb el color del tema i "Count" en ambre `#FFB300`, així funcionen
-  igual sobre el crema del client que sobre el fosc de l'admin.
-  Aplicat a: login (hero) · driver_home i choose_path (AppBar) · tutorial_gate (slide 1) ·
-  `cp_title` · `ob_title`.
+  `util/brand.dart` té tres ajudants:
+  · `brandLogotipo(context)` — el logotip **com a imatge** (`assets/brand/logotipo.png`, o
+    `logotipo-oscuro.png` si el tema és fosc, perquè "Taxi" en negre desapareixeria).
+  · `brandAppBarTitle(context)` — el mateix a 22 px, per a la barra superior.
+  · `brandInText(context, frase)` — pinta el nom dins d'una frase traduïda partint per
+    "TaxiCount" (invariable en es/en/ca), amb "Count" en ambre `#FFC107`.
+  ⚠️ **On el nom apareix com a MARCA va sempre imatge, mai text**: amb text es compon amb la
+  font de la interfície i no és la marca. Això inclou l'AppBar. `brandInText` només és per a
+  **frases** ("Bienvenido a TaxiCount"), on una imatge no encaixaria.
+  Aplicat a: login (hero, imatge) · driver_home i choose_path (AppBar, imatge) ·
+  tutorial_gate i `cp_title`/`ob_title` (frases, text).
   ⚠️ **NO** aplicar el bicolor a paràgrafs legals, avisos de subscripció ni textos per
   compartir: allà el nom va dins de prosa i destorba.
   ⚠️ La resta d'`Icons.local_taxi` (solo_home, transaction_input, format.dart) són

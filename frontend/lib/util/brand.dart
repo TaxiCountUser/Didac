@@ -38,22 +38,7 @@ Widget brandInText(BuildContext context, String text, {TextStyle? style}) {
   );
 }
 
-/// El nombre para la barra superior, con el estilo de título del tema (si no,
-/// hereda headlineMedium y sale desproporcionado dentro del AppBar).
-Widget brandAppBarTitle(BuildContext context) {
-  final t = Theme.of(context);
-  return brandWordmark(context, style: t.appBarTheme.titleTextStyle ?? t.textTheme.titleLarge);
-}
-
-/// El nombre como texto, con el corte de color. Para barras y rótulos, donde
-/// una imagen no encajaría con el resto de la tipografía de la interfaz.
-Widget brandWordmark(BuildContext context, {TextStyle? style}) {
-  final base = style ?? Theme.of(context).textTheme.headlineMedium;
-  return Text.rich(
-    TextSpan(children: [
-      TextSpan(text: 'Taxi', style: base),
-      TextSpan(text: 'Count', style: (base ?? const TextStyle()).copyWith(color: brandAmber)),
-    ]),
-    textAlign: TextAlign.center,
-  );
-}
+/// El logotipo para la barra superior. Va como **imagen**, no como texto: con
+/// texto se componía con la fuente de la interfaz y no era la marca, que está
+/// en Lora y lleva la ligadura haciendo de C.
+Widget brandAppBarTitle(BuildContext context) => brandLogotipo(context, height: 22);
