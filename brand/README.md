@@ -93,3 +93,28 @@ activos de un vistazo sin abrir archivo por archivo.
 El par **T-A** de "TAXI" lleva un ajuste de **−14 unidades**: el hueco bajo el brazo de la T
 deja aire de más y sin corregirlo la A se ve descolgada. Se probaron −8, −14 y −20; con −20
 las dos letras se agobian. Si algún día se rehace el logotipo, ese ajuste hay que mantenerlo.
+
+## Monograma CT (pendiente de cerrar)
+
+`monograma-ct.svg` — ligadura de C y T **creada por el titular**, entregada como PDF y
+vectorizada aquí. Sustituirá al monograma "TC" geométrico de la parrilla cuando se cierren
+forma y color.
+
+El PDF de origen **no era vectorial**: contenía dos mapas de bits de 3500×3500, uno con el
+color y otro con la máscara de transparencia. Se extrajo la máscara —blanco puro sobre
+negro, el caso ideal— y se trazó: contornos por *marching squares*, simplificación de
+Douglas-Peucker y salida con regla de relleno par-impar para que la contraforma sea hueco
+real. Resultado: 82 puntos, 1 KB, sin dependencia de fuentes ni de programas.
+
+```bash
+node brand/extraer-imagen-pdf.js <origen.pdf> <salida>   # saca los bitmaps del PDF
+node brand/vectorizar-bitmap.js <origen.pdf> 1 salida.svg 1.2   # traza la banda 1
+```
+
+⚠️ Douglas-Peucker colapsa los contornos cerrados: la recta entre el primer y el último
+punto es degenerada y todas las distancias salen nulas. Hay que partir el bucle por el punto
+más lejano al inicio y simplificar cada mitad. Está resuelto en el script.
+
+**Decisiones pendientes:** grado de encaje ya fijado por el original; falta elegir el color
+del monograma. Descartados los ámbares (sin contraste sobre la carrocería); candidatos
+vivos: negro cálido `#1E1B16`, chocolate `#3E2F14` y calado.
