@@ -1,7 +1,7 @@
 # TaxiCount — identidad de marca
 
 Activos de la marca TaxiCount para su registro como marca mixta en la OEPM y como parte de
-la obra en el Registro de la Propiedad Intelectual. Versión definitiva: **31 de julio de 2026**.
+la obra en el Registro de la Propiedad Intelectual. Versión definitiva: **3 de agosto de 2026**.
 
 ## De qué está hecha
 
@@ -9,6 +9,12 @@ la obra en el Registro de la Propiedad Intelectual. Versión definitiva: **31 de
 inclinados, retrovisores que sobresalen, faros barridos, toma de aire inferior, ruedas
 asomando y módulo de taxi plano en el techo— con la **ligadura CT en la parrilla**, centrada
 en la banda libre del frontal.
+
+La ligadura de la parrilla mide **16 unidades de alto** (`MONO_PARRILLA` en el generador).
+Empezó en 26 y pesaba demasiado: negro sobre ámbar es el par de máximo contraste del logo,
+así que a ese tamaño el monograma tiraba más de la vista que el propio coche. A 16 es un
+emblema de parrilla, el coche vuelve a leerse primero y todavía se distingue hasta ~24 px.
+Por encima de ~34 ni siquiera cabe: pisa los faros y la toma de aire.
 
 **La ligadura CT la creó el titular.** Es una C y una T fundidas en una sola forma. Entregada
 como PDF y vectorizada aquí (ver más abajo).
@@ -63,22 +69,36 @@ símbolo y la palabra van siempre del mismo color.**
 
 ## Regenerar
 
-```bash
-node brand/generar-marca.js            # los ocho SVG
-```
-
-Lee `monograma-ct.svg` y las dos piezas de palabra, así que retocar el dibujo y relanzar
-basta para rehacerlo todo.
-
-Los PNG salen de los SVG con Edge headless (no hay Inkscape ni ImageMagick en el equipo):
+Los tres pasos, en este orden:
 
 ```bash
-msedge --headless=new --disable-gpu --hide-scrollbars --default-background-color=00000000 \
-  --user-data-dir=<temporal> --screenshot=<salida.png> --window-size=<W>,<H> file:///<wrapper.html>
+node brand/generar-marca.js
+```
+```bash
+node brand/renderizar-png.js
+```
+```bash
+node brand/hoja-de-marca.js
 ```
 
-⚠️ Cada invocación necesita su **propio** `--user-data-dir`, o las llamadas seguidas dicen
-que han escrito el archivo y no lo escriben.
+El primero rehace los ocho SVG a partir de `monograma-ct.svg` y las dos piezas de palabra,
+así que retocar el dibujo y relanzar basta para rehacerlo todo.
+
+El segundo rasteriza **los 17 PNG de golpe**: los de `brand/`, los de la app
+(`frontend/assets/brand/`, `frontend/assets/icon/`) y los de la web (favicon, apple-touch,
+los cuatro de PWA). Acepta un filtro por subcadena del destino, p. ej.
+`node brand/renderizar-png.js icono`. Después de tocar los iconos de app hay que rehacer los
+mipmaps de Android:
+
+```bash
+cd frontend && dart run flutter_launcher_icons
+```
+
+No hay Inkscape ni ImageMagick en el equipo: se rasteriza con Edge headless.
+
+⚠️ Cada invocación de Edge necesita su **propio** `--user-data-dir`, o las llamadas seguidas
+dicen que han escrito el archivo y no lo escriben. `renderizar-png.js` ya lo hace por
+construcción; si algún día se rasteriza a mano, cuidado con esto.
 
 ## Las herramientas que hizo falta escribir
 
@@ -90,6 +110,8 @@ El equipo no tiene trazador, ni extractor de PDF, ni conversor de fuentes, así 
 | `vectorizar-bitmap.js` | Traza una forma bitonal: marching squares + Douglas-Peucker |
 | `ttf-a-trazados.js` | Convierte texto compuesto con una TrueType en trazados SVG, leyendo la tabla `glyf` |
 | `generar-marca.js` | Ensambla los ocho archivos de marca |
+| `renderizar-png.js` | Rasteriza los 17 PNG de marca, app y web con Edge headless |
+| `hoja-de-marca.js` | Arma `hoja-de-marca.png`, el resumen visual |
 
 ⚠️ **Douglas-Peucker colapsa los contornos cerrados**: la recta entre el primer y el último
 punto es degenerada y todas las distancias salen nulas. Hay que partir el bucle por el punto

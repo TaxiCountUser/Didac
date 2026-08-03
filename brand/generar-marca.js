@@ -38,9 +38,14 @@ const HUECOS = `<path d="M22 44 L36 27.5 L84 27.5 L98 44 Z"/>
         <path d="M107 58 L87 61 L87 65 L107 64 Z"/>
         <rect x="32" y="80.5" width="56" height="5" rx="2.5"/>`;
 
-// monograma en la parrilla: alto 26, centrado en la banda libre del frontal
+// Monograma en la parrilla: alto 16, centrado en la banda libre del frontal.
+// Empezo en 26 y pesaba demasiado: negro sobre ambar es el par de maximo
+// contraste del logo, asi que a ese tamaño el monograma tiraba mas de la vista
+// que el propio coche. A 16 es un emblema de parrilla y el coche vuelve a
+// leerse primero, sin perder legibilidad hasta ~24 px.
+const MONO_PARRILLA = 16;
 const monoCoche = (fill) =>
-  `<g transform="translate(60,64.25) scale(0.04235) translate(-270.5,-307)">` +
+  `<g transform="translate(60,64.25) scale(${(MONO_PARRILLA / 614).toFixed(6)}) translate(-270.5,-307)">` +
   `<path fill="${fill}" fill-rule="evenodd" d="${MONO}"/></g>`;
 
 let uid = 0;

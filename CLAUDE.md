@@ -96,6 +96,11 @@ go-live #4. Discutir abans de cada extracció; `node --check` + `npm test` verds
   **La marca definitiva (2026-07-31)** és el cotxe amb la **lligadura CT del titular** a la
   graella, i el nom compost en **Lora** vectoritzada: "Taxi" en fina, la lligadura fent de C,
   i "ount" en negreta. Un sol ambre `#FFC107` per al cotxe i per a "Count" — mai dos.
+  La lligadura de la graella fa **16 unitats d'alt** (`MONO_PARRILLA` a `generar-marca.js`;
+  2026-08-03, abans 26 i pesava massa). Per regenerar-ho tot: `node brand/generar-marca.js`
+  → `node brand/renderizar-png.js` (els 17 PNG de brand/, app i web de cop) →
+  `node brand/hoja-de-marca.js`, i si has tocat icones, `cd frontend && dart run
+  flutter_launcher_icons`. Detall a `brand/README.md`.
   `util/brand.dart` té tres ajudants:
   · `brandLogotipo(context)` — el logotip **com a imatge** (`assets/brand/logotipo.png`, o
     `logotipo-oscuro.png` si el tema és fosc, perquè "Taxi" en negre desapareixeria).
