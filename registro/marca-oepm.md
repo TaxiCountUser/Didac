@@ -1,14 +1,23 @@
 # Solicitud de marca nacional — OEPM
 
 Todo lo que hay que introducir en el formulario de la sede electrónica, listo para copiar.
-Fecha de preparación: 31 de julio de 2026.
+Fecha de preparación: 31 de julio de 2026. Actualizado el 3 de agosto de 2026 para
+**cotitularidad al 50%**.
 
 > Aviso: esto es material preparatorio, no asesoramiento jurídico firmado. La solicitud la
-> presenta y firma el titular.
+> presentan y firman los titulares.
+
+> ⚠️ **Requisitos previos:** el **acuerdo de cotitularidad** (`acuerdo-cotitularidad.md`)
+> firmado por ambos, y el **NIF y domicilio del segundo solicitante**, que son campos
+> obligatorios del formulario.
 
 ---
 
-## 1. Solicitante
+## 1. Solicitantes — cotitularidad al 50%
+
+La marca se solicita en **cotitularidad**, al cincuenta por ciento cada uno.
+
+**Solicitante 1**
 
 | Campo | Valor |
 |---|---|
@@ -17,13 +26,55 @@ Fecha de preparación: 31 de julio de 2026.
 | NIF | 41556654R |
 | Domicilio | Calle Tapis 37, 17600 Figueres (Girona), España |
 | Teléfono | +34 634 465 631 |
-| Correo de notificaciones | auxproduccio@gmail.com |
+| Correo | auxproduccio@gmail.com |
 | Nacionalidad / residencia | España |
-| Representante | Ninguno — presentación directa |
-| Firma | Certificado digital propio |
+| Cuota | 50% |
 
-El correo indicado es donde llegarán **todas** las notificaciones, incluidas las
-oposiciones de terceros, que tienen plazos cortos. Conviene vigilarlo.
+**Solicitante 2**
+
+| Campo | Valor |
+|---|---|
+| Tipo | Persona física |
+| Nombre y apellidos | Jordi Pujadas Serra |
+| NIF | ⬜ **PENDIENTE** |
+| Domicilio | ⬜ **PENDIENTE** (calle, número, código postal, población, provincia) |
+| Teléfono | ⬜ **PENDIENTE** |
+| Correo | tecinfo.jordi@gmail.com |
+| Nacionalidad / residencia | ⬜ **PENDIENTE** (se presume España) |
+| Cuota | 50% |
+
+| Campo | Valor |
+|---|---|
+| Domicilio a efectos de notificaciones | ⬜ **DECIDIR** — uno solo para los dos |
+| Representante | Ninguno — presentación directa |
+| Firma | Certificado digital de Didac Oliveras Galvez, autorizado por el otro cotitular en la cláusula novena del acuerdo de cotitularidad |
+
+⚠️ **Sin el NIF y el domicilio del segundo solicitante no se puede presentar.** Son campos
+obligatorios del formulario y no hay forma de dejarlos en blanco ni de completarlos después
+sin subsanación.
+
+El formulario admite **un solo domicilio a efectos de notificaciones** para toda la
+solicitud. Ahí llegarán **todas** las notificaciones, incluidas las oposiciones de terceros,
+que tienen plazos cortos: quien lo reciba debe trasladárselas al otro sin demora.
+
+### Régimen de la cotitularidad (art. 46 Ley 17/2001)
+
+Conviene tenerlo claro antes de firmar, porque no se elige: lo impone la ley.
+
+| Acto | Quién puede |
+|---|---|
+| Usar la marca | Cada cotitular por sí solo, notificándolo al otro |
+| Defenderla en juicio, civil o penal | Cada cotitular por sí solo |
+| Medidas urgentes para conservar el derecho (pagar una tasa que vence) | Cada cotitular por sí solo |
+| **Ceder la marca** | **Requiere el consentimiento de ambos** |
+| **Conceder licencias** | **Requiere el consentimiento de ambos** |
+| Explotarla un solo cotitular | Requiere el consentimiento de la mayoría |
+
+Es decir: cada uno tiene **derecho de veto** sobre la venta y la licencia. Y si uno quiere
+vender su mitad, el otro tiene derecho de adquisición preferente —tanteo y retracto— por ley,
+reforzado además en la cláusula quinta del acuerdo.
+
+Las tasas **no cambian** por añadir un segundo solicitante.
 
 ## 2. Modalidad
 

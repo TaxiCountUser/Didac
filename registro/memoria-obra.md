@@ -3,11 +3,12 @@
 Documento de apoyo a la solicitud de inscripción en el **Registro de la Propiedad
 Intelectual** de un programa de ordenador.
 
-Preparado el 30 de julio de 2026.
+Preparado el 30 de julio de 2026. Actualizado el 3 de agosto de 2026 para **cotitularidad de
+los derechos de explotación al 50%**.
 
-> ⚠️ **Requisito previo:** antes de presentar debe estar firmado el documento de
-> reconocimiento de coautoría y cesión de derechos sobre los textos legales (apartado 9).
-> Sin él, la declaración de titularidad exclusiva carece de respaldo.
+> ⚠️ **Requisito previo:** antes de presentar debe estar firmado el **acuerdo de
+> cotitularidad** (`acuerdo-cotitularidad.md`, apartado 9 de esta memoria). Sin él, la
+> declaración de titularidad compartida carece de respaldo.
 
 ---
 
@@ -18,9 +19,9 @@ Preparado el 30 de julio de 2026.
 | Título | TaxiCount — plataforma SaaS de gestión económica de flotas de taxi |
 | Clase de obra | Programa de ordenador |
 | Versión que se deposita | 1.0 |
-| Autor | Didac Oliveras Galvez, NIF 41556654R |
-| Domicilio | Calle Tapis 37, 17600 Figueres (Girona), España |
-| Titular de los derechos | El propio autor |
+| Autor del programa | Didac Oliveras Galvez, NIF 41556654R — Calle Tapis 37, 17600 Figueres (Girona), España |
+| Coautor de los textos legales incorporados | Jordi Pujadas Serra, NIF ⬜ **PENDIENTE** (ver apartado 9) |
+| Titulares de los derechos de explotación | Didac Oliveras Galvez **50%** · Jordi Pujadas Serra **50%**, en virtud del acuerdo de cotitularidad que se acompaña |
 | Fecha de creación | **19 de junio de 2026** (primera revisión del control de versiones, «Fase 0 completada: entorno dev validado») |
 | Divulgación | **Obra divulgada.** El repositorio de código es **público** desde su creación, el 21 de junio de 2026. La primera distribución pública de la aplicación compilada que se conserva es del **27 de junio de 2026** |
 | Registro donde se presenta | **Registro de la Propiedad Intelectual de Cataluña**, gestionado por la Generalitat |
@@ -47,13 +48,15 @@ El programa cubre el ciclo completo de explotación de una flota:
 
 | Componente | Lenguaje y tecnología | Volumen |
 |---|---|---|
-| Aplicación cliente | Dart, sobre Flutter | 27.198 líneas en 84 archivos |
-| Servidor de aplicación | JavaScript, sobre Node.js y Fastify | 10.066 líneas en 39 archivos |
-| Base de datos | SQL (PostgreSQL), en migraciones versionadas | 7.085 líneas en 84 archivos |
-| Automatización e infraestructura | YAML | 1.460 líneas en 17 archivos |
-| Documentación técnica | Markdown | 4.802 líneas en 43 archivos |
+| Aplicación cliente | Dart, sobre Flutter | 27.479 líneas en 86 archivos |
+| Servidor de aplicación | JavaScript, sobre Node.js y Fastify | 10.153 líneas en 39 archivos |
+| Base de datos | SQL (PostgreSQL), en migraciones versionadas | 7.101 líneas en 85 archivos |
+| **Subtotal de código** | | **44.733 líneas en 210 archivos** |
+| Automatización e infraestructura | YAML | 1.462 líneas en 17 archivos |
+| Documentación técnica | Markdown | 4.613 líneas en 41 archivos |
 
-**Total de código original: 44.349 líneas** repartidas en 425 archivos depositados.
+**Total: 50.808 líneas de código, automatización y documentación**, de las cuales 44.733 son
+código de programa en sentido estricto. El depósito comprende **342 archivos**.
 
 **Sistemas operativos y plataformas de destino:** Android (distribución por archivo APK y
 por Google Play) y navegador web. El servidor de aplicación se ejecuta sobre Node.js en un
@@ -161,7 +164,7 @@ flota.
 
 ## 7. Contenido del depósito
 
-Archivo `taxicount-codigo-fuente-v1.0.zip` — 425 archivos, 1,7 MB comprimido.
+Archivo `taxicount-codigo-fuente-v1.0.zip` — 342 archivos, 1,16 MB comprimido.
 
 Contiene el **código fuente original completo**: aplicación cliente, servidor de aplicación,
 migraciones de base de datos, pruebas automatizadas, guiones de infraestructura y
@@ -190,9 +193,12 @@ selección y disposición de los componentes y la lógica de negocio.
 
 ## 9. Autoría
 
-El historial de control de versiones registra **498 revisiones, todas ellas atribuidas a un
-único autor**, entre el 19 de junio y el 30 de julio de 2026. No consta ninguna revisión de
-terceros, tampoco en las migraciones de base de datos ni en la documentación legal.
+El historial de control de versiones registra **525 revisiones entre el 19 de junio y el 3 de
+agosto de 2026, todas ellas con la misma dirección de correo electrónico del autor**. Una sola
+de ellas figura con el nombre de su cuenta de la plataforma de alojamiento en lugar de su
+nombre personal, por haberse aceptado una fusión desde el navegador; el correo es el mismo y la
+persona también. **No consta ninguna revisión de terceros**, tampoco en las migraciones de base
+de datos ni en la documentación legal.
 
 **Objeto de la autoría reclamada.** El autor declara como propia la **concepción del
 producto, la arquitectura del sistema, la lógica de negocio, el modelo de datos, el diseño de
@@ -222,12 +228,25 @@ Conviene subrayar que estos textos legales **no son el programa de ordenador**: 
 documentación jurídica exigida por la normativa de protección de datos, incorporada al
 producto. Su presencia no altera la autoría del software.
 
-**Titularidad.** El solicitante concurre como **único titular** de los derechos de
-explotación de la obra. Ello es posible porque el Sr. Pujadas cede al autor, mediante el
-documento que se acompaña, la totalidad de los derechos de explotación sobre su aportación a
-los textos; su condición de coautor de esos textos se reconoce y se hace constar, por ser el
-derecho moral de paternidad irrenunciable e intransmisible.
+**Titularidad de los derechos de explotación.** Los derechos de explotación de la obra
+pertenecen a **D. Didac Oliveras Galvez y D. Jordi Pujadas Serra, al cincuenta por ciento cada
+uno**, en régimen de comunidad. Así resulta del acuerdo de cotitularidad que se acompaña, por
+el cual el autor cede al Sr. Pujadas una participación indivisa del 50% de la totalidad de los
+derechos de explotación, y el Sr. Pujadas aporta a la titularidad común los que le
+correspondían sobre su aportación a los textos legales.
+
+**Autoría y titularidad son cosas distintas, y aquí no coinciden.** El reparto al 50% afecta
+únicamente a los **derechos de explotación**, que son transmisibles. La **autoría** se declara
+tal como es: el programa de ordenador es obra exclusiva de D. Didac Oliveras Galvez, y los
+textos legales enumerados más arriba son obra en colaboración de ambos. Los **derechos morales**
+son irrenunciables e intransmisibles y permanecen en su respectivo autor; el acuerdo no los
+altera ni atribuye a ninguna de las partes la autoría de lo que no ha creado.
+
+Las partes han pactado además el reparto de facultades de decisión sobre la obra, de modo que
+el desarrollo, el mantenimiento y la publicación de nuevas versiones puede realizarlos
+cualquiera de los cotitulares por sí solo, mientras que la transmisión, el gravamen y las
+licencias exclusivas requieren el consentimiento de ambos.
 
 ⚠️ **Requisito previo a la presentación:** este documento —borrador en
-`cesion-textos-legales.md`— **debe estar firmado antes de inscribir**. Sin él, la declaración
-de titularidad exclusiva no tendría respaldo.
+`acuerdo-cotitularidad.md`— **debe estar firmado antes de inscribir**, y hace falta el NIF del
+Sr. Pujadas. Sin ambas cosas, la declaración de titularidad compartida no tendría respaldo.

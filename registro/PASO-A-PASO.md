@@ -1,26 +1,33 @@
 # Cómo presentar los dos registros
 
-Guía de presentación para Didac Oliveras Galvez. Preparada el 30 de julio de 2026.
+Guía de presentación para Didac Oliveras Galvez y Jordi Pujadas Serra. Preparada el 30 de
+julio de 2026. Actualizada el 3 de agosto de 2026: **ambos expedientes van en cotitularidad
+al 50%**.
 
-> Material preparatorio, no asesoramiento jurídico firmado. Las solicitudes las presenta y
-> firma el titular.
+> Material preparatorio, no asesoramiento jurídico firmado. Las solicitudes las presentan y
+> firman los titulares.
 
 ## El orden
 
-1. **Firmar el documento con Jordi.** Es requisito previo del segundo expediente y no
-   depende de nadie más.
-2. **Presentar la marca.** Va primero porque es la que tiene competencia: si otro registra
+1. **Conseguir el NIF y el domicilio de Jordi.** Sin eso no se puede presentar **ninguno** de
+   los dos: son campos obligatorios de los dos formularios.
+2. **Que un abogado revise el acuerdo de cotitularidad**, y un asesor fiscal la parte del
+   reparto de ingresos. Ya no es el documento de antes: reparte al 50% la propiedad del
+   producto y de la marca.
+3. **Firmar el acuerdo de cotitularidad.** Es requisito previo de los dos expedientes.
+4. **Presentar la marca.** Va primero porque es la que tiene competencia: si otro registra
    antes un signo parecido, se acabó. La propiedad intelectual no tiene esa carrera.
-3. **Presentar la propiedad intelectual.** Sin prisa: tus derechos sobre el código existen
-   desde que lo escribiste. Lo que inscribes es la prueba, no el derecho.
+5. **Presentar la propiedad intelectual.** Sin prisa: los derechos sobre el código existen
+   desde que se escribió. Lo que se inscribe es la prueba, no el derecho.
 
 ## Antes de empezar, comprueba que tienes
 
+- [ ] **NIF y domicilio completo de Jordi Pujadas Serra**
 - [ ] Certificado digital instalado en el navegador y **sin caducar**
 - [ ] Tarjeta o cuenta para pagar las tasas
 - [ ] `brand/taxicount-marca-mixta-color-oepm.png`
 - [ ] `pdf/0-datos-solicitud-marca.pdf` abierto al lado, para copiar y pegar
-- [ ] `pdf/2-cesion-textos-legales.pdf` **firmado por los dos**, escaneado
+- [ ] `pdf/2-acuerdo-cotitularidad.pdf` **firmado por los dos**, escaneado
 - [ ] `taxicount-codigo-fuente-v1.0.zip`
 - [ ] `pdf/1-memoria-de-la-obra.pdf`
 - [ ] Las carpetas `diagramas/` y `capturas/`
@@ -45,23 +52,23 @@ comercial*. Identifícate con el certificado digital.
 ### 3. La imagen
 
 Sube **`taxicount-marca-mixta-color-oepm.png`**. Es el único archivo que se adjunta. PNG,
-1922 × 320 px, fondo blanco, unos 40 KB, muy por debajo del límite de 2 MB.
+1774 × 350 px, fondo blanco, unos 36 KB, muy por debajo del límite de 2 MB.
 
 ### 4. Color
 
-Marca que **sí reivindicas color** e indica los tres:
+Marca que **sí reivindicas color** e indica los dos. Son dos, no tres: el coche y "Count"
+comparten exactamente el mismo ámbar.
 
 | Color | Hex | RGB |
 |---|---|---|
 | Amarillo ámbar | `#FFC107` | 255, 193, 7 |
-| Ámbar oscuro | `#FFB300` | 255, 179, 0 |
 | Negro cálido | `#1E1B16` | 30, 27, 22 |
 
 ### 5. Descripción del signo
 
 Copia y pega el párrafo del apartado 4 de `0-datos-solicitud-marca.pdf`. Describe el coche
-ámbar con el monograma TC en la parrilla y la denominación con "TAXI" en negro y "COUNT" en
-ámbar.
+ámbar con el monograma de la C y la T fundidas en la parrilla, y la denominación con "Taxi" en
+negro y fino y "Count" en ámbar y grueso.
 
 ### 6. Clases
 
@@ -74,17 +81,33 @@ Añade las **tres** y pega la redacción de cada una desde el apartado 6 del mis
 Si en algún momento el sistema te ofrece términos de una lista predefinida, acéptalos: los
 términos estandarizados dan menos problemas en el examen que una redacción libre.
 
-### 7. Solicitante
+### 7. Solicitantes — los dos
 
-Persona física. Nombre, NIF, domicilio, teléfono y correo, tal como figuran en el apartado 1
-del PDF. **Revisa dos veces el correo**: ahí llegarán todas las notificaciones, incluidas las
-oposiciones, que tienen plazos cortos.
+Busca la opción de **añadir un segundo solicitante** (la sede la llama *cotitular* o
+*solicitante adicional*). Rellena los dos con los datos del apartado 1 del PDF: persona
+física, nombre, NIF, domicilio, teléfono y correo. Si el formulario pide la **cuota**, es el
+**50%** para cada uno.
+
+Después designa **un único domicilio a efectos de notificaciones**, que es lo que admite el
+formulario. **Revísalo dos veces**: ahí llegarán todas las notificaciones, incluidas las
+oposiciones, que tienen plazos cortos, y quien las reciba tendrá que trasladárselas al otro.
+
+Si la sede no te deja añadir el segundo solicitante en el formulario telemático, **no
+presentes la solicitud a nombre de uno solo pensando en corregirlo luego**: añadir un
+cotitular después es un cambio de titularidad, con su propio trámite y su tasa. Llama antes al
+teléfono de información de la OEPM.
 
 ### 8. Revisar, firmar y pagar
 
-Descarga el borrador y léelo entero antes de firmar. Firma con el certificado y paga los
-293,56 €. **Guarda el justificante de pago y el número de expediente**, que es con lo que
-consultarás el estado.
+Descarga el borrador y léelo entero antes de firmar. Comprueba que **los dos solicitantes
+aparecen** y que las cuotas son 50% y 50%.
+
+Firma con el certificado y paga los 293,56 € — la tasa **no sube** por ser dos titulares.
+Firma Didac, autorizado por la cláusula novena del acuerdo de cotitularidad; si la sede exige
+la firma de ambos, Jordi tendrá que firmar también con su propio certificado.
+
+**Guarda el justificante de pago y el número de expediente**, que es con lo que consultaréis
+el estado.
 
 ### 9. Qué pasa después
 
@@ -130,14 +153,24 @@ Identifícate con el certificado digital.
 - Fecha de creación: **19 de junio de 2026**
 - Situación: **obra divulgada**, desde el **21 de junio de 2026**
 
-### 4. Autor y titular
+### 4. Autor y titulares — no son lo mismo, y aquí no coinciden
 
-Autor y titular de los derechos: tú, con tus datos personales.
+Este es el apartado donde más fácil es equivocarse. El formulario distingue **autor** de
+**titular de los derechos**, y hay que rellenarlos distinto:
 
-Si el formulario pregunta por otros autores o por obra en colaboración, la respuesta correcta
-es que **el programa es de autoría exclusiva tuya**. La coautoría de Jordi afecta solo a los
-textos legales incorporados, está descrita en el apartado 9 de la memoria y respaldada por el
-documento firmado, que aportas.
+- **Autor del programa:** Didac Oliveras Galvez, en exclusiva.
+- **Titulares de los derechos de explotación:** Didac Oliveras Galvez **50%** y Jordi Pujadas
+  Serra **50%**, en virtud del acuerdo de cotitularidad que se aporta.
+
+Si el formulario pregunta por **obra en colaboración**, la respuesta es que **el programa no lo
+es**: la coautoría de Jordi alcanza solo a los textos legales incorporados, y está descrita en
+el apartado 9 de la memoria.
+
+⚠️ **No declares a Jordi coautor del programa.** No lo es, sería una declaración inexacta en un
+registro público, y además arrastraría el artículo 7.2 del TRLPI, que exige el consentimiento
+de todos los coautores para modificar y divulgar la obra: haría falta su firma para publicar
+cada actualización. El 50% que se le reconoce es de **derechos de explotación**, que es
+transmisible, y así se ha estructurado a propósito.
 
 ### 5. Documentación que adjuntas
 
@@ -145,7 +178,7 @@ documento firmado, que aportas.
 |---|---|
 | `1-memoria-de-la-obra.pdf` | La memoria descriptiva |
 | `taxicount-codigo-fuente-v1.0.zip` | El código fuente, **en el formato que te hayan indicado en el paso 1** |
-| `2-cesion-textos-legales.pdf` | El documento firmado con Jordi |
+| `2-acuerdo-cotitularidad.pdf` | El acuerdo firmado con Jordi. **Es lo que acredita el 50/50**, sin él la titularidad compartida no tiene respaldo |
 | `diagramas/arquitectura.png` y `flujo-voz.png` | Los dos diagramas |
 | `capturas/` | Las 29 capturas de la interfaz |
 
@@ -167,3 +200,9 @@ que haya un problema.
 
 **Si registras una versión nueva del programa**, la inscripción de hoy no la cubre: fotografía
 la 1.0. Cuando haya un salto grande, se vuelve a inscribir.
+
+**Y ahora sois dos.** Desde el momento en que se concede, vender la marca, licenciarla o
+transmitir la obra **exige la firma de los dos**, por ley en el caso de la marca y por
+contrato en el de la obra. El desarrollo diario no: eso se pactó expresamente para que
+cualquiera pueda seguir publicando versiones por su cuenta. Y si alguno quiere salirse, la
+cláusula quinta obliga a ofrecer su mitad al otro antes que a un tercero.

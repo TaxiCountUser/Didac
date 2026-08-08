@@ -1,16 +1,44 @@
 # registro/ — expedientes de propiedad industrial e intelectual
 
 Material preparatorio para registrar TaxiCount. **No es asesoramiento jurídico firmado**:
-las solicitudes las presenta y firma el titular.
+las solicitudes las presentan y firman los titulares.
+
+**Ambos expedientes van en cotitularidad al 50%** entre Didac Oliveras Galvez y Jordi Pujadas
+Serra, decidido el 3 de agosto de 2026.
 
 ## Contenido
 
 | Archivo | Para qué sirve |
 |---|---|
-| `marca-oepm.md` | Expediente completo de la **marca** (Bloque 1, cerrado). Datos, descripción del signo, colores, clases 9/42/35, tasas y búsqueda de anterioridades |
-| `memoria-obra.md` | Memoria descriptiva de la obra para el **Registro de la Propiedad Intelectual** (Bloque 2, con apartados pendientes marcados) |
+| `PASO-A-PASO.md` | La guía de presentación de los dos expedientes, paso por paso |
+| `marca-oepm.md` | Expediente completo de la **marca**. Solicitantes, descripción del signo, colores, clases 9/42/35, tasas, régimen de cotitularidad y búsqueda de anterioridades |
+| `memoria-obra.md` | Memoria descriptiva de la obra para el **Registro de la Propiedad Intelectual** |
+| `acuerdo-cotitularidad.md` | El **acuerdo al 50%** a firmar con Jordi. Requisito previo de los dos expedientes |
 | `diagramas/` | Diagrama de arquitectura y diagrama del flujo de registro por voz, en SVG y PNG |
 | `capturas/` | Capturas de la interfaz obtenidas de la compilación de la versión depositada |
+
+## Lo que bloquea la presentación
+
+1. **El NIF y el domicilio de Jordi Pujadas Serra.** Campos obligatorios de los dos
+   formularios; no se puede presentar nada sin ellos.
+2. **El acuerdo de cotitularidad firmado.** Es lo que acredita el 50/50. Conviene que lo
+   revise un abogado y que un asesor fiscal vea la parte del reparto de ingresos: ya no
+   reparte unas páginas de documentación, reparte la propiedad del producto.
+3. **Seis capturas de Android** con la marca nueva, que solo puede hacer el titular porque
+   requieren sesión iniciada: `07-tutorial-1-bienvenida`, `12-eleccion-de-rol`,
+   `13-onboarding-configura-tu-flota`, `14-portada-del-conductor`, `15-empezar-jornada` y
+   `16-finalizar-jornada`.
+
+⚠️ **Autoría y titularidad no son lo mismo.** El 50/50 reparte los **derechos de explotación**,
+que son transmisibles. La **autoría** se declara tal como es: el programa es obra exclusiva de
+Didac, y solo los textos legales incorporados son obra en colaboración de los dos. Declarar a
+Jordi coautor del programa sería inexacto y, además, activaría el art. 7.2 del TRLPI, que
+exigiría su firma para publicar cada actualización. La razón de estructurarlo así está en el
+apartado 9 de la memoria y en la cláusula cuarta del acuerdo.
+
+`cesion-textos-legales.md` se eliminó el 3 de agosto de 2026: respondía al reparto anterior
+—Didac titular único, Jordi cediéndole los textos— y contradecía el actual. Lo sustituye
+`acuerdo-cotitularidad.md`. Si hace falta consultarlo, está en el historial de Git.
 
 El ZIP del código fuente **no se versiona** (es regenerable y pesa 1,7 MB). Para rehacerlo:
 
@@ -59,7 +87,7 @@ compilaciones anteriores).
 | `PASO-A-PASO.pdf` | La guía de presentación de los dos expedientes |
 | `0-datos-solicitud-marca.pdf` | Los datos a copiar en el formulario de la OEPM |
 | `1-memoria-de-la-obra.pdf` | La memoria que se adjunta al Registro de la Propiedad Intelectual |
-| `2-cesion-textos-legales.pdf` | El documento a firmar con Jordi Pujadas Serra |
+| `2-acuerdo-cotitularidad.pdf` | El acuerdo al 50% a firmar con Jordi Pujadas Serra |
 
 Se regeneran con `md2pdf.js`, un conversor mínimo de Markdown a HTML escrito para esto (no
 hay ninguno instalado en el equipo):
