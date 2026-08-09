@@ -23,9 +23,13 @@ Serra, decidido el 3 de agosto de 2026.
    formularios; no se puede presentar nada sin ellos.
 2. **El acuerdo de cotitularidad firmado.** Es lo que acredita el 50/50. Conviene que lo
    revise un abogado y que un asesor fiscal vea la parte del reparto de ingresos: ya no
-   reparte unas páginas de documentación, reparte la propiedad del producto. Quedan **tres
-   puntos por decidir** entre las partes: periodicidad de la liquidación, fórmula de salida y
-   si el 50% subsiste cuando uno deja de trabajar en el proyecto.
+   reparte unas páginas de documentación, reparte la propiedad del producto.
+
+   Reparto decidido el 2026-08-09: liquidación **anual**, con **primas de trabajo** acordadas
+   por escrito y deducidas antes de repartir el remanente al 50% —la prima retribuye el
+   trabajo, la cuota la propiedad—. Salida por **opción cruzada**: uno notifica una valoración
+   total y el otro elige entre vender su mitad o comprar la del notificante a ese precio. El
+   50% **subsiste con independencia de la dedicación**; lo que se ajusta es la prima.
 
    La cesión es del **50% sin precio en dinero**, con causa en la aportación recíproca de
    Jordi. Y el cobro sigue **de momento en la pasarela a nombre de Didac**, con liquidación

@@ -8,10 +8,14 @@ que respalda que ambos figuren como cotitulares.
 > unas páginas de documentación jurídica; este reparte al 50% la propiedad de todo el
 > producto y de la marca. Tiene consecuencias fiscales (cómo se factura y se reparte el
 > ingreso), societarias (si conviene una comunidad de bienes o una sociedad) y de control
-> (quién puede vender y quién no). Los apartados marcados **⬜ DECIDIR** son decisiones de
-> las partes que nadie puede tomar por vosotros: quedan **tres**, en las cláusulas sexta
-> (periodicidad de la liquidación), séptima (fórmula de salida) y octava (si el 50% subsiste
-> cuando uno deja de trabajar en el proyecto).
+> (quién puede vender y quién no).
+>
+> Ya no queda ningún **⬜ DECIDIR**: liquidación **anual** con **primas de trabajo** deducidas
+> antes del reparto, salida por **opción cruzada** (cláusula séptima) y el 50% **subsiste** con
+> independencia de la dedicación (cláusula octava). Lo que queda son los campos entre
+> corchetes y **tres avisos ⚠️** sobre las consecuencias de lo elegido: los criterios de la
+> prima, la asimetría entre las partes en la opción cruzada, y que la valoración de la
+> dedicación desigual es un compromiso de hablar y no un mecanismo automático.
 >
 > Sustituye íntegramente al borrador anterior de cesión de textos legales, que respondía a
 > un reparto distinto y ya no sirve.
@@ -172,13 +176,34 @@ séptima.
 
 ### Sexta — Ingresos, gastos y reparto
 
-Los ingresos netos derivados de la explotación de la Obra y de la marca, una vez deducidos los
-gastos necesarios, se reparten **al cincuenta por ciento**.
+La liquidación es **anual**, referida al año natural, y se practicará dentro de los tres meses
+siguientes a su cierre.
 
-Son gastos comunes, en la misma proporción: las tasas de registro y renovación, el
-alojamiento y los servicios de terceros necesarios para la operación, las pasarelas de pago y
-la defensa de los derechos. El Cotitular que atienda un gasto común por sí solo tendrá un
-crédito frente al otro por la mitad.
+El resultado se determina en este orden:
+
+1. **Ingresos** por la explotación de la Obra y de la marca.
+2. Menos los **gastos comunes**: tasas de registro y renovación, alojamiento y servicios de
+   terceros necesarios para la operación, comisiones de la pasarela de pago, asesoramiento y
+   defensa de los derechos. El Cotitular que atienda un gasto común por sí solo tendrá un
+   crédito frente al otro por la mitad.
+3. Menos las **primas de trabajo** del ejercicio, conforme al apartado siguiente.
+4. El **remanente se reparte al cincuenta por ciento**.
+
+**Primas de trabajo.** Las partes prevén que la retribución del trabajo efectivamente
+realizado por cada Cotitular se canalice mediante **primas acordadas por escrito entre ambos**,
+deducidas antes del reparto del remanente. La prima retribuye el **trabajo**; el reparto del
+remanente retribuye la **propiedad**. Son conceptos distintos y no se confunden: percibir prima
+no aumenta la cuota, y no percibirla no la reduce.
+
+A falta de acuerdo escrito sobre las primas de un ejercicio, **no se devengará ninguna** y el
+resultado neto se repartirá íntegramente al cincuenta por ciento.
+
+⚠️ **Ese incumplimiento por defecto favorece a quien menos trabaja**, porque quien ha
+dedicado el tiempo se queda sin compensarlo y cobra lo mismo que el otro. Si la prima va a ser
+el mecanismo principal —como las partes prevén—, conviene **pactar ahora los criterios**
+(qué se retribuye, con qué referencia horaria o por hitos, y con qué tope) en lugar de
+negociarlos cada año desde cero, cuando ya hay dinero encima de la mesa y la posición de cada
+uno depende de lo que haya pasado ese año.
 
 **Régimen transitorio hasta la constitución de la sociedad.** Las partes hacen constar que, a
 la fecha de este acuerdo, el cobro a los clientes se realiza a través de la pasarela de pago ya
@@ -202,8 +227,6 @@ La titularidad única de la cuenta no puede traducirse en opacidad sobre el dine
 trasladar a ella la facturación **tan pronto como resulte posible**, y a adaptar esta cláusula
 en ese momento.
 
-⬜ **DECIDIR — periodicidad de la liquidación:** `[mensual / trimestral / anual]`.
-
 ⚠️ **Esto exige asesor fiscal antes de firmar, y con más motivo por ser transitorio.** Que uno
 cobre y luego traspase la mitad al otro **no es neutro**: hay que decidir cómo se documenta ese
 traspaso —factura del otro Cotitular, reparto de comunidad de bienes u otra vía—, quién declara
@@ -218,22 +241,66 @@ los que exigen consentimiento de ambos no se alcanzara acuerdo, las partes se so
 **mediación** ante un mediador designado de común acuerdo. Fracasada la mediación, cualquiera
 podrá acudir a la jurisdicción ordinaria conforme a la cláusula décima.
 
-⬜ **DECIDIR — salida.** Conviene pactar ahora cómo se separan si un día no quieren seguir
-juntos. La fórmula habitual es que cualquiera pueda **ofrecer un precio por el 50% del otro**,
-y que el destinatario elija entre vender a ese precio o comprar en esas mismas condiciones.
-Fuerza a poner precios honestos y evita el bloqueo indefinido. Si no se pacta nada, la única
-salida es la división judicial de la cosa común, que es lenta y destruye valor.
+**Opción cruzada de compra y venta.** Cualquiera de los Cotitulares podrá, en cualquier
+momento, notificar al otro por escrito una **valoración total** de la Obra y de la marca en
+conjunto.
 
-### Octava — Permanencia de la titularidad
+Recibida la notificación, el destinatario dispondrá de **treinta días naturales** para elegir,
+sin poder negarse a ambas opciones:
+
+**a)** **Vender** su participación del 50% al notificante por la mitad de la valoración
+notificada; o
+**b)** **Comprar** la participación del notificante por esa misma mitad.
+
+El silencio transcurridos los treinta días equivale a la opción **a)**. Quien fija la
+valoración no sabe de qué lado quedará, lo que obliga a proponer una cifra honesta: es el
+mecanismo que evita el bloqueo indefinido sin necesidad de tasador, auditoría ni pleito.
+
+**Suelo.** La mitad de la valoración notificada no podrá ser inferior al 50% de los gastos
+comunes efectivamente soportados y aún no recuperados, para que la opción no sirva para
+expulsar al otro por un precio simbólico.
+
+**Pago.** El precio se abonará en el plazo de **treinta días naturales** desde la elección, o
+en un máximo de `[12 / 24]` mensualidades si así lo acuerdan; en tal caso la participación no
+se transmite hasta el pago íntegro.
+
+**Entrega y transición.** El Cotitular que venda se obliga a entregar al comprador todo lo
+necesario para seguir explotando la Obra —credenciales, claves, cuentas de los servicios,
+repositorios, documentación técnica y contactos— y a prestar **asistencia de transición durante
+sesenta días naturales**, retribuida conforme al régimen de primas. Cesará además en el uso de
+la marca.
+
+**Derechos morales.** La compraventa transmite derechos de explotación, no la autoría: los
+derechos morales de cada autor permanecen intactos conforme a la cláusula primera.
+
+⚠️ **Antes de firmar esta cláusula, mirad de frente la asimetría que hay hoy.** Los dos
+Cotitulares no están en la misma posición: uno es el autor del programa y el único capaz de
+desarrollarlo, y el otro no. Si el que sale es el autor, lo que el comprador adquiere pierde
+buena parte de su valor real por mucho que la entrega esté bien redactada; si el que sale es el
+otro, la operación apenas afecta a la continuidad. La cláusula de entrega y transición mitiga
+eso, pero no lo elimina. Es una razón para hablarlo ahora, y otra para que lo vea el abogado.
+
+### Octava — Permanencia de la titularidad y dedicación desigual
 
 Las partes hacen constar que la titularidad reconocida en este acuerdo es **propiedad, no
-retribución por trabajo**: subsiste aunque un Cotitular deje de dedicar tiempo o esfuerzo al
-proyecto.
+retribución por trabajo**: **subsiste íntegra aunque un Cotitular deje de dedicar tiempo o
+esfuerzo al proyecto.** Lo que varía con la dedicación es la **prima de trabajo** de la cláusula
+sexta, no la cuota del 50%.
 
-⬜ **DECIDIR — si esto es lo que queréis.** Es la consecuencia que más sorprende después. Si
-preferís que la participación se consolide progresivamente, o que se reduzca si uno abandona,
-hay que pactarlo aquí y ahora; después ya no se puede imponer. Alternativa habitual:
-consolidación por tramos a lo largo de `[24 / 36 / 48]` meses, con un mínimo garantizado.
+Si uno de los Cotitulares reduce o cesa de forma sostenida su dedicación, las partes se obligan
+a **reunirse y valorar de buena fe** las consecuencias, y en particular el ajuste de las primas
+del ejercicio. Esa valoración **no altera por sí sola la titularidad**, que solo puede
+modificarse por acuerdo de ambos o por la vía de la cláusula séptima.
+
+⚠️ **Esto es un compromiso de hablar, no un mecanismo.** Tal como queda redactado, si uno
+abandona y no quiere renegociar nada, conserva su 50% y la única salida del otro es la opción
+cruzada de la cláusula séptima —es decir, pagar. Si queréis que la dedicación tenga
+consecuencias automáticas, hace falta fijar **un disparador y una consecuencia** concretos, por
+ejemplo: dedicación inferior a `[__]` horas mensuales durante `[6]` meses consecutivos, con el
+efecto de `[perder el derecho a prima / ofrecer obligatoriamente su participación conforme a la
+cláusula séptima]`. Con la estructura de primas que habéis elegido esto es menos urgente que en
+un reparto plano, porque el trabajo ya se retribuye aparte; pero conviene decidir si se deja
+así a propósito.
 
 ### Novena — Declaraciones de las partes
 
