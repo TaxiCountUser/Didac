@@ -9,7 +9,9 @@ que respalda que ambos figuren como cotitulares.
 > producto y de la marca. Tiene consecuencias fiscales (cómo se factura y se reparte el
 > ingreso), societarias (si conviene una comunidad de bienes o una sociedad) y de control
 > (quién puede vender y quién no). Los apartados marcados **⬜ DECIDIR** son decisiones de
-> las partes que nadie puede tomar por vosotros.
+> las partes que nadie puede tomar por vosotros: quedan **tres**, en las cláusulas sexta
+> (periodicidad de la liquidación), séptima (fórmula de salida) y octava (si el 50% subsiste
+> cuando uno deja de trabajar en el proyecto).
 >
 > Sustituye íntegramente al borrador anterior de cesión de textos legales, que respondía a
 > un reparto distinto y ya no sirve.
@@ -95,10 +97,19 @@ En consecuencia, los derechos de explotación de la Obra pertenecen a ambos Coti
 cincuenta por ciento cada uno**, en régimen de comunidad, rigiéndose por lo pactado en este
 acuerdo y, en lo no previsto, por los artículos 392 y siguientes del Código Civil.
 
-⬜ **DECIDIR — contraprestación.** Indicar si la cesión es gratuita o si media precio, y en
-tal caso cuál: `[gratuita / precio de ____ €]`. Constar algo aquí importa: una cesión sin
-causa expresada es más fácil de discutir, y el tratamiento fiscal de una y otra no es el
-mismo.
+**Contraprestación.** La cesión se realiza **sin precio en dinero**. No es, sin embargo, una
+liberalidad: tiene por causa la **aportación recíproca** de D. Jordi Pujadas Serra, consistente
+en los derechos de explotación que le correspondían sobre su aportación a los Textos y en su
+colaboración en materia de seguridad de la aplicación y protección de datos personales, sin la
+cual la Obra no habría podido explotarse conforme a la normativa aplicable. Ambas partes
+reconocen esta reciprocidad como causa suficiente y equivalente de sus respectivas
+atribuciones.
+
+⚠️ **Que esto lo confirme el asesor fiscal antes de firmar.** La diferencia entre una cesión
+con causa recíproca y una cesión gratuita no es de redacción: una transmisión sin
+contraprestación entre personas sin parentesco puede calificarse de **donación** y tributar por
+el Impuesto sobre Sucesiones y Donaciones, que entre extraños es caro. Por eso la causa se
+expresa aquí de forma explícita, pero la calificación final no la decide este documento.
 
 ### Tercera — Cotitularidad de la marca
 
@@ -169,15 +180,36 @@ alojamiento y los servicios de terceros necesarios para la operación, las pasar
 la defensa de los derechos. El Cotitular que atienda un gasto común por sí solo tendrá un
 crédito frente al otro por la mitad.
 
-⬜ **DECIDIR — mecánica del reparto.** Con qué periodicidad se liquida (`[mensual /
-trimestral / anual]`), quién factura al cliente y a través de qué cuenta, y quién lleva la
-contabilidad.
+**Régimen transitorio hasta la constitución de la sociedad.** Las partes hacen constar que, a
+la fecha de este acuerdo, el cobro a los clientes se realiza a través de la pasarela de pago ya
+operativa, **domiciliada a nombre de D. Didac Oliveras Galvez como única titularidad**, por no
+existir todavía una entidad que pueda serlo.
 
-⚠️ **Esto exige asesor fiscal antes de firmar.** Hoy la facturación se cobra por Stripe
-contra una única titularidad. Repartir el resultado al 50% entre dos personas físicas no es
-neutro: según cómo se instrumente puede requerir una comunidad de bienes, una sociedad, o
-facturación cruzada entre los Cotitulares, y la opción equivocada se paga en impuestos y en
-inspecciones. Ninguna redacción de este documento resuelve eso.
+Mientras esa situación persista:
+
+**a)** D. Didac Oliveras Galvez recibirá los cobros y **liquidará a D. Jordi Pujadas Serra el
+cincuenta por ciento del resultado neto**, una vez deducidos los gastos comunes de la cláusula
+anterior.
+
+**b)** Los importes pendientes de liquidar se entienden **percibidos por cuenta de ambos
+Cotitulares** y no se integran en el patrimonio libre de quien los recibe.
+
+**c)** D. Didac Oliveras Galvez facilitará al otro Cotitular **acceso de consulta a la pasarela
+de pago**, o en su defecto un detalle periódico de cobros, devoluciones, comisiones y gastos.
+La titularidad única de la cuenta no puede traducirse en opacidad sobre el dinero común.
+
+**d)** Ambas partes se obligan a **constituir una entidad** que asuma la explotación y a
+trasladar a ella la facturación **tan pronto como resulte posible**, y a adaptar esta cláusula
+en ese momento.
+
+⬜ **DECIDIR — periodicidad de la liquidación:** `[mensual / trimestral / anual]`.
+
+⚠️ **Esto exige asesor fiscal antes de firmar, y con más motivo por ser transitorio.** Que uno
+cobre y luego traspase la mitad al otro **no es neutro**: hay que decidir cómo se documenta ese
+traspaso —factura del otro Cotitular, reparto de comunidad de bienes u otra vía—, quién declara
+el ingreso y con qué retención. Elegir mal se paga en impuestos y en inspecciones, y el
+perjudicado suele ser el que aparece como titular de la cuenta. Ninguna redacción de este
+documento resuelve eso.
 
 ### Séptima — Desbloqueo y valoración
 

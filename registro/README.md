@@ -23,7 +23,14 @@ Serra, decidido el 3 de agosto de 2026.
    formularios; no se puede presentar nada sin ellos.
 2. **El acuerdo de cotitularidad firmado.** Es lo que acredita el 50/50. Conviene que lo
    revise un abogado y que un asesor fiscal vea la parte del reparto de ingresos: ya no
-   reparte unas páginas de documentación, reparte la propiedad del producto.
+   reparte unas páginas de documentación, reparte la propiedad del producto. Quedan **tres
+   puntos por decidir** entre las partes: periodicidad de la liquidación, fórmula de salida y
+   si el 50% subsiste cuando uno deja de trabajar en el proyecto.
+
+   La cesión es del **50% sin precio en dinero**, con causa en la aportación recíproca de
+   Jordi. Y el cobro sigue **de momento en la pasarela a nombre de Didac**, con liquidación
+   del 50% al otro y obligación de transparencia, hasta que se constituya la sociedad que
+   asuma la facturación.
 3. **Seis capturas de Android** con la marca nueva, que solo puede hacer el titular porque
    requieren sesión iniciada: `07-tutorial-1-bienvenida`, `12-eleccion-de-rol`,
    `13-onboarding-configura-tu-flota`, `14-portada-del-conductor`, `15-empezar-jornada` y
