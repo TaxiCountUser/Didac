@@ -20,7 +20,7 @@ los derechos de explotación al 50%**.
 | Clase de obra | Programa de ordenador |
 | Versión que se deposita | 1.0 |
 | Autor del programa | Didac Oliveras Galvez, NIF 41556654R — Calle Tapis 37, 17600 Figueres (Girona), España |
-| Coautor de los textos legales incorporados | Jordi Pujadas Serra, NIF ⬜ **PENDIENTE** (ver apartado 9) |
+| Coautor de los textos legales incorporados | Jordi Pujadas Serra, NIF 41558334W — Carrer Nou 4, 17722 Darnius (Girona), España (ver apartado 9) |
 | Titulares de los derechos de explotación | Didac Oliveras Galvez **50%** · Jordi Pujadas Serra **50%**, en virtud del acuerdo de cotitularidad que se acompaña |
 | Fecha de creación | **19 de junio de 2026** (primera revisión del control de versiones, «Fase 0 completada: entorno dev validado») |
 | Divulgación | **Obra divulgada.** El repositorio de código es **público** desde su creación, el 21 de junio de 2026. La primera distribución pública de la aplicación compilada que se conserva es del **27 de junio de 2026** |
@@ -248,5 +248,5 @@ cualquiera de los cotitulares por sí solo, mientras que la transmisión, el gra
 licencias exclusivas requieren el consentimiento de ambos.
 
 ⚠️ **Requisito previo a la presentación:** este documento —borrador en
-`acuerdo-cotitularidad.md`— **debe estar firmado antes de inscribir**, y hace falta el NIF del
-Sr. Pujadas. Sin ambas cosas, la declaración de titularidad compartida no tendría respaldo.
+`acuerdo-cotitularidad.md`— **debe estar firmado antes de inscribir**. Sin él, la declaración
+de titularidad compartida no tendría respaldo.

@@ -31,8 +31,8 @@ En [LUGAR], a [FECHA].
 De una parte, **D. Didac Oliveras Galvez**, mayor de edad, con NIF 41556654R y domicilio en
 Calle Tapis 37, 17600 Figueres (Girona), correo auxproduccio@gmail.com.
 
-De otra parte, **D. Jordi Pujadas Serra**, mayor de edad, con NIF [NIF] y domicilio en
-[DOMICILIO], correo tecinfo.jordi@gmail.com.
+De otra parte, **D. Jordi Pujadas Serra**, mayor de edad, con NIF 41558334W y domicilio en
+Carrer Nou 4, 17722 Darnius (Girona), correo tecinfo.jordi@gmail.com.
 
 En adelante, conjuntamente, «los Cotitulares», y cada uno de ellos «el Cotitular».
 
@@ -158,21 +158,78 @@ la Ley de Propiedad Intelectual, y que rige en su lugar el reparto de facultades
 cláusula. Esta es la razón de haber estructurado así el acuerdo: permite que el desarrollo
 diario no dependa de recabar firmas.
 
-### Quinta — Derecho de adquisición preferente
+### Quinta — Derecho de adquisición preferente frente a terceros
 
-El Cotitular que desee transmitir su participación a un tercero deberá **ofrecerla primero al
-otro Cotitular**, por escrito, con indicación del precio y de las condiciones ofrecidas por
-el tercero. El otro Cotitular dispondrá de **treinta días naturales** para aceptar en esas
-mismas condiciones.
+Ningún Cotitular podrá transmitir su participación a un tercero sin ofrecerla antes al otro,
+**cualquiera que sea el precio ofrecido y por elevado que sea**. Que exista ya un comprador
+dispuesto no debilita este derecho: es precisamente el supuesto que esta cláusula regula.
 
-Transcurrido el plazo sin aceptación, podrá transmitirla al tercero, pero **nunca en
-condiciones más favorables** que las ofrecidas. La transmisión realizada sin respetar este
-derecho será ineficaz frente al otro Cotitular, que podrá subrogarse en el lugar del
-adquirente reembolsándole el precio.
+**a) La oferta del tercero debe ser real y estar firmada.** El Cotitular que quiera vender solo
+podrá activar este procedimiento presentando una **oferta vinculante, escrita y firmada por el
+tercero adquirente**, en la que consten como mínimo:
 
-En caso de fallecimiento de un Cotitular, el otro tendrá el mismo derecho de adquisición
-preferente frente a los herederos, por el valor que se determine conforme a la cláusula
-séptima.
+1. La identificación completa del oferente y, si es una sociedad, de quien la representa y en
+   virtud de qué poder.
+2. El **precio** ofrecido y el objeto exacto de la compra.
+3. La **forma y el calendario de pago**, y las garantías que se ofrecen.
+4. Las demás condiciones relevantes: obligaciones de permanencia, de no competencia, de
+   asistencia posterior o cualesquiera otras que se exijan al vendedor.
+5. La **aceptación expresa por el tercero de que su oferta queda sujeta al derecho de
+   adquisición preferente** regulado en esta cláusula y al plazo previsto en la letra b).
+
+No sirve una intención verbal, una carta de interés no vinculante ni una cifra mencionada sin
+respaldo. **Esta exigencia protege a los dos**: impide que ninguno pueda inventarse un
+comprador ficticio para forzar al otro a comprar su mitad a un precio inflado o a resignarse a
+un socio impuesto.
+
+**b) Plazo para pensárselo.** Recibida copia íntegra de la oferta y de sus anexos, el otro
+Cotitular dispondrá de **sesenta días naturales** para decidir. El plazo se ampliará hasta
+**noventa** si acredita por escrito que está gestionando financiación. Ambos podrán acordar
+prórrogas adicionales.
+
+El plazo es deliberadamente largo: se trata de decisiones de mucho dinero y quien las recibe
+necesita tiempo para valorar el negocio y, sobre todo, para conseguir el importe.
+
+**c) Derecho a quedarse con la participación.** Dentro de ese plazo, el otro Cotitular podrá
+adquirir la participación **en las mismas condiciones y por el mismo precio** ofrecidos por el
+tercero. Nada impide que las partes convengan libremente un precio inferior, ni que el
+vendedor lo acepte; lo que no puede es exigirse uno superior.
+
+Si las condiciones del tercero incluyen prestaciones no dinerarias o de imposible cumplimiento
+por el otro Cotitular —una permuta por acciones, por ejemplo—, éste podrá sustituirlas por su
+**equivalente en dinero**, determinado de común acuerdo o, en su defecto, por un tercero
+independiente designado conforme a la cláusula séptima.
+
+**d) Si no ejercita el derecho.** Transcurrido el plazo sin ejercicio, el vendedor podrá
+transmitir **a ese tercero y solo a él**, en las condiciones exactas notificadas y **nunca en
+otras más favorables para el comprador**, dentro de los **seis meses** siguientes. Pasado ese
+plazo, o si cambia cualquier condición relevante, **el procedimiento vuelve a empezar**.
+
+**e) Incumplimiento y simulación.** La transmisión realizada sin respetar este derecho, o
+amparada en una oferta simulada, será **ineficaz frente al otro Cotitular**, que podrá
+subrogarse en el lugar del adquirente reembolsándole el precio realmente pagado, en el plazo de
+un año desde que tuvo conocimiento de la operación.
+
+**f) Derecho de acompañamiento.** *(Cláusula opcional: suprimirla si no se desea.)* Si el otro
+Cotitular no ejercita su derecho de adquisición, podrá exigir al vendedor que **incluya también
+su propia participación en la venta**, en las mismas condiciones y precio por unidad. El
+vendedor no podrá cerrar la operación si el tercero no acepta comprar ambas participaciones.
+Sirve para no acabar de socio de un desconocido sin haberlo elegido: o compras, o vendes con
+él, pero no te quedas atrapado.
+
+**g) Fallecimiento.** En caso de fallecimiento de un Cotitular, el otro tendrá el mismo derecho
+de adquisición preferente frente a los herederos, por el valor que se determine conforme a la
+cláusula séptima.
+
+**h) Relación con la cláusula séptima.** Cuando exista oferta de un tercero se aplica esta
+cláusula quinta. La opción cruzada de la cláusula séptima es para cuando **no** la hay y las
+partes quieren separarse igualmente. **La opción cruzada no puede utilizarse para eludir este
+derecho de adquisición preferente**: si se activa mientras hay una oferta de tercero en curso,
+prevalece lo dispuesto aquí.
+
+**i) Ofertas por la totalidad.** Si un tercero ofrece adquirir el conjunto de la Obra y de la
+marca, la operación requiere el **consentimiento de ambos** conforme a la cláusula cuarta. Este
+acuerdo no obliga a ninguno de los Cotitulares a vender.
 
 ### Sexta — Ingresos, gastos y reparto
 
@@ -339,4 +396,4 @@ Y en prueba de conformidad, firman por duplicado en el lugar y fecha indicados.
 |  |  |
 |---|---|
 | <br><br>D. Didac Oliveras Galvez | <br><br>D. Jordi Pujadas Serra |
-| NIF 41556654R | NIF [NIF] |
+| NIF 41556654R | NIF 41558334W |

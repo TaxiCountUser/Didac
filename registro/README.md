@@ -19,9 +19,7 @@ Serra, decidido el 3 de agosto de 2026.
 
 ## Lo que bloquea la presentación
 
-1. **El NIF y el domicilio de Jordi Pujadas Serra.** Campos obligatorios de los dos
-   formularios; no se puede presentar nada sin ellos.
-2. **El acuerdo de cotitularidad firmado.** Es lo que acredita el 50/50. Conviene que lo
+1. **El acuerdo de cotitularidad firmado.** Es lo que acredita el 50/50. Conviene que lo
    revise un abogado y que un asesor fiscal vea la parte del reparto de ingresos: ya no
    reparte unas páginas de documentación, reparte la propiedad del producto.
 
@@ -35,7 +33,7 @@ Serra, decidido el 3 de agosto de 2026.
    Jordi. Y el cobro sigue **de momento en la pasarela a nombre de Didac**, con liquidación
    del 50% al otro y obligación de transparencia, hasta que se constituya la sociedad que
    asuma la facturación.
-3. **Seis capturas de Android** con la marca nueva, que solo puede hacer el titular porque
+2. **Seis capturas de Android** con la marca nueva, que solo puede hacer el titular porque
    requieren sesión iniciada: `07-tutorial-1-bienvenida`, `12-eleccion-de-rol`,
    `13-onboarding-configura-tu-flota`, `14-portada-del-conductor`, `15-empezar-jornada` y
    `16-finalizar-jornada`.
@@ -88,6 +86,21 @@ cd frontend && flutter build web --release --no-wasm-dry-run
 Si la compilación falla al resolver paquetes en `.dart_tool`, hay que hacer
 `flutter clean && flutter pub get` antes (queda un registrante de plugins cacheado de
 compilaciones anteriores).
+
+## La carpeta con todo dentro
+
+```bash
+node registro/preparar-expediente.js
+```
+
+Deja en `registro/EXPEDIENTE/` todo lo que hay que llevar a los dos trámites, ordenado por el
+orden en que se usa: la guía en la raíz, `1-PARA-FIRMAR/` con el acuerdo, `2-MARCA-OEPM/` con
+los datos y la imagen, y `3-PROPIEDAD-INTELECTUAL/` con la memoria, el código, los diagramas y
+las capturas. Lleva su propio `INDICE.md`.
+
+La carpeta **no se versiona** y se borra y rehace en cada pasada, para que no queden restos de
+versiones anteriores que alguien pudiera acabar firmando por error. Hay que relanzarlo después
+de tocar cualquier `.md` y regenerar los PDF.
 
 ## PDF listos para presentar
 

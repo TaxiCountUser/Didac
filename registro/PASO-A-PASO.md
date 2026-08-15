@@ -9,20 +9,17 @@ al 50%**.
 
 ## El orden
 
-1. **Conseguir el NIF y el domicilio de Jordi.** Sin eso no se puede presentar **ninguno** de
-   los dos: son campos obligatorios de los dos formularios.
-2. **Que un abogado revise el acuerdo de cotitularidad**, y un asesor fiscal la parte del
+1. **Que un abogado revise el acuerdo de cotitularidad**, y un asesor fiscal la parte del
    reparto de ingresos. Ya no es el documento de antes: reparte al 50% la propiedad del
    producto y de la marca.
-3. **Firmar el acuerdo de cotitularidad.** Es requisito previo de los dos expedientes.
-4. **Presentar la marca.** Va primero porque es la que tiene competencia: si otro registra
+2. **Firmar el acuerdo de cotitularidad.** Es requisito previo de los dos expedientes.
+3. **Presentar la marca.** Va primero porque es la que tiene competencia: si otro registra
    antes un signo parecido, se acabó. La propiedad intelectual no tiene esa carrera.
-5. **Presentar la propiedad intelectual.** Sin prisa: los derechos sobre el código existen
+4. **Presentar la propiedad intelectual.** Sin prisa: los derechos sobre el código existen
    desde que se escribió. Lo que se inscribe es la prueba, no el derecho.
 
 ## Antes de empezar, comprueba que tienes
 
-- [ ] **NIF y domicilio completo de Jordi Pujadas Serra**
 - [ ] Certificado digital instalado en el navegador y **sin caducar**
 - [ ] Tarjeta o cuenta para pagar las tasas
 - [ ] `brand/taxicount-marca-mixta-color-oepm.png`

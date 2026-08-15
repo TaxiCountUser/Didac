@@ -7,9 +7,8 @@ Fecha de preparación: 31 de julio de 2026. Actualizado el 3 de agosto de 2026 p
 > Aviso: esto es material preparatorio, no asesoramiento jurídico firmado. La solicitud la
 > presentan y firman los titulares.
 
-> ⚠️ **Requisitos previos:** el **acuerdo de cotitularidad** (`acuerdo-cotitularidad.md`)
-> firmado por ambos, y el **NIF y domicilio del segundo solicitante**, que son campos
-> obligatorios del formulario.
+> ⚠️ **Requisito previo:** el **acuerdo de cotitularidad** (`acuerdo-cotitularidad.md`)
+> firmado por ambos.
 
 ---
 
@@ -36,11 +35,11 @@ La marca se solicita en **cotitularidad**, al cincuenta por ciento cada uno.
 |---|---|
 | Tipo | Persona física |
 | Nombre y apellidos | Jordi Pujadas Serra |
-| NIF | ⬜ **PENDIENTE** |
-| Domicilio | ⬜ **PENDIENTE** (calle, número, código postal, población, provincia) |
-| Teléfono | ⬜ **PENDIENTE** |
+| NIF | 41558334W |
+| Domicilio | Carrer Nou 4, 17722 Darnius (Girona), España |
+| Teléfono | ⬜ *opcional — indicarlo si el formulario lo exige* |
 | Correo | tecinfo.jordi@gmail.com |
-| Nacionalidad / residencia | ⬜ **PENDIENTE** (se presume España) |
+| Nacionalidad / residencia | España |
 | Cuota | 50% |
 
 | Campo | Valor |
@@ -48,10 +47,6 @@ La marca se solicita en **cotitularidad**, al cincuenta por ciento cada uno.
 | Domicilio a efectos de notificaciones | ⬜ **DECIDIR** — uno solo para los dos |
 | Representante | Ninguno — presentación directa |
 | Firma | Certificado digital de Didac Oliveras Galvez, autorizado por el otro cotitular en la cláusula novena del acuerdo de cotitularidad |
-
-⚠️ **Sin el NIF y el domicilio del segundo solicitante no se puede presentar.** Son campos
-obligatorios del formulario y no hay forma de dejarlos en blanco ni de completarlos después
-sin subsanación.
 
 El formulario admite **un solo domicilio a efectos de notificaciones** para toda la
 solicitud. Ahí llegarán **todas** las notificaciones, incluidas las oposiciones de terceros,
