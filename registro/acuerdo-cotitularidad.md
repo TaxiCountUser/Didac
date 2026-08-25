@@ -1,27 +1,5 @@
 # Acuerdo de cotitularidad al 50% sobre TaxiCount
 
-**Borrador.** Documento privado entre las partes. No se presenta en ningún registro, pero
-debe estar firmado **antes** de presentar cualquiera de los dos expedientes, porque es lo
-que respalda que ambos figuren como cotitulares.
-
-> ⚠️ **Este documento pide abogado, no solo revisión.** El anterior repartía derechos sobre
-> unas páginas de documentación jurídica; este reparte al 50% la propiedad de todo el
-> producto y de la marca. Tiene consecuencias fiscales (cómo se factura y se reparte el
-> ingreso), societarias (si conviene una comunidad de bienes o una sociedad) y de control
-> (quién puede vender y quién no).
->
-> Ya no queda ningún **⬜ DECIDIR**: liquidación **anual** con **primas de trabajo** deducidas
-> antes del reparto, salida por **opción cruzada** (cláusula séptima) y el 50% **subsiste** con
-> independencia de la dedicación (cláusula octava). Lo que queda son los campos entre
-> corchetes y **tres avisos ⚠️** sobre las consecuencias de lo elegido: los criterios de la
-> prima, la asimetría entre las partes en la opción cruzada, y que la valoración de la
-> dedicación desigual es un compromiso de hablar y no un mecanismo automático.
->
-> Sustituye íntegramente al borrador anterior de cesión de textos legales, que respondía a
-> un reparto distinto y ya no sirve.
-
-Firma y lugar ya constan. Los corchetes que quedan son opciones dentro de las cláusulas séptima y octava, no huecos a rellenar.
-
 ---
 
 En Figueres, a 25 de agosto de 2026.
@@ -108,12 +86,6 @@ colaboración en materia de seguridad de la aplicación y protección de datos p
 cual la Obra no habría podido explotarse conforme a la normativa aplicable. Ambas partes
 reconocen esta reciprocidad como causa suficiente y equivalente de sus respectivas
 atribuciones.
-
-⚠️ **Que esto lo confirme el asesor fiscal antes de firmar.** La diferencia entre una cesión
-con causa recíproca y una cesión gratuita no es de redacción: una transmisión sin
-contraprestación entre personas sin parentesco puede calificarse de **donación** y tributar por
-el Impuesto sobre Sucesiones y Donaciones, que entre extraños es caro. Por eso la causa se
-expresa aquí de forma explícita, pero la calificación final no la decide este documento.
 
 ### Tercera — Cotitularidad de la marca
 
@@ -210,7 +182,7 @@ amparada en una oferta simulada, será **ineficaz frente al otro Cotitular**, qu
 subrogarse en el lugar del adquirente reembolsándole el precio realmente pagado, en el plazo de
 un año desde que tuvo conocimiento de la operación.
 
-**f) Derecho de acompañamiento.** *(Cláusula opcional: suprimirla si no se desea.)* Si el otro
+**f) Derecho de acompañamiento.** Si el otro
 Cotitular no ejercita su derecho de adquisición, podrá exigir al vendedor que **incluya también
 su propia participación en la venta**, en las mismas condiciones y precio por unidad. El
 vendedor no podrá cerrar la operación si el tercero no acepta comprar ambas participaciones.
@@ -255,13 +227,6 @@ no aumenta la cuota, y no percibirla no la reduce.
 A falta de acuerdo escrito sobre las primas de un ejercicio, **no se devengará ninguna** y el
 resultado neto se repartirá íntegramente al cincuenta por ciento.
 
-⚠️ **Ese incumplimiento por defecto favorece a quien menos trabaja**, porque quien ha
-dedicado el tiempo se queda sin compensarlo y cobra lo mismo que el otro. Si la prima va a ser
-el mecanismo principal —como las partes prevén—, conviene **pactar ahora los criterios**
-(qué se retribuye, con qué referencia horaria o por hitos, y con qué tope) en lugar de
-negociarlos cada año desde cero, cuando ya hay dinero encima de la mesa y la posición de cada
-uno depende de lo que haya pasado ese año.
-
 **Régimen transitorio hasta la constitución de la sociedad.** Las partes hacen constar que, a
 la fecha de este acuerdo, el cobro a los clientes se realiza a través de la pasarela de pago ya
 operativa, **domiciliada a nombre de D. Didac Oliveras Galvez como única titularidad**, por no
@@ -284,13 +249,6 @@ La titularidad única de la cuenta no puede traducirse en opacidad sobre el dine
 trasladar a ella la facturación **tan pronto como resulte posible**, y a adaptar esta cláusula
 en ese momento.
 
-⚠️ **Esto exige asesor fiscal antes de firmar, y con más motivo por ser transitorio.** Que uno
-cobre y luego traspase la mitad al otro **no es neutro**: hay que decidir cómo se documenta ese
-traspaso —factura del otro Cotitular, reparto de comunidad de bienes u otra vía—, quién declara
-el ingreso y con qué retención. Elegir mal se paga en impuestos y en inspecciones, y el
-perjudicado suele ser el que aparece como titular de la cuenta. Ninguna redacción de este
-documento resuelve eso.
-
 ### Séptima — Desbloqueo y valoración
 
 Si transcurridos **sesenta días naturales** desde que un Cotitular someta al otro un asunto de
@@ -298,27 +256,55 @@ los que exigen consentimiento de ambos no se alcanzara acuerdo, las partes se so
 **mediación** ante un mediador designado de común acuerdo. Fracasada la mediación, cualquiera
 podrá acudir a la jurisdicción ordinaria conforme a la cláusula décima.
 
+**Valoración por experto independiente.** Siempre que este acuerdo remita a la determinación
+de un valor por un tercero —señaladamente, el equivalente en dinero de prestaciones no
+dinerarias y el valor de la participación frente a los herederos, previstos en la cláusula
+quinta—, se procederá del siguiente modo:
+
+**a)** Las partes designarán de común acuerdo a un **experto independiente**, economista,
+auditor de cuentas o entidad especializada en valoración de empresas.
+
+**b)** Si no hubiera acuerdo sobre su designación en el plazo de **treinta días naturales**, lo
+designará, a instancia de cualquiera de las partes, el **Colegio de Economistas de Cataluña**.
+
+**c)** El experto emitirá su valoración en el plazo de **sesenta días naturales**, atendiendo a
+los ingresos recurrentes, la base de clientes, el estado de los registros y el valor de la marca.
+Su determinación será **vinculante** para ambas partes, salvo error manifiesto.
+
+**d)** Los **honorarios del experto se sufragan al cincuenta por ciento**, con independencia de
+cuál sea el resultado.
+
 **Opción cruzada de compra y venta.** Cualquiera de los Cotitulares podrá, en cualquier
 momento, notificar al otro por escrito una **valoración total** de la Obra y de la marca en
 conjunto.
 
-Recibida la notificación, el destinatario dispondrá de **treinta días naturales** para elegir,
+La notificación se practicará por **medio fehaciente que deje constancia de su recepción**
+—burofax, notificación notarial o correo electrónico con acuse de recibo expreso del
+destinatario—. Los plazos de esta cláusula corren desde la recepción acreditada, nunca desde el
+envío.
+
+Recibida la notificación, el destinatario dispondrá de **sesenta días naturales** para elegir,
 sin poder negarse a ambas opciones:
 
 **a)** **Vender** su participación del 50% al notificante por la mitad de la valoración
 notificada; o
 **b)** **Comprar** la participación del notificante por esa misma mitad.
 
-El silencio transcurridos los treinta días equivale a la opción **a)**. Quien fija la
-valoración no sabe de qué lado quedará, lo que obliga a proponer una cifra honesta: es el
-mecanismo que evita el bloqueo indefinido sin necesidad de tasador, auditoría ni pleito.
+Transcurridos los sesenta días sin respuesta, el notificante deberá remitir un **segundo
+requerimiento**, igualmente fehaciente, advirtiendo de las consecuencias del silencio. Solo si
+transcurren **quince días naturales más** sin respuesta se entenderá elegida la opción **a)**.
+
+Quien fija la valoración no sabe de qué lado quedará, lo que obliga a proponer una cifra
+honesta: es el mecanismo que evita el bloqueo indefinido sin necesidad de tasador, auditoría ni
+pleito. El doble requerimiento existe para que nadie pueda perder su participación por no haber
+leído un mensaje a tiempo.
 
 **Suelo.** La mitad de la valoración notificada no podrá ser inferior al 50% de los gastos
 comunes efectivamente soportados y aún no recuperados, para que la opción no sirva para
 expulsar al otro por un precio simbólico.
 
 **Pago.** El precio se abonará en el plazo de **treinta días naturales** desde la elección, o
-en un máximo de `[12 / 24]` mensualidades si así lo acuerdan; en tal caso la participación no
+en un máximo de doce mensualidades si así lo acuerdan; en tal caso la participación no
 se transmite hasta el pago íntegro.
 
 **Entrega y transición.** El Cotitular que venda se obliga a entregar al comprador todo lo
@@ -329,13 +315,6 @@ la marca.
 
 **Derechos morales.** La compraventa transmite derechos de explotación, no la autoría: los
 derechos morales de cada autor permanecen intactos conforme a la cláusula primera.
-
-⚠️ **Antes de firmar esta cláusula, mirad de frente la asimetría que hay hoy.** Los dos
-Cotitulares no están en la misma posición: uno es el autor del programa y el único capaz de
-desarrollarlo, y el otro no. Si el que sale es el autor, lo que el comprador adquiere pierde
-buena parte de su valor real por mucho que la entrega esté bien redactada; si el que sale es el
-otro, la operación apenas afecta a la continuidad. La cláusula de entrega y transición mitiga
-eso, pero no lo elimina. Es una razón para hablarlo ahora, y otra para que lo vea el abogado.
 
 ### Octava — Permanencia de la titularidad y dedicación desigual
 
@@ -348,16 +327,6 @@ Si uno de los Cotitulares reduce o cesa de forma sostenida su dedicación, las p
 a **reunirse y valorar de buena fe** las consecuencias, y en particular el ajuste de las primas
 del ejercicio. Esa valoración **no altera por sí sola la titularidad**, que solo puede
 modificarse por acuerdo de ambos o por la vía de la cláusula séptima.
-
-⚠️ **Esto es un compromiso de hablar, no un mecanismo.** Tal como queda redactado, si uno
-abandona y no quiere renegociar nada, conserva su 50% y la única salida del otro es la opción
-cruzada de la cláusula séptima —es decir, pagar. Si queréis que la dedicación tenga
-consecuencias automáticas, hace falta fijar **un disparador y una consecuencia** concretos, por
-ejemplo: dedicación inferior a `[__]` horas mensuales durante `[6]` meses consecutivos, con el
-efecto de `[perder el derecho a prima / ofrecer obligatoriamente su participación conforme a la
-cláusula séptima]`. Con la estructura de primas que habéis elegido esto es menos urgente que en
-un reparto plano, porque el trabajo ya se retribuye aparte; pero conviene decidir si se deja
-así a propósito.
 
 ### Novena — Declaraciones de las partes
 

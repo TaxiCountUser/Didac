@@ -31,6 +31,7 @@ const copiarCarpeta = (origen, destino, filtro = () => true) => {
 
 // 1 · lo que se firma
 copiar('registro/pdf/2-acuerdo-cotitularidad.pdf', '1-PARA-FIRMAR/acuerdo-cotitularidad.pdf');
+copiar('registro/pdf/3-notas-del-acuerdo.pdf', '1-PARA-FIRMAR/LEER-ANTES-notas-del-acuerdo.pdf');
 
 // 2 · marca
 copiar('registro/pdf/0-datos-solicitud-marca.pdf', '2-MARCA-OEPM/datos-de-la-solicitud.pdf');
@@ -58,17 +59,19 @@ están en \`registro/\`.
 | Carpeta | Contenido |
 |---|---|
 | \`LEEME-PRIMERO-paso-a-paso.pdf\` | La guía de los dos trámites, paso por paso |
-| \`1-PARA-FIRMAR/\` | El **acuerdo de cotitularidad**. Es lo único que se firma en papel entre las partes, y es requisito previo de los dos expedientes |
+| \`1-PARA-FIRMAR/\` | El **acuerdo de cotitularidad**, lo único que se firma entre las partes y requisito previo de los dos expedientes, junto con las notas que conviene leer antes (ésas no se firman) |
 | \`2-MARCA-OEPM/\` | Los datos a copiar en el formulario y la imagen de la marca que se adjunta |
 | \`3-PROPIEDAD-INTELECTUAL/\` | La memoria, el código fuente depositado, los ${nd} diagramas y las ${nc} capturas |
 
 ## Antes de firmar el acuerdo
 
-Faltan por completar el lugar y la fecha, el correo único para notificaciones y
-la ciudad a cuyos tribunales os sometéis. Están marcados entre corchetes.
+El contrato está completo: no queda ningún hueco por rellenar. Leed antes
+\`LEER-ANTES-notas-del-acuerdo.pdf\`, que explica qué se ha pactado en cada punto
+delicado y qué consecuencias tiene. Esas notas **no se firman**.
 
-Y que lo revise un **abogado**, y un **asesor fiscal** la parte del reparto de
-ingresos: reparte al 50% la propiedad del producto y de la marca.
+Firmad preferentemente con **certificado digital** (AutoFirma o Adobe Reader):
+queda sellado con fecha y es verificable. Si vais a papel, dos ejemplares y cada
+uno guarda el suyo.
 
 ## Antes de presentar la propiedad intelectual
 
