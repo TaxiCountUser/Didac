@@ -147,7 +147,9 @@ deposita:
 | `28-cambiar-contrasena.jpg` | Cambio de contraseña |
 | `29-novedades.jpg` | Historial de versiones dentro de la aplicación |
 
-Las capturas corresponden a la versión ya rebautizada con la marca original: el isotipo
+Las capturas del navegador proceden de la compilación de la versión que se deposita, con la
+marca en su forma definitiva. Las capturas corresponden a la versión ya rebautizada con la
+marca original: el isotipo
 sustituye al pictograma de biblioteca que se usaba antes, y el nombre aparece con el corte
 de color de la marca que se registra, "Taxi" en el color del tema y "Count" en ámbar.
 

@@ -1,0 +1,15 @@
+{
+  "_": "Panel de administracion: es una compilacion aparte (flutter build web --target lib/main_admin.dart) y va a resolucion de escritorio, sin doble densidad.",
+  "debugPort": 9334,
+  "width": 1920,
+  "height": 1200,
+  "scale": 1,
+  "outDir": "registro/capturas",
+  "shots": [
+    {
+      "name": "06-admin-login-web",
+      "url": "http://localhost:8099/",
+      "settle": 8000
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "_": "Receta de las capturas de la compilacion web del cliente. Se pulsa por coordenadas porque la app no expone rutas por URL ni arbol de accesibilidad. Viewport 375x812 a doble densidad = PNG de 750x1624.",
+  "debugPort": 9333,
+  "width": 375,
+  "height": 812,
+  "scale": 2,
+  "outDir": "registro/capturas",
+  "shots": [
+    {
+      "name": "01-cliente-login",
+      "url": "http://localhost:8099/",
+      "settle": 7000
+    },
+    {
+      "name": "02-cliente-alta-empresa",
+      "url": "http://localhost:8099/",
+      "settle": 7000,
+      "steps": [
+        {
+          "click": [
+            187,
+            554
+          ],
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "name": "03-cliente-recuperar-password",
+      "url": "http://localhost:8099/",
+      "settle": 7000,
+      "steps": [
+        {
+          "click": [
+            187,
+            586
+          ],
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "name": "04-cliente-login-english",
+      "url": "http://localhost:8099/",
+      "settle": 7000,
+      "steps": [
+        {
+          "click": [
+            346,
+            30
+          ],
+          "wait": 1500
+        },
+        {
+          "click": [
+            327,
+            88
+          ],
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "name": "05-cliente-login-catala",
+      "url": "http://localhost:8099/",
+      "settle": 7000,
+      "steps": [
+        {
+          "click": [
+            346,
+            30
+          ],
+          "wait": 1500
+        },
+        {
+          "click": [
+            327,
+            136
+          ],
+          "wait": 2500
+        }
+      ]
+    }
+  ]
+}

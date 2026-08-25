@@ -36,7 +36,40 @@ Serra, decidido el 3 de agosto de 2026.
 2. **Seis capturas de Android** con la marca nueva, que solo puede hacer el titular porque
    requieren sesión iniciada: `07-tutorial-1-bienvenida`, `12-eleccion-de-rol`,
    `13-onboarding-configura-tu-flota`, `14-portada-del-conductor`, `15-empezar-jornada` y
-   `16-finalizar-jornada`.
+   `16-finalizar-jornada`. Son las únicas de móvil donde aparece la marca; el resto no la
+   muestran y sirven tal cual. Cuando entren, hay que actualizar en `memoria-obra.md` la
+   versión que se cita para las capturas de Android (hoy 0.1.94).
+
+## Rehacer las capturas del navegador
+
+Las seis del navegador **sí** se pueden rehacer sin intervención: salen de la compilación web.
+
+```bash
+cd frontend && flutter build web --release --no-wasm-dry-run
+```
+```bash
+node registro/capturar-web.js frontend/build/web registro/recetas/cliente.json
+```
+
+Para la del panel de administración, que es otra compilación:
+
+```bash
+cd frontend && flutter build web --release --no-wasm-dry-run --target lib/main_admin.dart
+```
+```bash
+node registro/capturar-web.js frontend/build/web registro/recetas/admin.json
+```
+
+`capturar-web.js` levanta `serve.js` sobre la compilación, abre Edge headless con el puerto de
+depuración y ejecuta la receta con `shots.js`. Las recetas viven en `recetas/` y **se pulsa por
+coordenadas** porque la app no expone rutas por URL —la navegación es por `MaterialPageRoute`—
+ni árbol de accesibilidad: no se puede llegar a una pantalla concreta cambiando la dirección.
+Si la maquetación del login cambia, hay que recalcular esas coordenadas.
+
+Las recetas escriben **directamente en `capturas/`** y los comandos se lanzan desde la raíz del
+repositorio. Conviene mirar el `git diff` antes de dar por buenas las capturas nuevas.
+
+Después, `node registro/hoja-capturas.js` rehace `00-hoja-capturas.png`.
 
 ⚠️ **Autoría y titularidad no son lo mismo.** El 50/50 reparte los **derechos de explotación**,
 que son transmisibles. La **autoría** se declara tal como es: el programa es obra exclusiva de
