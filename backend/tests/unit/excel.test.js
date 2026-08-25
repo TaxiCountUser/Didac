@@ -110,7 +110,7 @@ async function run() {
     assert.strictEqual(found.balance, 50, `balance=${found.balance}`);
   });
 
-  await check('el resumen ampliado desglosa gastos por método (tarjeta 30, efectivo 20)', async () => {
+  await check('el resumen ampliado combina categoría · método en los gastos', async () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer);
     const cons = wb.getWorksheet('Consolidado');
@@ -120,9 +120,19 @@ async function run() {
       const nums = row.values.filter((v) => typeof v === 'number');
       if (typeof label === 'string' && nums.length) byLabel[label.trim()] = nums[0];
     });
-    // Gasto tarjeta = 30 (Ana), efectivo = 20 (Bruno).
-    assert.strictEqual(byLabel['Tarjeta'], 30, `gasto tarjeta=${byLabel['Tarjeta']}`);
-    assert.strictEqual(byLabel['Efectivo'], 20, `gasto efectivo=${byLabel['Efectivo']}`);
+    // Gasto d1 gasolina/tarjeta = 30 ; d2 peaje/efectivo = 20 (categoría · método).
+    assert.strictEqual(byLabel['Gasolina · Tarjeta'], 30, `gasolina·tarjeta=${byLabel['Gasolina · Tarjeta']}`);
+    assert.strictEqual(byLabel['Peaje · Efectivo'], 20, `peaje·efectivo=${byLabel['Peaje · Efectivo']}`);
+  });
+
+  await check('los importes son numéricos con formato de moneda (EUR)', async () => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    const ws = wb.getWorksheet('Ana Excel');
+    // Primera fila de datos (fila 2): la celda Importe (col 3) es numérica y con numFmt €.
+    const cell = ws.getRow(2).getCell(3);
+    assert.strictEqual(typeof cell.value, 'number', `importe no numérico: ${typeof cell.value}`);
+    assert.ok(/€/.test(cell.numFmt || ''), `sin formato €: ${cell.numFmt}`);
   });
 
   await check('la pestaña de Ana suma sus totales (100 / 30)', async () => {

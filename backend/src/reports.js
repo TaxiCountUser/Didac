@@ -197,8 +197,12 @@ const expenseCatKey = (x) =>
     ? x.description.trim()
     : (x.category || 'Sin categoría');
 
-// Resumen ampliado al final de cada hoja (todo en negrita): ingresos y gastos
-// desglosados por método de pago, gastos también por categoría, y el balance.
+// Etiqueta legible de categoría (las claves llegan crudas: 'carga_electrica'…).
+const catLabel = (c) => capFirst(String(c || 'Sin categoría').replace(/_/g, ' '));
+
+// Resumen ampliado al final de cada hoja (todo en negrita): primero los GASTOS
+// con categoría + método de pago en la MISMA línea, y debajo los INGRESOS por
+// método de pago; cierra el balance.
 function addTotals(ws, txs) {
   const t = totals(txs);
   const bold = { bold: true };
@@ -208,7 +212,17 @@ function addTotals(ws, txs) {
   };
   ws.addRow({});
 
-  // Ingresos por método de pago -> TOTAL Ingresos.
+  // GASTOS primero: categoría · método de pago en la misma línea -> TOTAL Gastos.
+  const expCombo = groupSum(txs, 'expense',
+    (x) => `${catLabel(expenseCatKey(x))} · ${payLabel(x.payment_method || '')}`);
+  if (expCombo.size) {
+    line('GASTOS (categoría · método de pago)');
+    for (const [label, v] of expCombo) line(`  ${label}`, v);
+  }
+  line('TOTAL Gastos', t.expense);
+
+  // INGRESOS por método de pago (debajo de los gastos) -> TOTAL Ingresos.
+  ws.addRow({});
   const incByPay = orderPay(groupSum(txs, 'income', (x) => x.payment_method || ''));
   if (incByPay.length) {
     line('INGRESOS POR MÉTODO DE PAGO');
@@ -216,24 +230,50 @@ function addTotals(ws, txs) {
   }
   line('TOTAL Ingresos', t.income);
 
-  // Gastos por método de pago y por categoría -> TOTAL Gastos.
-  ws.addRow({});
-  const expByPay = orderPay(groupSum(txs, 'expense', (x) => x.payment_method || ''));
-  if (expByPay.length) {
-    line('GASTOS POR MÉTODO DE PAGO');
-    for (const [label, v] of expByPay) line(`  ${label}`, v);
-  }
-  const expByCat = groupSum(txs, 'expense', expenseCatKey);
-  if (expByCat.size) {
-    line('GASTOS POR CATEGORÍA');
-    for (const [c, v] of expByCat) line(`  ${c}`, v);
-  }
-  line('TOTAL Gastos', t.expense);
-
   // Balance final.
   ws.addRow({});
   line('BALANCE (Ingresos − Gastos)', t.balance);
 }
+
+// Ordena las filas de detalle: primero los INGRESOS agrupados por cliente
+// (Particular el primero, luego el resto alfabético), cada grupo separado por una
+// fila en blanco y ordenado por fecha/hora dentro del grupo; al final los GASTOS,
+// ordenados por fecha. Devuelve una lista donde null = fila en blanco.
+function orderedDetail(txs) {
+  const income = txs.filter((t) => t.type === 'income');
+  const expense = txs.filter((t) => t.type !== 'income');
+  const byDate = (a, b) => String(a.created_at).localeCompare(String(b.created_at));
+
+  const groups = new Map(); // etiqueta de cliente -> transacciones
+  for (const t of income) {
+    const label = clienteLabel(t) || 'Particular';
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(t);
+  }
+  const labels = [...groups.keys()].sort((a, b) => {
+    if (a === 'Particular') return -1;
+    if (b === 'Particular') return 1;
+    return a.localeCompare(b, 'es', { sensitivity: 'base' });
+  });
+
+  const out = [];
+  labels.forEach((label, i) => {
+    if (i > 0) out.push(null); // fila en blanco entre clientes
+    groups.get(label).sort(byDate);
+    for (const t of groups.get(label)) out.push(t);
+  });
+  if (expense.length) {
+    if (out.length) out.push(null); // fila en blanco antes de los gastos
+    expense.sort(byDate);
+    for (const t of expense) out.push(t);
+  }
+  return out;
+}
+
+// Formato de celda para los importes: numérico con símbolo de moneda. Hoy toda
+// la app opera en EUR (mercado España, Stripe en €); si se internacionaliza,
+// esto pasaría a depender de la moneda del tenant.
+const MONEY_FMT = '#,##0.00" €"';
 
 export async function buildExcel(data) {
   const wb = new ExcelJS.Workbook();
@@ -244,16 +284,19 @@ export async function buildExcel(data) {
   for (const [, g] of data.groups) {
     const ws = wb.addWorksheet(sheetName(g.name || g.email, used));
     ws.columns = COLS;
+    ws.getColumn('importe').numFmt = MONEY_FMT;
     ws.getRow(1).font = { bold: true };
-    for (const t of g.txs) ws.addRow(rowFor(t));
+    for (const t of orderedDetail(g.txs)) ws.addRow(t ? rowFor(t) : {});
     addTotals(ws, g.txs);
   }
 
   // Pestaña consolidada (todas las transacciones, con columna Conductor)
   const cws = wb.addWorksheet('Consolidado');
   cws.columns = [{ header: 'Conductor', key: 'conductor', width: 22 }, ...COLS];
+  cws.getColumn('importe').numFmt = MONEY_FMT;
   cws.getRow(1).font = { bold: true };
-  for (const t of data.transactions) {
+  for (const t of orderedDetail(data.transactions)) {
+    if (!t) { cws.addRow({}); continue; }
     const u = t.users || {};
     cws.addRow({ conductor: u.name || u.email || '', ...rowFor(t) });
   }
