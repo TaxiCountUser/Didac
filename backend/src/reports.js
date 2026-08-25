@@ -211,21 +211,22 @@ const catLabel = (c) => capFirst(String(c || 'Sin categoría').replace(/_/g, ' '
 // método de pago; cierra el balance.
 function addTotals(ws, txs) {
   const t = totals(txs);
-  const bold = { bold: true };
-  const line = (fecha, importe) => {
+  const line = (fecha, importe, red) => {
     const row = importe === undefined ? ws.addRow({ fecha }) : ws.addRow({ fecha, importe });
-    row.font = bold;
+    row.font = { bold: true };
+    // Solo la cifra (€) de los gastos va en rojo; la etiqueta se queda negra.
+    if (red && importe !== undefined) row.getCell('importe').font = { bold: true, color: { argb: RED_ARGB } };
   };
   ws.addRow({});
 
-  // GASTOS primero: categoría · método de pago en la misma línea -> TOTAL Gastos.
+  // GASTOS primero (en rojo): categoría · método en la misma línea -> TOTAL Gastos.
   const expCombo = groupSum(txs, 'expense',
     (x) => `${catLabel(expenseCatKey(x))} · ${payLabel(x.payment_method || '')}`);
   if (expCombo.size) {
-    line('GASTOS (categoría · método de pago)');
-    for (const [label, v] of expCombo) line(`  ${label}`, v);
+    line('GASTOS (categoría · método de pago)', undefined, true);
+    for (const [label, v] of expCombo) line(`  ${label}`, v, true);
   }
-  line('TOTAL Gastos', t.expense);
+  line('TOTAL Gastos', t.expense, true);
 
   // INGRESOS por método de pago (debajo de los gastos) -> TOTAL Ingresos.
   ws.addRow({});
@@ -280,6 +281,9 @@ function orderedDetail(txs) {
 // la app opera en EUR (mercado España, Stripe en €); si se internacionaliza,
 // esto pasaría a depender de la moneda del tenant.
 const MONEY_FMT = '#,##0.00" €"';
+// Rojo para los gastos (Excel: ARGB; PDF: hex).
+const RED_ARGB = 'FFC00000';
+const RED_HEX = '#C00000';
 
 export async function buildExcel(data) {
   const wb = new ExcelJS.Workbook();
@@ -292,7 +296,10 @@ export async function buildExcel(data) {
     ws.columns = COLS;
     ws.getColumn('importe').numFmt = MONEY_FMT;
     ws.getRow(1).font = { bold: true };
-    for (const t of orderedDetail(g.txs)) ws.addRow(t ? rowFor(t) : {});
+    for (const t of orderedDetail(g.txs)) {
+      const row = ws.addRow(t ? rowFor(t) : {});
+      if (t && t.type !== 'income') row.getCell('importe').font = { color: { argb: RED_ARGB } };
+    }
     addTotals(ws, g.txs);
   }
 
@@ -304,7 +311,8 @@ export async function buildExcel(data) {
   for (const t of orderedDetail(data.transactions)) {
     if (!t) { cws.addRow({}); continue; }
     const u = t.users || {};
-    cws.addRow({ conductor: u.name || u.email || '', ...rowFor(t) });
+    const row = cws.addRow({ conductor: u.name || u.email || '', ...rowFor(t) });
+    if (t.type !== 'income') row.getCell('importe').font = { color: { argb: RED_ARGB } };
   }
   addTotals(cws, data.transactions);
 
@@ -328,11 +336,15 @@ function detailTable(txs) {
   // fila en blanco entre grupos, y los gastos al final; null = fila en blanco.
   for (const t of orderedDetail(txs)) {
     if (!t) { body.push([' ', '', '', '', '', '']); continue; }
+    // Solo la cifra (€) de los gastos va en rojo.
+    const amount = t.type !== 'income'
+      ? { text: `${money(t.amount)} €`, color: RED_HEX }
+      : `${money(t.amount)} €`;
     body.push([
       `${fmtDate(t.created_at)} ${fmtTime(t.created_at)}`,
       concepto(t),
       clienteLabel(t),
-      `${money(t.amount)} €`,
+      amount,
       tipoLabel(t.type),
       t.payment_method || '',
     ]);
@@ -349,19 +361,19 @@ function detailTable(txs) {
 function summaryBlock(txs) {
   const t = totals(txs);
   const rows = [];
-  const row = (label, val) =>
+  const row = (label, val, red) =>
     rows.push([
       { text: label, bold: true },
-      { text: val === undefined ? '' : `${money(val)} €`, bold: true, alignment: 'right' },
+      { text: val === undefined ? '' : `${money(val)} €`, bold: true, alignment: 'right', color: (red && val !== undefined) ? RED_HEX : undefined },
     ]);
-  // Gastos primero: categoría · método de pago.
+  // Gastos primero (en rojo): categoría · método de pago.
   const expCombo = groupSum(txs, 'expense',
     (x) => `${catLabel(expenseCatKey(x))} · ${payLabel(x.payment_method || '')}`);
   if (expCombo.size) {
-    row('Gastos (categoría · método de pago)');
-    for (const [label, v] of expCombo) row(`   ${label}`, v);
+    row('Gastos (categoría · método de pago)', undefined, true);
+    for (const [label, v] of expCombo) row(`   ${label}`, v, true);
   }
-  row('TOTAL Gastos', t.expense);
+  row('TOTAL Gastos', t.expense, true);
   // Ingresos por método de pago (debajo de los gastos).
   const incByPay = orderPay(groupSum(txs, 'income', (x) => x.payment_method || ''));
   if (incByPay.length) {
