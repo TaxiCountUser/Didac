@@ -376,7 +376,7 @@ Intelectual y la solicitud de la marca ante la Oficina Española de Patentes y M
 Galvez a presentar y firmar ambas solicitudes en nombre de los dos.
 
 **d)** Se designa como domicilio y correo electrónico a efectos de notificaciones de ambos
-expedientes: `[correo]`. El Cotitular que las reciba se obliga a **trasladarlas al otro sin
+expedientes: Calle Tapis 37, 17600 Figueres (Girona), y el correo auxproduccio@gmail.com, ambos de D. Didac Oliveras Galvez. El Cotitular que las reciba se obliga a **trasladarlas al otro sin
 demora**, dado que los plazos de oposición son breves.
 
 ### Décima — Confidencialidad, legislación y fuero
@@ -387,7 +387,7 @@ ser pública por vía distinta de su incumplimiento.
 
 Este acuerdo se rige por la legislación española. Para cualquier controversia no resuelta
 conforme a la cláusula séptima, las partes se someten a los juzgados y tribunales de
-[CIUDAD], con renuncia a cualquier otro fuero.
+Figueres, con renuncia a cualquier otro fuero.
 
 Y en prueba de conformidad, firman por duplicado en el lugar y fecha indicados.
 

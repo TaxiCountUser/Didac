@@ -44,7 +44,8 @@ La marca se solicita en **cotitularidad**, al cincuenta por ciento cada uno.
 
 | Campo | Valor |
 |---|---|
-| Domicilio a efectos de notificaciones | ⬜ **DECIDIR** — uno solo para los dos |
+| Domicilio a efectos de notificaciones | Calle Tapis 37, 17600 Figueres (Girona) |
+| Correo de notificaciones | auxproduccio@gmail.com |
 | Representante | Ninguno — presentación directa |
 | Firma | Certificado digital de Didac Oliveras Galvez, autorizado por el otro cotitular en la cláusula novena del acuerdo de cotitularidad |
 
