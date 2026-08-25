@@ -113,8 +113,14 @@ function concepto(t) {
     if (t.odometer_km != null) s += ` (${t.odometer_km} km)`;
     return s;
   }
-  // Gasto "Otros" con texto libre: mostramos lo que escribió el usuario (ITV…).
-  if (t.category === 'otros' && t.description && t.description.trim()) return t.description.trim();
+  return catDisplay(t);
+}
+// Categoría MOSTRADA de un gasto en el listado: "Otros" con texto libre sale como
+// "otros (ITV)" (categoría + lo que escribió el usuario). En el resumen/total, en
+// cambio, se agrupa por el texto libre a secas ("ITV") vía expenseCatKey.
+function catDisplay(t) {
+  if (t.type === 'income') return '';
+  if (t.category === 'otros' && t.description && t.description.trim()) return `otros (${t.description.trim()})`;
   return t.category || '';
 }
 // Cliente: en carreras, empresa nombrada (1ª letra mayúscula) o "Particular".
@@ -157,7 +163,7 @@ const rowFor = (t) => ({
   hora: fmtTime(t.created_at),
   importe: Number(t.amount),
   tipo: tipoLabel(t.type),
-  categoria: t.type === 'income' ? '' : (t.category || ''),
+  categoria: catDisplay(t),
   origen: t.origin || '',
   destino: t.destination || '',
   km: t.odometer_km ?? '',
@@ -318,7 +324,10 @@ function detailTable(txs) {
       { text: 'Pago', bold: true },
     ],
   ];
-  for (const t of txs) {
+  // Mismo orden que el Excel: ingresos agrupados por cliente (Particular primero),
+  // fila en blanco entre grupos, y los gastos al final; null = fila en blanco.
+  for (const t of orderedDetail(txs)) {
+    if (!t) { body.push([' ', '', '', '', '', '']); continue; }
     body.push([
       `${fmtDate(t.created_at)} ${fmtTime(t.created_at)}`,
       concepto(t),
@@ -334,9 +343,9 @@ function detailTable(txs) {
   };
 }
 
-// Resumen ampliado (mismo desglose que el Excel) para el PDF: ingresos y gastos
-// por método de pago, gastos por categoría y balance. Todo en negrita. Tabla de
-// 2 columnas sin bordes (etiqueta | importe).
+// Resumen ampliado para el PDF, IGUAL que el Excel (addTotals): primero los
+// GASTOS con categoría · método de pago en la misma línea, luego los INGRESOS por
+// método, y el balance. Todo en negrita. Tabla de 2 columnas sin bordes.
 function summaryBlock(txs) {
   const t = totals(txs);
   const rows = [];
@@ -345,23 +354,21 @@ function summaryBlock(txs) {
       { text: label, bold: true },
       { text: val === undefined ? '' : `${money(val)} €`, bold: true, alignment: 'right' },
     ]);
+  // Gastos primero: categoría · método de pago.
+  const expCombo = groupSum(txs, 'expense',
+    (x) => `${catLabel(expenseCatKey(x))} · ${payLabel(x.payment_method || '')}`);
+  if (expCombo.size) {
+    row('Gastos (categoría · método de pago)');
+    for (const [label, v] of expCombo) row(`   ${label}`, v);
+  }
+  row('TOTAL Gastos', t.expense);
+  // Ingresos por método de pago (debajo de los gastos).
   const incByPay = orderPay(groupSum(txs, 'income', (x) => x.payment_method || ''));
   if (incByPay.length) {
     row('Ingresos por método de pago');
     for (const [label, v] of incByPay) row(`   ${label}`, v);
   }
   row('TOTAL Ingresos', t.income);
-  const expByPay = orderPay(groupSum(txs, 'expense', (x) => x.payment_method || ''));
-  if (expByPay.length) {
-    row('Gastos por método de pago');
-    for (const [label, v] of expByPay) row(`   ${label}`, v);
-  }
-  const expByCat = groupSum(txs, 'expense', expenseCatKey);
-  if (expByCat.size) {
-    row('Gastos por categoría');
-    for (const [c, v] of expByCat) row(`   ${c}`, v);
-  }
-  row('TOTAL Gastos', t.expense);
   row('BALANCE (Ingresos − Gastos)', t.balance);
   return { table: { widths: ['*', 'auto'], body: rows }, layout: 'noBorders', margin: [0, 4, 0, 12] };
 }
