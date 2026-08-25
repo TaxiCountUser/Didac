@@ -128,7 +128,7 @@ deposita:
 | `05-cliente-login-catala.png` | Inicio de sesión en catalán |
 | `06-admin-login-web.png` | Acceso al panel de administración (tema oscuro) |
 
-**Del dispositivo Android** (versión 0.1.94, cuenta de demostración con datos ficticios):
+**Del dispositivo Android** (cuenta de demostración con datos ficticios; compilaciones 0.1.94 y 0.1.99 de la misma versión depositada):
 
 | Archivo | Contenido |
 |---|---|

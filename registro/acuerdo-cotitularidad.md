@@ -20,11 +20,11 @@ que respalda que ambos figuren como cotitulares.
 > Sustituye íntegramente al borrador anterior de cesión de textos legales, que respondía a
 > un reparto distinto y ya no sirve.
 
-Los campos entre corchetes hay que completarlos.
+Firma y lugar ya constan. Los corchetes que quedan son opciones dentro de las cláusulas séptima y octava, no huecos a rellenar.
 
 ---
 
-En [LUGAR], a [FECHA].
+En Figueres, a 25 de agosto de 2026.
 
 ## Reunidos
 
