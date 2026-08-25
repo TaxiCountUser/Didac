@@ -13,27 +13,29 @@ Serra, decidido el 3 de agosto de 2026.
 | `PASO-A-PASO.md` | La guía de presentación de los dos expedientes, paso por paso |
 | `marca-oepm.md` | Expediente completo de la **marca**. Solicitantes, descripción del signo, colores, clases 9/42/35, tasas, régimen de cotitularidad y búsqueda de anterioridades |
 | `memoria-obra.md` | Memoria descriptiva de la obra para el **Registro de la Propiedad Intelectual** |
-| `acuerdo-cotitularidad.md` | El **acuerdo al 50%** a firmar con Jordi. Requisito previo de los dos expedientes |
-| `acuerdo-notas.md` | Notas de apoyo para leer el acuerdo con criterio. **No se firma ni se presenta** |
+| `acuerdo-cotitularidad.md` | El **contrato de cesión del 50%** a firmar con Jordi. Es el *título de adquisición* que pide el Registro de la Propiedad Intelectual; la OEPM no lo exige |
 | `diagramas/` | Diagrama de arquitectura y diagrama del flujo de registro por voz, en SVG y PNG |
 | `capturas/` | Capturas de la interfaz obtenidas de la compilación de la versión depositada |
 
 ## Lo que bloquea la presentación
 
-1. **El acuerdo de cotitularidad firmado.** Es lo que acredita el 50/50. Conviene que lo
-   revise un abogado y que un asesor fiscal vea la parte del reparto de ingresos: ya no
-   reparte unas páginas de documentación, reparte la propiedad del producto.
+1. **El contrato de cesión firmado.** Es el *título de adquisición* del 50% de Jordi, y sin él
+   el Registro de la Propiedad Intelectual no puede inscribirlo como cotitular: no es autor del
+   programa, así que hay que acreditar cómo adquirió su cuota. La OEPM **no** lo pide; allí
+   basta con que ambos figuren como solicitantes.
 
-   Reparto decidido el 2026-08-09: liquidación **anual**, con **primas de trabajo** acordadas
-   por escrito y deducidas antes de repartir el remanente al 50% —la prima retribuye el
-   trabajo, la cuota la propiedad—. Salida por **opción cruzada**: uno notifica una valoración
-   total y el otro elige entre vender su mitad o comprar la del notificante a ese precio. El
-   50% **subsiste con independencia de la dedicación**; lo que se ajusta es la prima.
+   El documento se limita a eso: autoría, cesión del 50% de los derechos de explotación,
+   cotitularidad de la marca, declaraciones, consentimiento para inscribir y fuero. **Las
+   reglas de funcionamiento —reparto, retribución del trabajo, decisiones, salidas— se sacaron
+   el 2026-08-25** y se pactarán en el contrato de la sociedad que se constituirá después. Las
+   cláusulas retiradas siguen en el historial de Git y pueden levantarse tal cual entonces.
 
-   La cesión es del **50% sin precio en dinero**, con causa en la aportación recíproca de
-   Jordi. Y el cobro sigue **de momento en la pasarela a nombre de Didac**, con liquidación
-   del 50% al otro y obligación de transparencia, hasta que se constituya la sociedad que
-   asuma la facturación.
+   ⚠️ **Dos puntos fiscales que siguen ahí aunque el documento sea corto.** La cesión es sin
+   precio: se expresa la causa recíproca a propósito, porque una transmisión sin
+   contraprestación entre personas sin parentesco puede calificarse de **donación** y tributar
+   por Sucesiones y Donaciones. Y mientras la pasarela de pago siga a nombre de uno solo, ése
+   cobra todo y el otro tiene un 50% sin mecánica pactada: se decidió dejarlo para el contrato
+   de la sociedad.
 2. **Seis capturas de Android** con la marca nueva, que solo puede hacer el titular porque
    requieren sesión iniciada: `07-tutorial-1-bienvenida`, `12-eleccion-de-rol`,
    `13-onboarding-configura-tu-flota`, `14-portada-del-conductor`, `15-empezar-jornada` y
@@ -145,8 +147,7 @@ de tocar cualquier `.md` y regenerar los PDF.
 | `PASO-A-PASO.pdf` | La guía de presentación de los dos expedientes |
 | `0-datos-solicitud-marca.pdf` | Los datos a copiar en el formulario de la OEPM |
 | `1-memoria-de-la-obra.pdf` | La memoria que se adjunta al Registro de la Propiedad Intelectual |
-| `2-acuerdo-cotitularidad.pdf` | El acuerdo al 50% a firmar con Jordi Pujadas Serra |
-| `3-notas-del-acuerdo.pdf` | Las notas de apoyo, que no se firman |
+| `2-acuerdo-cotitularidad.pdf` | El contrato de cesión del 50% a firmar con Jordi Pujadas Serra |
 
 Se regeneran con `md2pdf.js`, un conversor mínimo de Markdown a HTML escrito para esto (no
 hay ninguno instalado en el equipo):

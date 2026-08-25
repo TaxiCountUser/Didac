@@ -6,9 +6,9 @@ Intelectual** de un programa de ordenador.
 Preparado el 30 de julio de 2026. Actualizado el 3 de agosto de 2026 para **cotitularidad de
 los derechos de explotación al 50%**.
 
-> ⚠️ **Requisito previo:** antes de presentar debe estar firmado el **acuerdo de
-> cotitularidad** (`acuerdo-cotitularidad.md`, apartado 9 de esta memoria). Sin él, la
-> declaración de titularidad compartida carece de respaldo.
+> ⚠️ **Requisito previo:** antes de presentar debe estar firmado el **contrato de cesión del
+> 50%** (`acuerdo-cotitularidad.md`, apartado 9 de esta memoria). Es el título de adquisición
+> que acredita la cuota del Sr. Pujadas, que no es autor del programa.
 
 ---
 
@@ -232,7 +232,7 @@ producto. Su presencia no altera la autoría del software.
 
 **Titularidad de los derechos de explotación.** Los derechos de explotación de la obra
 pertenecen a **D. Didac Oliveras Galvez y D. Jordi Pujadas Serra, al cincuenta por ciento cada
-uno**, en régimen de comunidad. Así resulta del acuerdo de cotitularidad que se acompaña, por
+uno**, en régimen de comunidad. Así resulta del contrato de cesión que se acompaña, por
 el cual el autor cede al Sr. Pujadas una participación indivisa del 50% de la totalidad de los
 derechos de explotación, y el Sr. Pujadas aporta a la titularidad común los que le
 correspondían sobre su aportación a los textos legales.
@@ -244,11 +244,10 @@ textos legales enumerados más arriba son obra en colaboración de ambos. Los **
 son irrenunciables e intransmisibles y permanecen en su respectivo autor; el acuerdo no los
 altera ni atribuye a ninguna de las partes la autoría de lo que no ha creado.
 
-Las partes han pactado además el reparto de facultades de decisión sobre la obra, de modo que
-el desarrollo, el mantenimiento y la publicación de nuevas versiones puede realizarlos
-cualquiera de los cotitulares por sí solo, mientras que la transmisión, el gravamen y las
-licencias exclusivas requieren el consentimiento de ambos.
+En lo no previsto, la comunidad se rige por los artículos 392 y siguientes del Código Civil.
+Las reglas de funcionamiento entre los cotitulares se pactarán en el contrato de la sociedad
+que éstos constituirán más adelante.
 
-⚠️ **Requisito previo a la presentación:** este documento —borrador en
-`acuerdo-cotitularidad.md`— **debe estar firmado antes de inscribir**. Sin él, la declaración
-de titularidad compartida no tendría respaldo.
+⚠️ **Requisito previo a la presentación:** este contrato —`acuerdo-cotitularidad.md`— **debe
+estar firmado antes de inscribir**. Es el título de adquisición de la cuota del Sr. Pujadas y,
+sin él, la titularidad compartida no puede inscribirse.

@@ -9,13 +9,12 @@ al 50%**.
 
 ## El orden
 
-1. **Que un abogado revise el acuerdo de cotitularidad**, y un asesor fiscal la parte del
-   reparto de ingresos. Ya no es el documento de antes: reparte al 50% la propiedad del
-   producto y de la marca.
-2. **Firmar el acuerdo de cotitularidad.** Es requisito previo de los dos expedientes.
-3. **Presentar la marca.** Va primero porque es la que tiene competencia: si otro registra
+1. **Firmar el contrato de cesión del 50%.** Es el título de adquisición que acredita la cuota
+   de Jordi ante el Registro de la Propiedad Intelectual. La OEPM no lo pide, pero conviene
+   tenerlo firmado antes de mover nada.
+2. **Presentar la marca.** Va primero porque es la que tiene competencia: si otro registra
    antes un signo parecido, se acabó. La propiedad intelectual no tiene esa carrera.
-4. **Presentar la propiedad intelectual.** Sin prisa: los derechos sobre el código existen
+3. **Presentar la propiedad intelectual.** Sin prisa: los derechos sobre el código existen
    desde que se escribió. Lo que se inscribe es la prueba, no el derecho.
 
 ## Antes de empezar, comprueba que tienes
@@ -24,7 +23,7 @@ al 50%**.
 - [ ] Tarjeta o cuenta para pagar las tasas
 - [ ] `brand/taxicount-marca-mixta-color-oepm.png`
 - [ ] `pdf/0-datos-solicitud-marca.pdf` abierto al lado, para copiar y pegar
-- [ ] `pdf/2-acuerdo-cotitularidad.pdf` **firmado por los dos**, escaneado
+- [ ] `pdf/2-acuerdo-cotitularidad.pdf` **firmado por los dos** (certificado digital o escaneado)
 - [ ] `taxicount-codigo-fuente-v1.0.zip`
 - [ ] `pdf/1-memoria-de-la-obra.pdf`
 - [ ] Las carpetas `diagramas/` y `capturas/`
@@ -100,7 +99,7 @@ Descarga el borrador y léelo entero antes de firmar. Comprueba que **los dos so
 aparecen** y que las cuotas son 50% y 50%.
 
 Firma con el certificado y paga los 293,56 € — la tasa **no sube** por ser dos titulares.
-Firma Didac, autorizado por la cláusula novena del acuerdo de cotitularidad; si la sede exige
+Firma Didac, autorizado por la estipulación quinta a) del contrato de cesión; si la sede exige
 la firma de ambos, Jordi tendrá que firmar también con su propio certificado.
 
 **Guarda el justificante de pago y el número de expediente**, que es con lo que consultaréis
@@ -157,7 +156,7 @@ Este es el apartado donde más fácil es equivocarse. El formulario distingue **
 
 - **Autor del programa:** Didac Oliveras Galvez, en exclusiva.
 - **Titulares de los derechos de explotación:** Didac Oliveras Galvez **50%** y Jordi Pujadas
-  Serra **50%**, en virtud del acuerdo de cotitularidad que se aporta.
+  Serra **50%**, en virtud del contrato de cesión que se aporta.
 
 Si el formulario pregunta por **obra en colaboración**, la respuesta es que **el programa no lo
 es**: la coautoría de Jordi alcanza solo a los textos legales incorporados, y está descrita en
@@ -175,7 +174,7 @@ transmisible, y así se ha estructurado a propósito.
 |---|---|
 | `1-memoria-de-la-obra.pdf` | La memoria descriptiva |
 | `taxicount-codigo-fuente-v1.0.zip` | El código fuente, **en el formato que te hayan indicado en el paso 1** |
-| `2-acuerdo-cotitularidad.pdf` | El acuerdo firmado con Jordi. **Es lo que acredita el 50/50**, sin él la titularidad compartida no tiene respaldo |
+| `2-acuerdo-cotitularidad.pdf` | El contrato de cesión firmado. **Es el título de adquisición del 50% de Jordi**; sin él no pueden inscribirlo como cotitular, porque no es autor del programa |
 | `diagramas/arquitectura.png` y `flujo-voz.png` | Los dos diagramas |
 | `capturas/` | Las 29 capturas de la interfaz |
 
@@ -198,8 +197,9 @@ que haya un problema.
 **Si registras una versión nueva del programa**, la inscripción de hoy no la cubre: fotografía
 la 1.0. Cuando haya un salto grande, se vuelve a inscribir.
 
-**Y ahora sois dos.** Desde el momento en que se concede, vender la marca, licenciarla o
-transmitir la obra **exige la firma de los dos**, por ley en el caso de la marca y por
-contrato en el de la obra. El desarrollo diario no: eso se pactó expresamente para que
-cualquiera pueda seguir publicando versiones por su cuenta. Y si alguno quiere salirse, la
-cláusula quinta obliga a ofrecer su mitad al otro antes que a un tercero.
+**Y ahora sois dos.** Desde que se concede, vender la marca o licenciarla **exige la firma de
+los dos** por el artículo 46 de la Ley de Marcas, y en la obra rige la comunidad de bienes de
+los artículos 392 y siguientes del Código Civil, que reparte frutos y cargas en proporción a
+las cuotas y da derecho de retracto si uno vende su parte a un extraño. Todo lo demás —reparto
+de ingresos, retribución del trabajo, decisiones, salidas— queda para el contrato de la
+sociedad.
