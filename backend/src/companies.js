@@ -22,7 +22,7 @@ export function registerCompaniesRoutes(app, {
 
     const { data: tenant, error } = await supabase
       .from('tenants')
-      .select('id, name, solo, subscription_status, plan_id, drivers_limit, trial_ends_at, created_at, closed_at, stripe_customer_id, stripe_subscription_id, join_code')
+      .select('id, name, solo, agenda_enabled, subscription_status, plan_id, drivers_limit, trial_ends_at, created_at, closed_at, stripe_customer_id, stripe_subscription_id, join_code')
       .eq('id', id)
       .single();
     if (error || !tenant) return reply.code(404).send({ error: 'Empresa no encontrada' });
@@ -204,6 +204,8 @@ export function registerCompaniesRoutes(app, {
         ? null : Number(b.drivers_limit);
     }
     if (b.solo !== undefined) patch.solo = b.solo === true || b.solo === 'true';
+    // Agenda (opción oculta y de pago): el admin la activa por empresa (testers).
+    if (b.agenda_enabled !== undefined) patch.agenda_enabled = b.agenda_enabled === true || b.agenda_enabled === 'true';
     if (b.join_code !== undefined) {
       const code = String(b.join_code).trim().toUpperCase();
       patch.join_code = code === '' ? null : code;

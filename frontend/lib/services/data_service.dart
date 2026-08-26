@@ -182,6 +182,81 @@ class DataService {
     return row == null ? null : TenantState.fromMap(row);
   }
 
+  /// ¿La empresa tiene la AGENDA activada? (opción oculta y de pago, mig. 084).
+  /// Consulta AISLADA y resiliente: si la columna aún no existe (migración sin
+  /// aplicar) o la petición falla, devuelve false — así NUNCA rompe el arranque
+  /// ni el enrutado (que usan fetchMyTenantState, sin esta columna).
+  Future<bool> isAgendaEnabled(String tenantId) async {
+    if (tenantId.isEmpty) return false;
+    try {
+      final row = await _c
+          .from('tenants')
+          .select('agenda_enabled')
+          .eq('id', tenantId)
+          .maybeSingle();
+      return (row?['agenda_enabled'] as bool?) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ---------------- Agenda (opción oculta y de pago, Fase 1) ----------------
+  // Servicios programados compartidos por toda la empresa. RLS: solo miembros de
+  // la empresa y solo si su empresa tiene la agenda activada (mig. 084).
+
+  /// Lista los servicios de la agenda de la empresa (por defecto, desde hoy),
+  /// ordenados por fecha/hora. Incluye el nombre de quién lo apuntó.
+  Future<List<Map<String, dynamic>>> listAgenda({DateTime? from, int limit = 200}) async {
+    final since = from ?? DateTime.now().subtract(const Duration(hours: 12));
+    final rows = await _c
+        .from('agenda_events')
+        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email)')
+        .gte('scheduled_at', since.toUtc().toIso8601String())
+        .order('scheduled_at', ascending: true)
+        .limit(limit);
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Crea un servicio en la agenda de la empresa.
+  Future<void> addAgendaEvent({
+    required String tenantId,
+    required String userId,
+    required DateTime scheduledAt,
+    String? name,
+    String? pickup,
+    String? destination,
+    String? contact,
+    double? priceApprox,
+    String? note,
+  }) async {
+    await _c.from('agenda_events').insert({
+      'tenant_id': tenantId,
+      'created_by': userId,
+      'scheduled_at': scheduledAt.toUtc().toIso8601String(),
+      'name': name,
+      'pickup': pickup,
+      'destination': destination,
+      'contact': contact,
+      'price_approx': priceApprox,
+      'note': note,
+    });
+  }
+
+  /// Actualiza un servicio de la agenda (solo los campos indicados).
+  Future<void> updateAgendaEvent(String id, Map<String, dynamic> patch) async {
+    await _c.from('agenda_events').update(patch).eq('id', id);
+  }
+
+  /// Marca un servicio como hecho / cancelado / pendiente.
+  Future<void> setAgendaStatus(String id, String status) async {
+    await _c.from('agenda_events').update({'status': status}).eq('id', id);
+  }
+
+  /// Borra un servicio de la agenda.
+  Future<void> deleteAgendaEvent(String id) async {
+    await _c.from('agenda_events').delete().eq('id', id);
+  }
+
   /// Une al usuario pendiente a una flota usando el código del jefe.
   /// Devuelve el nombre de la flota a la que se ha unido.
   Future<String> joinFleetWithCode(String code) async {

@@ -8,6 +8,7 @@ import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/error_ui.dart';
 import '../services/file_download.dart';
+import 'agenda_screen.dart';
 import 'comparison_screen.dart';
 import '../util/format.dart';
 import '../widgets/daily_report_sheet.dart';
@@ -29,6 +30,7 @@ class OwnerDashboardScreen extends StatefulWidget {
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   static const _pageSize = 20;
   final _service = DataService();
+  bool _agendaEnabled = false; // Agenda (oculta y de pago): solo si el admin la activó
   final _scroll = ScrollController();
   final _items = <Map<String, dynamic>>[];
 
@@ -64,6 +66,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     _loadCatalogs();
     _reload();
     _subscribeRealtime();
+    _loadAgendaFlag();
+  }
+
+  Future<void> _loadAgendaFlag() async {
+    final on = await _service.isAgendaEnabled(widget.profile.tenantId);
+    if (mounted && on) setState(() => _agendaEnabled = true);
   }
 
   @override
@@ -603,6 +611,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else ...[
+            // Agenda (oculta y de pago): el jefe también la ve/gestiona si está activada.
+            if (_agendaEnabled)
+              IconButton(
+                key: const Key('agenda_button_owner'),
+                icon: const Icon(Icons.event_note),
+                tooltip: context.l10n.t('dh_agenda'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => AgendaScreen(profile: widget.profile)),
+                ),
+              ),
             IconButton(
               key: const Key('compare_button'),
               icon: const Icon(Icons.bar_chart),

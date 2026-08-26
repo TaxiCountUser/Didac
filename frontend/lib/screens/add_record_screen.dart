@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
+import '../services/data_service.dart';
+import 'agenda_input_screen.dart';
 import 'transaction_input_screen.dart';
 import 'voice_capture.dart';
 
@@ -22,6 +24,13 @@ class _AddRecordScreenState extends State<AddRecordScreen>
       TabController(length: 2, vsync: this, initialIndex: widget.startOnVoice ? 1 : 0);
   Map<String, dynamic>? _initial; // valores precargados por la voz
   int _formSeq = 0; // fuerza re-init del formulario al llegar datos de voz
+  bool _agendaEnabled = false; // opción Agenda (oculta): habilita el disparador de voz
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAgendaFlag();
+  }
 
   @override
   void dispose() {
@@ -29,7 +38,36 @@ class _AddRecordScreenState extends State<AddRecordScreen>
     super.dispose();
   }
 
+  Future<void> _loadAgendaFlag() async {
+    final on = await DataService().isAgendaEnabled(widget.profile.tenantId);
+    if (mounted && on) setState(() => _agendaEnabled = true);
+  }
+
+  // Disparador de voz para la agenda: "apunta en la agenda" (es) / "apunta a
+  // l'agenda" (ca) / "add to agenda" (en). Best-effort sobre el texto crudo.
+  bool _isAgendaTrigger(String lower) =>
+      lower.contains('apunta en la agenda') ||
+      lower.contains("apunta a l'agenda") ||
+      lower.contains('apunta a la agenda') ||
+      lower.contains('add to agenda') ||
+      lower.contains('add to the agenda');
+
   void _onParsed(Map<String, dynamic> parsed) {
+    final raw = (parsed['description'] as String?) ?? '';
+    // Si es un dictado de agenda (y está activada), lo llevamos a su formulario.
+    if (_agendaEnabled && _isAgendaTrigger(raw.toLowerCase())) {
+      final initial = <String, dynamic>{
+        'name': parsed['client_name'],
+        'pickup': parsed['origin'],
+        'destination': parsed['destination'],
+        'price_approx': parsed['amount'],
+        'note': raw, // el texto tal cual, por si el parser no lo cogió todo
+      };
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => AgendaInputScreen(profile: widget.profile, initial: initial),
+      ));
+      return;
+    }
     setState(() {
       _initial = parsed;
       _formSeq++;

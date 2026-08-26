@@ -76,6 +76,29 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
         l.t('admin_solo_done'));
   }
 
+  // Agenda (opción oculta y de pago): el admin la activa por empresa para elegir
+  // testers. Oculta para el cliente hasta que se enciende aquí.
+  Future<void> _toggleAgenda(AppLocalizations l, bool current) async {
+    final target = !current;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Theme(
+        data: adminDarkTheme(),
+        child: AlertDialog(
+          title: Text(l.t('admin_agenda_toggle_title')),
+          content: Text(target ? l.t('admin_agenda_to_on') : l.t('admin_agenda_to_off')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('confirm'))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    await _guard(() => _service.adminUpdateCompany(widget.tenantId, {'agenda_enabled': target}),
+        l.t('admin_agenda_done'));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -419,6 +442,10 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
               onTap: _support ? () => _toggleSolo(l, solo) : null),
           row(l.t('admin_status'), adminStatusLabel(l, status),
               action: Icons.edit, onTap: () => _editSubscription(l, t)),
+          // Agenda (beta, de pago): activación oculta por empresa (testers).
+          row(l.t('admin_agenda'),
+              (t['agenda_enabled'] == true) ? l.t('admin_agenda_on') : l.t('admin_agenda_off'),
+              action: Icons.edit, onTap: () => _toggleAgenda(l, t['agenda_enabled'] == true)),
           row(l.t('admin_days_using'), daysUsing),
           row(l.t('admin_trial_left'),
               trialLeft > 0 ? '$trialLeft' : l.t('admin_trial_over')),

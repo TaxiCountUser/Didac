@@ -5,6 +5,7 @@ import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/format.dart';
 import '../util/km_warning.dart';
+import 'agenda_input_screen.dart';
 import 'voice_input_screen.dart';
 
 const kCategories = <String, String>{
@@ -66,12 +67,15 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   bool _vehiclesLoaded = false;
   // Último km registrado del vehículo seleccionado (para validar que no baje).
   int? _lastKm;
+  // Agenda (oculta y de pago): si el admin la activó, aparece el 3er segmento.
+  bool _agendaEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _when = DateTime.now();
     if (!widget.profile.isOwner) _loadVehicles();
+    if (widget.editId == null) _loadAgendaFlag(); // el 3er segmento solo al crear
     final i = widget.initial;
     if (i != null) {
       if (i['amount'] != null) _amount.text = (i['amount']).toString();
@@ -186,6 +190,19 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
 
   bool get _isTrip => _type == 'income';
 
+  Future<void> _loadAgendaFlag() async {
+    final on = await DataService().isAgendaEnabled(widget.profile.tenantId);
+    if (mounted && on) setState(() => _agendaEnabled = true);
+  }
+
+  // Al pulsar el segmento "Agenda": cambia el registro por el formulario de
+  // agenda (reemplaza esta pantalla para que no se apilen).
+  void _openAgenda() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => AgendaInputScreen(profile: widget.profile)),
+    );
+  }
+
   Future<void> _save() async {
     final l = context.l10n;
     final amount = double.tryParse(_amount.text.replaceAll(',', '.'));
@@ -295,9 +312,15 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           segments: [
             ButtonSegment(value: 'income', label: Text(l.t('ti_trip')), icon: const Icon(Icons.local_taxi)),
             ButtonSegment(value: 'expense', label: Text(l.t('ti_expense')), icon: const Icon(Icons.receipt)),
+            // Agenda (oculta y de pago): navega a su propio formulario.
+            if (_agendaEnabled)
+              ButtonSegment(value: 'agenda', label: Text(l.t('ti_agenda')), icon: const Icon(Icons.event_note)),
           ],
           selected: {_type},
-          onSelectionChanged: (s) => setState(() => _type = s.first),
+          onSelectionChanged: (s) {
+            if (s.first == 'agenda') { _openAgenda(); return; }
+            setState(() => _type = s.first);
+          },
         ),
         const SizedBox(height: 20),
         // Importe / precio

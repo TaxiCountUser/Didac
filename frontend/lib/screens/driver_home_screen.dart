@@ -14,6 +14,7 @@ import '../util/brand.dart';
 import '../util/error_ui.dart';
 import '../util/km_warning.dart';
 import 'add_record_screen.dart';
+import 'agenda_screen.dart';
 import 'driver_transactions_screen.dart';
 import 'settings_screen.dart';
 
@@ -34,6 +35,7 @@ class DriverHomeScreen extends StatefulWidget {
 class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBindingObserver {
   final _service = DataService();
   StreamSubscription<Position>? _posSub;
+  bool _agendaEnabled = false; // opción Agenda (oculta): solo si el admin la activó
 
   @override
   void initState() {
@@ -48,12 +50,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     // la pantalla (también las hace testeables sin mockear plugins/Supabase).
     // Registra el día real de uso (para el reto de días) — idempotente por día.
     unawaited(_service.pingUsageDay(widget.profile.tenantId).catchError((_) {}));
+    // Agenda (opción oculta y de pago): solo se muestra si el admin la activó.
+    unawaited(_loadAgendaFlag());
     // Al entrar (una vez al día): saludo + km de inicio de jornada.
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartDayGreeting());
     // Notificaciones: registra token y, si no están activas, avisa (1×/versión).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) PushService.instance.ensureRegistered(context, widget.profile.tenantId);
     });
+  }
+
+  Future<void> _loadAgendaFlag() async {
+    final on = await _service.isAgendaEnabled(widget.profile.tenantId);
+    if (mounted && on) setState(() => _agendaEnabled = true);
   }
 
   // Saludo de bienvenida al abrir la app: si hoy aún no se ha apuntado el km de
@@ -384,6 +393,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
                     ),
                   ),
                 ),
+                // Agenda (oculta y de pago): solo si el admin la activó para esta empresa.
+                if (_agendaEnabled) ...[
+                  const SizedBox(height: 16),
+                  _BigButton(
+                    key: const Key('agenda_button'),
+                    icon: Icons.event_note,
+                    label: l.t('dh_agenda'),
+                    subtitle: l.t('dh_agenda_sub'),
+                    color: Colors.teal.shade600,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => AgendaScreen(profile: profile)),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 // Ambos disponibles: se puede iniciar y finalizar varias veces
                 // el mismo día (p. ej. parar a comer y volver a empezar).

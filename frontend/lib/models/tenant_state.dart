@@ -7,6 +7,7 @@ class TenantState {
   final String? subscriptionStatus; // active | trialing | past_due | canceled | inactive
   final String? planId;
   final DateTime? trialEndsAt;
+  final bool agendaEnabled; // opción Agenda (oculta y de pago): la activa el admin
 
   const TenantState({
     required this.id,
@@ -15,6 +16,7 @@ class TenantState {
     this.subscriptionStatus,
     this.planId,
     this.trialEndsAt,
+    this.agendaEnabled = false,
   });
 
   /// ¿Tiene suscripción de pago al día? (activa o con margen de cortesía)
@@ -38,6 +40,7 @@ class TenantState {
         id: m['id'] as String,
         name: (m['name'] as String?) ?? '',
         solo: (m['solo'] as bool?) ?? false,
+        agendaEnabled: (m['agenda_enabled'] as bool?) ?? false,
         subscriptionStatus: m['subscription_status'] as String?,
         planId: m['plan_id'] as String?,
         trialEndsAt: m['trial_ends_at'] == null
