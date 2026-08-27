@@ -136,7 +136,12 @@ export function createMonitoring({ supabase, log, probeDb }) {
     } catch { /* tabla webhook_events puede no existir aún en prod */ }
 
     // Groq: % restante en vivo por modelo (svc_groq_rl:*). El semáforo toma el
-    // modelo más ajustado; < 20% restante -> rojo.
+    // modelo más ajustado; < 20% restante -> rojo. PERO el límite de tokens de Groq
+    // es POR MINUTO y el snapshot SOLO se actualiza al llamar a Groq: una lectura
+    // vieja (sin uso reciente) NO refleja el estado actual. Por eso, si el dato no
+    // es reciente, se marca "stale" (sin alarma) en vez de quedarse en rojo con un
+    // valor caducado de un pico puntual. Coherente con svcSema (ignora >24 h).
+    const GROQ_FRESH_MS = 15 * 60 * 1000;
     let groqSema = { key: 'groq', kind: 'usage', ok: true, at: null, status: 'off' };
     try {
       let minRem = null; let atMin = null;
@@ -151,8 +156,12 @@ export function createMonitoring({ supabase, log, probeDb }) {
         if (minRem == null || rem < minRem) { minRem = rem; atMin = s.at; }
       }
       if (minRem != null) {
-        groqSema = { key: 'groq', kind: 'usage', ok: minRem >= 20, at: atMin,
-          status: minRem >= 20 ? 'ok' : 'error', remaining_pct: minRem };
+        const fresh = atMin && (now - new Date(atMin).getTime() < GROQ_FRESH_MS);
+        groqSema = { key: 'groq', kind: 'usage',
+          ok: fresh ? minRem >= 20 : true,
+          at: atMin,
+          status: !fresh ? 'stale' : (minRem >= 20 ? 'ok' : 'error'),
+          remaining_pct: minRem };
       }
     } catch { /* svc_groq_rl* ausente o no parseable */ }
 
