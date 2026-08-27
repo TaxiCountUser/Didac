@@ -52,15 +52,31 @@ class _AddRecordScreenState extends State<AddRecordScreen>
       lower.contains('add to agenda') ||
       lower.contains('add to the agenda');
 
+  // Extrae un precio del texto: número seguido de € / euro(s) / pavos. Coge el
+  // ÚLTIMO (el precio suele ir al final de la frase). Así no confunde la hora
+  // ("a las 3") con el precio ("65 euros").
+  double? _priceFromText(String raw) {
+    final re = RegExp(r'(\d+(?:[.,]\d+)?)\s*(?:€|euros?|pavos?)', caseSensitive: false);
+    double? last;
+    for (final m in re.allMatches(raw)) {
+      last = double.tryParse(m.group(1)!.replaceAll(',', '.'));
+    }
+    return last;
+  }
+
   void _onParsed(Map<String, dynamic> parsed) {
     final raw = (parsed['description'] as String?) ?? '';
     // Si es un dictado de agenda (y está activada), lo llevamos a su formulario.
     if (_agendaEnabled && _isAgendaTrigger(raw.toLowerCase())) {
+      // Precio: el número junto a €/euros (para NO confundirlo con la hora, p. ej.
+      // "a las 3"). Si no hay moneda en la frase, dejamos el precio vacío (mejor
+      // vacío que meter la hora). La fecha/hora dicha va a scheduled_at.
       final initial = <String, dynamic>{
+        'scheduled_at': parsed['created_at'],
         'name': parsed['client_name'],
         'pickup': parsed['origin'],
         'destination': parsed['destination'],
-        'price_approx': parsed['amount'],
+        'price_approx': _priceFromText(raw),
         'note': raw, // el texto tal cual, por si el parser no lo cogió todo
       };
       Navigator.of(context).push(MaterialPageRoute(
