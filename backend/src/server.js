@@ -10,7 +10,7 @@ import { parseTransactionText } from './parser.js';
 import { parseImportFile } from './importer.js';
 import { llmMapColumns } from './llm_parser.js';
 import { correctTranscript } from './corrections.js';
-import { llmParse, mergeParsed } from './llm_parser.js';
+import { llmParse, mergeParsed, llmParseAgenda } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { pushText } from './push_i18n.js';
 import { handleStripeEvent, planForPrice } from './billing.js';
@@ -270,6 +270,40 @@ async function parseSmart(text, { language, log, markService, markGroqRateLimit 
     markService?.('openai', false);
     log?.warn?.(`LLM parse falló (${e.message}); uso parser determinista`);
     return zeroIfNoAmount(deterministic);
+  }
+}
+
+// --- Agenda (opción oculta): parseo dedicado con IA cuando el dictado empieza
+// por "apunta en la agenda" / "apunta a l'agenda" / "add to agenda". Es ADITIVO:
+// solo se activa con esa muletilla; el flujo de carreras/gastos no se toca.
+const AGENDA_TRIGGER = /apunta(r)?\s+(a|en)\s+l['’a]?\s*agenda|add to (the )?agenda/i;
+function isAgendaDictation(text) { return AGENDA_TRIGGER.test(text || ''); }
+// Fecha/hora de referencia en horario de ESPAÑA (hoy todos los tenants son de
+// España). Formato "YYYY-MM-DD HH:MM" para que el LLM resuelva "mañana a las 3".
+function agendaNowRef() {
+  try {
+    const p = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date());
+    return p.replace(',', ''); // sv-SE ya da "YYYY-MM-DD HH:MM"
+  } catch { return new Date().toISOString(); }
+}
+// Best-effort: si no hay LLM o falla, devuelve null y el frontend usa su heurística.
+async function maybeParseAgenda(text, { log, markGroqRateLimit } = {}) {
+  if (!isAgendaDictation(text)) return null;
+  if (!LLM_PARSE_MODEL || !OPENAI_API_KEY) return null;
+  try {
+    return await withTimeout(
+      llmParseAgenda(text, {
+        apiKey: OPENAI_API_KEY, baseURL: OPENAI_BASE_URL, model: LLM_PARSE_MODEL,
+        nowRef: agendaNowRef(), onRateLimit: markGroqRateLimit,
+      }),
+      LLM_PARSE_TIMEOUT_MS,
+    );
+  } catch (e) {
+    log?.warn?.(`Agenda LLM parse falló (${e.message})`);
+    return null;
   }
 }
 
@@ -637,7 +671,8 @@ export async function buildApp(options = {}) {
     if (transcriptionCache.has(cacheKey)) {
       const cached = transcriptionCache.get(cacheKey);
       const parsed = await parseSmart(cached.text, { language, log: request.log, markService, markGroqRateLimit });
-      return reply.send({ ...cached, parsed, cached: true });
+      const agenda = await maybeParseAgenda(cached.text, { log: request.log, markGroqRateLimit });
+      return reply.send({ ...cached, parsed, ...(agenda ? { agenda } : {}), cached: true });
     }
 
     // Límite diario (solo cuando vamos a llamar de verdad a Whisper)
@@ -691,7 +726,8 @@ export async function buildApp(options = {}) {
     delete result._headers; delete result._model; // internos: no van en la respuesta
     transcriptionCache.set(cacheKey, result);
     const parsed = await parseSmart(result.text, { language, log: request.log, markService, markGroqRateLimit });
-    return reply.send({ ...result, parsed, cached: false });
+    const agenda = await maybeParseAgenda(result.text, { log: request.log, markGroqRateLimit });
+    return reply.send({ ...result, parsed, ...(agenda ? { agenda } : {}), cached: false });
   });
 
   // --- Endpoint de PRUEBA (sin audio): escribe una frase y mira el parseo ---

@@ -64,6 +64,55 @@ export async function llmParse(text, { apiKey, baseURL, model, language, onRateL
   return sanitize(JSON.parse(raw));
 }
 
+// ---------------- Agenda (opción oculta): parseo dedicado ----------------
+// A diferencia del parser de carreras (palabras clave), un servicio de agenda es
+// lenguaje natural con fecha/hora + precio + nombre + ruta mezclados. El LLM
+// separa bien esos campos (y no confunde "a las 3" con el precio). Es ADITIVO:
+// no toca parseSmart ni el parser de carreras.
+const AGENDA_SYSTEM_PROMPT = `Eres un asistente que extrae los datos de un SERVICIO DE TAXI PROGRAMADO dictado por voz (español o catalán). Devuelve SOLO un JSON con estas claves (usa null si falta el dato):
+- "when": fecha y hora del servicio como texto LOCAL con formato "YYYY-MM-DD HH:MM" (24h), resolviendo expresiones relativas ("hoy","mañana","pasado mañana","demà","el lunes","a las 3","a les 3 de la tarda") respecto a la FECHA DE REFERENCIA que se te da. Si dan una hora de 1 a 12 sin decir mañana/tarde/noche, elige la interpretación más razonable para un taxi (p. ej. "a las 3" -> 15:00, "a las 8" -> 08:00). Si no se dice fecha, usa la de referencia; si no se dice hora, pon "00:00".
+- "name": nombre del cliente o empresa (o null).
+- "pickup": lugar de RECOGIDA / origen (o null).
+- "destination": DESTINO (o null).
+- "price": precio en euros como NÚMERO (o null). Es el importe dicho con "euros"/"€"; NUNCA uses la hora como precio.
+- "phone": teléfono de contacto (o null).
+Ignora la muletilla inicial "apunta en la agenda" / "apunta a l'agenda" / "add to agenda". No inventes datos que no se digan.`;
+
+export async function llmParseAgenda(text, { apiKey, baseURL, model, nowRef, onRateLimit } = {}) {
+  if (!apiKey || !model) throw new Error('LLM no configurado');
+  const { default: OpenAI } = await import('openai');
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+  const userMsg = `FECHA DE REFERENCIA (España): ${nowRef}.\nFrase: ${text}`;
+  const { data: res, response } = await client.chat.completions.create({
+    model,
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: AGENDA_SYSTEM_PROMPT },
+      { role: 'user', content: userMsg },
+    ],
+  }).withResponse();
+  if (onRateLimit && response?.headers) { try { onRateLimit(response.headers, model); } catch { /* no-op */ } }
+  const raw = res.choices?.[0]?.message?.content || '{}';
+  return sanitizeAgenda(JSON.parse(raw));
+}
+
+function sanitizeAgenda(o) {
+  o = o && typeof o === 'object' ? o : {};
+  let price = null;
+  if (typeof o.price === 'number' && Number.isFinite(o.price)) price = o.price;
+  else if (o.price != null && !Number.isNaN(parseFloat(o.price))) price = parseFloat(o.price);
+  const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  return {
+    when: str(o.when), // "YYYY-MM-DD HH:MM" local, o null
+    name: o.name ? capFirst(String(o.name).trim()) : null,
+    pickup: o.pickup ? capFirst(String(o.pickup).trim()) : null,
+    destination: o.destination ? capFirst(String(o.destination).trim()) : null,
+    price,
+    phone: str(o.phone),
+  };
+}
+
 // Normaliza/valida el JSON del LLM a nuestro esquema (valores fuera de rango -> null).
 function sanitize(o) {
   o = o && typeof o === 'object' ? o : {};

@@ -66,18 +66,24 @@ class _AddRecordScreenState extends State<AddRecordScreen>
 
   void _onParsed(Map<String, dynamic> parsed) {
     final raw = (parsed['description'] as String?) ?? '';
-    // Si es un dictado de agenda (y está activada), lo llevamos a su formulario.
-    if (_agendaEnabled && _isAgendaTrigger(raw.toLowerCase())) {
-      // Precio: el número junto a €/euros (para NO confundirlo con la hora, p. ej.
-      // "a las 3"). Si no hay moneda en la frase, dejamos el precio vacío (mejor
-      // vacío que meter la hora). La fecha/hora dicha va a scheduled_at.
+    // Parseo dedicado de agenda hecho en el backend (LLM), si lo hubo.
+    final agRaw = parsed['_agenda'];
+    final Map<String, dynamic>? ag =
+        agRaw is Map ? Map<String, dynamic>.from(agRaw) : null;
+    // Es un dictado de agenda si el backend lo parseó como tal o si detectamos la
+    // muletilla (respaldo por si el LLM no estaba disponible).
+    if (_agendaEnabled && (ag != null || _isAgendaTrigger(raw.toLowerCase()))) {
+      // Preferimos los campos del LLM de agenda; si falta alguno, respaldo con la
+      // heurística: fecha/hora dicha (created_at) y precio junto a €/euros (no la
+      // hora). El texto entero queda en la nota por si algo no se cogió.
       final initial = <String, dynamic>{
-        'scheduled_at': parsed['created_at'],
-        'name': parsed['client_name'],
-        'pickup': parsed['origin'],
-        'destination': parsed['destination'],
-        'price_approx': _priceFromText(raw),
-        'note': raw, // el texto tal cual, por si el parser no lo cogió todo
+        'scheduled_at': (ag?['when'] as String?) ?? parsed['created_at'],
+        'name': ag?['name'] ?? parsed['client_name'],
+        'pickup': ag?['pickup'] ?? parsed['origin'],
+        'destination': ag?['destination'] ?? parsed['destination'],
+        'contact': ag?['phone'],
+        'price_approx': ag?['price'] ?? _priceFromText(raw),
+        'note': raw,
       };
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => AgendaInputScreen(profile: widget.profile, initial: initial),

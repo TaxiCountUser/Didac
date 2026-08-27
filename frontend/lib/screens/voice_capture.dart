@@ -142,6 +142,8 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       );
       final parsed = Map<String, dynamic>.from(res['parsed'] as Map);
       parsed['description'] = res['text'];
+      // Parseo dedicado de agenda (solo si el dictado era "apunta en la agenda…").
+      if (res['agenda'] != null) parsed['_agenda'] = res['agenda'];
 
       if (!mounted) return;
       setState(() => _busy = false);
