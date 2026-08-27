@@ -141,27 +141,34 @@ export function createMonitoring({ supabase, log, probeDb }) {
     // vieja (sin uso reciente) NO refleja el estado actual. Por eso, si el dato no
     // es reciente, se marca "stale" (sin alarma) en vez de quedarse en rojo con un
     // valor caducado de un pico puntual. Coherente con svcSema (ignora >24 h).
+    // El semáforo alarma SOLO por el margen de PETICIONES (la cuota que de verdad
+    // se agota; whisper y llama la reportan). El margen de TOKENS es POR MINUTO y
+    // se rellena solo, así que baja justo tras una llamada → daba falsos rojos;
+    // aquí es solo informativo (`tokens_pct`), nunca pone rojo. Además, si la
+    // lectura de peticiones no es reciente (sin uso), no alarma (stale).
     const GROQ_FRESH_MS = 15 * 60 * 1000;
     let groqSema = { key: 'groq', kind: 'usage', ok: true, at: null, status: 'off' };
     try {
-      let minRem = null; let atMin = null;
+      let minReq = null; let atMin = null; let tokPct = null;
       for (const k of Object.keys(cfg)) {
         if (!k.startsWith('svc_groq_rl')) continue;
         let s; try { s = JSON.parse(cfg[k]); } catch { continue; }
-        const pcts = [];
-        if (s.lim_req > 0 && s.rem_req != null) pcts.push(s.rem_req / s.lim_req);
-        if (s.lim_tok > 0 && s.rem_tok != null) pcts.push(s.rem_tok / s.lim_tok);
-        if (!pcts.length) continue;
-        const rem = Math.round(Math.min(...pcts) * 100);
-        if (minRem == null || rem < minRem) { minRem = rem; atMin = s.at; }
+        if (s.lim_req > 0 && s.rem_req != null) {
+          const p = Math.round((s.rem_req / s.lim_req) * 100);
+          if (minReq == null || p < minReq) { minReq = p; atMin = s.at; }
+        }
+        if (s.lim_tok > 0 && s.rem_tok != null) {
+          const t = Math.round((s.rem_tok / s.lim_tok) * 100);
+          if (tokPct == null || t < tokPct) tokPct = t;
+        }
       }
-      if (minRem != null) {
+      if (minReq != null) {
         const fresh = atMin && (now - new Date(atMin).getTime() < GROQ_FRESH_MS);
         groqSema = { key: 'groq', kind: 'usage',
-          ok: fresh ? minRem >= 20 : true,
+          ok: fresh ? minReq >= 20 : true,
           at: atMin,
-          status: !fresh ? 'stale' : (minRem >= 20 ? 'ok' : 'error'),
-          remaining_pct: minRem };
+          status: !fresh ? 'stale' : (minReq >= 20 ? 'ok' : 'error'),
+          remaining_pct: minReq, tokens_pct: tokPct };
       }
     } catch { /* svc_groq_rl* ausente o no parseable */ }
 
