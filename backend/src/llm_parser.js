@@ -101,7 +101,12 @@ export function mergeParsed(llm, det) {
     amount: pick(llm.amount, det.amount),
     category: pick(llm.category, det.category),
     type: pick(llm.type, det.type),
-    payment_method: pick(llm.payment_method, det.payment_method),
+    // Método de pago: el determinista manda. Es un enum por palabra clave EXACTA
+    // ("efectivo"/"tarjeta"/"bizum"/"crédito"…), muy fiable; el LLM (Groq) tiende
+    // a "rellenar" con tarjeta por defecto y pisaba la detección correcta (p. ej.
+    // dices "efectivo" y se quedaba en tarjeta). Si el determinista no encontró
+    // ninguna palabra de pago, se usa el LLM como respaldo.
+    payment_method: pick(det.payment_method, llm.payment_method),
     origin: pick(llm.origin, det.origin),
     destination: pick(llm.destination, det.destination),
     odometer_km: pick(llm.odometer_km, det.odometer_km),
