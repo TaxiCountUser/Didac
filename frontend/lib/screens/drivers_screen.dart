@@ -149,7 +149,17 @@ class _DriversScreenState extends State<DriversScreen> {
         await _offerBuySeat(e.seats, doInvite);
       } catch (e) {
         if (!mounted) return;
-        showError(context, e, screen: 'DriversScreen');
+        // Si el correo ya existe, mostramos el motivo REAL del servidor (antes se
+        // veía un error genérico); el resto, error amable.
+        final s = e.toString().toLowerCase();
+        final emailTaken = s.contains('registrado') || s.contains('already') ||
+            s.contains('usa otro') || s.contains('ese correo');
+        if (emailTaken) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', ''))));
+        } else {
+          showError(context, e, screen: 'DriversScreen');
+        }
       }
     }
   }

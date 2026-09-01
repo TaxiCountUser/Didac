@@ -76,6 +76,54 @@ export function registerAdminUsersRoutes(app, { supabase, adminGuard, logAdminAc
     return reply.send({ ok: true });
   });
 
+  // Liberar un correo: borra la cuenta asociada a un email (perfil en public.users
+  // + cuenta de auth si existe), para poder REUTILIZARLO. Pensado para RESIDUOS de
+  // pruebas y huérfanos (fila en users sin auth, o auth sin empresa). Nunca borra
+  // administradores de plataforma. Solo admin; queda en auditoría.
+  app.post('/api/v1/admin/free-email', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const email = String((request.body ?? {}).email || '').trim().toLowerCase();
+    if (!email) return reply.code(400).send({ error: 'Falta el correo' });
+
+    // Perfiles en public.users con ese correo (puede haber huérfanos sin tenant).
+    const { data: profiles } = await supabase
+      .from('users').select('id, tenant_id, role, is_admin, name').ilike('email', email);
+    if ((profiles || []).some((p) => p.is_admin)) {
+      return reply.code(409).send({
+        error: 'Ese correo es de un administrador de plataforma; no se libera aquí.',
+      });
+    }
+
+    // Cuenta de auth con ese correo (búsqueda en la lista; base aún pequeña).
+    let authId = null;
+    try {
+      const { data: list } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const au = (list?.users || []).find((u) => (u.email || '').toLowerCase() === email);
+      if (au) authId = au.id;
+    } catch (e) { request.log.warn(`[free-email] listUsers: ${e.message}`); }
+
+    if ((profiles || []).length === 0 && !authId) {
+      return reply.code(404).send({ error: 'No hay ninguna cuenta con ese correo.' });
+    }
+
+    // Borra el/los perfil(es) por correo y la cuenta de auth (si la hay).
+    await supabase.from('users').delete().ilike('email', email);
+    let authDeleted = false;
+    if (authId) {
+      try { await supabase.auth.admin.deleteUser(authId); authDeleted = true; }
+      catch (e) {
+        if (!/not.*found|404/i.test(e?.message || '')) {
+          request.log.warn(`[free-email] deleteUser: ${e.message}`);
+        }
+      }
+    }
+    await logAdminAction(request, g.caller.id, 'free_email', 'user',
+      authId || (profiles?.[0]?.id ?? null),
+      { email, profilesRemoved: (profiles || []).length, authDeleted });
+    return reply.send({ ok: true, email, profilesRemoved: (profiles || []).length, authDeleted });
+  });
+
   // Vehículos asignados a un conductor (admin): lista de vehicle_id.
   app.get('/api/v1/admin/user/:id/vehicles', async (request, reply) => {
     const g = await adminGuard(request);

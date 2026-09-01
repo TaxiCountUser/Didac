@@ -1041,6 +1041,22 @@ class DataService {
   }
 
 
+  /// Admin: libera un correo borrando su cuenta (perfil en users + cuenta de auth
+  /// si existe), para poder REUTILIZARLO. Para residuos de pruebas y huérfanos.
+  /// Devuelve {profilesRemoved, authDeleted}.
+  Future<Map<String, dynamic>> adminFreeEmail(String email) async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/admin/free-email'),
+      headers: _bearer,
+      body: jsonEncode({'email': email.trim()}),
+    );
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw Exception(body['error'] ?? 'No se pudo liberar el correo');
+    }
+    return body;
+  }
+
   /// Lista de administradores actuales (solo admin).
   Future<List<Map<String, dynamic>>> adminListAdmins() async {
     final res = await http.get(Uri.parse('$backendUrl/api/v1/admin/admins'), headers: _bearer);

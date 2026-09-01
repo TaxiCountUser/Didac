@@ -268,6 +268,10 @@ export function registerCompaniesRoutes(app, {
         await supabase.from('users').update({ tenant_id: null }).eq('id', u.id);
         continue;
       }
+      // Borra el PERFIL (public.users) y la cuenta de Auth. Borrar solo Auth
+      // dejaba la fila de users huérfana reteniendo el CORREO (no se podía
+      // reutilizar). Las carreras quedan con user_id -> null (FK), retención OK.
+      await supabase.from('users').delete().eq('id', u.id);
       try { await supabase.auth.admin.deleteUser(u.id); } catch (_) {}
       removed += 1;
     }
@@ -325,9 +329,18 @@ export function registerCompaniesRoutes(app, {
     if (!t.closed_at) {
       return reply.code(400).send({ error: 'Solo se pueden purgar empresas dadas de baja' });
     }
-    // Desvincula (por si acaso) cualquier admin de plataforma que siga apuntando
-    // a este tenant, para no borrar su cuenta con la cascada.
-    await supabase.from('users').update({ tenant_id: null }).eq('tenant_id', id).eq('is_admin', true);
+    // Limpia los accesos que queden: borra el perfil + Auth de los NO-admin (para
+    // no dejar huérfanos que retengan el correo tras borrar el tenant), y
+    // desvincula a los admin de plataforma (nunca se borran con la cascada).
+    const { data: remaining } = await supabase.from('users').select('id, is_admin').eq('tenant_id', id);
+    for (const u of remaining || []) {
+      if (u.is_admin) {
+        await supabase.from('users').update({ tenant_id: null }).eq('id', u.id);
+        continue;
+      }
+      await supabase.from('users').delete().eq('id', u.id);
+      try { await supabase.auth.admin.deleteUser(u.id); } catch (_) {}
+    }
     const { error } = await supabase.from('tenants').delete().eq('id', id);
     if (error) return reply.code(400).send({ error: error.message });
     await logAdminAction(request, g.caller.id, 'company_purge', 'tenant', id, { name: t.name });

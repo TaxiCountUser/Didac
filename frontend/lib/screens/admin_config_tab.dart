@@ -170,7 +170,8 @@ class _ConfigTabState extends State<ConfigTab> {
   List<Widget> _sectionCards(AppLocalizations l) => switch (widget.section) {
         'challenges' => [_challengesCard(l)],
         'referrals' => [_referralsCard(l)],
-        _ => [_generalCard(l), const SizedBox(height: 16), _adminsCard(l)],
+        _ => [_generalCard(l), const SizedBox(height: 16), _freeEmailCard(l),
+              const SizedBox(height: 16), _adminsCard(l)],
       };
 
   @override
@@ -375,6 +376,91 @@ class _ConfigTabState extends State<ConfigTab> {
   }
 
   // ── ADMINISTRADORES (Fase 4: antes vivía en el AppBar del panel) ──────────
+  // Liberar un correo agotado por residuos de pruebas / huérfanos.
+  Widget _freeEmailCard(AppLocalizations l) {
+    return _section(
+      icon: Icons.mark_email_read, color: AdminColors.purple,
+      title: l.t('free_email_title'), intro: l.t('free_email_help'),
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.mark_email_read, size: 18),
+            label: Text(l.t('free_email_btn')),
+            onPressed: _freeEmailDialog,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _freeEmailDialog() async {
+    final l = context.l10n;
+    final ctrl = TextEditingController();
+    await showAdminDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          bool busy = false;
+          Future<void> run() async {
+            final email = ctrl.text.trim();
+            if (email.isEmpty) return;
+            final messenger = ScaffoldMessenger.of(context); // capturado antes del await
+            final ok = await showDialog<bool>(
+              context: ctx,
+              builder: (c) => AlertDialog(
+                title: Text(l.t('free_email_confirm_title')),
+                content: Text(l.t('free_email_confirm_body', {'email': email})),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.t('cancel'))),
+                  FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.t('free_email_btn'))),
+                ],
+              ),
+            );
+            if (ok != true) return;
+            setLocal(() => busy = true);
+            try {
+              final r = await _service.adminFreeEmail(email);
+              if (ctx.mounted) Navigator.pop(ctx);
+              messenger.showSnackBar(SnackBar(
+                content: Text(l.t('free_email_done', {'p': '${r['profilesRemoved'] ?? 0}'})),
+              ));
+            } catch (e) {
+              if (ctx.mounted) setLocal(() => busy = false);
+              messenger.showSnackBar(SnackBar(
+                  content: Text('${l.t('error')}: ${e.toString().replaceFirst('Exception: ', '')}')));
+            }
+          }
+
+          return AlertDialog(
+            title: Text(l.t('free_email_title')),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l.t('free_email_help'), style: Theme.of(ctx).textTheme.bodySmall),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: ctrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                        labelText: 'correo', hintText: 'correo@ejemplo.com'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('close'))),
+              FilledButton(onPressed: busy ? null : run, child: Text(l.t('free_email_btn'))),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _adminsCard(AppLocalizations l) {
     return _section(
       icon: Icons.shield, color: AdminColors.purple,
