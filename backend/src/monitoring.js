@@ -181,8 +181,16 @@ export function createMonitoring({ supabase, log, probeDb }) {
         const vals = [s.ram_pct, s.disk_pct, s.cpu_pct].filter((x) => typeof x === 'number');
         if (vals.length) {
           const max = Math.max(...vals);
-          supaResSema = { key: 'supabase_res', kind: 'usage', ok: max < 80, at: s.at,
-            status: max < 80 ? 'ok' : 'error',
+          // Umbral 80% para RAM/CPU. Para DISCO, 90%: en el plan GRATIS de Supabase
+          // el disco de la instancia va alto de base (Postgres+servicios) al margen
+          // de que la BD sea de pocos MB, así que <90% no es una avería accionable
+          // (el arreglo real es Free→Pro). >=90% sí avisa (riesgo de disco lleno).
+          const ramBad = typeof s.ram_pct === 'number' && s.ram_pct >= 80;
+          const cpuBad = typeof s.cpu_pct === 'number' && s.cpu_pct >= 80;
+          const diskBad = typeof s.disk_pct === 'number' && s.disk_pct >= 90;
+          const bad = ramBad || cpuBad || diskBad;
+          supaResSema = { key: 'supabase_res', kind: 'usage', ok: !bad, at: s.at,
+            status: bad ? 'error' : 'ok',
             max_pct: max, ram_pct: s.ram_pct, disk_pct: s.disk_pct, cpu_pct: s.cpu_pct };
         }
       }
