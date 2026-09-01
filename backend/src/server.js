@@ -67,7 +67,9 @@ const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || '';
 const WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
 // LLM para interpretar la transcripción (origen/destino/empresa) en catalán y
 // castellano. Vacío = solo parser determinista. Con Groq (gratis) usa un modelo
-// de chat, p. ej. llama-3.3-70b-versatile.
+// de chat que TU PLAN de Groq tenga disponible (Console → Models). Los Llama
+// (llama-3.x-*) hoy piden plan de pago y dan 404 "you do not have access"; los
+// openai/gpt-oss-* están en el plan gratis/developer. Sugerido: openai/gpt-oss-20b.
 const LLM_PARSE_MODEL = process.env.LLM_PARSE_MODEL || '';
 const LLM_PARSE_TIMEOUT_MS = Number(process.env.LLM_PARSE_TIMEOUT_MS || 8000);
 // Endpoint de prueba (escribir una frase y ver cómo se interpreta) SIN audio.

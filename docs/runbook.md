@@ -62,6 +62,11 @@ pueden estar desincronizándose.**
 Impacto: la entrada por voz cae al modo manual; la app sigue funcionando.
 1. Render → Logs: buscar "Whisper falló" o "LLM parse falló" (motivo exacto).
 2. Causas típicas: API key caducada o sin crédito (OpenAI/Groq), o timeout.
+   - **Whisper VA pero el parser LLM NO (openai en rojo)** ⟹ NO es la key (la
+     comparten): es el **modelo**. Groq da `404 ... does not exist or you do not
+     have access to it` cuando `LLM_PARSE_MODEL` pide un modelo fuera de tu plan
+     (los `llama-3.x-*` piden plan de pago). Fix: pon uno de tu plan —
+     `LLM_PARSE_MODEL=openai/gpt-oss-20b` (Console → Models). Incidencia 2026-08-27.
 3. Probar tras el arreglo: admin → cualquier `/parse-test`, o una nota de voz.
 
 ### 🔴 PUSH (error)
