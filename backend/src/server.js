@@ -1845,9 +1845,10 @@ export async function buildApp(options = {}) {
       (s) => `Queda ${s.remaining_pct ?? '?'}% de la API de Groq disponible.`);
     await alertLimit('supabase_res', semaphores, '⚠ Recursos de Supabase altos',
       (s) => `CPU/RAM/disco al ${s.max_pct ?? '?'}% (umbral 80%).`);
-    // "never" no alerta: es un semáforo aún sin datos (p. ej. recién desplegado),
-    // no una avería. stale/error sí.
-    const red = semaphores.filter((s) => s.status === 'stale' || s.status === 'error');
+    // Rojo = genuinamente KO (ok:false), excluyendo 'never' (semáforo aún sin
+    // datos, recién desplegado; no es avería). Un 'stale' con ok:true —p. ej. el
+    // de Groq sin llamadas recientes— NO alerta (antes daba falso rojo en la vigía).
+    const red = semaphores.filter((s) => s.ok === false && s.status !== 'never');
     return reply.send({ ok: red.length === 0, red: red.map((s) => s.key), semaphores });
   });
 
