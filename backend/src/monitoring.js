@@ -146,16 +146,25 @@ export function createMonitoring({ supabase, log, probeDb }) {
     // se rellena solo, así que baja justo tras una llamada → daba falsos rojos;
     // aquí es solo informativo (`tokens_pct`), nunca pone rojo. Además, si la
     // lectura de peticiones no es reciente (sin uso), no alarma (stale).
+    // Solo las fotos FRESCAS (por modelo) alimentan la alarma. Una foto caducada
+    // (p.ej. un modelo que dejamos de usar, cuya clave svc_groq_rl:<model> queda
+    // congelada) NO debe fijar el semáforo: sin uso reciente el margen no refleja
+    // el estado real. Antes, esa foto vieja se marcaba 'stale' -> el panel la
+    // pinta ROJO ("Aturat"), un falso positivo tras cambiar de modelo LLM.
     const GROQ_FRESH_MS = 15 * 60 * 1000;
     let groqSema = { key: 'groq', kind: 'usage', ok: true, at: null, status: 'off' };
     try {
-      let minReq = null; let atMin = null; let tokPct = null;
+      let minReq = null; let atMin = null; let tokPct = null; let sawAny = false;
       for (const k of Object.keys(cfg)) {
         if (!k.startsWith('svc_groq_rl')) continue;
         let s; try { s = JSON.parse(cfg[k]); } catch { continue; }
+        sawAny = true;
+        const fresh = s.at && (now - new Date(s.at).getTime() < GROQ_FRESH_MS);
+        if (!fresh) continue; // ignora fotos caducadas (modelos sin uso reciente)
         if (s.lim_req > 0 && s.rem_req != null) {
           const p = Math.round((s.rem_req / s.lim_req) * 100);
-          if (minReq == null || p < minReq) { minReq = p; atMin = s.at; }
+          if (minReq == null || p < minReq) minReq = p;
+          if (!atMin || new Date(s.at).getTime() > new Date(atMin).getTime()) atMin = s.at;
         }
         if (s.lim_tok > 0 && s.rem_tok != null) {
           const t = Math.round((s.rem_tok / s.lim_tok) * 100);
@@ -163,12 +172,14 @@ export function createMonitoring({ supabase, log, probeDb }) {
         }
       }
       if (minReq != null) {
-        const fresh = atMin && (now - new Date(atMin).getTime() < GROQ_FRESH_MS);
-        groqSema = { key: 'groq', kind: 'usage',
-          ok: fresh ? minReq >= 20 : true,
-          at: atMin,
-          status: !fresh ? 'stale' : (minReq >= 20 ? 'ok' : 'error'),
+        // Hay al menos un modelo con datos FRESCOS: alarma solo por peticiones.
+        groqSema = { key: 'groq', kind: 'usage', ok: minReq >= 20, at: atMin,
+          status: minReq >= 20 ? 'ok' : 'error',
           remaining_pct: minReq, tokens_pct: tokPct };
+      } else if (sawAny) {
+        // Hay fotos pero ninguna reciente (sin uso de Groq en 15 min): NO es un
+        // fallo -> gris 'idle' ("sense ús recent"), nunca rojo.
+        groqSema = { key: 'groq', kind: 'usage', ok: true, at: null, status: 'idle' };
       }
     } catch { /* svc_groq_rl* ausente o no parseable */ }
 
