@@ -71,7 +71,7 @@ La arquitectura es sólida y está bien alineada con su stack.
 |---|---|
 | Backend | Fastify, `server.js` ~3.500 líneas + 6 módulos · 69 rutas HTTP |
 | Frontend | Flutter, ~45 pantallas, i18n propia (es/en/ca) |
-| Base de datos | 65 migraciones · 29 tablas · ~28 RPCs · 53 políticas RLS |
+| Base de datos | 84 migraciones · 35 tablas · ~28 RPCs · 53 políticas RLS |
 | Idiomas de la app | Español, inglés, catalán |
 | Coste operativo | ~88 €/mes |
 
@@ -395,8 +395,12 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
   el semáforo; sin uso reciente de Groq muestra gris `idle` ("sin uso reciente"), nunca rojo.
 - **Panel de Métricas** (pestaña *Métricas* de Seguridad, `GET /admin/metrics`): barras en
   vivo del **% disponible de Groq** (por cabeceras `x-ratelimit-*`, aviso <20%) y de los
-  **recursos de Supabase** — CPU/RAM/disco por scrape del endpoint privilegiado (aviso >80%)
-  + tamaño de la BD y conexiones vía RPC `db_resource_stats` (migración 066).
+  **recursos de Supabase** — CPU/RAM/disco por scrape del endpoint privilegiado (aviso: CPU/RAM
+  >80%, **disco >90%** porque el plan Free arranca alto de base) + tamaño de la BD y conexiones
+  vía RPC `db_resource_stats` (migración 066).
+- La **vigía** (`/admin/cron/semaphores`, cada 15 min) solo alarma (falla el job) por lo que está
+  **realmente KO** (`ok===false && status!=='never'`); un `stale`/`idle` benigno o "sin datos" no
+  dispara alerta.
 
 ### 4.5 Base de datos (`supabase/migrations/`, 29 tablas)
 - **Núcleo:** `tenants` → `users` / `vehicles` / `transactions` (+ `vehicle_licenses`, `driver_vehicles`).
@@ -597,14 +601,14 @@ Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) 
 | **Kong (Gateway)** | `2.8.1` | 54321 | expone `/auth/v1` y `/rest/v1`; plugins cors/key-auth/acl |
 | **Realtime** | `v2.30.34` (perfil opcional) | — | publica `transactions` en `supabase_realtime` |
 
-**Cifras del esquema:** 65 migraciones · **29 tablas** · **~28 RPCs** `public.*` · **53 políticas RLS** · 3 triggers.
+**Cifras del esquema:** 84 migraciones · **35 tablas** · **~28 RPCs** `public.*` · **53 políticas RLS** · 3 triggers.
 
 **Diseño de claves foráneas:** todas las tablas de negocio llevan `tenant_id` con
 `ON DELETE CASCADE` (o `SET NULL` para el admin y para `user_id`/`vehicle_id` en
 `transactions`, para conservar el histórico) y `ON UPDATE CASCADE` (permite remapear el
 id del perfil al id real de `auth.users`).
 
-### A.2 Modelo de datos (29 tablas por dominio)
+### A.2 Modelo de datos (35 tablas por dominio)
 - **Núcleo multi-tenant:**
   - `tenants` — empresa. Base: `id, name`. Extendida: `subscription_status, trial_ends_at,
     plan_id, drivers_limit, stripe_customer_id, stripe_subscription_id, solo, join_code, closed_at`.

@@ -6,7 +6,7 @@
 
 ## Regla d'or: NO llegir fitxers grossos sencers
 Aquests fitxers cremen molts tokens si es llegeixen sencers — sempre **`Grep` l'àncora → `Read` amb `offset`/`limit`** només el tros:
-- `backend/src/server.js` — ~5.9k línies / 305 KB (monòlit, 98 endpoints)
+- `backend/src/server.js` — ~2.35k línies / 120 KB (troceig FET: 27 endpoints aquí + la resta en 16 mòduls germans; abans 5.9k/98)
 - `frontend/lib/l10n/app_localizations.dart` — 3.3k línies / 181 KB (mapa i18n)
 - `graphify-out/graph.json` — 1,8 MB → **mai** `Read`; consulta'l amb el CLI (sota)
 - `informe-app.md` — doc gran; té **índex al capdamunt** + mapa de navegació. Salta amb `grep -nE "^#{2,3} "`.
