@@ -389,6 +389,10 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 - `markCronRun` → frescura (rojo si >48h). `markService` → último resultado (rojo solo si
   la última llamada falló, con caducidad de 24h para no quedar pegado; la inactividad no da
   falso rojo). `probeDb` → latencia en vivo.
+- `Groq·Cuota` (`groqSema`) toma una foto de rate-limit **por modelo** (`svc_groq_rl:<model>`);
+  solo alarma por **peticiones** (`minReq<20%`) y solo con lecturas **frescas (<15 min)**. Las
+  fotos caducadas (p.ej. la de un modelo LLM que se dejó de usar) se **descartan** y nunca fijan
+  el semáforo; sin uso reciente de Groq muestra gris `idle` ("sin uso reciente"), nunca rojo.
 - **Panel de Métricas** (pestaña *Métricas* de Seguridad, `GET /admin/metrics`): barras en
   vivo del **% disponible de Groq** (por cabeceras `x-ratelimit-*`, aviso <20%) y de los
   **recursos de Supabase** — CPU/RAM/disco por scrape del endpoint privilegiado (aviso >80%)
