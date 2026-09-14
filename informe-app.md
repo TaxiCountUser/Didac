@@ -432,7 +432,7 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 | **Sentry** | Errores (solo backend; el frontend no lo lleva) | activado por `SENTRY_DSN` — verificado 2026-07-10: **aún sin configurar en prod** (`/health` → `sentry:false`); alta pendiente en T4 | — |
 | **GitHub Actions** | CI/CD, crons, backup diario | workflows | semáforos **CRONS** / **BACKUP** |
 | **Render** | Hosting del backend | despliegue | semáforo **API** |
-| **GitHub Pages / Releases** | Web + distribución APK + auto-update | `deploy-web.yml`, `build-apk.yml` | — |
+| **GitHub Pages / Releases** | Web (repos PÚBLICOS separados, solo compilado, para que `Didac`/fuente siga PRIVADO): cliente → `taxicount-client` (dominio `www.taxicount.com`), admin → `taxicount-admin`; ambos vía peaceiris. Distribución APK + auto-update vía Releases. | `deploy-web.yml`, `deploy-admin-web.yml`, `build-apk.yml` | — |
 
 **Secretos y aislamiento:** `service_role` y las claves secretas de Stripe **nunca** están
 en el código de la app; se inyectan por variables de entorno (Render) y GitHub Secrets. Los
