@@ -119,6 +119,9 @@ jobs:
           name: taxicount-apk
           path: frontend/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+          # El APK vive permanentemente en la Release (make_latest); este artefacto
+          # es solo una copia temporal. Auto-expira para no llenar la cuota de Actions.
+          retention-days: 7
 
       # Manifiesto para el aviso de actualización dentro de la app. La versión
       # mínima soportada se lee de frontend/min_supported_build.txt: súbela solo
@@ -161,3 +164,5 @@ jobs:
           name: taxicount-aab
           path: frontend/build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+          # Copia temporal para subir a Play; auto-expira para no llenar la cuota.
+          retention-days: 7
