@@ -1,29 +1,28 @@
-name: Deploy Web (GitHub Pages)
+name: Deploy Web (cliente, repo separado)
 
-# Construye la web (Flutter) y la publica en GitHub Pages en cada push a main.
-# URL resultante: https://taxicountuser.github.io/Didac/
+# Construye la app WEB de CLIENTE (entry point lib/main.dart) y la publica en un
+# repo/Pages SEPARADO y PÚBLICO (solo output compilado), para que el repo de
+# CÓDIGO (Didac) siga PRIVADO. Mismo patrón que deploy-admin-web.yml.
 #
-# Reutiliza los MISMOS secrets que el APK (Settings -> Secrets -> Actions):
-#   PROD_SUPABASE_URL, PROD_SUPABASE_ANON_KEY, PROD_BACKEND_URL
-#   PROD_STRIPE_PRICE_STARTER / _PRO / _BUSINESS (+ _YEARLY)
-#
-# Requisito (una sola vez): Settings -> Pages -> Build and deployment ->
-#   Source: "GitHub Actions".
+# ── Config ──────────────────────────────────────────────────────────────────────
+# Repo destino: TaxiCountUser/taxicount-client (Pages, rama gh-pages).
+# Dominio propio: www.taxicount.com (base-href "/"; se escribe el CNAME en cada deploy).
+# Secret ADMIN_DEPLOY_TOKEN (ya puesto en Didac) con permiso de escritura al repo.
+# Reutiliza los MISMOS secrets PROD_* que el APK.
+# ──────────────────────────────────────────────────────────────────────────────—
 
 on:
   push:
     branches: [main]
+    paths: ['frontend/**']
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# Un despliegue a la vez.
-concurrency:
-  group: pages
-  cancel-in-progress: true
+env:
+  CLIENT_REPO: TaxiCountUser/taxicount-client
+  CLIENT_DOMAIN: www.taxicount.com
 
 jobs:
   build:
@@ -61,50 +60,31 @@ jobs:
             echo "::warning::Sin secrets PROD_*: la web apuntará a localhost (no servirá para testers)."
           fi
 
-      # Versión: para que "Novedades" muestre la versión real (no 0.1.0 del
-      # pubspec). El contador es el nº de ejecución de ESTE workflow (web), así
-      # que puede no coincidir con el de la APK; se sufija "-web" para que quede
-      # claro que es el build de la web.
+      # Versión visible en "Novedades" (el pubspec queda en 0.1.0). Contador = nº
+      # de ejecución de ESTE workflow; se sufija "-web" para distinguirlo del APK.
       - name: Versionado
         id: version
         run: |
           echo "name=0.1.${{ github.run_number }}-web" >> "$GITHUB_OUTPUT"
           echo "code=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
-      # base-href con el nombre del repo (project pages): /Didac/
-      - name: Build web
-        run: flutter build web --release --base-href /Didac/ --build-name=${{ steps.version.outputs.name }} --build-number=${{ steps.version.outputs.code }} ${{ steps.defines.outputs.args }}
+      # Dominio propio (taxicount.com) => base-href "/". Si algún día se sirviera
+      # bajo /taxicount-client/, habría que cambiarlo por "/taxicount-client/".
+      - name: Build web (cliente)
+        run: >
+          flutter build web --release
+          --base-href /
+          --build-name=${{ steps.version.outputs.name }}
+          --build-number=${{ steps.version.outputs.code }}
+          ${{ steps.defines.outputs.args }}
 
-      - uses: actions/upload-pages-artifact@v5
+      # Publica en el repo SEPARADO y PÚBLICO (rama gh-pages) con el token dedicado.
+      # `cname` escribe el fichero CNAME en cada deploy para no perder el dominio.
+      - name: Deploy a repo separado
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: frontend/build/web
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      # Pages falla a menudo con el error transitorio "Deployment failed, try
-      # again later": reintentamos hasta 2 veces (con pausa) antes de rendirnos.
-      - id: deployment
-        uses: actions/deploy-pages@v5
-        continue-on-error: true
-
-      - name: Espera antes del reintento
-        if: steps.deployment.outcome == 'failure'
-        run: sleep 60
-
-      - id: deployment_retry
-        if: steps.deployment.outcome == 'failure'
-        uses: actions/deploy-pages@v5
-        continue-on-error: true
-
-      - name: Espera antes del último intento
-        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome == 'failure'
-        run: sleep 120
-
-      - id: deployment_retry2
-        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome == 'failure'
-        uses: actions/deploy-pages@v5
+          personal_token: ${{ secrets.ADMIN_DEPLOY_TOKEN }}
+          external_repository: ${{ env.CLIENT_REPO }}
+          publish_branch: gh-pages
+          publish_dir: frontend/build/web
+          cname: ${{ env.CLIENT_DOMAIN }}
