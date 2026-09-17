@@ -98,12 +98,13 @@ jobs:
           fi
 
       # Versión: el versionCode sube en cada build (nº de ejecución) para que la
-      # app detecte que hay una más nueva. versionName legible 0.1.<run>.
+      # app detecte que hay una más nueva. versionName legible 1.0.<run> (lanzamiento
+      # público en Google Play; antes 0.1.<run> en fase de pruebas por sideload).
       - name: Versionado
         id: version
         run: |
           CODE="${{ github.run_number }}"
-          NAME="0.1.${{ github.run_number }}"
+          NAME="1.0.${{ github.run_number }}"
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
