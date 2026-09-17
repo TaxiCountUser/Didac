@@ -2,13 +2,16 @@ name: Backup diario de la BD
 
 # Copia de seguridad automática de la base de datos (Supabase) cada día.
 # Hace pg_dump del esquema public (datos de la app) con el contenedor oficial
-# postgres:17 (no instala nada) y lo guarda como artefacto del workflow con
-# 90 días de retención. También sirve para lanzarlo a mano.
+# postgres:17 (no instala nada) y lo guarda como ASSET de una Release en el repo
+# PRIVADO `taxicount-backups`. Las Releases NO gastan la cuota de almacenamiento
+# de artefactos de Actions (que se agotó al acumular builds), y al ser repo
+# privado el dump no es público. También sirve para lanzarlo a mano.
 #
-# Requisito (una sola vez): Settings -> Secrets and variables -> Actions ->
-#   SUPABASE_DB_URL = cadena de conexión de Supabase
-#   (Project Settings -> Database -> Connection string -> URI; usa el
-#    Session pooler si la conexión directa IPv6 falla).
+# Requisitos (una sola vez): Settings -> Secrets and variables -> Actions ->
+#   SUPABASE_DB_URL = cadena de conexión de Supabase (Database -> Connection
+#     string -> URI; usa el Session pooler si la conexión directa IPv6 falla).
+#   ADMIN_DEPLOY_TOKEN = token con permiso de escritura al repo taxicount-backups
+#     (ya existe; reutilizado del deploy de la web admin).
 #
 # Nota de hora: el cron de GitHub Actions es UTC. 01:00 UTC ≈ 03:00 en España
 # (CEST, verano) y 02:00 (CET, invierno). Ajusta si lo necesitas exacto.
@@ -62,13 +65,19 @@ jobs:
           ls -lh "$OUT"
           echo "DUMP_FILE=$OUT" >> "$GITHUB_ENV"
 
-      - name: Subir artefacto (retención 90 días)
-        uses: actions/upload-artifact@v5
+      # Guarda el dump como asset de una Release en el repo PRIVADO dedicado. Las
+      # Releases no gastan la cuota de artefactos de Actions y, al ser repo
+      # privado, el dump no es público. Off-site respecto a Supabase.
+      - name: Guardar backup en repo privado (Release)
+        uses: softprops/action-gh-release@v2
         with:
-          name: db-backup-${{ github.run_number }}
-          path: ${{ env.DUMP_FILE }}
-          retention-days: 90
-          if-no-files-found: error
+          repository: TaxiCountUser/taxicount-backups
+          token: ${{ secrets.ADMIN_DEPLOY_TOKEN }}
+          tag_name: db-${{ github.run_number }}
+          name: Backup ${{ github.run_number }}
+          files: ${{ env.DUMP_FILE }}
+          make_latest: true
+          fail_on_unmatched_files: true
 
       # Avisa al backend de que el backup terminó bien, para el semáforo "Backup"
       # del panel de admin (registra cron_last_backup). Best-effort: si el backend
