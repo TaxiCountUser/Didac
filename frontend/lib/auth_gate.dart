@@ -129,6 +129,12 @@ class _ProfileRouterState extends State<ProfileRouter> {
           );
         }
 
+        // Cuenta dada de baja por el propio usuario (RGPD, mig. 085): queda
+        // inutilizable. Aunque la sesión siga viva en este dispositivo, se
+        // informa y se ofrece cerrar sesión (el backend ya bloquea toda acción).
+        if (profile.isDeleted) {
+          return const _AccountDeletedScreen();
+        }
         // Admin de plataforma: el panel de administración vive en una app web
         // SEPARADA (no se incluye en esta app de operativa, por tamaño y superficie
         // de ataque). Si un admin entra aquí, se lo indicamos (sin cargar código
@@ -182,6 +188,43 @@ class _ProfileRouterState extends State<ProfileRouter> {
         }
         return OwnerHomeScreen(profile: profile);
       },
+    );
+  }
+}
+
+/// Cuenta dada de baja por el propio usuario (RGPD): pantalla informativa.
+class _AccountDeletedScreen extends StatelessWidget {
+  const _AccountDeletedScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.no_accounts_outlined, size: 64, color: Colors.redAccent),
+                const SizedBox(height: 16),
+                Text(l.t('acc_deleted_title'),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                Text(l.t('acc_deleted_body'), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  child: Text(l.t('cpw_signout')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

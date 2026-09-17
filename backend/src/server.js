@@ -134,6 +134,33 @@ function privacyHtml() {
 </body></html>`;
 }
 
+// Página pública de BORRADO DE CUENTA (requisito de Google Play: URL de solicitud
+// de eliminación). Explica cómo pedir la baja y qué se conserva por ley fiscal.
+function accountDeletionHtml() {
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eliminar tu cuenta · TaxiCount</title>
+<style>body{font-family:system-ui,Arial,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#222;line-height:1.5}h1{font-size:22px}h2{font-size:17px;margin-top:24px}code{background:#f2f2f2;padding:1px 4px;border-radius:4px}</style>
+</head><body>
+<h1>Eliminar tu cuenta de TaxiCount</h1>
+<p>Puedes solicitar la eliminación de tu cuenta de <strong>TaxiCount</strong> (${PRIVACY_COMPANY}) de dos formas.</p>
+
+<h2>1. Desde la app (recomendado)</h2>
+<p>Abre TaxiCount → <strong>Ajustes</strong> → <strong>Eliminar mi cuenta</strong>, y confirma. Tu cuenta quedará dada de baja al instante: dejarás de poder iniciar sesión.</p>
+
+<h2>2. Por correo</h2>
+<p>Escribe a <strong>${PRIVACY_CONTACT}</strong> desde el correo de tu cuenta, indicando que quieres eliminarla.</p>
+
+<h2>Qué se elimina y qué se conserva</h2>
+<ul>
+  <li><strong>Se elimina:</strong> el acceso a tu cuenta y tu perfil de uso; tus datos personales dejan de ser accesibles y se anonimizan cuando es posible.</li>
+  <li><strong>Se conserva (obligatorio por ley):</strong> los registros con relevancia contable/fiscal (carreras, importes, facturación) durante <strong>5 años</strong>, según la legislación española y el RGPD (art. 17.3.b). Pasado ese plazo, se eliminan de forma definitiva.</li>
+</ul>
+<p>Para cualquier duda sobre tus datos, escribe a ${PRIVACY_CONTACT}. También puedes reclamar ante la Agencia Española de Protección de Datos (AEPD).</p>
+</body></html>`;
+}
+
 // Página web mínima para probar la interpretación desde el navegador.
 const PARSE_TEST_HTML = `<!doctype html>
 <html lang="ca"><head><meta charset="utf-8">
@@ -576,10 +603,13 @@ export async function buildApp(options = {}) {
     }
     const { data: prof } = await supabase
       .from('users')
-      .select('id, role, tenant_id, is_admin, daily_transcription_count, transcription_count_date')
+      .select('id, role, tenant_id, is_admin, deleted_at, daily_transcription_count, transcription_count_date')
       .eq('id', data.user.id)
       .single();
-    return prof || null;
+    // Cuenta con borrado solicitado (RGPD, mig. 085): queda inutilizable aunque
+    // el token siga siendo válido -> se trata como NO autorizada en todo el backend.
+    if (!prof || prof.deleted_at) return null;
+    return prof;
   }
 
   // Comprueba y actualiza el límite diario en UNA operación atómica (evita el
@@ -630,6 +660,15 @@ export async function buildApp(options = {}) {
   // Política de privacidad (URL pública requerida por Google Play).
   app.get('/privacy', async (_request, reply) => {
     reply.type('text/html').send(privacyHtml());
+  });
+
+  // Borrado de cuenta (URL pública requerida por Google Play: instrucciones de
+  // eliminación de cuenta y datos). Se declara en Play Console -> Data safety.
+  app.get('/borrar-cuenta', async (_request, reply) => {
+    reply.type('text/html').send(accountDeletionHtml());
+  });
+  app.get('/account-deletion', async (_request, reply) => {
+    reply.type('text/html').send(accountDeletionHtml());
   });
 
   // --- Transcripción + parseo (Fase 2) ---
@@ -774,8 +813,9 @@ export async function buildApp(options = {}) {
       return reply.code(401).send({ error: 'Usuario o contraseña incorrectos' });
     };
     const { data: row } = await supabase
-      .from('users').select('email').ilike('username', u).maybeSingle();
-    if (!row?.email) return genErr();
+      .from('users').select('email, deleted_at').ilike('username', u).maybeSingle();
+    // Cuenta dada de baja (RGPD): no permite iniciar sesión. Respuesta genérica.
+    if (!row?.email || row.deleted_at) return genErr();
     try {
       const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
@@ -789,6 +829,30 @@ export async function buildApp(options = {}) {
       request.log.error(e);
       return reply.code(502).send({ error: 'No se pudo iniciar sesión' });
     }
+  });
+
+  // --- Borrado de cuenta a petición del usuario (RGPD art. 17) ---
+  // Requisito de Google Play. Modelo de BORRADO LÓGICO compatible con la
+  // retención fiscal (5 años): marca `deleted_at` y desactiva la cuenta -> deja
+  // de poder iniciar sesión y libera el asiento, pero los datos (perfil mínimo +
+  // carreras, necesarios para contabilidad) se CONSERVAN. La purga física (perfil
+  // + cuenta Auth) la decide la ADMINISTRACIÓN tras la retención. NO se borra la
+  // cuenta Auth aquí. El propio usuario solo puede darse de baja a SÍ mismo.
+  app.post('/api/v1/account/request-deletion', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autorizado' });
+    const { error } = await supabase.from('users')
+      .update({ deleted_at: new Date().toISOString(), active: false })
+      .eq('id', caller.id);
+    if (error) {
+      request.log.error(error);
+      return reply.code(502).send({ error: 'No se pudo procesar la baja' });
+    }
+    logSecurityEvent(request, 'account_deletion_requested', {
+      status: 200, details: { role: caller.role },
+    });
+    return reply.send({ ok: true });
   });
 
   // --- Reporte de login FALLIDO de email/Google (capa B, fase 2). Estos logins

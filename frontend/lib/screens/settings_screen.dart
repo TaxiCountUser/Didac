@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
@@ -659,9 +660,51 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _open(AboutScreen(isOwner: widget.profile.isOwner)),
           ),
+
+          // Borrado de cuenta a petición (RGPD / requisito Google Play).
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.no_accounts_outlined, color: Colors.redAccent),
+            title: Text(l.t('acc_delete_tile')),
+            subtitle: Text(l.t('acc_delete_sub')),
+            onTap: _confirmDeleteAccount,
+          ),
         ],
       ),
     );
+  }
+
+  // Baja de la propia cuenta (RGPD). Doble confirmación + aviso de retención
+  // fiscal; al confirmar, borrado lógico en el backend y cierre de sesión.
+  Future<void> _confirmDeleteAccount() async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('acc_delete_title')),
+        content: Text(l.t('acc_delete_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l.t('cancel')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.t('acc_delete_confirm_btn')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _service.requestAccountDeletion();
+      await Supabase.instance.client.auth.signOut();
+      // El AuthGate reacciona al signOut y vuelve a la pantalla de login.
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+    }
   }
 
   Widget _header(AppLocalizations l, bool isOwner) {

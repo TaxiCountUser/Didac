@@ -29,7 +29,7 @@ export function registerCompaniesRoutes(app, {
 
     const { data: users } = await supabase
       .from('users')
-      .select('id, email, name, display_name, username, role, active, is_admin, created_at, annual_price_paid')
+      .select('id, email, name, display_name, username, role, active, is_admin, created_at, annual_price_paid, deleted_at')
       .eq('tenant_id', id)
       .order('role', { ascending: true });
 

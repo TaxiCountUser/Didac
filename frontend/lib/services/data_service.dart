@@ -73,6 +73,22 @@ class DataService {
     return row == null ? null : Profile.fromMap(row);
   }
 
+  /// Baja de la PROPIA cuenta (RGPD art. 17). Borrado LÓGICO en el backend: la
+  /// cuenta queda inutilizable (no podrá volver a iniciar sesión) pero los datos
+  /// se conservan por retención fiscal; la purga física la decide la
+  /// administración. Tras llamar, la UI debe cerrar sesión.
+  Future<void> requestAccountDeletion() async {
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/account/request-deletion'),
+      headers: _bearer,
+    );
+    if (res.statusCode != 200) {
+      final body =
+          (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    }
+  }
+
   /// Marca el tutorial de bienvenida como visto (para que no vuelva a salir).
   Future<void> markTutorialSeen() async {
     final uid = _c.auth.currentUser?.id;

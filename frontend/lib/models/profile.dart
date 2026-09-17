@@ -17,6 +17,7 @@ class Profile {
   final int legalAcceptedVersion; // última versión de términos legales aceptada
   final String? referralCode; // mi código para invitar
   final String? referredBy; // id de quien me invitó (null = nadie)
+  final DateTime? deletedAt; // borrado a petición (RGPD): cuenta inutilizable
 
   const Profile({
     required this.id,
@@ -36,9 +37,13 @@ class Profile {
     this.legalAcceptedVersion = 0,
     this.referralCode,
     this.referredBy,
+    this.deletedAt,
   });
 
   bool get isOwner => role == 'owner';
+
+  /// Cuenta dada de baja por el propio usuario (RGPD): queda inutilizable.
+  bool get isDeleted => deletedAt != null;
 
   /// ¿Pertenece ya a una flota? Si no, la app le pide crear empresa o unirse.
   bool get hasFleet => tenantId.isNotEmpty;
@@ -72,5 +77,8 @@ class Profile {
         legalAcceptedVersion: (m['legal_accepted_version'] as int?) ?? 0,
         referralCode: m['referral_code'] as String?,
         referredBy: m['referred_by'] as String?,
+        deletedAt: m['deleted_at'] == null
+            ? null
+            : DateTime.tryParse(m['deleted_at'] as String),
       );
 }
