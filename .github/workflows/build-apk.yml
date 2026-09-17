@@ -114,15 +114,12 @@ jobs:
       - name: Build APK (release, arm64)
         run: flutter build apk --release --target-platform android-arm64 --build-number=${{ steps.version.outputs.code }} --build-name=${{ steps.version.outputs.name }} ${{ steps.defines.outputs.args }}
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v5
-        with:
-          name: taxicount-apk
-          path: frontend/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          # El APK vive permanentemente en la Release (make_latest); este artefacto
-          # es solo una copia temporal. Auto-expira para no llenar la cuota de Actions.
-          retention-days: 7
+      # AAB para Google Play. MISMOS --build-number/--build-name que el APK para
+      # que el versionCode sea único e incremental (Play rechaza versionCode
+      # repetidos). Se construye ANTES de la Release para adjuntarlo allí.
+      - name: Build AAB (Play Store)
+        if: ${{ inputs.build_aab && steps.signing.outputs.signed == 'true' }}
+        run: flutter build appbundle --release --build-number=${{ steps.version.outputs.code }} --build-name=${{ steps.version.outputs.name }} ${{ steps.defines.outputs.args }}
 
       # Manifiesto para el aviso de actualización dentro de la app. La versión
       # mínima soportada se lee de frontend/min_supported_build.txt: súbela solo
@@ -141,29 +138,26 @@ jobs:
           }
           EOF
           cp build/app/outputs/flutter-apk/app-release.apk app-release.apk
+          # Copia el AAB (si se generó) para adjuntarlo a la Release. Así el AAB de
+          # Play se descarga de la Release, SIN depender de la cuota de artefactos.
+          if [ -f build/app/outputs/bundle/release/app-release.aab ]; then
+            cp build/app/outputs/bundle/release/app-release.aab app-release.aab
+          fi
 
-      - name: Publicar Release (APK + version.json)
+      # La Release lleva el APK (sideload/auto-update), el version.json y, si se
+      # pidió, el AAB para subir a Google Play. Las Releases NO gastan la cuota de
+      # almacenamiento de artefactos de Actions.
+      - name: Publicar Release (APK + AAB + version.json)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: TaxiCount ${{ steps.version.outputs.name }}
           files: |
             frontend/app-release.apk
+            frontend/app-release.aab
             frontend/version.json
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build AAB (Play Store)
-        if: ${{ inputs.build_aab && steps.signing.outputs.signed == 'true' }}
-        run: flutter build appbundle --release ${{ steps.defines.outputs.args }}
-
-      - name: Upload AAB
-        if: ${{ inputs.build_aab && steps.signing.outputs.signed == 'true' }}
-        uses: actions/upload-artifact@v5
-        with:
-          name: taxicount-aab
-          path: frontend/build/app/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
           # Copia temporal para subir a Play; auto-expira para no llenar la cuota.
           retention-days: 7
