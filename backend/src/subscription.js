@@ -211,6 +211,18 @@ export function registerSubscriptionRoutes(app, {
     const alreadyRedeemed = !!(activeCoupon && tenant?.coupon_redeemed_code
       && tenant.coupon_redeemed_code === activeCoupon.code);
 
+    // URL de retorno según plataforma: en la WEB hay que volver al ORIGEN del
+    // navegador (no puede abrir el deep link `taxicount://`); en móvil se usa el
+    // deep link que reabre la app. Se detecta por la cabecera Origin (el
+    // navegador la envía; la app móvil no) y se valida contra CORS_ORIGIN para
+    // no aceptar un origen arbitrario. Si no es web, se usa el deep link.
+    const reqOrigin = request.headers['origin'];
+    const webOrigins = (process.env.CORS_ORIGIN || '')
+      .split(',').map((s) => s.trim()).filter(Boolean);
+    const isWeb = !!reqOrigin && webOrigins.includes(reqOrigin);
+    const successUrl = isWeb ? `${reqOrigin}/?sub=success` : STRIPE_SUCCESS_URL;
+    const cancelUrl = isWeb ? `${reqOrigin}/?sub=cancel` : STRIPE_CANCEL_URL;
+
     try {
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
@@ -220,8 +232,8 @@ export function registerSubscriptionRoutes(app, {
           price: priceId, quantity,
           adjustable_quantity: { enabled: true, minimum: 1, maximum: MAX_SEATS },
         }],
-        success_url: STRIPE_SUCCESS_URL,
-        cancel_url: STRIPE_CANCEL_URL,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
         ...(tenant?.stripe_customer_id ? { customer: tenant.stripe_customer_id } : {}),
         ...(isYearly && !alreadyRedeemed ? { allow_promotion_codes: true } : {}),
         metadata,
