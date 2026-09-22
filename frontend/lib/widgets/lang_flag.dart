@@ -21,6 +21,7 @@ class LangFlag extends StatelessWidget {
     final emoji = switch (code) {
       'es' => '🇪🇸',
       'en' => '🇬🇧',
+      'fr' => '🇫🇷',
       _ => '🏳️',
     };
     return Text(emoji, style: TextStyle(fontSize: size));

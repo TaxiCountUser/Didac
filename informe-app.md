@@ -70,7 +70,7 @@ La arquitectura es sólida y está bien alineada con su stack.
 | Métrica | Valor |
 |---|---|
 | Backend | Fastify, `server.js` ~3.500 líneas + 6 módulos · 69 rutas HTTP |
-| Frontend | Flutter, ~45 pantallas, i18n propia (es/en/ca) |
+| Frontend | Flutter, ~45 pantallas, i18n propia (es/en/ca/fr) |
 | Base de datos | 85 migraciones · 35 tablas · ~28 RPCs · 53 políticas RLS |
 | Idiomas de la app | Español, inglés, catalán |
 | Coste operativo | ~88 €/mes |
@@ -178,7 +178,7 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 | `services/data_service.dart` | **Capa de acceso a datos** (doble ruta: Supabase + Fastify). |
 | `services/` | `push_service`, `location_service`, `update_service`, descargas. |
 | `screens/` (~45) | UI por rol: driver, owner, solo, y **panel admin** (portada, empresas, facturación, retos, referidos, seguridad, soporte, errores, config). **Agenda** (oculta y de pago, Fase 1, mig. 084): `agenda_screen`/`agenda_input_screen`, gateada por `tenants.agenda_enabled` (la activa el admin por empresa); servicios programados compartidos por empresa (`agenda_events` + RLS). Google Calendar = Fase 2. |
-| `l10n/app_localizations.dart` | i18n propia (es/en/ca). |
+| `l10n/app_localizations.dart` | i18n propia (es/en/ca/fr; francés 2026-09-22). `t()` cae a `es` si falta la clave. |
 | `models/`, `widgets/` | DTOs (`Profile`, `TenantState`) y UI compartida. |
 
 ### 4.2 Backend (`backend/src/`)
