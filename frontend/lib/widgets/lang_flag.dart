@@ -22,6 +22,9 @@ class LangFlag extends StatelessWidget {
       'es' => '🇪🇸',
       'en' => '🇬🇧',
       'fr' => '🇫🇷',
+      'it' => '🇮🇹',
+      'de' => '🇩🇪',
+      'pt' => '🇵🇹',
       _ => '🏳️',
     };
     return Text(emoji, style: TextStyle(fontSize: size));
