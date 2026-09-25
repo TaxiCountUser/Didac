@@ -142,6 +142,8 @@ class _VoiceCaptureState extends State<VoiceCapture> {
       );
       final parsed = Map<String, dynamic>.from(res['parsed'] as Map);
       parsed['description'] = res['text'];
+      // Feedback del parseo: el formulario lo devuelve al guardar (pestaña Parseig).
+      if (res['feedback_id'] != null) parsed['_feedback_id'] = res['feedback_id'];
       // Parseo dedicado de agenda (solo si el dictado era "apunta en la agenda…").
       if (res['agenda'] != null) parsed['_agenda'] = res['agenda'];
 

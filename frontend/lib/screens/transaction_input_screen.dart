@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
@@ -273,6 +275,20 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         // isPreview = el formulario viene de un parseo de VOZ; si no, es manual.
         source: widget.isPreview ? 'voice' : 'manual',
       );
+      // Feedback del parseo por voz: qué se guardó al final (sin esperar).
+      final fid = widget.initial?['_feedback_id'];
+      if (fid is String) {
+        unawaited(DataService().sendParseFeedback(fid, {
+          'type': _type,
+          'amount': amount,
+          'payment_method': _payment,
+          'category': category,
+          'origin': origin,
+          'destination': destination,
+          'client_name': client,
+          'odometer_km': odometer,
+        }));
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_isTrip ? l.t('ti_trip_saved') : l.t('ti_expense_saved'))),

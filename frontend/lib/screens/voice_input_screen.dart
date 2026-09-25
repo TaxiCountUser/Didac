@@ -61,6 +61,7 @@ class _VoiceInputScreenState extends State<VoiceInputScreen> {
       final res = await DataService().transcribe(audioBytes: bytes, filename: 'voice_note.m4a');
       final parsed = Map<String, dynamic>.from(res['parsed'] as Map);
       parsed['description'] = res['text'];
+      if (res['feedback_id'] != null) parsed['_feedback_id'] = res['feedback_id'];
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(

@@ -6,6 +6,18 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["backend/src/server.js"],
       "port": 3000
+    },
+    {
+      "name": "backend-localdb-54331",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set SUPABASE_URL=http://localhost:54331&& node backend/src/server.js"],
+      "port": 3000
+    },
+    {
+      "name": "admin-web-local",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8081", "--directory", "frontend/build/web"],
+      "port": 8081
     }
   ]
 }

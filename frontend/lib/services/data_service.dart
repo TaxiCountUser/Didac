@@ -878,6 +878,24 @@ class DataService {
     return body;
   }
 
+  /// Pestaña "Parseig" (admin): resumen de correcciones del parseo por voz.
+  Future<Map<String, dynamic>> adminParseSummary({int days = 7}) async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/parse-feedback/summary?days=$days'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return body;
+  }
+
+  /// Pestaña "Parseig" (admin): últimos dictados. only = corrected | abandoned | all.
+  Future<List<Map<String, dynamic>>> adminParseFeedback({String only = 'corrected', int limit = 50}) async {
+    final res = await http.get(
+        Uri.parse('$backendUrl/api/v1/admin/parse-feedback?only=$only&limit=$limit'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['items'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
   /// Cupón activo actual (admin, para Facturación). Devuelve {code, pct, expires_at} o null.
   /// Cupón activo (admin). Devuelve {coupon, config}: `coupon` para mostrar y
   /// `config` con TODOS los parámetros guardados (para pre-rellenar la edición).
@@ -1856,11 +1874,16 @@ class DataService {
     String? filename,
     String? mockText,
     String? language, // pista de idioma para Whisper (es/ca/en)
+    bool feedback = true, // false = solo dictado de texto (no registra parse_feedback)
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
 
-    final qp = (language != null && language.isNotEmpty) ? '?language=$language' : '';
+    final params = <String>[
+      if (language != null && language.isNotEmpty) 'language=$language',
+      if (!feedback) 'feedback=0',
+    ];
+    final qp = params.isEmpty ? '' : '?${params.join('&')}';
     final uri = Uri.parse('$backendUrl/api/v1/transcribe$qp');
 
     http.Response res;
@@ -1887,6 +1910,23 @@ class DataService {
       throw Exception(body['error'] ?? 'Error de transcripción (${res.statusCode})');
     }
     return body;
+  }
+
+  /// Feedback del parseo por voz: al guardar un registro dictado se envían los
+  /// valores finales para ver qué se corrigió (pestaña "Parseig" del admin).
+  /// Best-effort: nunca lanza ni bloquea el guardado.
+  Future<void> sendParseFeedback(String id, Map<String, dynamic> saved) async {
+    try {
+      final token = _c.auth.currentSession?.accessToken;
+      if (token == null) return;
+      await http
+          .post(
+            Uri.parse('$backendUrl/api/v1/parse-feedback/$id/saved'),
+            headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+            body: jsonEncode({'saved': saved}),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {/* sin feedback no pasa nada */}
   }
 
   // ---------------- Facturación / Suscripción (Fase 4) ----------------

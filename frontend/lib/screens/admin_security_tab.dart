@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_parse_tab.dart';
 import 'admin_theme.dart';
 
 /// Rediseño del panel admin: la antigua "Seguridad" se dividió en tarjetas
@@ -84,6 +85,8 @@ class _SecurityTabState extends State<SecurityTab> {
       } else if (_view == 5) {
         final r = await _service.adminClientErrors();
         _clientErrors = ((r['errors'] as List?) ?? []).cast<Map<String, dynamic>>();
+      } else if (_view == 6) {
+        // Parseig: la vista carga (y refresca) sus propios datos.
       } else if (_view == 2) {
         _semaphores = await _service.adminSemaphores();
         _flags = await _service.adminFlags();
@@ -134,6 +137,11 @@ class _SecurityTabState extends State<SecurityTab> {
                   label: l.t('adm_sec_sema'), selected: _view == 2,
                   color: AdminColors.teal,
                   onTap: () { setState(() => _view = 2); _reload(); }),
+              const SizedBox(width: 6),
+              AdminPill(
+                  label: l.t('adm_parse_tab'), selected: _view == 6,
+                  color: AdminColors.purple,
+                  onTap: () { setState(() => _view = 6); _reload(); }),
             ]),
           )
         else
@@ -157,7 +165,9 @@ class _SecurityTabState extends State<SecurityTab> {
             ]),
           ),
         Expanded(
-          child: _error != null
+          child: _view == 6
+              ? const ParseFeedbackView()
+              : _error != null
               ? Center(child: Padding(padding: const EdgeInsets.all(16),
                   child: Text('${l.t('error')}: $_error', style: const TextStyle(color: Colors.red))))
               : _loading

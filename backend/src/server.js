@@ -26,6 +26,7 @@ import { registerIncidentsRoutes } from './incidents.js';
 import { registerSubscriptionRoutes } from './subscription.js';
 import { registerOdometerRoutes } from './odometer.js';
 import { registerAuditViewerRoutes } from './audit_viewers.js';
+import { createParseFeedback, registerParseFeedbackRoutes } from './parse_feedback.js';
 import { registerAdminUsersRoutes } from './admin_users.js';
 import { registerCompaniesRoutes } from './companies.js';
 import { registerFlagsRoutes } from './flags.js';
@@ -563,6 +564,11 @@ export async function buildApp(options = {}) {
   // Visores de auditoría (admin, solo lectura): plugin en ./audit_viewers.js (Fase B).
   registerAuditViewerRoutes(app, { supabase, adminGuard });
 
+  // Feedback del parseo por voz (pestaña "Parseig" de Monitorización): helper
+  // recordParse (lo usa /transcribe) + rutas en ./parse_feedback.js.
+  const { recordParse } = createParseFeedback({ supabase, log: app.log });
+  registerParseFeedbackRoutes(app, { supabase, getCaller, adminGuard });
+
   // Administradores + usuarios (admin): plugin en ./admin_users.js (Fase B).
   registerAdminUsersRoutes(app, { supabase, adminGuard, logAdminAction });
 
@@ -744,11 +750,18 @@ export async function buildApp(options = {}) {
 
     const vocab = await tenantVocab(caller.tenant_id);
 
+    // ?feedback=0: dictado solo de texto (botón de micro de un campo), no se guarda.
+    const noFeedback = request.query?.feedback === '0';
+
     if (transcriptionCache.has(cacheKey)) {
       const cached = transcriptionCache.get(cacheKey);
-      const parsed = await parseSmart(cached.text, { language, log: request.log, markService, markGroqRateLimit, vocab });
+      const trace = {};
+      const parsed = await parseSmart(cached.text, { language, log: request.log, markService, markGroqRateLimit, vocab, trace });
       const agenda = await maybeParseAgenda(cached.text, { log: request.log, markGroqRateLimit });
-      return reply.send({ ...cached, parsed, ...(agenda ? { agenda } : {}), cached: true });
+      const feedback_id = agenda || noFeedback ? null : await recordParse(caller, {
+        raw: cached.raw_text ?? cached.text, text: cached.text, language, trace, proposed: parsed,
+      });
+      return reply.send({ ...cached, parsed, ...(agenda ? { agenda } : {}), ...(feedback_id ? { feedback_id } : {}), cached: true });
     }
 
     // Límite diario (solo cuando vamos a llamar de verdad a Whisper)
@@ -798,12 +811,18 @@ export async function buildApp(options = {}) {
 
     // Corrige términos locales mal transcritos (p. ej. "museu de lí" -> "Museu
     // Dalí") antes de interpretar y de mostrar la descripción.
+    result.raw_text = result.text; // lo que oyó Whisper (para parse_feedback)
     result.text = correctTranscript(result.text);
     delete result._headers; delete result._model; // internos: no van en la respuesta
     transcriptionCache.set(cacheKey, result);
-    const parsed = await parseSmart(result.text, { language, log: request.log, markService, markGroqRateLimit, vocab });
+    const trace = {};
+    const parsed = await parseSmart(result.text, { language, log: request.log, markService, markGroqRateLimit, vocab, trace });
     const agenda = await maybeParseAgenda(result.text, { log: request.log, markGroqRateLimit });
-    return reply.send({ ...result, parsed, ...(agenda ? { agenda } : {}), cached: false });
+    // Feedback del parseo (pestaña "Parseig"): no para los dictados de agenda.
+    const feedback_id = agenda || noFeedback ? null : await recordParse(caller, {
+      raw: result.raw_text, text: result.text, language, trace, proposed: parsed,
+    });
+    return reply.send({ ...result, parsed, ...(agenda ? { agenda } : {}), ...(feedback_id ? { feedback_id } : {}), cached: false });
   });
 
   // --- Endpoint de PRUEBA (sin audio): escribe una frase y mira el parseo ---

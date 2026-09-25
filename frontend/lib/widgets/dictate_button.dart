@@ -56,6 +56,7 @@ class _DictateButtonState extends State<DictateButton> {
         audioBytes: bytes,
         filename: 'voice_note.m4a',
         language: localeController.value.languageCode,
+        feedback: false, // solo usa el texto: no es un parseo que se vaya a guardar
       );
       final text = (res['text'] as String?)?.trim() ?? '';
       if (!mounted) return;
