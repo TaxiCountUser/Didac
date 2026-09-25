@@ -1,0 +1,12 @@
+[
+  { "text": "Sant Pere Pescador Figueres 30 euros", "expected": { "amount": 30, "type": "income", "origin": "Sant Pere Pescador", "destination": "Figueres" } },
+  { "text": "carrera a l'aeroport 60 euros amb targeta", "expected": { "amount": 60, "type": "income", "payment_method": "tarjeta", "destination": "Aeroport" } },
+  { "text": "de la Rambla de Figueres a l'Estació de Renfe 9 euros en efectiu", "expected": { "amount": 9, "type": "income", "payment_method": "efectivo", "origin": "Rambla de Figueres", "destination": "Estació de Renfe" } },
+  { "text": "Castelló d'Empúries Figueres 25 euros pagat amb bizum", "expected": { "amount": 25, "type": "income", "payment_method": "bizum", "origin": "Castelló d'Empúries", "destination": "Figueres" } },
+  { "text": "l'Escala cap a Girona aeroport 70 euros Gitasi", "expected": { "amount": 70, "type": "income", "client_name": "Gitaxi", "origin": "L'Escala", "destination": "Girona aeroport" } },
+  { "text": "trenta euros de Figueres a Llers pagat en metàl·lic", "expected": { "amount": 30, "type": "income", "payment_method": "efectivo", "origin": "Figueres", "destination": "Llers" } },
+  { "text": "Figueres Barcelona 150 euros per transferència empresa Transports Puig", "expected": { "amount": 150, "type": "income", "payment_method": "transferencia", "client_name": "Transports Puig", "origin": "Figueres", "destination": "Barcelona" } },
+  { "text": "del hospital a casa del señor 12 euros a deber", "expected": { "amount": 12, "type": "income", "payment_method": "credito" } },
+  { "text": "he pagat 20 euros de pàrquing amb targeta", "expected": { "amount": 20, "type": "expense", "category": "parking", "payment_method": "tarjeta", "origin": null, "destination": null } },
+  { "text": "Hospital Figueres Estació Girona 40 euros Mútua", "vocab": { "clients": ["Mutua Asepeyo"], "places": ["Hospital Figueres", "Estació Girona"] }, "expected": { "amount": 40, "type": "income", "client_name": "Mutua Asepeyo", "origin": "Hospital Figueres", "destination": "Estació Girona" } }
+]

@@ -220,7 +220,7 @@ const ROUTE_STOP = new Set([
   'tarjeta', 'efectivo', 'bizum', 'transferencia', 'metalico', 'contado',
   'marcando', 'marca', 'kilometros', 'km',
   // catalán
-  'amb', 'per', 'fins', 'targeta', 'efectiu', 'tpv', 'cobrat', 'cobrament',
+  'amb', 'per', 'fins', 'pagat', 'pagada', 'targeta', 'efectiu', 'tpv', 'cobrat', 'cobrament',
   'quilometres', 'monedes', 'bitllets',
 ]);
 const isRouteStop = (t) => t === '' || isNumTok(t) || isKmUnit(t) || ROUTE_STOP.has(t);
@@ -231,26 +231,191 @@ function cleanPlace(s) {
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
-// Origen/destino con patrón "de X a Y" o "desde X hasta/a Y". También admite
+// Corta un lugar en la primera palabra de parada (importe, conector, forma de
+// pago…). normalize() expande números catalanes (vint-i-cinc -> 25) y parte
+// guiones, así el lugar se corta también ante un número dicho en catalán.
+function cutPlace(s) {
+  const words = [];
+  for (const w of (s || '').split(/\s+/)) {
+    const stopTok = normalize(w).split(' ')[0];
+    if (isRouteStop(stopTok) || fuzzyPayment(stopTok)) break;
+    words.push(w);
+  }
+  return cleanPlace(words.join(' '));
+}
+
+// Origen del patrón "de X a Y": si lleva delante un importe ("carrera de 50
+// euros de Figueres a Girona"), se queda solo con lo que va tras el importe.
+function trimOrigin(s) {
+  const words = (s || '').split(/\s+/);
+  let last = -1;
+  words.forEach((w, i) => {
+    const t = normalize(w).split(' ')[0];
+    if (isNumTok(t) || isKmUnit(t) || t === 'euros' || t === 'euro') last = i;
+  });
+  if (last === -1) return cleanPlace(s);
+  const rest = words.slice(last + 1).join(' ')
+    .replace(/^(?:des\s+de|desde|de\s+la|de\s+l['’]|del|de)\s+/i, '');
+  return cleanPlace(rest);
+}
+
+// Origen/destino con patrón "de X a Y" o "desde X hasta/a/cap a Y". También admite
 // contracciones y artículos: del/de la/de l' como inicio y al/a la/a l' como
 // conector ("de Sants al Museu Dalí"). Trabaja sobre el texto original para
 // conservar los nombres de lugar.
-const ROUTE_RE = /\b(?:des\s+de|desde|de\s+la|de\s+l['’]|del|de)\s+(.+?)\s+(?:fins\s+a|fins|hasta|a\s+la|a\s+l['’]|al|a)\s+(.+)$/i;
-function extractRoute(text) {
+const ROUTE_RE = /\b(?:des\s+de|desde|de\s+la|de\s+l['’]|del|de)\s+(.+?)\s+(?:cap\s+a|fins\s+a|fins|hasta|hacia|direcci[oó]n?|a\s+la|a\s+l['’]|al|a)\s+(.+)$/i;
+// Orden invertido: "a Girona des de Figueres", "cap a Girona desde Figueres".
+const ROUTE_REV_RE = /(?:^|\s)(?:cap\s+a|fins\s+a|hacia|hasta|a\s+la|a\s+l['’]|al|a)\s+(.+?)\s+(?:des\s+de\s+la|des\s+de\s+l['’]|des\s+del|des\s+de|desde\s+la|desde\s+el|desde)\s+(.+)$/i;
+
+function routeReversed(text) {
+  const m = (text || '').match(ROUTE_REV_RE);
+  if (!m) return null;
+  // Si el tramo del destino arrastra otro "a" ("porta a la senyora a Girona"),
+  // el destino es lo que va tras el último conector.
+  const dest = m[1].split(/\s+(?:cap\s+a|a\s+la|a\s+l['’]|al|a)\s+/i).pop();
+  const origin = cutPlace(m[2]);
+  const destination = cutPlace(dest);
+  return origin && destination ? { origin, destination } : null;
+}
+
+function routeByRegex(text) {
   const m = (text || '').match(ROUTE_RE);
-  if (!m) return { origin: null, destination: null };
-  const origin = cleanPlace(m[1]);
-  const destWords = [];
-  for (const w of m[2].split(/\s+/)) {
-    // normalize() expande números catalanes (vint-i-cinc -> 25) y parte guiones,
-    // así el destino se corta también ante un número dicho en catalán.
-    const stopTok = normalize(w).split(' ')[0];
-    if (isRouteStop(stopTok)) break;
-    destWords.push(w);
+  if (!m) return null;
+  const origin = trimOrigin(m[1]);
+  const destination = cutPlace(m[2]);
+  return origin && destination ? { origin, destination } : null;
+}
+
+// --- Rutas SIN "de X a Y": "Figueres Girona", "Figueres cap a Girona",
+// "Figueres - Girona". Se trabaja por tokens: una "palabra de lugar" es la que
+// no es número, conector, forma de pago, palabra de ingreso/gasto, categoría,
+// empresa conocida ni muletilla del dictado.
+const ROUTE_FILLER = [
+  'carrera', 'carreras', 'cursa', 'curses', 'servei', 'serveis', 'servicio', 'servicios',
+  'viatge', 'viatges', 'viaje', 'viajes', 'trajecte', 'trayecto', 'anada', 'tornada',
+  'ida', 'vuelta', 'apunta', 'apuntar', 'anota', 'anotar', 'posa', 'pon', 'registra',
+  'he', 'ha', 'hem', 'fet', 'fer', 'hecho', 'hacer', 'vaig', 'fui', 'portat', 'porta',
+  'llevado', 'dut', 'deixat', 'dejado', 'un', 'una', 'uno', 'el', 'la', 'els', 'les',
+  'los', 'las', 'lo', 'del', 'de', 'des', 'desde', 'al', 'a', 'i', 'y', 'e', 'o', 'u',
+  'taxi', 'client', 'cliente', 'clienta', 'clients', 'senyor', 'senyora', 'senor', 'senora',
+  'persona', 'persones', 'personas', 'avui', 'hoy', 'ahir', 'ayer', 'dema', 'manana',
+  'mati', 'tarda', 'tarde', 'nit', 'noche', 'ara', 'ahora', 'total', 'import', 'importe',
+  'preu', 'precio', 'fa', 'fan', 'val', 'vale', 'pagat', 'pagada', 'pagament', 'empresa',
+  'mutua', 'tarifa', 'suplement', 'suplemento', 'propina', 'hores', 'horas', 'hora',
+  'minuts', 'minutos', 'cap', 'hacia', 'hasta', 'fins', 'direccio', 'direccion',
+  'dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte', 'diumenge',
+  'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo',
+];
+let _placeBlock = null;
+function placeBlock() {
+  if (_placeBlock) return _placeBlock;
+  _placeBlock = new Set([
+    ...ROUTE_STOP, ...ROUTE_FILLER, ...INCOME_WORDS, ...EXPENSE_WORDS,
+    ...Object.values(PAYMENT_KEYWORDS).flat(), ...Object.values(CATEGORY_KEYWORDS).flat(),
+    ...KNOWN_COMPANIES.flatMap(([needle]) => needle.split(' ')),
+    ...Object.keys(MONTHS_WHEN),
+  ]);
+  return _placeBlock;
+}
+
+// Tokens del texto original conservando la forma dicha (para devolver "Llançà"
+// y no "llanca"). "Figueres-Girona" (dos nombres en mayúscula con guion) se
+// parte en [Figueres, -, Girona]; un guion suelto es separador de ruta.
+function rawTokens(text) {
+  const out = [];
+  for (const w of (text || '').split(/\s+/)) {
+    if (!w) continue;
+    if (/^[-–—]+$/.test(w)) { out.push({ raw: '-', n: '-' }); continue; }
+    const clean = w.replace(/^[¿¡"'(]+|[.,;:!?€$")]+$/g, '');
+    if (!clean) continue;
+    const parts = /^\p{Lu}[\p{L}'’·]+[-–]\p{Lu}[\p{L}'’·]+$/u.test(clean) ? clean.split(/[-–]/) : [clean];
+    parts.forEach((p, i) => {
+      if (i > 0) out.push({ raw: '-', n: '-' });
+      out.push({ raw: p, n: normToken(p) });
+    });
   }
-  const destination = cleanPlace(destWords.join(' '));
-  if (!origin || !destination) return { origin: null, destination: null };
-  return { origin, destination };
+  return out;
+}
+
+const upper = (s) => /^\p{Lu}/u.test(s || '');
+
+// Una palabra puede formar parte de un nombre de lugar.
+function isPlaceWord(tok, blocked) {
+  const n = (tok.n || '').replace(/^[ld]['’]/, '');
+  if (n.length < 3 || /\d/.test(n) || n === '-') return false;
+  if (isNumTok(n) || isKmUnit(n) || fuzzyPayment(n)) return false;
+  return !placeBlock().has(n) && !blocked.has(n);
+}
+
+// Conectores de ruta hacia delante sin "de" inicial: devuelve cuántos tokens
+// ocupa el conector en la posición i (0 = no hay).
+function fwdConnector(toks, i) {
+  const t = toks[i].n;
+  const next = toks[i + 1]?.n;
+  if ((t === 'cap' || t === 'fins') && next === 'a') return 2;
+  if (t === 'hacia' || t === 'hasta' || t === 'fins' || t === '-') return 1;
+  if (t === 'direccio' || t === 'direccion') return next === 'a' ? 2 : 1;
+  return 0;
+}
+
+function joinRaw(toks) { return cleanPlace(toks.map((t) => t.raw).join(' ')); }
+
+// Parte un tramo de palabras de lugar en origen+destino usando los lugares ya
+// conocidos de la empresa (vocabulario). Primero ambos conocidos; si no, uno.
+function splitByVocab(run, places) {
+  if (!places.size) return null;
+  const key = (a) => a.map((t) => t.n).join(' ');
+  let oneKnown = null;
+  for (let k = 1; k < run.length; k++) {
+    const l = places.has(key(run.slice(0, k)));
+    const r = places.has(key(run.slice(k)));
+    if (l && r) return [run.slice(0, k), run.slice(k)];
+    if ((l || r) && !oneKnown) oneKnown = [run.slice(0, k), run.slice(k)];
+  }
+  return oneKnown;
+}
+
+function routeByTokens(text, places, blocked) {
+  const toks = rawTokens(text);
+  const isP = (i) => i >= 0 && i < toks.length && isPlaceWord(toks[i], blocked);
+
+  // 1) "X cap a Y" / "X hacia Y" / "X fins a Y" / "X - Y" / "X a Y" (este último
+  //    solo si ambos lugares empiezan en mayúscula: "Figueres a Girona").
+  for (let i = 1; i < toks.length - 1; i++) {
+    let len = fwdConnector(toks, i);
+    if (!len && (toks[i].n === 'a' || toks[i].n === 'al')
+        && upper(toks[i - 1].raw) && upper(toks[i + 1]?.raw)) len = 1;
+    if (!len || !isP(i - 1) || !isP(i + len)) continue;
+    let s = i - 1;
+    while (isP(s - 1)) s--;
+    let e = i + len;
+    while (isP(e + 1)) e++;
+    return { origin: joinRaw(toks.slice(s, i)), destination: joinRaw(toks.slice(i + len, e + 1)) };
+  }
+
+  // 2) Dos lugares seguidos sin conector: "Figueres Girona 50 euros".
+  for (let i = 0; i < toks.length; i++) {
+    if (!isP(i)) continue;
+    let e = i;
+    while (isP(e + 1)) e++;
+    const run = toks.slice(i, e + 1);
+    const byVocab = splitByVocab(run, places);
+    const split = byVocab || (run.length === 2 ? [[run[0]], [run[1]]] : null);
+    // Sin conector ni lugar conocido es una SUPOSICIÓN ("Transports Puig" puede
+    // ser una empresa): guess=true hace que needsLlm consulte al LLM.
+    if (split) return { origin: joinRaw(split[0]), destination: joinRaw(split[1]), guess: !byVocab };
+    i = e;
+  }
+  return null;
+}
+
+// vocab.places / vocab.clients: lugares y clientes ya usados por la empresa.
+function extractRoute(text, vocab = {}) {
+  const norm = (s) => normalize(s).split(' ').map(normToken).join(' ');
+  const places = new Set((vocab.places || []).map(norm).filter(Boolean));
+  const blocked = new Set((vocab.clients || []).flatMap((c) => norm(c).split(' ')));
+  return routeReversed(text) || routeByRegex(text) || routeByTokens(text, places, blocked)
+    || { origin: null, destination: null };
 }
 
 // Empresas/clientes conocidos. Ampliable; si no se detecta ninguna, la
@@ -308,6 +473,27 @@ function fuzzyClient(tokens) {
   return null;
 }
 
+// Clientes que la propia empresa ya ha usado (vocab.clients). Exacto por
+// palabras completas y, si no, difuso (distancia <= 1 sobre el nombre entero,
+// solo nombres de 5+ letras): "transport puig" -> "Transports Puig".
+function vocabClient(norm, tokens, clients = []) {
+  const list = clients
+    .map((c) => [normalize(c).split(' ').map(normToken).join(' '), c])
+    .filter(([n]) => n)
+    .sort((a, b) => b[0].length - a[0].length);
+  const padded = ` ${norm} `;
+  for (const [n, label] of list) if (padded.includes(` ${n} `)) return label;
+  for (const [n, label] of list) {
+    if (n.length < 5) continue;
+    const words = n.split(' ').length;
+    for (let i = 0; i + words <= tokens.length; i++) {
+      const win = tokens.slice(i, i + words).join(' ');
+      if (Math.abs(win.length - n.length) <= 1 && levenshtein(win, n) <= 1) return label;
+    }
+  }
+  return null;
+}
+
 // --- Diccionarios de palabras clave ---
 const CATEGORY_KEYWORDS = {
   gasolina: ['gasolina', 'benzina'],
@@ -319,7 +505,7 @@ const CATEGORY_KEYWORDS = {
     'nomina', 'nomines', 'salario', 'salaris', 'asalariado', 'assalariat'],
   taller: ['taller', 'mecanico', 'reparacion', 'revision', 'averia', 'reparacio', 'avaria'],
   peaje: ['peaje', 'autopista'],
-  parking: ['parking', 'aparcamiento', 'aparcar', 'estacionamiento', 'garaje', 'aparcament'],
+  parking: ['parking', 'aparcamiento', 'aparcar', 'estacionamiento', 'garaje', 'aparcament', 'parquing', 'aparcat'],
   lavado: ['lavado', 'lavar', 'lavadero', 'lavacoches', 'rentat', 'rentar'],
   multa: ['multa', 'sancion', 'sancio'],
   seguro: ['seguro', 'assegurança', 'asseguranca'],
@@ -342,18 +528,26 @@ const EXPENSE_WORDS = [
   // catalán
   'pagat', 'pagament', 'despesa', 'despeses', 'gastat', 'comprat',
 ];
+// Gasto inequívoco. "Pagado/pagat" NO lo es: en una carrera "pagat amb bizum"
+// es el CLIENTE quien paga (= ingreso).
+const STRONG_EXPENSE_WORDS = [
+  'gasto', 'gastos', 'gastado', 'gaste', 'gastar', 'comprado', 'compra', 'comprar',
+  'despesa', 'despeses', 'gastat', 'comprat',
+];
+const PAY_VERBS = ['pagado', 'pagada', 'pago', 'pague', 'paga', 'pagat', 'pagament'];
 
 const PAYMENT_KEYWORDS = {
-  tarjeta: ['tarjeta', 'visa', 'debito', 'targeta', 'tpv', 'datafono', 'datafon'],
+  tarjeta: ['tarjeta', 'visa', 'debito', 'targeta', 'tpv', 'datafono', 'datafon',
+    'mastercard', 'contactless', 'amex'],
   efectivo: [
-    'efectivo', 'metalico', 'contado', 'cash', 'efectiu', 'metallic',
+    'efectivo', 'metalico', 'contado', 'cash', 'efectiu', 'metallic', 'metal·lic',
     'monedas', 'moneda', 'monedes', 'billetes', 'billete', 'bitllets', 'bitllet',
   ],
-  bizum: ['bizum'],
+  bizum: ['bizum', 'bisum', 'visum', 'bizzum'],
   transferencia: ['transferencia', 'transfer'],
   // Crédito / facturas pendientes = el cliente queda a deber.
   credito: ['credito', 'fiado', 'fiar', 'pendiente', 'factura', 'facturas',
-    'debe', 'deuda', 'fiat', 'credit', 'pendent', 'factures'],
+    'debe', 'deber', 'deure', 'deuda', 'fiat', 'credit', 'pendent', 'factures'],
 };
 
 function findCategory(words) {
@@ -363,9 +557,31 @@ function findCategory(words) {
   return null;
 }
 
+// Forma de pago aunque la voz la corte o la deforme: "bizu" -> bizum,
+// "targe" -> tarjeta, "efectivu" -> efectivo. Solo sobre las palabras largas e
+// inequívocas (no las de crédito: "facturat" no debe convertirse en "factura").
+const FUZZY_PAY = [
+  ['bizum', 'bizum'], ['tarjeta', 'tarjeta'], ['targeta', 'tarjeta'], ['datafono', 'tarjeta'],
+  ['efectivo', 'efectivo'], ['efectiu', 'efectivo'], ['metalico', 'efectivo'],
+  ['transferencia', 'transferencia'],
+];
+function fuzzyPayment(t) {
+  if (!t || t.length < 4) return null;
+  for (const [kw, pm] of FUZZY_PAY) {
+    if (t === kw) return pm;
+    if (kw.startsWith(t) && kw.length - t.length <= 2) return pm;
+    if (t.length >= 5 && Math.abs(t.length - kw.length) <= 1 && levenshtein(t, kw) <= 1) return pm;
+  }
+  return null;
+}
+
 function findPayment(words) {
   for (const [pm, kws] of Object.entries(PAYMENT_KEYWORDS)) {
     if (kws.some((k) => words.includes(k))) return pm;
+  }
+  for (const w of words) {
+    const pm = fuzzyPayment(w);
+    if (pm) return pm;
   }
   return null;
 }
@@ -383,6 +599,8 @@ const COMPANY_STOP = new Set([
   ...ROUTE_STOP, ...INCOME_WORDS, ...EXPENSE_WORDS,
   'desde', 'des', 'hasta', 'fins', 'a', 'empresa', 'cliente', 'client',
   'euros', 'euro',
+  // "client habitual", "el client ha pagat": no son nombres de empresa.
+  ...ROUTE_FILLER, 'habitual', 'particular', 'nou', 'nuevo', 'fix', 'fijo', 'privat', 'privado',
 ]);
 function extractCompany(text) {
   const raw = (text || '').split(/\s+/).filter(Boolean);
@@ -491,7 +709,10 @@ export function extractWhen(text, now = new Date()) {
   return d.toISOString();
 }
 
-export function parseTransactionText(text) {
+// vocab (opcional): { clients: [...], places: [...] } ya usados por la empresa,
+// para reconocer sus clientes y partir rutas sin conector ("Hospital Figueres
+// Estació Girona").
+export function parseTransactionText(text, vocab = {}) {
   const norm = normalize(text);
   const tokens = norm.split(' ').filter(Boolean);
   const words = new Set(tokens);
@@ -499,33 +720,48 @@ export function parseTransactionText(text) {
 
   const amount = extractAmount(tokens);
   const odometer_km = extractKm(tokens);
-  // "empresa X" dicho explícitamente tiene prioridad; luego empresas conocidas
-  // (exacto y, si no, difuso para tolerar la voz: "gitasi" -> Gitaxi).
-  const client_name = extractCompany(text) || findClient(norm) || fuzzyClient(tokens);
+  // "empresa X" dicho explícitamente tiene prioridad; luego clientes de la propia
+  // empresa y empresas conocidas (exacto y, si no, difuso para tolerar la voz:
+  // "gitasi" -> Gitaxi).
+  const client_name = extractCompany(text) || vocabClient(norm, tokens, vocab?.clients)
+    || findClient(norm) || fuzzyClient(tokens);
 
   // Categoría de GASTO por palabra clave (gasolina, taller, peaje…).
   let category = findCategory(tokens);
 
   // La ruta solo tiene sentido en carreras (ingresos): si la frase es un gasto
   // con categoría, ignoramos cualquier "de X a Y" para no inventar origen/destino.
-  let { origin, destination } = category
+  // Las palabras del cliente no cuentan como lugar ("Figueres Girona Gitaxi").
+  let { origin, destination, guess: route_guess = false } = category
     ? { origin: null, destination: null }
-    : extractRoute(text);
+    : extractRoute(text, {
+      places: vocab?.places,
+      clients: [...(vocab?.clients || []), ...(client_name ? [client_name] : [])],
+    });
 
   // Parece una carrera si hay ruta o cliente identificado.
   const looksLikeTrip = (!!origin && !!destination) || client_name != null;
 
-  // Tipo: ingreso si hay palabra de ingreso o si parece una carrera (y no es un
-  // gasto con categoría); si no, gasto por defecto.
+  const payment_method = findPayment(tokens);
+
+  // Tipo: la mayoría de dictados son carreras, así que INGRESO por defecto.
+  // Gasto si hay categoría de gasto o palabra inequívoca (gasto/despesa/compra),
+  // o un "pagué/pagat" sin forma de pago ni pinta de carrera ("pagué 15").
+  // type_confident: el tipo sale de una palabra explícita (no de la suposición
+  // por defecto); mergeParsed lo usa para que el LLM no lo pise.
   let type;
+  let type_confident = true;
   if (has(INCOME_WORDS)) type = 'income';
-  else if (looksLikeTrip && !category) type = 'income';
-  else type = 'expense';
+  else if (category || has(STRONG_EXPENSE_WORDS)) type = 'expense';
+  else if (has(PAY_VERBS) && !payment_method && !looksLikeTrip) type = 'expense';
+  else {
+    // Ingreso: seguro si hay cliente o ruta real (no supuesta); si no, suposición.
+    type = 'income';
+    type_confident = client_name != null || (!!origin && !!destination && !route_guess);
+  }
 
   // Categoría por defecto para ingresos "simples" (sin ruta ni cliente).
   if (!category && type === 'income' && !looksLikeTrip) category = 'ingreso_tarjeta';
-
-  const payment_method = findPayment(tokens);
 
   const missing_fields = [];
   if (amount == null) missing_fields.push('amount');
@@ -542,8 +778,26 @@ export function parseTransactionText(text) {
     odometer_km: odometer_km == null ? null : odometer_km,
     client_name: client_name || null,
     created_at: extractWhen(text),
+    type_confident,
+    route_guess,
     missing_fields,
   };
+}
+
+// ¿Hace falta el LLM? No, si el determinista ya lo tiene todo y no queda en la
+// frase ninguna palabra "de contenido" sin explicar (un lugar o empresa que no
+// haya sabido colocar). Así se ahorran llamadas (cuota diaria de Groq) y el LLM
+// solo entra en las frases difíciles: "carrera a l'aeroport", "Sant Pere
+// Pescador Figueres", una empresa desconocida…
+export function needsLlm(text, det, vocab = {}) {
+  if (!det || det.amount == null || det.route_guess) return true;
+  if (det.type === 'expense' ? !det.category : !det.payment_method) return true;
+  const norm = (s) => normalize(s || '').split(' ').map(normToken);
+  const explained = new Set([
+    ...norm(det.origin), ...norm(det.destination), ...norm(det.client_name),
+    ...(vocab.clients || []).flatMap(norm),
+  ].map((t) => t.replace(/^[ld]['’]/, '')));
+  return rawTokens(text).some((t) => isPlaceWord(t, explained));
 }
 
 export default parseTransactionText;

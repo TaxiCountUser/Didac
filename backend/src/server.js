@@ -1,16 +1,17 @@
 import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { createClient } from '@supabase/supabase-js';
 
-import { parseTransactionText } from './parser.js';
+import { parseTransactionText, needsLlm } from './parser.js';
 import { parseImportFile } from './importer.js';
 import { llmMapColumns } from './llm_parser.js';
 import { correctTranscript } from './corrections.js';
-import { llmParse, mergeParsed, llmParseAgenda } from './llm_parser.js';
+import { llmParse, mergeParsed, llmParseAgenda, sdkFetch } from './llm_parser.js';
 import { sendToTokens, pushEnabled } from './push.js';
 import { pushText } from './push_i18n.js';
 import { handleStripeEvent, planForPrice } from './billing.js';
@@ -161,39 +162,9 @@ function accountDeletionHtml() {
 </body></html>`;
 }
 
-// Página web mínima para probar la interpretación desde el navegador.
-const PARSE_TEST_HTML = `<!doctype html>
-<html lang="ca"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TaxiCount · Prova d'interpretació</title>
-<style>
- body{font-family:system-ui,Arial,sans-serif;max-width:680px;margin:24px auto;padding:0 16px;color:#222}
- h1{font-size:20px} textarea{width:100%;height:90px;font-size:16px;padding:8px;box-sizing:border-box}
- select,button{font-size:16px;padding:8px}
- button{background:#f5a623;border:0;border-radius:8px;color:#fff;font-weight:600;cursor:pointer}
- pre{background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto;white-space:pre-wrap}
- .row{display:flex;gap:8px;align-items:center;margin:8px 0} .ex{color:#777;font-size:13px}
-</style></head><body>
-<h1>🚕 TaxiCount · Prova d'interpretació</h1>
-<p class="ex">Escriu una frase com la diries de viva veu i mira com s'interpreta (origen, destí, import, empresa, km, pagament). Ctrl+Enter per provar.</p>
-<textarea id="t" placeholder="cursa des de la rambla de Figueres fins al museu Dalí, vint euros amb targeta, gitaxi"></textarea>
-<div class="row">Idioma:
-  <select id="lang"><option value="ca">Català</option><option value="es">Castellà</option><option value="en">English</option></select>
-  <button id="go">Provar</button></div>
-<pre id="out">El resultat sortirà aquí…</pre>
-<script>
- const out=document.getElementById('out'), go=document.getElementById('go');
- async function run(){
-   out.textContent='Interpretant…';
-   try{
-     const r=await fetch('/api/v1/parse-test',{method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({text:document.getElementById('t').value,language:document.getElementById('lang').value})});
-     const j=await r.json(); out.textContent=JSON.stringify(j.parsed||j,null,2);
-   }catch(e){ out.textContent='Error: '+e.message; }
- }
- go.addEventListener('click',run);
- document.getElementById('t').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) run(); });
-</script></body></html>`;
+// Página web para probar la interpretación desde el navegador (texto y, en
+// local, micro). Vive en parse_test.html; se lee una vez al arrancar.
+const PARSE_TEST_HTML = readFileSync(new URL('./parse_test.html', import.meta.url), 'utf8');
 
 const SENTRY_DSN = process.env.SENTRY_DSN || '';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
@@ -239,20 +210,23 @@ function withTimeout(promise, ms) {
 // Transcriptor real (Whisper). Compatible con OpenAI o cualquier proveedor con
 // API compatible (p. ej. Groq, gratis). Import dinámico para no exigir el
 // paquete cuando se usa un mock en tests.
-async function defaultTranscribe({ buffer, filename, language }) {
+async function defaultTranscribe({ buffer, filename, language, vocab }) {
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY no configurada');
   const { default: OpenAI, toFile } = await import('openai');
   const client = new OpenAI({
     apiKey: OPENAI_API_KEY,
     ...(OPENAI_BASE_URL ? { baseURL: OPENAI_BASE_URL } : {}),
+    ...sdkFetch(),
   });
   const file = await toFile(buffer, filename || 'audio.m4a');
   // Pista de idioma (es/ca/en): mejora mucho catalán y frases cortas.
   // Pista de vocabulario (prompt): sesga a términos locales para que no parta
   // nombres propios (p. ej. "Museu Dalí" en vez de "museu de lí"). Ampliable
   // con TRANSCRIBE_PROMPT.
-  const prompt = process.env.TRANSCRIBE_PROMPT
-    || 'Carrera de taxi a Figueres. Llocs: Museu Dalí, Rambla de Figueres, Estació de Renfe, Estació Figueres-Vilafant AVE, Castell de Sant Ferran. Empreses: Gitaxi, Movitaxi, OneCab.';
+  // Si la empresa ya tiene lugares/clientes propios (vocab), se añaden: así
+  // Whisper escribe bien SUS destinos y SUS empresas, no solo los de Figueres.
+  const prompt = whisperPrompt(process.env.TRANSCRIBE_PROMPT
+    || 'Carrera de taxi a Figueres. Pagament: efectiu, targeta, Bizum. Llocs: Museu Dalí, Rambla de Figueres, Estació de Renfe, Estació Figueres-Vilafant AVE, Castell de Sant Ferran. Empreses: Gitaxi, Movitaxi, OneCab.', vocab);
   const { data: res, response } = await client.audio.transcriptions.create({
     file,
     model: WHISPER_MODEL,
@@ -272,6 +246,7 @@ const TRANSCRIBE_LANGS = new Set(['es', 'ca', 'en']);
 // Si no se dijo ningún precio, anotamos 0 (NO se inventa) para que un importe de
 // 0 € en la lista sea la señal visible de que esa carrera hay que revisarla.
 function zeroIfNoAmount(parsed) {
+  delete parsed.type_confident; delete parsed.route_guess; // internos (mergeParsed)
   if (parsed.amount == null) {
     parsed.amount = 0;
     parsed.missing_fields = (parsed.missing_fields || []).filter((f) => f !== 'amount');
@@ -279,9 +254,29 @@ function zeroIfNoAmount(parsed) {
   return parsed;
 }
 
-async function parseSmart(text, { language, log, markService, markGroqRateLimit } = {}) {
-  const deterministic = parseTransactionText(text);
+// Pista de Whisper = base + lugares y clientes de la empresa. Whisper solo mira
+// los últimos ~224 tokens del prompt, así que se acota a ~600 caracteres.
+function whisperPrompt(base, vocab) {
+  const places = (vocab?.places || []).slice(0, 15);
+  const clients = (vocab?.clients || []).slice(0, 10);
+  let extra = '';
+  if (places.length) extra += ` Llocs habituals: ${places.join(', ')}.`;
+  if (clients.length) extra += ` Clients: ${clients.join(', ')}.`;
+  return (base + extra).slice(0, 600);
+}
+
+// LLM_ALWAYS=true fuerza el LLM en todas las frases (por defecto solo cuando el
+// determinista no llega: ver needsLlm). trace (opcional) recibe el detalle de
+// cada etapa: det, llm, llm_skipped, llm_error, llm_ms (para parse_feedback).
+async function parseSmart(text, { language, log, markService, markGroqRateLimit, vocab, trace } = {}) {
+  const deterministic = parseTransactionText(text, vocab);
+  if (trace) trace.det = { ...deterministic };
   if (!LLM_PARSE_MODEL || !OPENAI_API_KEY) return zeroIfNoAmount(deterministic);
+  if (process.env.LLM_ALWAYS !== 'true' && !needsLlm(text, deterministic, vocab)) {
+    if (trace) trace.llm_skipped = true;
+    return zeroIfNoAmount(deterministic);
+  }
+  const t0 = Date.now();
   try {
     const llm = await withTimeout(
       llmParse(text, {
@@ -289,15 +284,18 @@ async function parseSmart(text, { language, log, markService, markGroqRateLimit 
         baseURL: OPENAI_BASE_URL,
         model: LLM_PARSE_MODEL,
         language,
+        vocab,
         onRateLimit: markGroqRateLimit,
       }),
       LLM_PARSE_TIMEOUT_MS,
     );
     markService?.('openai', true);
+    if (trace) { trace.llm = llm; trace.llm_ms = Date.now() - t0; }
     return zeroIfNoAmount(mergeParsed(llm, deterministic));
   } catch (e) {
     markService?.('openai', false);
     log?.warn?.(`LLM parse falló (${e.message}); uso parser determinista`);
+    if (trace) { trace.llm_error = String(e.message || e).slice(0, 300); trace.llm_ms = Date.now() - t0; }
     return zeroIfNoAmount(deterministic);
   }
 }
@@ -587,6 +585,41 @@ export async function buildApp(options = {}) {
   // Caché de transcripciones en memoria: clave userId:hash(audio) -> {text,confidence}
   const transcriptionCache = new Map();
 
+  // Vocabulario de la empresa para el parseo por voz: sus clientes y lugares más
+  // usados (últimas 1000 transacciones), para reconocer "Transports Puig" o partir
+  // "Hospital Figueres Estació Girona". Caché 10 min por tenant. Best-effort:
+  // ante cualquier error devuelve vacío y el parseo sigue igual.
+  const vocabCache = new Map();
+  async function tenantVocab(tenantId) {
+    if (!tenantId || !supabase) return {};
+    const hit = vocabCache.get(tenantId);
+    if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.vocab;
+    try {
+      const { data, error } = await supabase.from('transactions')
+        .select('client_name, origin, destination')
+        .eq('tenant_id', tenantId).eq('type', 'income')
+        .order('created_at', { ascending: false }).limit(1000);
+      if (error) throw error;
+      const top = (vals, n) => {
+        const count = new Map();
+        for (const v of vals) {
+          const k = (v || '').trim();
+          if (k.length >= 3) count.set(k, (count.get(k) || 0) + 1);
+        }
+        return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
+      };
+      const vocab = {
+        clients: top(data.map((r) => r.client_name), 40),
+        places: top(data.flatMap((r) => [r.origin, r.destination]), 60),
+      };
+      vocabCache.set(tenantId, { at: Date.now(), vocab });
+      return vocab;
+    } catch (e) {
+      app.log.warn(`tenantVocab falló (${e.message})`);
+      return {};
+    }
+  }
+
   // Verifica el JWT y devuelve el perfil del llamante (o null).
   async function getCaller(request) {
     const auth = request.headers['authorization'] || '';
@@ -709,9 +742,11 @@ export async function buildApp(options = {}) {
       .digest('hex');
     const cacheKey = `${caller.id}:${hash}`;
 
+    const vocab = await tenantVocab(caller.tenant_id);
+
     if (transcriptionCache.has(cacheKey)) {
       const cached = transcriptionCache.get(cacheKey);
-      const parsed = await parseSmart(cached.text, { language, log: request.log, markService, markGroqRateLimit });
+      const parsed = await parseSmart(cached.text, { language, log: request.log, markService, markGroqRateLimit, vocab });
       const agenda = await maybeParseAgenda(cached.text, { log: request.log, markGroqRateLimit });
       return reply.send({ ...cached, parsed, ...(agenda ? { agenda } : {}), cached: true });
     }
@@ -729,7 +764,7 @@ export async function buildApp(options = {}) {
       const run = () =>
         ALLOW_MOCK && mockText
           ? Promise.resolve({ text: mockText, confidence: 0.99 })
-          : transcribe({ buffer, filename, language });
+          : transcribe({ buffer, filename, language, vocab });
       try {
         result = await withTimeout(run(), WHISPER_TIMEOUT_MS);
       } catch (e) {
@@ -752,7 +787,7 @@ export async function buildApp(options = {}) {
         const text = 'carrera de Sants a la Sagrera por 18 euros con tarjeta';
         const result = { text, confidence: 0 };
         transcriptionCache.set(cacheKey, result);
-        return reply.send({ ...result, parsed: parseTransactionText(text), cached: false, mock: true });
+        return reply.send({ ...result, parsed: zeroIfNoAmount(parseTransactionText(text)), cached: false, mock: true });
       }
       const isKeyIssue = /api[ _-]?key|401|unauthor|incorrect|invalid/i.test(e.message || '');
       const error = isKeyIssue
@@ -766,7 +801,7 @@ export async function buildApp(options = {}) {
     result.text = correctTranscript(result.text);
     delete result._headers; delete result._model; // internos: no van en la respuesta
     transcriptionCache.set(cacheKey, result);
-    const parsed = await parseSmart(result.text, { language, log: request.log, markService, markGroqRateLimit });
+    const parsed = await parseSmart(result.text, { language, log: request.log, markService, markGroqRateLimit, vocab });
     const agenda = await maybeParseAgenda(result.text, { log: request.log, markGroqRateLimit });
     return reply.send({ ...result, parsed, ...(agenda ? { agenda } : {}), cached: false });
   });
@@ -782,9 +817,40 @@ export async function buildApp(options = {}) {
       const langRaw = (body.language || request.query?.language || '').toLowerCase();
       const language = TRANSCRIBE_LANGS.has(langRaw) ? langRaw : null;
       const corrected = correctTranscript(text);
-      const parsed = await parseSmart(corrected, { language, log: request.log, markService, markGroqRateLimit });
+      // vocab opcional ({clients,places}) para simular el de una empresa.
+      const vocab = body.vocab && typeof body.vocab === 'object' ? body.vocab : undefined;
+      const parsed = await parseSmart(corrected, { language, log: request.log, markService, markGroqRateLimit, vocab });
       return reply.send({ text: corrected, language, parsed });
     });
+
+    // Versión con MICRO (audio -> Whisper -> parseo), igual que la app pero sin
+    // login. Gasta cuota de Whisper, así que va aparte y solo con
+    // ENABLE_PARSE_TEST_AUDIO=true (pensado para el .env LOCAL, no para Render).
+    if (process.env.ENABLE_PARSE_TEST_AUDIO === 'true') {
+      app.post('/api/v1/parse-test/audio', async (request, reply) => {
+        if (!request.isMultipart()) return reply.code(400).send({ error: 'Falta el audio' });
+        let buffer = null;
+        let filename = 'audio.webm';
+        let language = null;
+        let vocab;
+        for await (const part of request.parts()) {
+          if (part.type === 'file') { filename = part.filename || filename; buffer = await part.toBuffer(); }
+          else if (part.fieldname === 'language') language = TRANSCRIBE_LANGS.has(part.value) ? part.value : null;
+          else if (part.fieldname === 'vocab') { try { vocab = JSON.parse(part.value); } catch { /* sin vocab */ } }
+        }
+        if (!buffer) return reply.code(400).send({ error: 'Falta el audio' });
+        let result;
+        try {
+          result = await withTimeout(transcribe({ buffer, filename, language, vocab }), WHISPER_TIMEOUT_MS);
+        } catch (e) {
+          return reply.code(502).send({ error: `Whisper falló: ${e.message}` });
+        }
+        const raw = result.text;
+        const text = correctTranscript(raw);
+        const parsed = await parseSmart(text, { language, log: request.log, markService, markGroqRateLimit, vocab });
+        return reply.send({ raw, text, language, parsed });
+      });
+    }
 
     // Pequeña página web para probar desde el navegador.
     app.get('/parse-test', async (_request, reply) => {

@@ -34,7 +34,7 @@ function eq(field, got, exp) {
 }
 
 for (const c of cases) {
-  const result = parseTransactionText(c.text);
+  const result = parseTransactionText(c.text, c.vocab);
   let allOk = true;
   const diffs = [];
   for (const [field, exp] of Object.entries(c.expected)) {

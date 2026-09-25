@@ -46,7 +46,7 @@ services:
       - key: WHISPER_MODEL
         sync: false
       # LLM que interpreta el texto (catalán/castellano). Groq gratis:
-      #   LLM_PARSE_MODEL = llama-3.3-70b-versatile
+      #   LLM_PARSE_MODEL = openai/gpt-oss-120b   (els Llama ja no hi són al pla gratis: 404)
       - key: LLM_PARSE_MODEL
         sync: false
       # Página /parse-test para probar frases sin audio. Útil en pruebas;

@@ -14,6 +14,14 @@ const CATS = new Set([
   'multa', 'seguro', 'autonomos', 'seguridad_social', 'comida', 'compra',
 ]);
 
+// El node-fetch interno del SDK openai v4 da "Premature close" en Node 24+ (el
+// Node de desarrollo local). Ahí se usa el fetch nativo (duplex para subir el
+// audio de Whisper). En Node 22 (Render) se deja el del SDK, que ya funciona.
+export function sdkFetch() {
+  if (Number(process.versions.node.split('.')[0]) < 24) return {};
+  return { fetch: (url, init) => globalThis.fetch(url, { ...init, duplex: 'half' }) };
+}
+
 function capFirst(s) {
   if (s == null) return null;
   const t = String(s).trim();
@@ -23,16 +31,29 @@ function capFirst(s) {
 const SYSTEM_PROMPT = `Ets un assistent que extreu dades d'una frase dita per un taxista, en CATALÀ o CASTELLÀ. La frase descriu una carrera (ingrés) o una despesa.
 
 Retorna NOMÉS un objecte JSON (sense text addicional) amb aquestes claus exactes:
-- "type": "income" si és una carrera/cobrament, "expense" si és una despesa/gasto.
+- "type": "income" si és una carrera/cobrament, "expense" si és una despesa/gasto. En cas de dubte, "income" (la majoria de frases són carreres). "Pagat amb bizum/targeta/efectiu" en una carrera vol dir que el CLIENT ha pagat => "income". Només és "expense" si es parla d'una despesa del taxista (gasolina, taller, peatge, pàrquing, "he gastat", "despesa", "gasto"…).
 - "amount": el PREU de la carrera/despesa en EUROS que es paga (decimals amb punt, p. ex. 18.5), o null. NO són els quilòmetres. Si la frase NO esmenta cap preu en euros, ha de ser null (no l'inventis ni el dedueixis dels km). Compte amb els milers: "292.000" = 292000.
-- "payment_method": un de "tarjeta", "efectivo", "bizum", "transferencia", "credito" o null. (targeta/visa/tpv/datàfon => tarjeta; efectiu/metàl·lic/monedes/bitllets => efectivo; fiat/pendent de cobrament/factura/a deure => credito)
+- "payment_method": un de "tarjeta", "efectivo", "bizum", "transferencia", "credito" o null. (targeta/visa/tpv/datàfon => tarjeta; efectiu/metàl·lic/monedes/bitllets => efectivo; fiat/pendent de cobrament/factura/a deure => credito). La veu sovint talla o deforma la paraula: "bizu", "bisum", "visum" => bizum; "targe", "tarje" => tarjeta; "efecti" => efectivo.
 - "origin": lloc d'origen de la carrera (string) o null.
 - "destination": lloc de destí (string) o null.
 - "odometer_km": km actuals del cotxe (enter) o null. Només si es mencionen km/quilòmetres.
 - "client_name": nom de l'empresa si es menciona (p. ex. Gitaxi, Movitaxi, OneCab, Asepeyo, Mutua Asepeyo, Radio Taxi, Cooperativa), amb la primera lletra en majúscula; null si és un client particular. Si s'assembla molt a una empresa coneguda encara que la veu l'hagi transcrit malament (p. ex. "gitasi"/"gitaxis" -> "Gitaxi", "onecap" -> "OneCab"), normalitza'l al nom correcte de la llista.
 - "category": NOMÉS per a despeses, un de "gasolina", "gasoil", "carga_electrica" (recàrrega elèctrica del cotxe), "taller", "peaje", "parking", "lavado", "multa", "seguro", "autonomos" (quota d'autònoms/TGSS), "seguridad_social" (SS/nòmina de conductors assalariats), "comida", "compra"; o null.
 
+ORIGEN i DESTÍ: el taxista ho diu de moltes maneres i totes valen:
+- "de Figueres a Girona", "des de Figueres fins a Girona", "Figueres cap a Girona", "Figueres - Girona", "Figueres a Girona" => origin "Figueres", destination "Girona".
+- Ordre invers: "a Girona des de Figueres", "cap a Girona desde Figueres" => origin "Figueres", destination "Girona".
+- DOS NOMS DE LLOC SEGUITS sense connector ("Figueres Girona 50 euros") => el primer és l'origen i el segon el destí.
+- Si només es diu un lloc ("carrera a l'aeroport"), posa'l a destination i origin null.
+
 IMPORTANT amb els LLOCS: poden contenir preposicions, articles i diverses paraules i s'han de mantenir SENCERS, p. ex. "Rambla de Figueres", "Estació de França", "Estació de Renfe", "Museu Dalí", "Estació Figueres AVE", "Plaça de Catalunya". El "de/des de X a/fins a Y" que separa ORIGEN i DESTÍ és només el connector; aquest "de"/"a" de connexió NO forma part del nom. Exemple: "de la rambla de Figueres a l'estació de Renfe" => origin "Rambla de Figueres", destination "Estació de Renfe".
+
+Exemples:
+"Figueres Girona 50€ pagat amb Bizu" => {"type":"income","amount":50,"payment_method":"bizum","origin":"Figueres","destination":"Girona","odometer_km":null,"client_name":null,"category":null}
+"anada a Girona des de Figueres 45 euros amb targeta" => {"type":"income","amount":45,"payment_method":"tarjeta","origin":"Figueres","destination":"Girona","odometer_km":null,"client_name":null,"category":null}
+"carrera Gitaxi de l'estació a l'hospital 12 euros a deure" => {"type":"income","amount":12,"payment_method":"credito","origin":"Estació","destination":"Hospital","odometer_km":null,"client_name":"Gitaxi","category":null}
+"Roses Cadaqués 60 euros en efectivo" => {"type":"income","amount":60,"payment_method":"efectivo","origin":"Roses","destination":"Cadaqués","odometer_km":null,"client_name":null,"category":null}
+"50 euros de gasoil pagat amb targeta" => {"type":"expense","amount":50,"payment_method":"tarjeta","origin":null,"destination":null,"odometer_km":null,"client_name":null,"category":"gasoil"}
 
 Regles: escriu els llocs i l'empresa amb majúscula inicial. Si un camp NO apareix clarament a la frase, posa null; no inventis ni dedueixis cap valor que no s'hagi dit (especialment l'import). Respon només amb el JSON.`;
 
@@ -40,20 +61,33 @@ Regles: escriu els llocs i l'empresa amb majúscula inicial. Si un camp NO apare
  * Extrae los campos de la transcripción usando un LLM compatible con OpenAI.
  * Lanza si el LLM no responde JSON válido (el llamador hace fallback).
  */
-export async function llmParse(text, { apiKey, baseURL, model, language, onRateLimit } = {}) {
+// Vocabulario de la empresa (clientes y lugares ya usados) como pista: el LLM
+// normaliza a esos nombres cuando la frase se les parece.
+function vocabHint(vocab) {
+  const clients = (vocab?.clients || []).slice(0, 40);
+  const places = (vocab?.places || []).slice(0, 60);
+  let out = '';
+  if (clients.length) out += `Clients habituals d'aquesta empresa (si la frase n'esmenta un, encara que mal transcrit, usa aquest nom exacte): ${clients.join(', ')}.\n`;
+  if (places.length) out += `Llocs habituals d'aquesta empresa (ajuden a separar origen i destí; usa aquest nom exacte si s'hi assembla): ${places.join(', ')}.\n`;
+  return out;
+}
+
+export async function llmParse(text, { apiKey, baseURL, model, language, vocab, onRateLimit } = {}) {
   if (!apiKey || !model) throw new Error('LLM no configurado');
   const { default: OpenAI } = await import('openai');
-  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}), ...sdkFetch() });
 
-  const userMsg = language
-    ? `Idioma probable: ${language}.\nFrase: ${text}`
-    : `Frase: ${text}`;
+  const userMsg = (language ? `Idioma probable: ${language}.\n` : '') + vocabHint(vocab)
+    + `Frase: ${text}`;
 
   // withResponse() da acceso a las cabeceras (x-ratelimit-*) para el monitor de uso.
   const { data: res, response } = await client.chat.completions.create({
     model,
     temperature: 0,
     response_format: { type: 'json_object' },
+    // Modelos gpt-oss "razonan" antes de responder: con 'low' gastan ~100 tokens
+    // en vez de ~350 y tardan <1 s (misma precisión en este extractor).
+    ...(/gpt-oss/.test(model) ? { reasoning_effort: process.env.LLM_REASONING_EFFORT || 'low' } : {}),
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: userMsg },
@@ -81,7 +115,7 @@ Ignora la muletilla inicial "apunta en la agenda" / "apunta a l'agenda" / "add t
 export async function llmParseAgenda(text, { apiKey, baseURL, model, nowRef, onRateLimit } = {}) {
   if (!apiKey || !model) throw new Error('LLM no configurado');
   const { default: OpenAI } = await import('openai');
-  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}), ...sdkFetch() });
   const userMsg = `FECHA DE REFERENCIA (España): ${nowRef}.\nFrase: ${text}`;
   const { data: res, response } = await client.chat.completions.create({
     model,
@@ -146,24 +180,34 @@ function sanitize(o) {
  */
 export function mergeParsed(llm, det) {
   const pick = (a, b) => (a !== null && a !== undefined ? a : b);
+  // Importe, categoría y tipo: el determinista manda cuando los encontró. Es casi
+  // infalible ahí y el LLM fallaba: "35 con 50" -> 35, "divuit amb cinquanta" ->
+  // 50, "gasolina" -> gasoil, "pagué 15" -> ingreso. El LLM aporta sobre todo en
+  // origen, destino y empresa.
   const m = {
-    amount: pick(llm.amount, det.amount),
-    category: pick(llm.category, det.category),
-    type: pick(llm.type, det.type),
+    amount: pick(det.amount, llm.amount),
+    category: pick(det.category === 'ingreso_tarjeta' ? null : det.category, llm.category) ?? det.category,
+    type: det.type_confident ? det.type : pick(llm.type, det.type),
     // Método de pago: el determinista manda. Es un enum por palabra clave EXACTA
     // ("efectivo"/"tarjeta"/"bizum"/"crédito"…), muy fiable; el LLM (Groq) tiende
     // a "rellenar" con tarjeta por defecto y pisaba la detección correcta (p. ej.
     // dices "efectivo" y se quedaba en tarjeta). Si el determinista no encontró
     // ninguna palabra de pago, se usa el LLM como respaldo.
     payment_method: pick(det.payment_method, llm.payment_method),
-    origin: pick(llm.origin, det.origin),
-    destination: pick(llm.destination, det.destination),
+    // Ruta: manda el LLM. Si la del determinista era solo una suposición (dos
+    // palabras seguidas sin conector), no se usa ni de respaldo: si el LLM dice
+    // que no hay ruta (p. ej. era la empresa "Transports Puig"), no la hay.
+    origin: det.route_guess ? llm.origin : pick(llm.origin, det.origin),
+    destination: det.route_guess ? llm.destination : pick(llm.destination, det.destination),
     odometer_km: pick(llm.odometer_km, det.odometer_km),
     client_name: pick(llm.client_name, det.client_name),
     // Fecha/hora dichas: la detecta el parser determinista (det); el LLM no la
     // extrae. Si no se dijo, queda null y el frontend usa la fecha/hora actual.
     created_at: pick(llm.created_at, det.created_at),
   };
+  // Coherencia tipo/categoría tras mezclar: un gasto no lleva la categoría
+  // genérica de ingreso.
+  if (m.type === 'expense' && m.category === 'ingreso_tarjeta') m.category = null;
   const missing_fields = [];
   if (m.amount == null) missing_fields.push('amount');
   if (m.type === 'expense' && !m.category) missing_fields.push('category');
@@ -182,7 +226,7 @@ export function mergeParsed(llm, det) {
 export async function llmMapColumns(sampleRows, { apiKey, baseURL, model } = {}) {
   if (!apiKey || !model) throw new Error('LLM no configurado');
   const { default: OpenAI } = await import('openai');
-  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}), ...sdkFetch() });
 
   const sys = `Eres un asistente que identifica las columnas de una hoja de cálculo de un taxista (ingresos y gastos). Te paso las primeras filas; cada fila es un array de celdas indexadas desde 0.
 Devuelve SOLO un JSON con esta forma exacta:

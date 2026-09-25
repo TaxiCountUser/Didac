@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TaxiCount Parse Test</title>
+<style>
+  :root {
+    --bg: #faf7f0; --card: #ffffff; --ink: #1d1b16; --muted: #6b6558; --line: #e4ddcc;
+    --amber: #ffc107; --amber-ink: #3a2c00; --ok: #1f7a3a; --bad: #b3261e; --code: #1d1b16; --code-ink: #e9f5d9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15140f; --card: #1f1d17; --ink: #f1ece0; --muted: #a39c8b; --line: #37332a;
+      --code: #0d0c09; --ok: #6fcf8a; --bad: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h1 b { color: var(--amber); }
+  .sub { color: var(--muted); margin: 0 0 18px; font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  label { font-size: 13px; color: var(--muted); }
+  select, input, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  textarea { width: 100%; min-height: 64px; resize: vertical; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 999px; padding: 10px 18px; cursor: pointer; background: var(--amber); color: var(--amber-ink); }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: default; }
+  #mic { width: 84px; height: 84px; border-radius: 50%; font-size: 34px; padding: 0; flex: none; }
+  #mic.rec { background: var(--bad); color: #fff; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 12px rgba(179,38,30,.15); } }
+  .status { font-size: 13px; color: var(--muted); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
+  .said { font-size: 16px; margin: 0 0 4px; }
+  .raw { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 38%; font-size: 13px; }
+  td.v { font-weight: 600; }
+  td.null { color: var(--muted); font-weight: 400; font-style: italic; }
+  details { margin-top: 10px; }
+  pre { background: var(--code); color: var(--code-ink); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; margin: 8px 0 0; }
+  .hist-item { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+  .hist-item:last-child { border-bottom: 0; }
+  .hist-item span { color: var(--muted); }
+  .err { color: var(--bad); font-weight: 600; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  code { font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Taxi<b>Count</b> · prova d'interpretació</h1>
+  <p class="sub">Parla o escriu una carrera i mira què n'entén l'app (origen, destí, import, pagament, empresa…).</p>
+
+  <div class="card">
+    <div class="row">
+      <span class="status"><span id="dot" class="dot"></span><span id="srv">Comprovant el backend…</span></span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>Backend <input id="base" size="26" value="http://localhost:3000"></label>
+      <label>Idioma
+        <select id="lang"><option value="ca">Català</option><option value="es">Castellà</option><option value="en">English</option></select>
+      </label>
+    </div>
+    <p class="hint">Local: doble clic a <code>TaxiCount parse-test.bat</code> de l'escriptori. El micro només funciona al backend local (<code>ENABLE_PARSE_TEST_AUDIO=true</code> al <code>.env</code>).</p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button id="mic" title="Mantén premut o clica per gravar">🎤</button>
+      <div>
+        <div id="micState" class="status">Clica per començar a gravar i torna a clicar per enviar.</div>
+        <div class="status">També pots mantenir premuda la <b>barra d'espai</b> mentre parles.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <textarea id="text" placeholder="Figueres Girona 50€ pagat amb Bizum"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button id="send">Interpretar text</button>
+      <span class="status">Ctrl+Enter</span>
+    </div>
+  </div>
+
+  <div class="card" id="out" hidden>
+    <p class="said" id="said"></p>
+    <p class="raw" id="raw"></p>
+    <table id="fields"></table>
+    <details><summary class="status">JSON complet</summary><pre id="json"></pre></details>
+  </div>
+
+  <div class="card" id="histCard" hidden>
+    <div class="row" style="justify-content:space-between">
+      <b>Historial</b><button class="ghost" id="clear">Esborrar</button>
+    </div>
+    <div id="hist"></div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const LABELS = {
+  type: 'Tipus', amount: 'Import (€)', payment_method: 'Pagament', origin: 'Origen', destination: 'Destí',
+  client_name: 'Empresa / client', category: 'Categoria', odometer_km: 'Km', created_at: 'Data/hora dita', missing_fields: 'Falten',
+};
+const PRETTY = { income: 'Ingrés (carrera)', expense: 'Despesa' };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sense storage */ } },
+};
+// Servida pel backend (/parse-test): parla amb el mateix origen. Oberta com a
+// fitxer: el backend local o el que s'hagi desat.
+const served = location.protocol.startsWith('http');
+$('base').value = served ? location.origin : store.get('base', 'http://localhost:3000');
+if (served) $('base').closest('label').hidden = true;
+$('lang').value = store.get('lang', 'ca');
+$('base').onchange = () => { if (!served) store.set('base', $('base').value.trim()); ping(); };
+$('lang').onchange = () => store.set('lang', $('lang').value);
+const base = () => $('base').value.trim().replace(/\/+$/, '');
+
+async function ping() {
+  $('dot').className = 'dot'; $('srv').textContent = 'Comprovant el backend…';
+  try {
+    const r = await fetch(base() + '/health', { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    $('dot').className = 'dot ok'; $('srv').textContent = 'Backend connectat';
+  } catch {
+    $('dot').className = 'dot bad'; $('srv').textContent = 'No hi ha backend a ' + base() + ' — engega\'l i torna a carregar';
+  }
+}
+ping();
+
+function show(data) {
+  $('out').hidden = false;
+  $('said').textContent = '«' + (data.text || '') + '»';
+  $('raw').textContent = data.raw && data.raw !== data.text ? 'Whisper va sentir: «' + data.raw + '» (corregit abans d\'interpretar)' : (data.raw ? 'Transcripció de Whisper' : 'Text escrit');
+  const p = data.parsed || {};
+  $('fields').innerHTML = '';
+  for (const [k, label] of Object.entries(LABELS)) {
+    let v = p[k];
+    if (k === 'missing_fields') v = (v && v.length) ? v.join(', ') : null;
+    if (k === 'type') v = PRETTY[v] || v;
+    const tr = document.createElement('tr');
+    const a = document.createElement('td'); a.textContent = label;
+    const b = document.createElement('td');
+    b.className = v == null || v === '' ? 'null' : 'v';
+    b.textContent = v == null || v === '' ? '—' : String(v);
+    tr.append(a, b); $('fields').append(tr);
+  }
+  $('json').textContent = JSON.stringify(data, null, 2);
+  const h = store.get('hist', []);
+  h.unshift({ at: new Date().toLocaleTimeString(), text: data.text, parsed: p, raw: data.raw });
+  store.set('hist', h.slice(0, 30));
+  renderHist();
+}
+function showError(msg) {
+  $('out').hidden = false; $('said').innerHTML = ''; $('raw').textContent = '';
+  $('fields').innerHTML = ''; const e = document.createElement('p'); e.className = 'err'; e.textContent = msg;
+  $('said').append(e); $('json').textContent = '';
+}
+function renderHist() {
+  const h = store.get('hist', []);
+  $('histCard').hidden = !h.length; $('hist').innerHTML = '';
+  for (const it of h) {
+    const d = document.createElement('div'); d.className = 'hist-item';
+    const p = it.parsed || {};
+    d.innerHTML = '';
+    const t = document.createElement('div'); t.textContent = it.text;
+    const s = document.createElement('span');
+    s.textContent = `${it.at} · ${PRETTY[p.type] || p.type || '?'} · ${p.amount ?? '—'} € · ${p.payment_method || '—'} · ${p.origin || '—'} → ${p.destination || '—'}${p.client_name ? ' · ' + p.client_name : ''}`;
+    d.append(t, s);
+    d.onclick = () => show({ text: it.text, raw: it.raw, parsed: it.parsed });
+    $('hist').append(d);
+  }
+}
+renderHist();
+$('clear').onclick = () => { store.set('hist', []); renderHist(); };
+
+async function sendText() {
+  const text = $('text').value.trim();
+  if (!text) return;
+  $('send').disabled = true;
+  try {
+    const r = await fetch(base() + '/api/v1/parse-test', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text, language: $('lang').value }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    show(j);
+  } catch (e) { showError('Error: ' + e.message + ' (backend engegat amb ENABLE_PARSE_TEST=true?)'); }
+  finally { $('send').disabled = false; }
+}
+$('send').onclick = sendText;
+$('text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendText(); });
+
+// --- Micro ---
+let rec = null, chunks = [], stream = null;
+async function startRec() {
+  if (rec) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) { $('micState').textContent = 'No hi ha accés al micro: ' + e.message; return; }
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+  rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  chunks = [];
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = uploadAudio;
+  rec.start();
+  $('mic').classList.add('rec'); $('mic').textContent = '■';
+  $('micState').textContent = 'Gravant… torna a clicar (o deixa anar l\'espai) per enviar.';
+}
+function stopRec() {
+  if (!rec) return;
+  rec.stop(); stream.getTracks().forEach((t) => t.stop());
+  $('mic').classList.remove('rec'); $('mic').textContent = '🎤';
+}
+async function uploadAudio() {
+  const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+  rec = null;
+  if (blob.size < 1500) { $('micState').textContent = 'Gravació massa curta, torna-ho a provar.'; return; }
+  $('micState').textContent = 'Transcrivint i interpretant…'; $('mic').disabled = true;
+  const fd = new FormData();
+  fd.append('language', $('lang').value);
+  fd.append('audio', blob, 'audio.webm');
+  try {
+    const r = await fetch(base() + '/api/v1/parse-test/audio', { method: 'POST', body: fd });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 404) throw new Error('el backend no té el micro activat (ENABLE_PARSE_TEST_AUDIO=true al .env local)');
+    if (!r.ok) throw new Error(j.error || r.status);
+    $('text').value = j.text || '';
+    show(j);
+    $('micState').textContent = 'Fet. Clica per gravar una altra frase.';
+  } catch (e) { showError('Error: ' + e.message); $('micState').textContent = 'Hi ha hagut un error.'; }
+  finally { $('mic').disabled = false; }
+}
+$('mic').onclick = () => (rec ? stopRec() : startRec());
+let spaceDown = false;
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !spaceDown && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault(); spaceDown = true; startRec();
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space' && spaceDown) { e.preventDefault(); spaceDown = false; stopRec(); }
+});
+</script>
+</body>
+</html>
