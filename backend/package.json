@@ -22,7 +22,7 @@
     "firebase-admin": "^13.0.0",
     "openai": "^4.67.3",
     "pdfmake": "^0.2.10",
-    "stripe": "^17.7.0"
+    "stripe": "^22.3.2"
   },
   "engines": {
     "node": ">=22"
