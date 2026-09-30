@@ -181,7 +181,7 @@ Trigger `handle_new_auth_user` sobre `auth.users`: un *owner* nuevo crea su tena
 | `auth_gate.dart` | Router por rol/estado (el "portero"). |
 | `config.dart` | Configuración 12-factor (`--dart-define`). |
 | `services/data_service.dart` | **Capa de acceso a datos** (doble ruta: Supabase + Fastify). |
-| `services/` | `push_service`, `location_service`, `update_service`, descargas. |
+| `services/` | `push_service`, `location_service`, descargas. (El `update_service` de auto-actualización sideload se eliminó al pasar a Google Play; Play gestiona las actualizaciones.) |
 | `screens/` (~45) | UI por rol: driver, owner, solo, y **panel admin** (portada, empresas, facturación, retos, referidos, seguridad, soporte, errores, config). **Agenda** (oculta y de pago, Fase 1, mig. 084): `agenda_screen`/`agenda_input_screen`, gateada por `tenants.agenda_enabled` (la activa el admin por empresa); servicios programados compartidos por empresa (`agenda_events` + RLS). Google Calendar = Fase 2. |
 | `l10n/app_localizations.dart` | i18n propia, **7 idiomas** (es/en/ca/fr/it/de/pt; fr/it/de/pt 2026-09-22, 1318 claves c/u, paridad verificada). `t()` cae a `es` si falta la clave. |
 | `models/`, `widgets/` | DTOs (`Profile`, `TenantState`) y UI compartida. |

@@ -1,6 +1,13 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Permisos necesarios para TaxiCount -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- image_picker (avatar) y file_picker (importar .xlsx/.csv) usan los selectores
+         del sistema (Photo Picker / SAF), que NO requieren permiso en Android 13+.
+         Quitamos los permisos de medios que los plugins inyectan para no pedirlos
+         de más y evitar la declaración de fotos/vídeos de Google Play. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove"/>
     <!-- GPS: localizar vehículo y seguimiento del conductor -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
@@ -8,8 +15,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- Notificaciones push (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!-- Actualización in-app: descargar el APK y lanzar el instalador del sistema -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- En Google Play las actualizaciones las gestiona Play: NO auto-instalamos APKs.
+         open_filex (abrir informes Excel/PDF) inyecta REQUEST_INSTALL_PACKAGES en su
+         manifest; lo quitamos porque solo abrimos documentos, nunca APKs. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove"/>
 
     <application
         android:label="TaxiCount"

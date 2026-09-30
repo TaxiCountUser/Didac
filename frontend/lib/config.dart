@@ -27,12 +27,8 @@ const backendUrl = String.fromEnvironment(
 // mismo Client ID que Supabase tiene configurado en su proveedor de Google.
 const kGoogleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID', defaultValue: '');
 
-// Manifiesto de versión para el aviso de actualización (sideload). Apunta al
-// version.json publicado en la última GitHub Release.
-const updateManifestUrl = String.fromEnvironment(
-  'UPDATE_URL',
-  defaultValue: 'https://github.com/TaxiCountUser/Didac/releases/latest/download/version.json',
-);
+// (Auto-actualización eliminada: en Google Play las actualizaciones las gestiona
+// Play. Antes había un `updateManifestUrl` que apuntaba a la GitHub Release.)
 
 // Stripe (Fase 4): modelo de precios POR ASIENTO (por conductor), escalonado por
 // volumen en Stripe. Un único Price mensual y otro anual; la cantidad = nº de
