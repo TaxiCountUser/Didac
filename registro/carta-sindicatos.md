@@ -1,0 +1,56 @@
+# Carta a los sindicatos del taxi — TaxiCount
+
+> Borrador 1 (tono cercano, de taxista a taxistas). Revisa y dime qué cambiarías.
+> [FOTO: aquí iría la foto del Ford del bisabuelo con la chapa "SP"]
+
+---
+
+**Asunto:** Una herramienta hecha por un taxista, para taxistas — y una propuesta para vuestros afiliados
+
+Hola:
+
+Me llamo **Didac**, soy taxista en **Figueres** (licencia nº 13) y afiliado al **STAC** desde que empecé, en 2020. Os escribo como compañero, no como una empresa.
+
+Soy la **cuarta generación de taxistas** de mi familia. El primero fue mi bisabuelo: hacia **1940**, justo después de la guerra, se compró un Ford de segunda mano con la chapa de **"SP" (Servicio Público)**, el escudo de la ciudad y el número de licencia en la puerta (conservo la foto). Después vino mi abuelo, luego mis padres —que hoy siguen al volante con la licencia nº 7— y ahora yo, con la nº 13. **Llevamos unos 85 años en esto**: prácticamente toda la historia del taxi tal y como lo conocemos.
+
+Precisamente por eso conozco de primera mano un problema que tenemos **todos**: llevar las cuentas sigue siendo un lío anticuado. Apuntas las carreras en una agenda o en un folio cuando dejas al cliente —si te da tiempo, porque con jaleo a veces se te escapa alguna—, luego toca cuadrar la caja (con el jefe, o en mi caso repasándolo con mi madre), pasarlo a un Excel y, de ahí, a Hacienda cada trimestre. **Demasiados pasos y demasiado tiempo** al llegar a casa por la noche.
+
+Así nació **TaxiCount**. La idea es sencilla: que apuntar deje de ser una carga.
+
+- **Registras las carreras hablando.** Dejas al cliente y dictas: "viaje de aquí a allá, tanto, con tarjeta". Una IA lo transcribe y lo organiza solo: detecta si es una **carrera**, un **gasto** o algo para la **agenda**. No pierdes servicios entre medias.
+- **Todo queda guardado y lo puedes corregir** (o añadir una carrera que se te olvidó ayer).
+- **Al final te sacas el Excel** del día, la semana, el mes o el año —incluso filtrado por cliente— listo para la gestoría y para lo que viene con Verifactu.
+- Si llevas **conductores**, ves su actividad en vivo y cuadráis cuentas sin complicaciones.
+
+Y hay dos cosas que para mí son innegociables:
+
+1. **Es baratísima, a propósito.** Entre 1 y 3 € al mes por conductor. No vengo a sacarle los cuartos a nadie; el precio me sirve para pagar la IA y los servidores, y lo llevo meses costeando de mi bolsillo porque creo en esto.
+2. **Vuestras cuentas son vuestras.** Como administradores **no vemos nada**: ni ingresos, ni gastos, ni beneficios. Está bloqueado. Solo podríamos entrar si **vosotros nos dais permiso** desde el chat de soporte, para ayudaros con algo puntual, y solo en ese momento.
+
+Pero os escribo también por algo más grande. Estamos **anticuados**, y mientras tanto Uber, FreeNow o Cabify nos van quitando trabajo y cobrándonos comisiones. Mi sueño es que **los taxistas nos unamos y tengamos nuestra propia herramienta**, nuestra, sin VTCs de por medio y sin que nadie nos cobre un porcentaje por trabajar. TaxiCount puede ser un primer punto de encuentro para empezar a conocernos y construir eso juntos. Y ahí **los sindicatos tenéis un peso enorme**.
+
+**Lo que os propongo:**
+
+- Una **oferta para vuestros afiliados** (la concretamos juntos): de salida, **1 mes de cortesía + la Agenda gratis**, y lo ajustamos para que os cuadre.
+- Para **todos**, afiliados o no, **medio precio durante el primer año** de lanzamiento.
+
+**Lo que os pido:** que me ayudéis a darla a conocer entre vuestros afiliados —un enlace, una charla o demo, una mención en vuestra web o boletín—. Que la haya creado un taxista, y no una multinacional, creo que dice mucho.
+
+Cualquier duda la respondo yo mismo. En la app tenéis un chat que habla **directamente conmigo y con Jordi** (mi socio, que lleva la seguridad y la protección de datos), y contestamos en menos de 48 horas.
+
+Me tenéis en **www.taxicount.com**, donde está todo. Me encantaría enseñárosla en persona cuando queráis.
+
+Gracias por leerme, compañeros.
+
+Un abrazo,
+**Didac**
+Taxista en Figueres · Creador de TaxiCount
+[email] · [teléfono] · www.taxicount.com
+
+---
+
+### Notas para ti (no van en la carta)
+- Para **STAC** podemos hacer una **versión en catalán** (te la preparo cuando valides el texto).
+- Confirmar: grafía exacta **STAC** y si quieres nombrar a **Élite Taxi** en una versión aparte dirigida a ellos.
+- Decide si incluyes la anécdota del **Avensis (900.000 km, murió en la ITV)** — es buenísima, pero alarga; la tengo lista como "caja" opcional si quieres darle un toque más personal.
+- Rellena [email] y [teléfono].
