@@ -18,6 +18,16 @@ class LangFlag extends StatelessWidget {
         ),
       );
     }
+    if (code == 'eu') {
+      // Euskara no tiene emoji de bandera: pintamos la ikurriña.
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: CustomPaint(
+          size: Size(size * 1.5, size), // proporción 3:2
+          painter: _IkurrinaPainter(),
+        ),
+      );
+    }
     final emoji = switch (code) {
       'es' => '🇪🇸',
       'en' => '🇬🇧',
@@ -49,6 +59,36 @@ class _SenyeraPainter extends CustomPainter {
         redPaint,
       );
     }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Pinta la ikurriña: fondo rojo, aspa (sotuer) verde en diagonal y, encima,
+/// la cruz blanca recta centrada.
+class _IkurrinaPainter extends CustomPainter {
+  static const _red = Color(0xFFD52B1E);
+  static const _green = Color(0xFF009B48);
+  static const _white = Color(0xFFFFFFFF);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    // Fondo rojo.
+    canvas.drawRect(Offset.zero & size, Paint()..color = _red);
+    // Aspa verde (esquina a esquina).
+    final green = Paint()
+      ..color = _green
+      ..strokeWidth = h * 0.18
+      ..strokeCap = StrokeCap.butt;
+    canvas.drawLine(Offset.zero, Offset(w, h), green);
+    canvas.drawLine(Offset(w, 0), Offset(0, h), green);
+    // Cruz blanca recta encima.
+    final white = Paint()..color = _white;
+    final arm = h * 0.18;
+    canvas.drawRect(Rect.fromLTWH((w - arm) / 2, 0, arm, h), white); // vertical
+    canvas.drawRect(Rect.fromLTWH(0, (h - arm) / 2, w, arm), white); // horizontal
   }
 
   @override
