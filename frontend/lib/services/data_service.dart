@@ -233,6 +233,35 @@ class DataService {
     return (rows as List).cast<Map<String, dynamic>>();
   }
 
+  /// Lista servicios PASADOS de la agenda (antes de ahora), del más reciente al
+  /// más antiguo. Para el histórico; no se borran nunca, solo quedan aquí.
+  Future<List<Map<String, dynamic>>> listAgendaHistory({int limit = 200}) async {
+    final until = DateTime.now().subtract(const Duration(hours: 12));
+    final rows = await _c
+        .from('agenda_events')
+        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email)')
+        .lt('scheduled_at', until.toUtc().toIso8601String())
+        .order('scheduled_at', ascending: false)
+        .limit(limit);
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Busca servicios por empresa/cliente, ruta o contacto en TODAS las fechas
+  /// (pasadas y futuras), del más reciente al más antiguo.
+  Future<List<Map<String, dynamic>>> searchAgenda(String query, {int limit = 200}) async {
+    // Saneado: quitamos caracteres que romperían el filtro or()/ilike de PostgREST.
+    final safe = query.replaceAll(RegExp(r'[,().*%]'), ' ').trim();
+    if (safe.isEmpty) return const [];
+    final p = '*$safe*'; // comodín ilike de PostgREST
+    final rows = await _c
+        .from('agenda_events')
+        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email)')
+        .or('name.ilike.$p,pickup.ilike.$p,destination.ilike.$p,contact.ilike.$p')
+        .order('scheduled_at', ascending: false)
+        .limit(limit);
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
+
   /// Crea un servicio en la agenda de la empresa.
   Future<void> addAgendaEvent({
     required String tenantId,

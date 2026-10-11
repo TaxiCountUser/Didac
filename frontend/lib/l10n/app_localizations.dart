@@ -90,6 +90,11 @@ class _AppLocalizationsDelegate
 // ============================================================
 const Map<String, Map<String, String>> _values = {
   'es': {
+    'ag_history': 'Histórico y búsqueda',
+    'ag_history_title': 'Agenda · histórico',
+    'ag_search_hint': 'Buscar empresa, cliente o ruta…',
+    'ag_seg_past': 'Pasados', 'ag_seg_upcoming': 'Próximos',
+    'ag_no_past': 'No hay servicios pasados.', 'ag_no_results': 'Sin resultados.',
     // Común
     'save': 'Guardar', 'cancel': 'Cancelar', 'confirm': 'Confirmar',
     'delete': 'Eliminar', 'edit': 'Editar',
@@ -1417,6 +1422,11 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplicar', 'ref_applied': '¡Código aplicado!',
   },
   'en': {
+    'ag_history': 'History and search',
+    'ag_history_title': 'Agenda · history',
+    'ag_search_hint': 'Search company, client or route…',
+    'ag_seg_past': 'Past', 'ag_seg_upcoming': 'Upcoming',
+    'ag_no_past': 'No past services.', 'ag_no_results': 'No results.',
     'save': 'Save', 'cancel': 'Cancel', 'confirm': 'Confirm',
     'delete': 'Delete', 'edit': 'Edit',
     'retry': 'Retry', 'ok': 'OK', 'send': 'Send', 'close': 'Close',
@@ -2661,6 +2671,11 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Apply', 'ref_applied': 'Code applied!',
   },
   'ca': {
+    'ag_history': 'Històric i cerca',
+    'ag_history_title': 'Agenda · històric',
+    'ag_search_hint': 'Cerca empresa, client o ruta…',
+    'ag_seg_past': 'Passats', 'ag_seg_upcoming': 'Pròxims',
+    'ag_no_past': 'No hi ha serveis passats.', 'ag_no_results': 'Sense resultats.',
     'save': 'Desa', 'cancel': 'Cancel·la', 'confirm': 'Confirma',
     'delete': 'Elimina', 'edit': 'Edita',
     'retry': 'Torna-ho a provar', 'ok': "D'acord", 'send': 'Envia',
@@ -3955,6 +3970,11 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplica', 'ref_applied': 'Codi aplicat!',
   },
   'fr': {
+    'ag_history': 'Historique et recherche',
+    'ag_history_title': 'Agenda · historique',
+    'ag_search_hint': 'Rechercher entreprise, client ou trajet…',
+    'ag_seg_past': 'Passés', 'ag_seg_upcoming': 'À venir',
+    'ag_no_past': 'Aucun service passé.', 'ag_no_results': 'Aucun résultat.',
     // Común
     'save': 'Enregistrer', 'cancel': 'Annuler', 'confirm': 'Confirmer',
     'delete': 'Supprimer', 'edit': 'Modifier',
@@ -5250,6 +5270,11 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Appliquer', 'ref_applied': 'Code appliqué !',
   },
   'it': {
+    'ag_history': 'Storico e ricerca',
+    'ag_history_title': 'Agenda · storico',
+    'ag_search_hint': 'Cerca azienda, cliente o tragitto…',
+    'ag_seg_past': 'Passati', 'ag_seg_upcoming': 'Prossimi',
+    'ag_no_past': 'Nessun servizio passato.', 'ag_no_results': 'Nessun risultato.',
     'save': 'Salva', 'cancel': 'Annulla', 'confirm': 'Conferma',
     'delete': 'Elimina', 'edit': 'Modifica',
     'retry': 'Riprova', 'ok': 'OK', 'send': 'Invia', 'close': 'Chiudi',
@@ -6542,6 +6567,11 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Applica', 'ref_applied': 'Codice applicato!',
   },
   'de': {
+    'ag_history': 'Verlauf und Suche',
+    'ag_history_title': 'Agenda · Verlauf',
+    'ag_search_hint': 'Firma, Kunde oder Route suchen…',
+    'ag_seg_past': 'Vergangene', 'ag_seg_upcoming': 'Anstehende',
+    'ag_no_past': 'Keine vergangenen Dienste.', 'ag_no_results': 'Keine Ergebnisse.',
     'save': 'Speichern', 'cancel': 'Abbrechen', 'confirm': 'Bestätigen',
     'delete': 'Löschen', 'edit': 'Bearbeiten',
     'retry': 'Erneut versuchen', 'ok': 'OK', 'send': 'Senden', 'close': 'Schließen',
@@ -7834,6 +7864,11 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Anwenden', 'ref_applied': 'Code angewendet!',
   },
   'pt': {
+    'ag_history': 'Histórico e pesquisa',
+    'ag_history_title': 'Agenda · histórico',
+    'ag_search_hint': 'Pesquisar empresa, cliente ou rota…',
+    'ag_seg_past': 'Passados', 'ag_seg_upcoming': 'Próximos',
+    'ag_no_past': 'Não há serviços passados.', 'ag_no_results': 'Sem resultados.',
     'save': 'Guardar', 'cancel': 'Cancelar', 'confirm': 'Confirmar',
     'delete': 'Eliminar', 'edit': 'Editar',
     'retry': 'Tentar de novo', 'ok': 'OK', 'send': 'Enviar', 'close': 'Fechar',
@@ -9126,6 +9161,11 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplicar', 'ref_applied': 'Código aplicado!',
   },
   'eu': {
+    'ag_history': 'Historia eta bilaketa',
+    'ag_history_title': 'Agenda · historia',
+    'ag_search_hint': 'Bilatu enpresa, bezeroa edo ibilbidea…',
+    'ag_seg_past': 'Iraganak', 'ag_seg_upcoming': 'Hurrengoak',
+    'ag_no_past': 'Ez dago iraganeko zerbitzurik.', 'ag_no_results': 'Emaitzarik gabe.',
     // Común
     'save': 'Gorde', 'cancel': 'Utzi', 'confirm': 'Berretsi',
     'delete': 'Ezabatu', 'edit': 'Editatu',
