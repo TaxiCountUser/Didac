@@ -27,6 +27,7 @@ import { registerSubscriptionRoutes } from './subscription.js';
 import { registerOdometerRoutes } from './odometer.js';
 import { registerAuditViewerRoutes } from './audit_viewers.js';
 import { createParseFeedback, registerParseFeedbackRoutes } from './parse_feedback.js';
+import { registerAssistantRoutes } from './assistant.js';
 import { registerAdminUsersRoutes } from './admin_users.js';
 import { registerCompaniesRoutes } from './companies.js';
 import { registerFlagsRoutes } from './flags.js';
@@ -568,6 +569,10 @@ export async function buildApp(options = {}) {
   // recordParse (lo usa /transcribe) + rutas en ./parse_feedback.js.
   const { recordParse } = createParseFeedback({ supabase, log: app.log });
   registerParseFeedbackRoutes(app, { supabase, getCaller, adminGuard });
+
+  // Asistente virtual (bot de FAQ sin IA): KB aprendida + registro + panel admin
+  // (pestaña Asistente de Soporte). Plugin en ./assistant.js.
+  registerAssistantRoutes(app, { supabase, getCaller, adminGuard, logAdminAction });
 
   // Administradores + usuarios (admin): plugin en ./admin_users.js (Fase B).
   registerAdminUsersRoutes(app, { supabase, adminGuard, logAdminAction });

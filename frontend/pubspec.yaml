@@ -54,6 +54,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/brand/
+    - assets/assistant/
 
 # Icono de la app (Android). El web se gestiona a mano en web/ (favicon +
 # icons/ + manifest.json). Genera con: dart run flutter_launcher_icons

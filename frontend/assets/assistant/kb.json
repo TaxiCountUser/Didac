@@ -1,0 +1,2672 @@
+{
+ "version": 1,
+ "persona": {
+  "es": {
+   "hello": [
+    "{greet}, {name}. Soy el asistente virtual de TaxiCount. Pregúntame lo que quieras sobre la app: cómo se hace algo, dónde está una opción o qué significa un aviso.",
+    "{greet}, {name}. Soy el asistente de TaxiCount. Cuéntame tu duda y te ayudo a resolverla."
+   ],
+   "starters": [
+    "Algunas cosas que me suelen preguntar:"
+   ],
+   "intro": [
+    "",
+    "Claro. ",
+    "Te cuento. ",
+    "Vale, mira: ",
+    "Buena pregunta. "
+   ],
+   "ask_helpful": [
+    "¿Te ha servido?",
+    "¿Esto resuelve tu duda?",
+    "¿Era esto lo que buscabas?"
+   ],
+   "glad": [
+    "¡Genial! Si necesitas algo más, aquí estoy.",
+    "Perfecto. Cualquier otra cosa, pregúntame.",
+    "Me alegro. ¿Te puedo ayudar en algo más?"
+   ],
+   "not_understood": [
+    "Mmm, no estoy seguro de haberte entendido. ¿Me lo puedes explicar con otras palabras?",
+    "Creo que no he pillado bien la pregunta. ¿Puedes decírmelo de otra forma? Por ejemplo: «cómo cierro la jornada».",
+    "Esto no lo tengo claro. ¿Me das algún detalle más? (qué pantalla, qué intentabas hacer…)"
+   ],
+   "clarify": [
+    "No sé si te he entendido bien. ¿Te refieres a alguna de estas?",
+    "Tengo varias ideas. ¿Cuál se parece más a lo que buscas?"
+   ],
+   "retry": [
+    "Vaya, lo siento. Cuéntamelo de otra manera y lo vuelvo a intentar.",
+    "Entendido. ¿Me das más detalles? Así afino la respuesta."
+   ],
+   "offer_ticket": [
+    "Parece que no consigo ayudarte con esto. ¿Quieres que mejor creemos un ticket para que lo revise una persona del equipo?",
+    "Creo que esto lo resolverá mejor alguien del equipo. ¿Quieres que creemos un ticket?"
+   ],
+   "ticket_ask": [
+    "Vale. Dime qué quieres que ponga en el ticket: explica el problema con el máximo detalle (qué pantalla, qué hacías, qué mensaje te sale).",
+    "Perfecto. Escríbeme qué quieres que ponga en el ticket y lo envío."
+   ],
+   "ticket_short": [
+    "Cuéntame un poco más, por favor: con tan poco texto al equipo le costará ayudarte."
+   ],
+   "ticket_done": [
+    "Hecho. Lo he enviado a revisión y lo he elevado a un agente. Te responderá en cuanto pueda. Verás la respuesta en Ajustes → «Informar de un error», y te llegará un aviso.",
+    "Listo, ticket creado. Lo he pasado a un agente del equipo y te contestará lo antes posible. Lo tienes en Ajustes → «Informar de un error»."
+   ],
+   "ticket_declined": [
+    "Sin problema. Sigue preguntándome lo que necesites.",
+    "Vale. Si cambias de idea, dime «quiero crear un ticket»."
+   ],
+   "ticket_error": [
+    "Uy, no he podido crear el ticket (¿sin conexión?). Inténtalo de nuevo en un momento o ve a Ajustes → «Informar de un error»."
+   ],
+   "same_again": [
+    "Te estoy dando la misma respuesta otra vez, así que quizá no sea lo que necesitas."
+   ],
+   "tutorial": [
+    "Tienes un vídeo tutorial sobre esto:"
+   ],
+   "related": [
+    "También te puede interesar:"
+   ]
+  },
+  "ca": {
+   "hello": [
+    "{greet}, {name}. Soc l'assistent virtual de TaxiCount. Pregunta'm el que vulguis sobre l'app: com es fa una cosa, on és una opció o què vol dir un avís.",
+    "{greet}, {name}. Soc l'assistent de TaxiCount. Explica'm el dubte i t'ajudo a resoldre'l."
+   ],
+   "starters": [
+    "Algunes coses que em pregunten sovint:"
+   ],
+   "intro": [
+    "",
+    "És clar. ",
+    "T'ho explico. ",
+    "D'acord, mira: ",
+    "Bona pregunta. "
+   ],
+   "ask_helpful": [
+    "T'ha servit?",
+    "Això resol el teu dubte?",
+    "Era això el que buscaves?"
+   ],
+   "glad": [
+    "Genial! Si necessites res més, aquí em tens.",
+    "Perfecte. Qualsevol altra cosa, pregunta'm.",
+    "M'alegro. Et puc ajudar en alguna cosa més?"
+   ],
+   "not_understood": [
+    "Mmm, no estic segur d'haver-te entès. M'ho pots explicar amb altres paraules?",
+    "Crec que no he entès bé la pregunta. M'ho pots dir d'una altra manera? Per exemple: «com tanco la jornada».",
+    "Això no ho tinc clar. Em dones algun detall més? (quina pantalla, què intentaves fer…)"
+   ],
+   "clarify": [
+    "No sé si t'he entès bé. Et refereixes a alguna d'aquestes?",
+    "Tinc diverses idees. Quina s'assembla més al que busques?"
+   ],
+   "retry": [
+    "Vaja, ho sento. Explica-m'ho d'una altra manera i ho torno a provar.",
+    "Entesos. Em dones més detalls? Així afino la resposta."
+   ],
+   "offer_ticket": [
+    "Sembla que no aconsegueixo ajudar-te amb això. Vols que millor creem un tiquet perquè ho revisi una persona de l'equip?",
+    "Crec que això ho resoldrà millor algú de l'equip. Vols que creem un tiquet?"
+   ],
+   "ticket_ask": [
+    "D'acord. Digues-me què vols que posi al tiquet: explica el problema amb el màxim detall (quina pantalla, què feies, quin missatge et surt).",
+    "Perfecte. Escriu-me què vols que posi al tiquet i l'envio."
+   ],
+   "ticket_short": [
+    "Explica-m'ho una mica més, si us plau: amb tan poc text a l'equip li costarà ajudar-te."
+   ],
+   "ticket_done": [
+    "Fet. L'he enviat a revisió i l'he elevat a un agent. Et respondrà tan aviat com pugui. Veuràs la resposta a Ajustos → «Informar d'un error», i et rebràs un avís.",
+    "Llest, tiquet creat. L'he passat a un agent de l'equip i et contestarà al més aviat possible. El tens a Ajustos → «Informar d'un error»."
+   ],
+   "ticket_declined": [
+    "Cap problema. Continua preguntant-me el que necessitis.",
+    "D'acord. Si canvies d'idea, digues-me «vull crear un tiquet»."
+   ],
+   "ticket_error": [
+    "Uf, no he pogut crear el tiquet (sense connexió?). Torna-ho a provar d'aquí a una estona o ves a Ajustos → «Informar d'un error»."
+   ],
+   "same_again": [
+    "T'estic donant la mateixa resposta un altre cop, potser no és el que necessites."
+   ],
+   "tutorial": [
+    "Tens un vídeo tutorial sobre això:"
+   ],
+   "related": [
+    "També et pot interessar:"
+   ]
+  },
+  "en": {
+   "hello": [
+    "{greet}, {name}. I'm the TaxiCount virtual assistant. Ask me anything about the app: how to do something, where an option is or what a warning means.",
+    "{greet}, {name}. I'm the TaxiCount assistant. Tell me what you need and I'll help you sort it out."
+   ],
+   "starters": [
+    "Some things people often ask me:"
+   ],
+   "intro": [
+    "",
+    "Sure. ",
+    "Here's how. ",
+    "OK, look: ",
+    "Good question. "
+   ],
+   "ask_helpful": [
+    "Did that help?",
+    "Does this answer your question?",
+    "Is this what you were looking for?"
+   ],
+   "glad": [
+    "Great! If you need anything else, I'm here.",
+    "Perfect. Ask me anything else.",
+    "Glad to help. Anything else?"
+   ],
+   "not_understood": [
+    "Hmm, I'm not sure I understood. Could you say it in other words?",
+    "I don't think I got the question. Could you rephrase it? For example: “how do I end my shift”.",
+    "I'm not sure about this one. Can you give me more details? (which screen, what you were trying to do…)"
+   ],
+   "clarify": [
+    "I'm not sure I got you right. Do you mean one of these?",
+    "I have a few ideas. Which one is closest to what you need?"
+   ],
+   "retry": [
+    "Sorry about that. Tell me in a different way and I'll try again.",
+    "Got it. Can you give me more details so I can narrow it down?"
+   ],
+   "offer_ticket": [
+    "It looks like I can't help you with this one. Would you like me to create a ticket so someone from the team can look at it?",
+    "I think someone from the team will solve this better. Shall we create a ticket?"
+   ],
+   "ticket_ask": [
+    "OK. Tell me what you want me to put in the ticket: describe the problem in as much detail as you can (which screen, what you were doing, what message you see).",
+    "Perfect. Write what you'd like the ticket to say and I'll send it."
+   ],
+   "ticket_short": [
+    "Please tell me a bit more: with so little text it will be hard for the team to help."
+   ],
+   "ticket_done": [
+    "Done. I've sent it for review and escalated it to an agent. They'll reply as soon as they can. You'll see the answer in Settings → “Report an error”, and you'll get a notification.",
+    "All set, ticket created. I've passed it to an agent and they'll get back to you as soon as possible. You'll find it in Settings → “Report an error”."
+   ],
+   "ticket_declined": [
+    "No problem. Keep asking me whatever you need.",
+    "OK. If you change your mind, just say “I want to create a ticket”."
+   ],
+   "ticket_error": [
+    "Oops, I couldn't create the ticket (no connection?). Try again in a moment or go to Settings → “Report an error”."
+   ],
+   "same_again": [
+    "I'm giving you the same answer again, so maybe it's not what you need."
+   ],
+   "tutorial": [
+    "There's a video tutorial about this:"
+   ],
+   "related": [
+    "You might also be interested in:"
+   ]
+  }
+ },
+ "stopwords": {
+  "es": [
+   "el",
+   "la",
+   "los",
+   "las",
+   "un",
+   "una",
+   "unos",
+   "unas",
+   "de",
+   "del",
+   "al",
+   "a",
+   "en",
+   "y",
+   "o",
+   "que",
+   "como",
+   "cómo",
+   "donde",
+   "dónde",
+   "cuando",
+   "cuándo",
+   "por",
+   "para",
+   "con",
+   "sin",
+   "se",
+   "me",
+   "mi",
+   "mis",
+   "te",
+   "tu",
+   "tus",
+   "lo",
+   "le",
+   "les",
+   "es",
+   "son",
+   "esta",
+   "este",
+   "esto",
+   "eso",
+   "hay",
+   "puedo",
+   "puede",
+   "pueden",
+   "quiero",
+   "quisiera",
+   "necesito",
+   "hacer",
+   "hago",
+   "se",
+   "sabe",
+   "saber",
+   "algo",
+   "alguien",
+   "favor",
+   "porfa",
+   "hola",
+   "oye",
+   "pues",
+   "ya",
+   "no",
+   "si",
+   "sí",
+   "muy",
+   "mas",
+   "más",
+   "pero",
+   "yo",
+   "nos",
+   "hoy",
+   "ahora",
+   "tengo",
+   "tiene",
+   "ver",
+   "veo",
+   "tener",
+   "the",
+   "app",
+   "aplicacion",
+   "aplicación",
+   "taxicount",
+   "qué",
+   "cual",
+   "cuál",
+   "ha",
+   "he",
+   "han",
+   "está",
+   "estoy"
+  ],
+  "ca": [
+   "el",
+   "la",
+   "els",
+   "les",
+   "l",
+   "un",
+   "una",
+   "uns",
+   "unes",
+   "de",
+   "d",
+   "del",
+   "dels",
+   "al",
+   "als",
+   "a",
+   "en",
+   "i",
+   "o",
+   "que",
+   "com",
+   "on",
+   "quan",
+   "per",
+   "amb",
+   "sense",
+   "es",
+   "em",
+   "m",
+   "et",
+   "t",
+   "el",
+   "li",
+   "ho",
+   "és",
+   "són",
+   "aquesta",
+   "aquest",
+   "això",
+   "hi",
+   "ha",
+   "puc",
+   "pot",
+   "poden",
+   "vull",
+   "voldria",
+   "necessito",
+   "fer",
+   "faig",
+   "sap",
+   "saber",
+   "alguna",
+   "algú",
+   "si",
+   "us",
+   "plau",
+   "hola",
+   "doncs",
+   "ja",
+   "no",
+   "sí",
+   "molt",
+   "més",
+   "però",
+   "jo",
+   "ens",
+   "avui",
+   "ara",
+   "tinc",
+   "té",
+   "veure",
+   "tenir",
+   "app",
+   "aplicacio",
+   "aplicació",
+   "taxicount",
+   "quin",
+   "quina",
+   "he",
+   "han",
+   "està",
+   "estic",
+   "meu",
+   "meva",
+   "teu",
+   "teva"
+  ],
+  "en": [
+   "the",
+   "a",
+   "an",
+   "of",
+   "to",
+   "in",
+   "on",
+   "and",
+   "or",
+   "how",
+   "where",
+   "when",
+   "what",
+   "why",
+   "do",
+   "does",
+   "did",
+   "i",
+   "my",
+   "me",
+   "you",
+   "your",
+   "is",
+   "are",
+   "can",
+   "could",
+   "would",
+   "should",
+   "want",
+   "need",
+   "please",
+   "hi",
+   "hello",
+   "hey",
+   "it",
+   "this",
+   "that",
+   "there",
+   "with",
+   "without",
+   "for",
+   "from",
+   "app",
+   "taxicount",
+   "be",
+   "am",
+   "have",
+   "has",
+   "get",
+   "which",
+   "so",
+   "just",
+   "now",
+   "today"
+  ]
+ },
+ "synonyms": {
+  "es": {
+   "turno": "jornada",
+   "dia de trabajo": "jornada",
+   "terminar": "cerrar",
+   "acabar": "cerrar",
+   "finalizar": "cerrar",
+   "comenzar": "empezar",
+   "iniciar": "empezar",
+   "abrir jornada": "empezar jornada",
+   "carrera": "viaje",
+   "carreras": "viaje",
+   "servicio": "viaje",
+   "servicios": "viaje",
+   "trayecto": "viaje",
+   "registro": "viaje",
+   "transaccion": "viaje",
+   "transacciones": "viaje",
+   "apuntar": "registrar",
+   "anotar": "registrar",
+   "añadir": "registrar",
+   "agregar": "registrar",
+   "meter": "registrar",
+   "introducir": "registrar",
+   "coche": "vehiculo",
+   "auto": "vehiculo",
+   "taxi": "vehiculo",
+   "chofer": "conductor",
+   "chófer": "conductor",
+   "taxista": "conductor",
+   "trabajador": "conductor",
+   "empleado": "conductor",
+   "contraseña": "clave",
+   "password": "clave",
+   "pass": "clave",
+   "contrasena": "clave",
+   "kilometros": "km",
+   "kilometraje": "km",
+   "odometro": "km",
+   "cuentakilometros": "km",
+   "micro": "microfono",
+   "voz": "dictar",
+   "hablar": "dictar",
+   "dictado": "dictar",
+   "audio": "dictar",
+   "borrar": "eliminar",
+   "quitar": "eliminar",
+   "suprimir": "eliminar",
+   "pagar": "suscripcion",
+   "pago": "suscripcion",
+   "plan": "suscripcion",
+   "tarifa": "precio",
+   "cuesta": "precio",
+   "cuanto": "precio",
+   "coste": "precio",
+   "factura": "facturas",
+   "recibo": "facturas",
+   "jefe": "empresa",
+   "patron": "empresa",
+   "flota": "empresa",
+   "error": "fallo",
+   "problema": "fallo",
+   "bug": "fallo",
+   "no funciona": "fallo",
+   "no va": "fallo",
+   "falla": "fallo",
+   "entrar": "login",
+   "acceder": "login",
+   "iniciar sesion": "login",
+   "loguear": "login",
+   "gastos": "gasto",
+   "combustible": "gasoil",
+   "gasolina": "gasoil",
+   "diesel": "gasoil",
+   "notificaciones": "aviso",
+   "notificacion": "aviso",
+   "avisos": "aviso",
+   "excel": "exportar",
+   "pdf": "exportar",
+   "informe": "exportar",
+   "descargar": "exportar",
+   "no me funciona": "fallo",
+   "no me va": "fallo",
+   "no funciona bien": "fallo",
+   "va mal": "fallo"
+  },
+  "ca": {
+   "torn": "jornada",
+   "dia de feina": "jornada",
+   "acabar": "tancar",
+   "finalitzar": "tancar",
+   "terminar": "tancar",
+   "començar": "comencar",
+   "iniciar": "comencar",
+   "carrera": "viatge",
+   "carreres": "viatge",
+   "servei": "viatge",
+   "serveis": "viatge",
+   "trajecte": "viatge",
+   "registre": "viatge",
+   "transaccio": "viatge",
+   "apuntar": "registrar",
+   "anotar": "registrar",
+   "afegir": "registrar",
+   "posar": "registrar",
+   "cotxe": "vehicle",
+   "taxi": "vehicle",
+   "xofer": "conductor",
+   "taxista": "conductor",
+   "treballador": "conductor",
+   "contrasenya": "clau",
+   "password": "clau",
+   "quilometres": "km",
+   "quilometratge": "km",
+   "comptaquilometres": "km",
+   "micro": "microfon",
+   "veu": "dictar",
+   "parlar": "dictar",
+   "audio": "dictar",
+   "esborrar": "eliminar",
+   "treure": "eliminar",
+   "pagar": "subscripcio",
+   "pagament": "subscripcio",
+   "pla": "subscripcio",
+   "quant": "preu",
+   "costa": "preu",
+   "factura": "factures",
+   "rebut": "factures",
+   "cap": "empresa",
+   "flota": "empresa",
+   "error": "fallada",
+   "problema": "fallada",
+   "no funciona": "fallada",
+   "no va": "fallada",
+   "entrar": "login",
+   "accedir": "login",
+   "iniciar sessio": "login",
+   "despeses": "despesa",
+   "combustible": "gasoil",
+   "benzina": "gasoil",
+   "notificacions": "avis",
+   "notificacio": "avis",
+   "avisos": "avis",
+   "excel": "exportar",
+   "pdf": "exportar",
+   "informe": "exportar",
+   "descarregar": "exportar",
+   "no em funciona": "fallada",
+   "no em va": "fallada",
+   "va malament": "fallada"
+  },
+  "en": {
+   "shift": "shift",
+   "workday": "shift",
+   "finish": "end",
+   "close": "end",
+   "stop": "end",
+   "begin": "start",
+   "open": "start",
+   "ride": "trip",
+   "rides": "trip",
+   "fare": "trip",
+   "fares": "trip",
+   "journey": "trip",
+   "record": "trip",
+   "transaction": "trip",
+   "transactions": "trip",
+   "add": "log",
+   "enter": "log",
+   "note": "log",
+   "car": "vehicle",
+   "cab": "vehicle",
+   "taxi": "vehicle",
+   "chauffeur": "driver",
+   "employee": "driver",
+   "password": "pass",
+   "kilometres": "km",
+   "kilometers": "km",
+   "mileage": "km",
+   "odometer": "km",
+   "mic": "microphone",
+   "voice": "dictate",
+   "speak": "dictate",
+   "talk": "dictate",
+   "audio": "dictate",
+   "delete": "remove",
+   "erase": "remove",
+   "pay": "subscription",
+   "payment": "subscription",
+   "plan": "subscription",
+   "cost": "price",
+   "invoice": "invoices",
+   "receipt": "invoices",
+   "boss": "company",
+   "fleet": "company",
+   "error": "bug",
+   "problem": "bug",
+   "broken": "bug",
+   "doesnt work": "bug",
+   "sign in": "login",
+   "log in": "login",
+   "expenses": "expense",
+   "fuel": "expense",
+   "petrol": "expense",
+   "notifications": "notification",
+   "excel": "export",
+   "pdf": "export",
+   "report": "export",
+   "download": "export",
+   "not working": "bug",
+   "doesn t work": "bug",
+   "isn t working": "bug",
+   "won t work": "bug"
+  }
+ },
+ "entries": {
+  "greet": {
+   "cat": "smalltalk",
+   "q": {
+    "es": [
+     "hola",
+     "buenos dias",
+     "buenas tardes",
+     "buenas noches",
+     "buenas",
+     "hey"
+    ],
+    "ca": [
+     "hola",
+     "bon dia",
+     "bona tarda",
+     "bona nit",
+     "ei"
+    ],
+    "en": [
+     "hello",
+     "hi there",
+     "good morning",
+     "good afternoon",
+     "hey there"
+    ]
+   },
+   "a": {
+    "es": "¡Hola! ¿En qué te puedo ayudar?",
+    "ca": "Hola! En què et puc ajudar?",
+    "en": "Hi! How can I help you?"
+   }
+  },
+  "thanks": {
+   "cat": "smalltalk",
+   "q": {
+    "es": [
+     "gracias",
+     "muchas gracias",
+     "perfecto gracias",
+     "vale gracias",
+     "genial"
+    ],
+    "ca": [
+     "gracies",
+     "moltes gracies",
+     "perfecte gracies",
+     "genial"
+    ],
+    "en": [
+     "thanks",
+     "thank you",
+     "great thanks",
+     "cheers"
+    ]
+   },
+   "a": {
+    "es": "¡A ti! Si necesitas algo más, aquí estoy.",
+    "ca": "A tu! Si necessites res més, aquí em tens.",
+    "en": "You're welcome! If you need anything else, I'm here."
+   }
+  },
+  "bye": {
+   "cat": "smalltalk",
+   "q": {
+    "es": [
+     "adios",
+     "hasta luego",
+     "chao",
+     "nos vemos"
+    ],
+    "ca": [
+     "adeu",
+     "fins després",
+     "a reveure"
+    ],
+    "en": [
+     "bye",
+     "goodbye",
+     "see you"
+    ]
+   },
+   "a": {
+    "es": "¡Hasta luego! Buena jornada.",
+    "ca": "Fins després! Bona jornada.",
+    "en": "See you! Have a good shift."
+   }
+  },
+  "who_are_you": {
+   "cat": "smalltalk",
+   "q": {
+    "es": [
+     "quien eres",
+     "eres una persona",
+     "eres un robot",
+     "eres una ia",
+     "eres humano",
+     "con quien hablo"
+    ],
+    "ca": [
+     "qui ets",
+     "ets una persona",
+     "ets un robot",
+     "ets una ia",
+     "amb qui parlo"
+    ],
+    "en": [
+     "who are you",
+     "are you a person",
+     "are you a robot",
+     "are you an ai",
+     "are you human"
+    ]
+   },
+   "a": {
+    "es": "Soy el asistente virtual de TaxiCount. Conozco la app de arriba abajo y te ayudo con dudas. Si algo no lo puedo resolver, creo un ticket y te atiende una persona del equipo.",
+    "ca": "Soc l'assistent virtual de TaxiCount. Conec l'app de dalt a baix i t'ajudo amb els dubtes. Si alguna cosa no la puc resoldre, creo un tiquet i t'atén una persona de l'equip.",
+    "en": "I'm the TaxiCount virtual assistant. I know the app inside out and help with questions. If I can't solve something, I create a ticket and a person from the team takes over."
+   }
+  },
+  "human": {
+   "cat": "support",
+   "action": "offer_ticket",
+   "q": {
+    "es": [
+     "quiero hablar con una persona",
+     "hablar con un agente",
+     "hablar con soporte",
+     "atencion al cliente",
+     "quiero crear un ticket",
+     "crear ticket",
+     "abrir incidencia",
+     "contactar con vosotros",
+     "telefono de contacto",
+     "hablar con alguien"
+    ],
+    "ca": [
+     "vull parlar amb una persona",
+     "parlar amb un agent",
+     "parlar amb suport",
+     "atencio al client",
+     "vull crear un tiquet",
+     "crear tiquet",
+     "contactar amb vosaltres"
+    ],
+    "en": [
+     "talk to a person",
+     "talk to an agent",
+     "contact support",
+     "customer service",
+     "create a ticket",
+     "open a ticket",
+     "contact you",
+     "speak to someone"
+    ]
+   },
+   "a": {
+    "es": "Claro, te paso con el equipo.",
+    "ca": "És clar, et passo amb l'equip.",
+    "en": "Sure, I'll put you through to the team."
+   }
+  },
+  "start_shift": {
+   "cat": "jornada",
+   "starter": true,
+   "q": {
+    "es": [
+     "como empiezo la jornada",
+     "empezar jornada",
+     "iniciar el turno",
+     "donde empiezo a trabajar",
+     "abrir jornada"
+    ],
+    "ca": [
+     "com començo la jornada",
+     "començar jornada",
+     "iniciar el torn"
+    ],
+    "en": [
+     "how do i start my shift",
+     "start shift",
+     "begin my workday"
+    ]
+   },
+   "a": {
+    "es": "En la pantalla de inicio pulsa «Empezar jornada». Te pedirá los km actuales del coche (los del cuentakilómetros). Si no los tienes a mano, pulsa «Ahora no» y los pones luego.\n\nA partir de ahí, todo lo que registres cuenta para esa jornada.",
+    "ca": "A la pantalla d'inici prem «Començar jornada». Et demanarà els km actuals del cotxe (els del comptaquilòmetres). Si no els tens a mà, prem «Ara no» i els poses després.\n\nA partir d'aquí, tot el que registris compta per a aquesta jornada.",
+    "en": "On the home screen tap “Start shift”. It will ask for the car's current km (from the odometer). If you don't have them handy, tap “Not now” and add them later.\n\nFrom then on, everything you log counts towards that shift."
+   },
+   "related": [
+    "end_shift",
+    "km_jump"
+   ]
+  },
+  "end_shift": {
+   "cat": "jornada",
+   "starter": true,
+   "q": {
+    "es": [
+     "como cierro la jornada",
+     "cerrar jornada",
+     "terminar el turno",
+     "finalizar jornada",
+     "no encuentro cerrar dia",
+     "donde acabo la jornada",
+     "resumen del dia"
+    ],
+    "ca": [
+     "com tanco la jornada",
+     "tancar jornada",
+     "acabar el torn",
+     "finalitzar jornada",
+     "resum del dia"
+    ],
+    "en": [
+     "how do i end my shift",
+     "end shift",
+     "finish my workday",
+     "close the day",
+     "daily summary"
+    ]
+   },
+   "a": {
+    "es": "En la pantalla de inicio, con la jornada en marcha, pulsa «Finalizar jornada». Introduce los km de cierre y verás el resumen: kilómetros, horas, ingresos, gastos, balance y los ingresos por método de pago.\n\nSi los km dan un salto muy grande (más de 700 km), te preguntará si son correctos: revisa o pulsa «Guardar igual».",
+    "ca": "A la pantalla d'inici, amb la jornada en marxa, prem «Finalitzar jornada». Introdueix els km de tancament i veuràs el resum: quilòmetres, hores, ingressos, despeses, balanç i els ingressos per mètode de pagament.\n\nSi els km fan un salt molt gran (més de 700 km), et preguntarà si són correctes: revisa'ls o prem «Desar igualment».",
+    "en": "On the home screen, with the shift running, tap “End shift”. Enter the closing km and you'll see the summary: kilometres, hours, income, expenses, balance and income by payment method.\n\nIf the km jump a lot (more than 700 km), it will ask you to confirm: check them or tap “Save anyway”."
+   },
+   "related": [
+    "start_shift",
+    "km_jump"
+   ]
+  },
+  "add_voice": {
+   "cat": "registro",
+   "starter": true,
+   "q": {
+    "es": [
+     "como apunto una carrera por voz",
+     "registrar viaje hablando",
+     "dictar una carrera",
+     "apuntar por voz",
+     "como se usa la voz"
+    ],
+    "ca": [
+     "com apunto una carrera per veu",
+     "registrar viatge parlant",
+     "dictar una carrera",
+     "com funciona el micròfon"
+    ],
+    "en": [
+     "how do i log a ride by voice",
+     "dictate a trip",
+     "how does the microphone work",
+     "voice input"
+    ]
+   },
+   "a": {
+    "es": "Pulsa «Añadir registro» → pestaña «Voz» (o el micrófono de arriba). Pulsa el micro, habla y vuelve a pulsar para terminar. Por ejemplo:\n«Carrera de 25 euros con tarjeta del aeropuerto a Sants».\n\nLa app rellena importe, método de pago, origen y destino. Revisa los datos y pulsa «Guardar». Si algo sale mal, lo corriges antes de guardar.",
+    "ca": "Prem «Afegir registre» → pestanya «Veu» (o el micròfon de dalt). Prem el micro, parla i torna a prémer per acabar. Per exemple:\n«Carrera de 25 euros amb targeta de l'aeroport a Sants».\n\nL'app omple import, mètode de pagament, origen i destinació. Revisa les dades i prem «Desar». Si alguna cosa surt malament, la corregeixes abans de desar.",
+    "en": "Tap “Add record” → “Voice” tab (or the mic at the top). Tap the mic, speak and tap again to finish. For example:\n“Ride of 25 euros by card from the airport to Sants”.\n\nThe app fills in amount, payment method, origin and destination. Check the data and tap “Save”. If something's wrong, fix it before saving."
+   },
+   "related": [
+    "voice_tips",
+    "mic_permission",
+    "add_manual"
+   ]
+  },
+  "voice_tips": {
+   "cat": "registro",
+   "q": {
+    "es": [
+     "la voz no me entiende",
+     "la voz pone mal los datos",
+     "el dictado se equivoca",
+     "no pilla el importe",
+     "consejos para dictar",
+     "pone mal el destino"
+    ],
+    "ca": [
+     "la veu no m'entén",
+     "el dictat s'equivoca",
+     "posa malament les dades",
+     "consells per dictar"
+    ],
+    "en": [
+     "voice gets it wrong",
+     "dictation makes mistakes",
+     "voice doesnt understand me",
+     "tips for dictating"
+    ]
+   },
+   "a": {
+    "es": "Para que la voz acierte más:\n• Di primero el tipo y el importe: «carrera de 18 euros», «gasto de 40 euros de gasoil».\n• Luego el pago: «con tarjeta», «en efectivo», «por Bizum».\n• Y la ruta: «de Sants a la Sagrera».\n• Habla cerca del móvil y sin mucho ruido de fondo.\n\nSiempre puedes corregir cualquier campo antes de guardar. Cada corrección nos ayuda a mejorar el reconocimiento.",
+    "ca": "Perquè la veu encerti més:\n• Digues primer el tipus i l'import: «carrera de 18 euros», «despesa de 40 euros de gasoil».\n• Després el pagament: «amb targeta», «en efectiu», «per Bizum».\n• I la ruta: «de Sants a la Sagrera».\n• Parla a prop del mòbil i sense gaire soroll de fons.\n\nSempre pots corregir qualsevol camp abans de desar. Cada correcció ens ajuda a millorar el reconeixement.",
+    "en": "To help voice get it right:\n• Say the type and amount first: “ride of 18 euros”, “expense of 40 euros for fuel”.\n• Then the payment: “by card”, “cash”, “Bizum”.\n• Then the route: “from Sants to La Sagrera”.\n• Speak close to the phone without much background noise.\n\nYou can always correct any field before saving. Every correction helps us improve recognition."
+   },
+   "related": [
+    "add_voice",
+    "voice_error"
+   ]
+  },
+  "mic_permission": {
+   "cat": "errores",
+   "q": {
+    "es": [
+     "sin permiso de microfono",
+     "no me deja usar el microfono",
+     "el microfono no funciona",
+     "no graba",
+     "no se grabo audio",
+     "no se pudo iniciar la grabacion",
+     "el micro no me funciona",
+     "no me va el micro",
+     "no me graba la voz"
+    ],
+    "ca": [
+     "sense permís de micròfon",
+     "el micròfon no funciona",
+     "no grava",
+     "no es va gravar àudio",
+     "el micro no em funciona",
+     "no em va el micro"
+    ],
+    "en": [
+     "no microphone permission",
+     "microphone not working",
+     "it doesnt record",
+     "no audio recorded"
+    ]
+   },
+   "a": {
+    "es": "Eso pasa cuando el móvil no deja a TaxiCount usar el micrófono. Ve a los Ajustes del teléfono → Aplicaciones → TaxiCount → Permisos → Micrófono → «Permitir». Vuelve a la app y prueba otra vez.\n\nSi sale «No se grabó audio», mantén el micro pulsado un poco más y habla justo después de pulsar.",
+    "ca": "Això passa quan el mòbil no deixa TaxiCount fer servir el micròfon. Ves als Ajustos del telèfon → Aplicacions → TaxiCount → Permisos → Micròfon → «Permetre». Torna a l'app i prova-ho una altra vegada.\n\nSi surt «No s'ha gravat àudio», parla just després de prémer i deixa-hi una mica més de temps.",
+    "en": "That happens when your phone doesn't let TaxiCount use the microphone. Go to phone Settings → Apps → TaxiCount → Permissions → Microphone → “Allow”. Go back to the app and try again.\n\nIf you see “No audio recorded”, start speaking right after tapping and give it a bit more time."
+   },
+   "related": [
+    "voice_error",
+    "add_manual"
+   ]
+  },
+  "voice_error": {
+   "cat": "errores",
+   "q": {
+    "es": [
+     "error al transcribir",
+     "la voz necesita internet",
+     "sin conexion la voz",
+     "transcripcion de ejemplo",
+     "la voz no va"
+    ],
+    "ca": [
+     "error en transcriure",
+     "la veu necessita internet",
+     "sense connexió la veu",
+     "la veu no va"
+    ],
+    "en": [
+     "transcription error",
+     "voice needs internet",
+     "voice not working offline"
+    ]
+   },
+   "a": {
+    "es": "La voz necesita internet: el audio se transcribe en nuestro servidor. Si sale «Error al transcribir» o «Sin conexión», comprueba los datos móviles o el wifi y vuelve a intentarlo. Mientras tanto puedes apuntarlo a mano en la pestaña «Manual».\n\nSi te pasa a menudo con buena conexión, dímelo y creamos un ticket.",
+    "ca": "La veu necessita internet: l'àudio es transcriu al nostre servidor. Si surt «Error en transcriure» o «Sense connexió», comprova les dades mòbils o el wifi i torna-ho a provar. Mentrestant, pots apuntar-ho a mà a la pestanya «Manual».\n\nSi et passa sovint amb bona connexió, digues-m'ho i creem un tiquet.",
+    "en": "Voice needs internet: the audio is transcribed on our server. If you see “Transcription error” or “No connection”, check your mobile data or wifi and try again. Meanwhile you can log it by hand in the “Manual” tab.\n\nIf it happens often with a good connection, tell me and we'll create a ticket."
+   },
+   "related": [
+    "add_manual",
+    "offline"
+   ]
+  },
+  "add_manual": {
+   "cat": "registro",
+   "starter": true,
+   "q": {
+    "es": [
+     "como apunto una carrera a mano",
+     "registrar viaje manual",
+     "añadir carrera sin voz",
+     "como meto un viaje",
+     "apuntar un servicio"
+    ],
+    "ca": [
+     "com apunto una carrera a mà",
+     "registrar viatge manual",
+     "afegir carrera sense veu"
+    ],
+    "en": [
+     "how do i log a ride manually",
+     "add a trip by hand",
+     "manual entry"
+    ]
+   },
+   "a": {
+    "es": "Pulsa «Añadir registro» → pestaña «Manual». Elige «Carrera», pon el importe, el método de pago (Efectivo, Tarjeta, Bizum, Crédito, Transferencia) y, si quieres, origen, destino, km y cliente/empresa. Pulsa «Guardar».",
+    "ca": "Prem «Afegir registre» → pestanya «Manual». Tria «Carrera», posa l'import, el mètode de pagament (Efectiu, Targeta, Bizum, Crèdit, Transferència) i, si vols, origen, destinació, km i client/empresa. Prem «Desar».",
+    "en": "Tap “Add record” → “Manual” tab. Choose “Ride”, enter the amount, payment method (Cash, Card, Bizum, Credit, Transfer) and optionally origin, destination, km and client/company. Tap “Save”."
+   },
+   "related": [
+    "add_expense",
+    "payment_methods",
+    "client_field"
+   ]
+  },
+  "add_expense": {
+   "cat": "registro",
+   "q": {
+    "es": [
+     "como apunto un gasto",
+     "registrar gasolina",
+     "apuntar gasoil",
+     "añadir gasto del taxi",
+     "donde pongo los gastos",
+     "gasto de itv"
+    ],
+    "ca": [
+     "com apunto una despesa",
+     "registrar gasoil",
+     "afegir despesa",
+     "on poso les despeses"
+    ],
+    "en": [
+     "how do i log an expense",
+     "add fuel expense",
+     "where do i put expenses"
+    ]
+   },
+   "a": {
+    "es": "En «Añadir registro» elige «Gasto» (o dicta «gasto de 40 euros de gasoil»). Indica importe, categoría y qué gasto es (por ejemplo, ITV). Guarda y ya aparece en los gastos y el balance.\n\nOjo: si eres conductor de una flota, normalmente solo ves ingresos; los gastos van a cargo de la empresa.",
+    "ca": "A «Afegir registre» tria «Despesa» (o dicta «despesa de 40 euros de gasoil»). Indica import, categoria i quina despesa és (per exemple, ITV). Desa i ja apareix a les despeses i al balanç.\n\nCompte: si ets conductor d'una flota, normalment només veus ingressos; les despeses van a càrrec de l'empresa.",
+    "en": "In “Add record” choose “Expense” (or dictate “expense of 40 euros for fuel”). Enter amount, category and what it was (e.g. MOT). Save and it shows in expenses and the balance.\n\nNote: if you're a fleet driver you usually only see income; expenses are handled by the company."
+   },
+   "related": [
+    "driver_sees",
+    "add_manual"
+   ]
+  },
+  "edit_record": {
+   "cat": "registro",
+   "starter": true,
+   "q": {
+    "es": [
+     "como edito una carrera",
+     "me he equivocado en un viaje",
+     "corregir importe",
+     "borrar una carrera",
+     "eliminar un registro",
+     "modificar un gasto",
+     "cambiar una transaccion"
+    ],
+    "ca": [
+     "com edito una carrera",
+     "m'he equivocat en un viatge",
+     "corregir import",
+     "esborrar una carrera",
+     "eliminar un registre"
+    ],
+    "en": [
+     "how do i edit a ride",
+     "i made a mistake on a trip",
+     "fix an amount",
+     "delete a ride",
+     "remove a record"
+    ]
+   },
+   "a": {
+    "es": "Ve a «Ver transacciones», busca el registro (puedes filtrar por día, semana, mes, año o un rango «Personalizado») y tócalo. Dentro tienes «Editar» y «Eliminar». Eliminar no se puede deshacer.",
+    "ca": "Ves a «Veure transaccions», busca el registre (pots filtrar per dia, setmana, mes, any o un rang «Personalitzat») i toca'l. A dins tens «Editar» i «Eliminar». Eliminar no es pot desfer.",
+    "en": "Go to “View transactions”, find the record (filter by day, week, month, year or a “Custom” range) and tap it. Inside you have “Edit” and “Delete”. Deleting can't be undone."
+   },
+   "related": [
+    "view_transactions"
+   ]
+  },
+  "view_transactions": {
+   "cat": "registro",
+   "q": {
+    "es": [
+     "donde veo mis carreras",
+     "ver transacciones",
+     "historial de viajes",
+     "cuanto he ganado este mes",
+     "ver las carreras de ayer",
+     "filtrar por fechas",
+     "buscar una carrera"
+    ],
+    "ca": [
+     "on veig les meves carreres",
+     "veure transaccions",
+     "historial de viatges",
+     "quant he guanyat aquest mes",
+     "filtrar per dates"
+    ],
+    "en": [
+     "where do i see my rides",
+     "view transactions",
+     "trip history",
+     "how much did i earn this month",
+     "filter by date"
+    ]
+   },
+   "a": {
+    "es": "Pulsa «Ver transacciones» en la pantalla de inicio. Arriba eliges el periodo: Día, Semana, Mes, Año o «Personalizado» (eliges un rango de fechas). También tienes un buscador. Arriba ves el total del periodo.",
+    "ca": "Prem «Veure transaccions» a la pantalla d'inici. A dalt tries el període: Dia, Setmana, Mes, Any o «Personalitzat» (tries un rang de dates). També tens un cercador. A dalt veus el total del període.",
+    "en": "Tap “View transactions” on the home screen. At the top choose the period: Day, Week, Month, Year or “Custom” (pick a date range). There's also a search box. The period total is at the top."
+   },
+   "related": [
+    "edit_record",
+    "export"
+   ]
+  },
+  "km_jump": {
+   "cat": "errores",
+   "q": {
+    "es": [
+     "seguro que son esos km",
+     "me sale un aviso de km",
+     "aviso de salto de kilometros",
+     "posible error en los km",
+     "por que me pregunta los km"
+    ],
+    "ca": [
+     "segur que són aquests km",
+     "em surt un avís de km",
+     "avís de salt de quilòmetres"
+    ],
+    "en": [
+     "are you sure about the km",
+     "km warning",
+     "odometer jump warning"
+    ]
+   },
+   "a": {
+    "es": "Ese aviso sale cuando los km nuevos son más de 700 km superiores a los últimos que apuntaste. Suele ser un dedo de más. Pulsa «Revisar» para corregirlos o «Guardar igual» si son correctos (por ejemplo, si llevabas días sin apuntar).\n\nEs importante que sean reales: los km cuentan para los retos.",
+    "ca": "Aquest avís surt quan els km nous són més de 700 km superiors als últims que vas apuntar. Sol ser un dit de més. Prem «Revisar» per corregir-los o «Desar igualment» si són correctes (per exemple, si feia dies que no apuntaves).\n\nÉs important que siguin reals: els km compten per als reptes.",
+    "en": "That warning appears when the new km are more than 700 km above the last ones you logged. It's usually a typo. Tap “Review” to fix them or “Save anyway” if they're correct (e.g. you hadn't logged for days).\n\nIt matters that they're real: km count towards challenges."
+   },
+   "related": [
+    "km_too_low",
+    "challenges"
+   ]
+  },
+  "km_too_low": {
+   "cat": "errores",
+   "q": {
+    "es": [
+     "los km no son correctos",
+     "el coche ya tenia mas km",
+     "no me deja guardar los km",
+     "km menores que los anteriores"
+    ],
+    "ca": [
+     "els km no són correctes",
+     "el cotxe ja tenia més km",
+     "no em deixa desar els km"
+    ],
+    "en": [
+     "the km are not correct",
+     "car already had more km",
+     "it wont let me save the km"
+    ]
+   },
+   "a": {
+    "es": "Los km del coche no pueden bajar: si pones menos km de los que ya tenía registrados, la app no deja guardar. Revisa el cuentakilómetros. Si el número anterior estaba mal (por ejemplo, alguien puso un dígito de más), díselo a tu jefe o crea un ticket y lo corregimos desde administración.",
+    "ca": "Els km del cotxe no poden baixar: si poses menys km dels que ja tenia registrats, l'app no deixa desar. Revisa el comptaquilòmetres. Si el número anterior estava malament (per exemple, algú va posar un dígit de més), digues-ho al teu cap o crea un tiquet i ho corregim des d'administració.",
+    "en": "The car's km can't go down: if you enter fewer km than already recorded, the app won't save. Check the odometer. If the previous number was wrong (e.g. someone typed an extra digit), tell your boss or create a ticket and we'll fix it from admin."
+   },
+   "related": [
+    "km_jump"
+   ]
+  },
+  "payment_methods": {
+   "cat": "registro",
+   "q": {
+    "es": [
+     "que metodos de pago hay",
+     "como pongo que pagaron con tarjeta",
+     "pago con bizum",
+     "carrera a credito",
+     "pago por transferencia"
+    ],
+    "ca": [
+     "quins mètodes de pagament hi ha",
+     "pagament amb targeta",
+     "pagament amb bizum",
+     "carrera a crèdit"
+    ],
+    "en": [
+     "what payment methods are there",
+     "paid by card",
+     "bizum payment",
+     "credit ride"
+    ]
+   },
+   "a": {
+    "es": "Puedes elegir Efectivo, Tarjeta, Bizum, Crédito (servicios que se cobran después, por ejemplo a una empresa) y Transferencia. Por voz basta con decirlo: «con tarjeta», «en efectivo», «por Bizum»… Al cerrar la jornada verás los ingresos separados por método.",
+    "ca": "Pots triar Efectiu, Targeta, Bizum, Crèdit (serveis que es cobren després, per exemple a una empresa) i Transferència. Per veu n'hi ha prou de dir-ho: «amb targeta», «en efectiu», «per Bizum»… En tancar la jornada veuràs els ingressos separats per mètode.",
+    "en": "You can choose Cash, Card, Bizum, Credit (rides charged later, e.g. to a company) and Transfer. By voice just say it: “by card”, “cash”, “Bizum”… When you end the shift you'll see income split by method."
+   },
+   "related": [
+    "add_manual"
+   ]
+  },
+  "client_field": {
+   "cat": "registro",
+   "q": {
+    "es": [
+     "para que sirve cliente empresa",
+     "carrera para una empresa",
+     "poner el nombre del cliente",
+     "cliente particular"
+    ],
+    "ca": [
+     "per a què serveix client empresa",
+     "carrera per a una empresa",
+     "posar el nom del client"
+    ],
+    "en": [
+     "what is the client field",
+     "ride for a company",
+     "client name"
+    ]
+   },
+   "a": {
+    "es": "El campo «Cliente / empresa» sirve para los servicios de empresas o clientes habituales (hoteles, mutuas, empresas…). Si lo dejas vacío, cuenta como cliente particular. Luego puedes exportar «Solo empresa» o «Excluir empresa» en los informes.",
+    "ca": "El camp «Client / empresa» serveix per als serveis d'empreses o clients habituals (hotels, mútues, empreses…). Si el deixes buit, compta com a client particular. Després pots exportar «Només empresa» o «Excloure empresa» als informes.",
+    "en": "The “Client / company” field is for corporate or regular clients (hotels, insurers, companies…). Leave it empty for a private customer. Later you can export “Company only” or “Exclude company” in reports."
+   },
+   "related": [
+    "export"
+   ]
+  },
+  "driver_sees": {
+   "cat": "cuenta",
+   "roles": [
+    "driver"
+   ],
+   "q": {
+    "es": [
+     "por que no veo los gastos",
+     "que ve mi jefe",
+     "el conductor que puede ver",
+     "mi jefe ve mis carreras"
+    ],
+    "ca": [
+     "per què no veig les despeses",
+     "què veu el meu cap",
+     "el meu cap veu les meves carreres"
+    ],
+    "en": [
+     "why cant i see expenses",
+     "what does my boss see",
+     "does my boss see my rides"
+    ]
+   },
+   "a": {
+    "es": "Como conductor ves tus ingresos y tus carreras. Los gastos del coche van a cargo de la empresa, así que los gestiona tu jefe. Tu jefe ve las carreras de toda la flota, los km de los coches y tu nº de licencia.",
+    "ca": "Com a conductor veus els teus ingressos i les teves carreres. Les despeses del cotxe van a càrrec de l'empresa, així que les gestiona el teu cap. El teu cap veu les carreres de tota la flota, els km dels cotxes i el teu núm. de llicència.",
+    "en": "As a driver you see your income and your rides. Car expenses are paid by the company, so your boss manages them. Your boss sees the whole fleet's rides, the cars' km and your licence number."
+   }
+  },
+  "login": {
+   "cat": "acceso",
+   "q": {
+    "es": [
+     "no puedo entrar",
+     "no me deja iniciar sesion",
+     "no existe ese usuario",
+     "credenciales incorrectas",
+     "entrar con usuario o email",
+     "como hago login"
+    ],
+    "ca": [
+     "no puc entrar",
+     "no em deixa iniciar sessió",
+     "no existeix aquest usuari",
+     "credencials incorrectes"
+    ],
+    "en": [
+     "i cant log in",
+     "user does not exist",
+     "invalid credentials",
+     "login with username or email"
+    ]
+   },
+   "a": {
+    "es": "Puedes entrar con tu email o con tu nombre de usuario, más la contraseña. Si sale «No existe ese usuario», revisa cómo está escrito (sin espacios). Si la contraseña falla, pulsa «¿Has olvidado la contraseña?».\n\nSi eres conductor y te dio de alta tu jefe, él puede ponerte una contraseña nueva desde Conductores.",
+    "ca": "Pots entrar amb el teu email o amb el teu nom d'usuari, més la contrasenya. Si surt «No existeix aquest usuari», revisa com està escrit (sense espais). Si la contrasenya falla, prem «Has oblidat la contrasenya?».\n\nSi ets conductor i et va donar d'alta el teu cap, ell et pot posar una contrasenya nova des de Conductors.",
+    "en": "You can log in with your email or your username, plus your password. If you see “User not found”, check the spelling (no spaces). If the password fails, tap “Forgot your password?”.\n\nIf you're a driver your boss registered, they can set a new password for you from Drivers."
+   },
+   "related": [
+    "forgot_password",
+    "google_login"
+   ]
+  },
+  "forgot_password": {
+   "cat": "acceso",
+   "q": {
+    "es": [
+     "he olvidado la contraseña",
+     "recuperar contraseña",
+     "no recuerdo la clave",
+     "restablecer contraseña",
+     "no me llega el correo de recuperar"
+    ],
+    "ca": [
+     "he oblidat la contrasenya",
+     "recuperar contrasenya",
+     "no recordo la clau"
+    ],
+    "en": [
+     "forgot my password",
+     "reset password",
+     "recover password"
+    ]
+   },
+   "a": {
+    "es": "En la pantalla de entrada pulsa «¿Has olvidado la contraseña?», escribe tu email y pulsa «Enviar enlace». Te llegará un correo para poner una nueva (mira también en spam).\n\nSi entras con nombre de usuario y no tienes email propio, pide a tu jefe que te ponga una contraseña nueva desde Conductores → tu ficha → «Usuario y contraseña».",
+    "ca": "A la pantalla d'entrada prem «Has oblidat la contrasenya?», escriu el teu email i prem «Enviar enllaç». Et arribarà un correu per posar-ne una de nova (mira també al correu brossa).\n\nSi entres amb nom d'usuari i no tens email propi, demana al teu cap que et posi una contrasenya nova des de Conductors → la teva fitxa → «Usuari i contrasenya».",
+    "en": "On the login screen tap “Forgot your password?”, enter your email and tap “Send link”. You'll get an email to set a new one (check spam too).\n\nIf you log in with a username and have no email of your own, ask your boss to set a new password from Drivers → your profile → “Username and password”."
+   },
+   "related": [
+    "change_password"
+   ]
+  },
+  "change_password": {
+   "cat": "acceso",
+   "action": "change_password",
+   "q": {
+    "es": [
+     "como cambio la contraseña",
+     "cambiar clave",
+     "poner otra contraseña",
+     "contraseña temporal"
+    ],
+    "ca": [
+     "com canvio la contrasenya",
+     "canviar clau",
+     "contrasenya temporal"
+    ],
+    "en": [
+     "how do i change my password",
+     "change password",
+     "temporary password"
+    ]
+   },
+   "a": {
+    "es": "Ve a Ajustes (⚙️ arriba a la derecha) → «Cambiar contraseña». Mínimo 6 caracteres. Si te dieron una contraseña temporal, la app te pide cambiarla la primera vez que entras.",
+    "ca": "Ves a Ajustos (⚙️ a dalt a la dreta) → «Canviar contrasenya». Mínim 6 caràcters. Si et van donar una contrasenya temporal, l'app et demana canviar-la el primer cop que entres.",
+    "en": "Go to Settings (⚙️ top right) → “Change password”. At least 6 characters. If you were given a temporary password, the app asks you to change it the first time you log in."
+   }
+  },
+  "username": {
+   "cat": "acceso",
+   "action": "username",
+   "q": {
+    "es": [
+     "como cambio mi usuario",
+     "nombre de usuario",
+     "ese nombre de usuario ya esta en uso",
+     "entrar sin email"
+    ],
+    "ca": [
+     "com canvio el meu usuari",
+     "nom d'usuari",
+     "aquest nom d'usuari ja està en ús"
+    ],
+    "en": [
+     "change my username",
+     "username already taken",
+     "log in without email"
+    ]
+   },
+   "a": {
+    "es": "En Ajustes → «Usuario» puedes elegir un nombre de usuario para entrar sin escribir el email. Si sale «Ese nombre de usuario ya está en uso», prueba otro (por ejemplo, añadiendo un número).",
+    "ca": "A Ajustos → «Usuari» pots triar un nom d'usuari per entrar sense escriure l'email. Si surt «Aquest nom d'usuari ja està en ús», prova'n un altre (per exemple, afegint-hi un número).",
+    "en": "In Settings → “Username” you can choose a username to log in without typing your email. If it says it's already taken, try another one (e.g. add a number)."
+   }
+  },
+  "google_login": {
+   "cat": "acceso",
+   "q": {
+    "es": [
+     "entrar con google",
+     "ese correo ya tiene cuenta",
+     "con google me crea otra cuenta",
+     "tengo dos cuentas",
+     "google no me deja entrar"
+    ],
+    "ca": [
+     "entrar amb google",
+     "aquest correu ja té compte",
+     "amb google em crea un altre compte",
+     "tinc dos comptes"
+    ],
+    "en": [
+     "sign in with google",
+     "email already has an account",
+     "google creates another account",
+     "i have two accounts"
+    ]
+   },
+   "a": {
+    "es": "Si ya tenías cuenta con email y contraseña, entra con esa contraseña (o «Entrar con Google» con el MISMO correo). Si sale «Ese correo ya tiene cuenta», es que ya existe: inicia sesión normal.\n\nSi al entrar con Google te aparece una empresa vacía o te pide crear empresa, no sigas: crea un ticket y unimos las cuentas.",
+    "ca": "Si ja tenies compte amb email i contrasenya, entra amb aquesta contrasenya (o «Entrar amb Google» amb el MATEIX correu). Si surt «Aquest correu ja té compte», és que ja existeix: inicia sessió normal.\n\nSi en entrar amb Google et surt una empresa buida o et demana crear empresa, no continuïs: crea un tiquet i unim els comptes.",
+    "en": "If you already had an email-and-password account, log in with that password (or “Sign in with Google” using the SAME email). If it says the email already has an account, just log in normally.\n\nIf Google shows an empty company or asks you to create one, stop there: create a ticket and we'll merge the accounts."
+   },
+   "related": [
+    "login"
+   ]
+  },
+  "confirm_email": {
+   "cat": "acceso",
+   "q": {
+    "es": [
+     "te hemos enviado un correo para confirmar",
+     "no me llega el correo de confirmacion",
+     "confirmar cuenta"
+    ],
+    "ca": [
+     "t'hem enviat un correu per confirmar",
+     "no em arriba el correu de confirmació"
+    ],
+    "en": [
+     "confirmation email",
+     "didnt get the confirmation email",
+     "confirm my account"
+    ]
+   },
+   "a": {
+    "es": "Al registrarte te enviamos un correo para confirmar la cuenta. Ábrelo y pulsa el enlace; luego vuelve a la app y entra. Si no lo ves, mira en spam o promociones y espera un par de minutos.",
+    "ca": "En registrar-te t'enviem un correu per confirmar el compte. Obre'l i prem l'enllaç; després torna a l'app i entra. Si no el veus, mira al correu brossa o a promocions i espera un parell de minuts.",
+    "en": "When you sign up we send an email to confirm the account. Open it and tap the link, then go back to the app and log in. If you can't find it, check spam or promotions and wait a couple of minutes."
+   }
+  },
+  "account_deleted": {
+   "cat": "acceso",
+   "q": {
+    "es": [
+     "me sale que mi cuenta esta dada de baja",
+     "tu cuenta esta dada de baja",
+     "me pone cuenta eliminada al entrar"
+    ],
+    "ca": [
+     "el meu compte està donat de baixa",
+     "compte eliminat"
+    ],
+    "en": [
+     "my account is deactivated",
+     "account deleted"
+    ]
+   },
+   "a": {
+    "es": "Si sale «Tu cuenta está dada de baja» es que se pidió borrar la cuenta. Ya no se puede usar. Si crees que es un error, crea un ticket o escríbenos y lo revisamos.",
+    "ca": "Si surt «El teu compte està donat de baixa» és que es va demanar esborrar el compte. Ja no es pot fer servir. Si creus que és un error, crea un tiquet o escriu-nos i ho revisem.",
+    "en": "If you see “Your account has been deactivated”, the account was deleted on request and can't be used anymore. If you think it's a mistake, create a ticket and we'll look into it."
+   }
+  },
+  "no_fleet": {
+   "cat": "acceso",
+   "roles": [
+    "driver"
+   ],
+   "q": {
+    "es": [
+     "no tienes ninguna flota activa",
+     "mi cuenta no esta asignada a ninguna flota",
+     "me han sacado de la flota",
+     "no puedo entrar a la empresa"
+    ],
+    "ca": [
+     "no tens cap flota activa",
+     "m'han tret de la flota"
+    ],
+    "en": [
+     "you have no active fleet",
+     "removed from the fleet"
+    ]
+   },
+   "a": {
+    "es": "Ese mensaje sale cuando tu jefe te ha sacado de la flota (o aún no te ha añadido). Tus datos se conservan. Pídele que te reincorpore desde Conductores → «Reincorporar a la flota», o únete a otra flota con su código.",
+    "ca": "Aquest missatge surt quan el teu cap t'ha tret de la flota (o encara no t'ha afegit). Les teves dades es conserven. Demana-li que et reincorpori des de Conductors → «Reincorporar a la flota», o uneix-te a una altra flota amb el seu codi.",
+    "en": "That message appears when your boss removed you from the fleet (or hasn't added you yet). Your data is kept. Ask them to re-add you from Drivers → “Re-add to fleet”, or join another fleet with its code."
+   },
+   "related": [
+    "join_fleet"
+   ]
+  },
+  "join_fleet": {
+   "cat": "acceso",
+   "roles": [
+    "driver"
+   ],
+   "q": {
+    "es": [
+     "como me uno a una flota",
+     "codigo de flota",
+     "unirme a la empresa de mi jefe",
+     "donde pongo el codigo"
+    ],
+    "ca": [
+     "com m'uneixo a una flota",
+     "codi de flota",
+     "unir-me a l'empresa del meu cap"
+    ],
+    "en": [
+     "how do i join a fleet",
+     "fleet code",
+     "join my boss company"
+    ]
+   },
+   "a": {
+    "es": "Pide a tu jefe el «Código de tu flota» (lo ve en Conductores). Al entrar en la app, elige «Unirme a una flota», escribe el código y pulsa «Unirme». También puede darte de alta él directamente con usuario y contraseña.",
+    "ca": "Demana al teu cap el «Codi de la teva flota» (el veu a Conductors). En entrar a l'app, tria «Unir-me a una flota», escriu el codi i prem «Unir-me». També et pot donar d'alta ell directament amb usuari i contrasenya.",
+    "en": "Ask your boss for the “Fleet code” (they see it in Drivers). When you open the app, choose “Join a fleet”, type the code and tap “Join”. They can also register you directly with a username and password."
+   }
+  },
+  "invite_driver": {
+   "cat": "flota",
+   "roles": [
+    "owner"
+   ],
+   "starter": true,
+   "q": {
+    "es": [
+     "como invito a un conductor",
+     "dar de alta un chofer",
+     "añadir un conductor",
+     "crear cuenta a un empleado",
+     "meter un conductor nuevo"
+    ],
+    "ca": [
+     "com convido un conductor",
+     "donar d'alta un xofer",
+     "afegir un conductor"
+    ],
+    "en": [
+     "how do i invite a driver",
+     "add a driver",
+     "register an employee"
+    ]
+   },
+   "a": {
+    "es": "Ve a la pestaña «Conductores» → «Invitar». Pon nombre, email (opcional si usas usuario), un nombre de usuario y una contraseña temporal. Pásale el usuario y la contraseña: al entrar la primera vez tendrá que cambiarla.\n\nOtra opción: dale el «Código de tu flota» y que se una él (sirve si entra con Google).\n\nCada conductor ocupa un asiento de la suscripción.",
+    "ca": "Ves a la pestanya «Conductors» → «Convidar». Posa nom, email (opcional si fas servir usuari), un nom d'usuari i una contrasenya temporal. Passa-li l'usuari i la contrasenya: en entrar el primer cop l'haurà de canviar.\n\nUna altra opció: dona-li el «Codi de la teva flota» i que s'hi uneixi ell (serveix si entra amb Google).\n\nCada conductor ocupa un seient de la subscripció.",
+    "en": "Go to the “Drivers” tab → “Invite”. Enter name, email (optional if using a username), a username and a temporary password. Give them the username and password: they'll have to change it on first login.\n\nAlternatively, give them the “Fleet code” and they join themselves (works with Google sign-in).\n\nEach driver uses one subscription seat."
+   },
+   "related": [
+    "seats",
+    "edit_driver"
+   ]
+  },
+  "edit_driver": {
+   "cat": "flota",
+   "roles": [
+    "owner"
+   ],
+   "q": {
+    "es": [
+     "mi conductor no puede entrar",
+     "cambiar la contraseña de un conductor",
+     "editar conductor",
+     "resetear clave del chofer",
+     "cambiar el nombre de un conductor"
+    ],
+    "ca": [
+     "el meu conductor no pot entrar",
+     "canviar la contrasenya d'un conductor",
+     "editar conductor"
+    ],
+    "en": [
+     "my driver cant log in",
+     "change a driver password",
+     "edit driver"
+    ]
+   },
+   "a": {
+    "es": "En «Conductores» toca al conductor. Puedes «Editar nombre», cambiar «Usuario y contraseña» (deja la contraseña vacía si no quieres cambiarla; mínimo 6 caracteres) y «Asignar vehículos». Dale el usuario y la nueva contraseña y que pruebe otra vez.",
+    "ca": "A «Conductors» toca el conductor. Pots «Editar nom», canviar «Usuari i contrasenya» (deixa la contrasenya buida si no la vols canviar; mínim 6 caràcters) i «Assignar vehicles». Dona-li l'usuari i la contrasenya nova i que ho torni a provar.",
+    "en": "In “Drivers” tap the driver. You can “Edit name”, change “Username and password” (leave the password empty to keep it; minimum 6 characters) and “Assign vehicles”. Give them the username and new password and let them try again."
+   },
+   "related": [
+    "remove_driver",
+    "assign_vehicle"
+   ]
+  },
+  "remove_driver": {
+   "cat": "flota",
+   "roles": [
+    "owner"
+   ],
+   "q": {
+    "es": [
+     "como doy de baja a un conductor",
+     "sacar de la flota",
+     "eliminar conductor",
+     "despedir un chofer",
+     "quitar un conductor"
+    ],
+    "ca": [
+     "com dono de baixa un conductor",
+     "treure de la flota",
+     "eliminar conductor"
+    ],
+    "en": [
+     "how do i remove a driver",
+     "remove from fleet",
+     "delete driver"
+    ]
+   },
+   "a": {
+    "es": "En «Conductores» → toca al conductor:\n• «Sacar de la flota»: se queda sin acceso pero se conservan sus datos; puedes «Reincorporar a la flota» cuando quieras.\n• «Eliminar conductor»: es permanente.\n\nRecuerda ajustar los asientos de la suscripción si ya no los necesitas.",
+    "ca": "A «Conductors» → toca el conductor:\n• «Treure de la flota»: es queda sense accés però es conserven les seves dades; el pots «Reincorporar a la flota» quan vulguis.\n• «Eliminar conductor»: és permanent.\n\nRecorda ajustar els seients de la subscripció si ja no els necessites.",
+    "en": "In “Drivers” → tap the driver:\n• “Remove from fleet”: they lose access but their data is kept; you can “Re-add to fleet” any time.\n• “Delete driver”: permanent.\n\nRemember to adjust your subscription seats if you no longer need them."
+   },
+   "related": [
+    "seats"
+   ]
+  },
+  "add_vehicle": {
+   "cat": "flota",
+   "roles": [
+    "owner"
+   ],
+   "q": {
+    "es": [
+     "como añado un coche",
+     "nuevo vehiculo",
+     "dar de alta un taxi",
+     "registrar matricula"
+    ],
+    "ca": [
+     "com afegeixo un cotxe",
+     "vehicle nou",
+     "donar d'alta un taxi"
+    ],
+    "en": [
+     "how do i add a car",
+     "new vehicle",
+     "register a taxi"
+    ]
+   },
+   "a": {
+    "es": "Pestaña «Vehículos» → «Nuevo vehículo». Matrícula obligatoria, modelo y los «Km actuales del vehículo». Después, en la ficha, puedes asignar conductores y apuntar el mantenimiento (ITV, seguro…).",
+    "ca": "Pestanya «Vehicles» → «Vehicle nou». Matrícula obligatòria, model i els «Km actuals del vehicle». Després, a la fitxa, pots assignar conductors i apuntar el manteniment (ITV, assegurança…).",
+    "en": "“Vehicles” tab → “New vehicle”. Plate is required, plus model and “Current km”. Then, in its page, you can assign drivers and log maintenance (MOT, insurance…)."
+   },
+   "related": [
+    "assign_vehicle",
+    "maintenance"
+   ]
+  },
+  "assign_vehicle": {
+   "cat": "flota",
+   "q": {
+    "es": [
+     "no tienes vehiculos asignados",
+     "asignar un coche a un conductor",
+     "no me sale ningun coche",
+     "cambiar de vehiculo",
+     "cambiar vehiculo activo",
+     "conduzco otro taxi hoy"
+    ],
+    "ca": [
+     "no tens vehicles assignats",
+     "assignar un cotxe a un conductor",
+     "canviar de vehicle",
+     "canviar vehicle actiu"
+    ],
+    "en": [
+     "you have no vehicles assigned",
+     "assign a car to a driver",
+     "change vehicle",
+     "change active vehicle"
+    ]
+   },
+   "a": {
+    "es": "Jefe: en «Vehículos» → el coche → «Asignar conductores» (o desde la ficha del conductor → «Asignar vehículos»).\n\nConductor: si tienes más de un coche asignado, cámbialo en Ajustes → «Cambiar vehículo activo». Si sale «No tienes vehículos asignados», pídele a tu jefe que te asigne uno.",
+    "ca": "Cap: a «Vehicles» → el cotxe → «Assignar conductors» (o des de la fitxa del conductor → «Assignar vehicles»).\n\nConductor: si tens més d'un cotxe assignat, canvia'l a Ajustos → «Canviar vehicle actiu». Si surt «No tens vehicles assignats», demana al teu cap que te n'assigni un.",
+    "en": "Boss: “Vehicles” → the car → “Assign drivers” (or from the driver's page → “Assign vehicles”).\n\nDriver: if you have more than one car assigned, switch in Settings → “Change active vehicle”. If you see “No vehicles assigned”, ask your boss to assign one."
+   }
+  },
+  "maintenance": {
+   "cat": "flota",
+   "roles": [
+    "owner"
+   ],
+   "q": {
+    "es": [
+     "donde apunto la itv",
+     "mantenimiento del coche",
+     "fecha del seguro",
+     "revision del taxi",
+     "itv del taximetro",
+     "tarjeta de transporte",
+     "como pongo la itv del coche",
+     "apuntar la itv",
+     "cuando caduca el seguro"
+    ],
+    "ca": [
+     "on apunto la itv",
+     "manteniment del cotxe",
+     "data de l'assegurança",
+     "revisió del taxi",
+     "com poso la itv del cotxe"
+    ],
+    "en": [
+     "where do i log the mot",
+     "vehicle maintenance",
+     "insurance date",
+     "service the car"
+    ]
+   },
+   "a": {
+    "es": "En «Vehículos» → el coche → «Editar mantenimiento». Puedes apuntar ITV, ITV del taxímetro, seguro, tarjeta de transporte y revisiones, para tenerlo todo controlado.",
+    "ca": "A «Vehicles» → el cotxe → «Editar manteniment». Pots apuntar ITV, ITV del taxímetre, assegurança, targeta de transport i revisions, per tenir-ho tot controlat.",
+    "en": "In “Vehicles” → the car → “Edit maintenance”. You can log MOT, taximeter inspection, insurance, transport card and services, to keep it all under control."
+   }
+  },
+  "locate_vehicle": {
+   "cat": "flota",
+   "action": "locate",
+   "q": {
+    "es": [
+     "localizar vehiculo",
+     "donde esta mi taxi",
+     "ver el coche en el mapa",
+     "ubicacion del conductor",
+     "gps"
+    ],
+    "ca": [
+     "localitzar vehicle",
+     "on és el meu taxi",
+     "veure el cotxe al mapa",
+     "ubicació del conductor"
+    ],
+    "en": [
+     "locate vehicle",
+     "where is my taxi",
+     "see the car on the map",
+     "driver location"
+    ]
+   },
+   "a": {
+    "es": "Ajustes → «Localizar vehículo» → «Ver en el mapa». La ubicación solo se comparte mientras el conductor tiene la app abierta en primer plano, y no se guarda historial. Si sale «Ningún conductor ha compartido su ubicación todavía», es que nadie la tiene abierta ahora.",
+    "ca": "Ajustos → «Localitzar vehicle» → «Veure al mapa». La ubicació només es comparteix mentre el conductor té l'app oberta en primer pla, i no es desa historial. Si surt que cap conductor ha compartit la ubicació, és que ningú la té oberta ara.",
+    "en": "Settings → “Locate vehicle” → “View on map”. Location is only shared while the driver has the app open in the foreground, and no history is kept. If it says no driver has shared their location, nobody has it open right now."
+   }
+  },
+  "dashboard": {
+   "cat": "panel",
+   "roles": [
+    "owner"
+   ],
+   "q": {
+    "es": [
+     "como veo lo que ha ganado la flota",
+     "panel de control",
+     "ingresos de la empresa",
+     "balance del mes",
+     "ver las carreras de mis conductores"
+    ],
+    "ca": [
+     "com veig el que ha guanyat la flota",
+     "panell de control",
+     "ingressos de l'empresa"
+    ],
+    "en": [
+     "how do i see fleet earnings",
+     "dashboard",
+     "company income"
+    ]
+   },
+   "a": {
+    "es": "En la pestaña «Panel de control» tienes Ingresos, Gastos y Balance, el gráfico de gastos y todas las transacciones de la flota (con buscador). Arriba: el ojo oculta los importes, «Comparar» compara periodos y «Exportar» saca informes.",
+    "ca": "A la pestanya «Panell de control» tens Ingressos, Despeses i Balanç, el gràfic de despeses i totes les transaccions de la flota (amb cercador). A dalt: l'ull amaga els imports, «Comparar» compara períodes i «Exportar» treu informes.",
+    "en": "The “Dashboard” tab shows Income, Expenses and Balance, the expenses chart and all fleet transactions (searchable). At the top: the eye hides amounts, “Compare” compares periods and “Export” creates reports."
+   },
+   "related": [
+    "compare",
+    "export",
+    "hide_amounts"
+   ]
+  },
+  "hide_amounts": {
+   "cat": "panel",
+   "roles": [
+    "owner"
+   ],
+   "q": {
+    "es": [
+     "ocultar importes",
+     "no quiero que se vean las cantidades",
+     "icono del ojo",
+     "esconder el dinero"
+    ],
+    "ca": [
+     "amagar imports",
+     "icona de l'ull"
+    ],
+    "en": [
+     "hide amounts",
+     "eye icon"
+    ]
+   },
+   "a": {
+    "es": "En el «Panel de control», el icono del ojo de arriba oculta o muestra los importes. Útil si enseñas la pantalla a alguien.",
+    "ca": "Al «Panell de control», la icona de l'ull de dalt amaga o mostra els imports. Útil si ensenyes la pantalla a algú.",
+    "en": "On the “Dashboard”, the eye icon at the top hides or shows amounts. Handy when showing the screen to someone."
+   }
+  },
+  "compare": {
+   "cat": "panel",
+   "roles": [
+    "owner"
+   ],
+   "q": {
+    "es": [
+     "comparar meses",
+     "comparar periodos",
+     "este mes contra el anterior",
+     "comparar kilometros"
+    ],
+    "ca": [
+     "comparar mesos",
+     "comparar períodes"
+    ],
+    "en": [
+     "compare months",
+     "compare periods"
+    ]
+   },
+   "a": {
+    "es": "En el «Panel de control» pulsa «Comparar». Puedes comparar por Día, Semana, Mes, Año o un rango personalizado, en dinero o en km.",
+    "ca": "Al «Panell de control» prem «Comparar». Pots comparar per Dia, Setmana, Mes, Any o un rang personalitzat, en diners o en km.",
+    "en": "On the “Dashboard” tap “Compare”. Compare by Day, Week, Month, Year or a custom range, in money or km."
+   }
+  },
+  "export": {
+   "cat": "panel",
+   "starter": true,
+   "q": {
+    "es": [
+     "como saco un informe",
+     "exportar a excel",
+     "descargar pdf",
+     "informe para el gestor",
+     "exportar las carreras",
+     "pasar los datos a la gestoria"
+    ],
+    "ca": [
+     "com trec un informe",
+     "exportar a excel",
+     "descarregar pdf",
+     "informe per al gestor"
+    ],
+    "en": [
+     "how do i get a report",
+     "export to excel",
+     "download pdf",
+     "report for my accountant"
+    ]
+   },
+   "a": {
+    "es": "En el «Panel de control» pulsa «Exportar». Elige qué exportar (Todo, Solo empresa o Excluir empresa), el periodo y el formato: Excel o PDF. Ideal para pasárselo a tu gestoría.",
+    "ca": "Al «Panell de control» prem «Exportar». Tria què exportar (Tot, Només empresa o Excloure empresa), el període i el format: Excel o PDF. Ideal per passar-ho a la gestoria.",
+    "en": "On the “Dashboard” tap “Export”. Choose what to export (All, Company only or Exclude company), the period and format: Excel or PDF. Perfect for your accountant."
+   },
+   "related": [
+    "import"
+   ]
+  },
+  "import": {
+   "cat": "panel",
+   "roles": [
+    "owner"
+   ],
+   "q": {
+    "es": [
+     "importar datos",
+     "importar excel",
+     "subir mis carreras antiguas",
+     "importar csv",
+     "pasar datos de otra app"
+    ],
+    "ca": [
+     "importar dades",
+     "importar excel",
+     "pujar les carreres antigues"
+    ],
+    "en": [
+     "import data",
+     "import excel",
+     "import csv",
+     "upload old rides"
+    ]
+   },
+   "a": {
+    "es": "En el «Panel de control» pulsa «Importar» → «Excel o CSV». Verás una vista previa: elige si son ingresos, gastos o «Automático», y pulsa «Importar». Al final te dice cuántas filas se han importado y cuántas se han ignorado. (Importar desde foto o PDF llegará pronto.)",
+    "ca": "Al «Panell de control» prem «Importar» → «Excel o CSV». Veuràs una vista prèvia: tria si són ingressos, despeses o «Automàtic», i prem «Importar». Al final et diu quantes files s'han importat i quantes s'han ignorat. (Importar des de foto o PDF arribarà aviat.)",
+    "en": "On the “Dashboard” tap “Import” → “Excel or CSV”. Check the preview, choose income, expenses or “Automatic” and tap “Import”. At the end it tells you how many rows were imported and skipped. (Import from photo or PDF coming soon.)"
+   }
+  },
+  "trial": {
+   "cat": "suscripcion",
+   "starter": true,
+   "q": {
+    "es": [
+     "cuanto dura la prueba gratis",
+     "periodo de prueba",
+     "cuantos dias gratis",
+     "que pasa cuando acabe la prueba",
+     "prueba gratuita"
+    ],
+    "ca": [
+     "quant dura la prova gratis",
+     "període de prova",
+     "quants dies gratis"
+    ],
+    "en": [
+     "how long is the free trial",
+     "trial period",
+     "what happens when the trial ends"
+    ]
+   },
+   "a": {
+    "es": "Tienes 15 días de prueba gratis con todo incluido y sin límite de conductores. En la app verás «Prueba gratis: te quedan X días». Cuando acaba, la app se bloquea hasta que contrates un plan en Ajustes → «Suscripción». No se pierde ningún dato.",
+    "ca": "Tens 15 dies de prova gratis amb tot inclòs i sense límit de conductors. A l'app veuràs els dies que et queden. Quan s'acaba, l'app es bloqueja fins que contractis un pla a Ajustos → «Subscripció». No es perd cap dada.",
+    "en": "You get a 15-day free trial with everything included and unlimited drivers. The app shows how many days are left. When it ends, the app locks until you choose a plan in Settings → “Subscription”. No data is lost."
+   },
+   "related": [
+    "price",
+    "subscribe"
+   ]
+  },
+  "trial_ended": {
+   "cat": "suscripcion",
+   "q": {
+    "es": [
+     "tu prueba gratuita ha terminado",
+     "la app esta bloqueada",
+     "la empresa no tiene una suscripcion activa",
+     "tu suscripcion no esta activa",
+     "no puedo usar la app"
+    ],
+    "ca": [
+     "la teva prova gratuïta ha acabat",
+     "l'app està bloquejada",
+     "l'empresa no té una subscripció activa"
+    ],
+    "en": [
+     "your free trial has ended",
+     "the app is locked",
+     "subscription not active"
+    ]
+   },
+   "a": {
+    "es": "Si eres el jefe: ve a «Suscripción», elige mensual o anual y pulsa «Suscribirme». En cuanto se confirma el pago, la app se desbloquea para toda la flota.\n\nSi eres conductor: es la empresa la que tiene que reactivar la suscripción. Avisa a tu jefe.",
+    "ca": "Si ets el cap: ves a «Subscripció», tria mensual o anual i prem «Subscriure'm». Quan es confirma el pagament, l'app es desbloqueja per a tota la flota.\n\nSi ets conductor: és l'empresa qui ha de reactivar la subscripció. Avisa el teu cap.",
+    "en": "If you're the boss: go to “Subscription”, choose monthly or yearly and tap “Subscribe”. Once the payment is confirmed, the app unlocks for the whole fleet.\n\nIf you're a driver: the company has to reactivate the subscription. Let your boss know."
+   },
+   "related": [
+    "subscribe"
+   ]
+  },
+  "price": {
+   "cat": "suscripcion",
+   "starter": true,
+   "q": {
+    "es": [
+     "cuanto cuesta",
+     "precio de la app",
+     "cuanto vale al mes",
+     "tarifas",
+     "precio por conductor",
+     "es caro"
+    ],
+    "ca": [
+     "quant costa",
+     "preu de l'app",
+     "quant val al mes",
+     "preu per conductor"
+    ],
+    "en": [
+     "how much does it cost",
+     "price",
+     "monthly price",
+     "price per driver"
+    ]
+   },
+   "a": {
+    "es": "Se paga por conductor (asiento): 3 € al mes, o 30 € al año (dos meses gratis). Pagas solo los conductores activos. Al añadir un asiento se cobra solo la parte proporcional del periodo; al quitarlo, lo no usado se descuenta de la siguiente factura.",
+    "ca": "Es paga per conductor (seient): 3 € al mes, o 30 € l'any (dos mesos gratis). Pagues només els conductors actius. En afegir un seient es cobra només la part proporcional del període; en treure'l, el que no s'ha fet servir es descompta de la factura següent.",
+    "en": "You pay per driver (seat): €3/month or €30/year (two months free). You only pay for active drivers. Adding a seat charges only the prorated part; removing one credits the unused part to your next invoice."
+   },
+   "related": [
+    "subscribe",
+    "seats"
+   ]
+  },
+  "subscribe": {
+   "cat": "suscripcion",
+   "roles": [
+    "owner"
+   ],
+   "action": "subscription",
+   "q": {
+    "es": [
+     "como me suscribo",
+     "contratar un plan",
+     "pagar la suscripcion",
+     "cambiar de plan",
+     "pasar a anual",
+     "pasar a mensual"
+    ],
+    "ca": [
+     "com em subscric",
+     "contractar un pla",
+     "pagar la subscripció",
+     "canviar de pla"
+    ],
+    "en": [
+     "how do i subscribe",
+     "buy a plan",
+     "change plan",
+     "switch to yearly"
+    ]
+   },
+   "a": {
+    "es": "Ajustes → «Suscripción». Elige «Mensual» o «Anual» y pulsa «Suscribirme»: se abre la página de pago segura (Stripe). Para pasar de mensual a anual, usa «Cambiar de plan».",
+    "ca": "Ajustos → «Subscripció». Tria «Mensual» o «Anual» i prem «Subscriure'm»: s'obre la pàgina de pagament segura (Stripe). Per passar de mensual a anual, fes servir «Canviar de pla».",
+    "en": "Settings → “Subscription”. Choose “Monthly” or “Yearly” and tap “Subscribe”: the secure payment page (Stripe) opens. To switch from monthly to yearly, use “Change plan”."
+   },
+   "related": [
+    "price",
+    "invoices"
+   ]
+  },
+  "seats": {
+   "cat": "suscripcion",
+   "roles": [
+    "owner"
+   ],
+   "action": "subscription",
+   "q": {
+    "es": [
+     "que son los asientos",
+     "añadir asientos",
+     "comprar un asiento",
+     "no puedo añadir mas conductores",
+     "maximo de conductores",
+     "quitar asientos"
+    ],
+    "ca": [
+     "què són els seients",
+     "afegir seients",
+     "comprar un seient",
+     "no puc afegir més conductors"
+    ],
+    "en": [
+     "what are seats",
+     "add seats",
+     "buy a seat",
+     "cant add more drivers",
+     "maximum drivers"
+    ]
+   },
+   "a": {
+    "es": "Cada conductor activo ocupa un asiento. Si quieres añadir un conductor y no tienes asientos libres, la app te propone «Comprar un asiento». También puedes ir a «Suscripción» → «Ajustar asientos» → «Guardar asientos». Durante la prueba no hay límite. Si necesitas más del máximo permitido, contacta con nosotros.",
+    "ca": "Cada conductor actiu ocupa un seient. Si vols afegir un conductor i no tens seients lliures, l'app et proposa «Comprar un seient». També pots anar a «Subscripció» → «Ajustar seients» → «Desar seients». Durant la prova no hi ha límit. Si en necessites més del màxim permès, contacta amb nosaltres.",
+    "en": "Each active driver uses a seat. If you add a driver without free seats, the app offers “Buy a seat”. You can also go to “Subscription” → “Adjust seats” → “Save seats”. No limit during the trial. If you need more than the maximum, contact us."
+   },
+   "related": [
+    "price"
+   ]
+  },
+  "invoices": {
+   "cat": "suscripcion",
+   "roles": [
+    "owner"
+   ],
+   "action": "subscription",
+   "q": {
+    "es": [
+     "donde estan mis facturas",
+     "descargar factura",
+     "cambiar la tarjeta de pago",
+     "actualizar metodo de pago",
+     "gestionar facturacion",
+     "me han cobrado"
+    ],
+    "ca": [
+     "on són les meves factures",
+     "descarregar factura",
+     "canviar la targeta de pagament"
+    ],
+    "en": [
+     "where are my invoices",
+     "download invoice",
+     "change payment card",
+     "manage billing"
+    ]
+   },
+   "a": {
+    "es": "En «Suscripción» pulsa «Gestionar facturación». Se abre el portal seguro de Stripe, donde puedes descargar facturas, cambiar la tarjeta y ver los cobros. Si ves un cobro que no entiendes, crea un ticket y lo revisamos.",
+    "ca": "A «Subscripció» prem «Gestionar facturació». S'obre el portal segur de Stripe, on pots descarregar factures, canviar la targeta i veure els cobraments. Si veus un cobrament que no entens, crea un tiquet i el revisem.",
+    "en": "In “Subscription” tap “Manage billing”. Stripe's secure portal opens, where you can download invoices, change your card and see charges. If you see a charge you don't understand, create a ticket and we'll check it."
+   }
+  },
+  "coupon": {
+   "cat": "suscripcion",
+   "roles": [
+    "owner"
+   ],
+   "action": "subscription",
+   "q": {
+    "es": [
+     "tengo un cupon",
+     "codigo de descuento",
+     "aplicar cupon",
+     "donde pongo el cupon"
+    ],
+    "ca": [
+     "tinc un cupó",
+     "codi de descompte",
+     "aplicar cupó"
+    ],
+    "en": [
+     "i have a coupon",
+     "discount code",
+     "apply coupon"
+    ]
+   },
+   "a": {
+    "es": "En «Suscripción» pulsa «¿Tienes un cupón?» → escríbelo → «Aplicar cupón». Si es para el plan anual, se introduce en la propia página de pago de Stripe.",
+    "ca": "A «Subscripció» prem «Tens un cupó?» → escriu-lo → «Aplicar cupó». Si és per al pla anual, s'introdueix a la mateixa pàgina de pagament de Stripe.",
+    "en": "In “Subscription” tap “Have a coupon?” → type it → “Apply coupon”. For the yearly plan, enter it on Stripe's payment page."
+   }
+  },
+  "cancel": {
+   "cat": "suscripcion",
+   "roles": [
+    "owner"
+   ],
+   "action": "subscription",
+   "q": {
+    "es": [
+     "como cancelo la suscripcion",
+     "darme de baja",
+     "dejar de pagar",
+     "anular suscripcion",
+     "reactivar suscripcion"
+    ],
+    "ca": [
+     "com cancel·lo la subscripció",
+     "donar-me de baixa",
+     "deixar de pagar"
+    ],
+    "en": [
+     "how do i cancel",
+     "cancel subscription",
+     "stop paying",
+     "reactivate subscription"
+    ]
+   },
+   "a": {
+    "es": "En «Suscripción» pulsa «Cancelar suscripción». Sigues teniendo acceso hasta el final del periodo ya pagado. Si cambias de idea antes, pulsa «Reactivar suscripción».\n\nSi lo que quieres es cerrar la empresa entera, eso es «Dar de baja la empresa» (más abajo) y no se puede deshacer desde la app.",
+    "ca": "A «Subscripció» prem «Cancel·lar subscripció». Continues tenint accés fins al final del període ja pagat. Si canvies d'idea abans, prem «Reactivar subscripció».\n\nSi el que vols és tancar tota l'empresa, això és «Donar de baixa l'empresa» (més avall) i no es pot desfer des de l'app.",
+    "en": "In “Subscription” tap “Cancel subscription”. You keep access until the end of the paid period. If you change your mind before then, tap “Reactivate subscription”.\n\nTo close the whole company, use “Close the company” (further down); it can't be undone from the app."
+   },
+   "related": [
+    "delete_account"
+   ]
+  },
+  "challenges": {
+   "cat": "extras",
+   "q": {
+    "es": [
+     "que son los retos",
+     "como funcionan los retos",
+     "mes gratis por reto",
+     "reto pendiente de aprobacion",
+     "reto rechazado"
+    ],
+    "ca": [
+     "què són els reptes",
+     "com funcionen els reptes",
+     "mes gratis per repte"
+    ],
+    "en": [
+     "what are challenges",
+     "how do challenges work",
+     "free month challenge"
+    ]
+   },
+   "a": {
+    "es": "Los retos son metas por km y días de uso de la app. Cada reto conseguido = 1 mes gratis del asiento de ese conductor. Los revisa la administración: por eso pueden salir como «Pendiente de aprobación» o, si los km no cuadran, «Rechazado».\n\nConductor: Ajustes → «Mis retos». Jefe: Ajustes → «Retos».",
+    "ca": "Els reptes són metes per km i dies d'ús de l'app. Cada repte aconseguit = 1 mes gratis del seient d'aquell conductor. Els revisa l'administració: per això poden sortir com a «Pendent d'aprovació» o, si els km no quadren, «Rebutjat».\n\nConductor: Ajustos → «Els meus reptes». Cap: Ajustos → «Reptes».",
+    "en": "Challenges are goals based on km and days using the app. Each completed challenge = 1 free month for that driver's seat. Admin reviews them, so they may show as “Pending approval” or, if the km don't add up, “Rejected”.\n\nDriver: Settings → “My challenges”. Boss: Settings → “Challenges”."
+   },
+   "related": [
+    "km_jump"
+   ]
+  },
+  "referral": {
+   "cat": "extras",
+   "action": "referral",
+   "q": {
+    "es": [
+     "invita y gana",
+     "como invito a otra empresa",
+     "codigo de invitacion",
+     "dias gratis por invitar",
+     "referidos"
+    ],
+    "ca": [
+     "convida i guanya",
+     "com convido una altra empresa",
+     "codi d'invitació",
+     "dies gratis per convidar"
+    ],
+    "en": [
+     "invite and earn",
+     "referral code",
+     "free days for inviting"
+    ]
+   },
+   "a": {
+    "es": "En Ajustes → «Invita y gana» tienes tu código para «Copiar» o «Compartir» con otros taxistas o empresas. Cuando la empresa invitada empieza a pagar, consigues días gratis para toda tu flota según los hitos. En el historial ves cada invitación: Validado, Pendiente, Revertido o Rechazado.",
+    "ca": "A Ajustos → «Convida i guanya» tens el teu codi per «Copiar» o «Compartir» amb altres taxistes o empreses. Quan l'empresa convidada comença a pagar, aconsegueixes dies gratis per a tota la flota segons les fites. A l'historial veus cada invitació: Validat, Pendent, Revertit o Rebutjat.",
+    "en": "In Settings → “Invite and earn” you have your code to “Copy” or “Share” with other drivers or companies. When the invited company starts paying, you earn free days for your whole fleet based on milestones. The history shows each invite: Validated, Pending, Reverted or Rejected."
+   }
+  },
+  "fleet_chat": {
+   "cat": "extras",
+   "q": {
+    "es": [
+     "como hablo con mi jefe",
+     "mandar un mensaje al jefe",
+     "chat con los conductores",
+     "mensajes de la flota",
+     "como escribo a un conductor"
+    ],
+    "ca": [
+     "com parlo amb el meu cap",
+     "enviar un missatge al cap",
+     "xat amb els conductors"
+    ],
+    "en": [
+     "how do i message my boss",
+     "chat with drivers",
+     "fleet messages"
+    ]
+   },
+   "a": {
+    "es": "Conductor: Ajustes → «Mensajes al jefe» abre un chat directo con tu jefe.\nJefe: la pestaña «Mensajes» tiene un chat con cada conductor.\n\nEste chat es solo entre vosotros; para problemas de la app, usa el soporte (o pídeme crear un ticket).",
+    "ca": "Conductor: Ajustos → «Missatges al cap» obre un xat directe amb el teu cap.\nCap: la pestanya «Missatges» té un xat amb cada conductor.\n\nAquest xat és només entre vosaltres; per a problemes de l'app, fes servir el suport (o demana'm crear un tiquet).",
+    "en": "Driver: Settings → “Messages to boss” opens a direct chat with your boss.\nBoss: the “Messages” tab has a chat with each driver.\n\nThis chat is just between you; for app problems use support (or ask me to create a ticket)."
+   }
+  },
+  "notifications": {
+   "cat": "extras",
+   "q": {
+    "es": [
+     "no me llegan las notificaciones",
+     "las notificaciones estan bloqueadas",
+     "activar avisos",
+     "campana tachada"
+    ],
+    "ca": [
+     "no em arriben les notificacions",
+     "les notificacions estan bloquejades",
+     "activar avisos"
+    ],
+    "en": [
+     "i dont get notifications",
+     "notifications are blocked",
+     "enable notifications"
+    ]
+   },
+   "a": {
+    "es": "En Ajustes, la campana de arriba indica si las notificaciones están activas. Si está tachada, pulsa «Abrir ajustes» y permite las notificaciones de TaxiCount en el móvil. Sin ellas no te enterarás de los mensajes del jefe ni de las respuestas de soporte.",
+    "ca": "A Ajustos, la campana de dalt indica si les notificacions estan actives. Si està ratllada, prem «Obrir ajustos» i permet les notificacions de TaxiCount al mòbil. Sense elles no t'assabentaràs dels missatges del cap ni de les respostes de suport.",
+    "en": "In Settings, the bell at the top shows whether notifications are on. If it's crossed out, tap “Open settings” and allow TaxiCount notifications on your phone. Without them you'll miss messages from your boss and support replies."
+   }
+  },
+  "language": {
+   "cat": "extras",
+   "action": "language",
+   "q": {
+    "es": [
+     "cambiar el idioma",
+     "poner la app en catalan",
+     "idioma",
+     "app en ingles"
+    ],
+    "ca": [
+     "canviar l'idioma",
+     "posar l'app en castellà",
+     "idioma"
+    ],
+    "en": [
+     "change language",
+     "app in spanish",
+     "language"
+    ]
+   },
+   "a": {
+    "es": "Ajustes → «Idioma». Hay español, catalán, inglés, francés, italiano, alemán, portugués y euskera.",
+    "ca": "Ajustos → «Idioma». Hi ha castellà, català, anglès, francès, italià, alemany, portuguès i basc.",
+    "en": "Settings → “Language”. Spanish, Catalan, English, French, Italian, German, Portuguese and Basque are available."
+   }
+  },
+  "profile": {
+   "cat": "extras",
+   "q": {
+    "es": [
+     "cambiar mi nombre",
+     "poner foto de perfil",
+     "cambiar el nombre de la empresa",
+     "numero de licencia"
+    ],
+    "ca": [
+     "canviar el meu nom",
+     "posar foto de perfil",
+     "canviar el nom de l'empresa",
+     "número de llicència"
+    ],
+    "en": [
+     "change my name",
+     "profile photo",
+     "change company name",
+     "licence number"
+    ]
+   },
+   "a": {
+    "es": "En Ajustes, arriba, toca el lápiz para cambiar tu nombre o la foto (galería o cámara). El jefe puede editar también el nombre de la empresa. El nº de licencia lo pone el jefe; el conductor lo ve pero no lo edita.",
+    "ca": "A Ajustos, a dalt, toca el llapis per canviar el teu nom o la foto (galeria o càmera). El cap també pot editar el nom de l'empresa. El núm. de llicència el posa el cap; el conductor el veu però no l'edita.",
+    "en": "At the top of Settings, tap the pencil to change your name or photo (gallery or camera). The boss can also edit the company name. The licence number is set by the boss; drivers see it but can't edit it."
+   }
+  },
+  "solo_mode": {
+   "cat": "extras",
+   "q": {
+    "es": [
+     "soy autonomo",
+     "soy tambien chofer",
+     "conduzco y soy el jefe",
+     "modo autonomo",
+     "cambiar entre empresa y chofer"
+    ],
+    "ca": [
+     "soc autònom",
+     "també soc xofer",
+     "mode autònom"
+    ],
+    "en": [
+     "i am self employed",
+     "i also drive",
+     "solo mode",
+     "owner driver"
+    ]
+   },
+   "a": {
+    "es": "Si eres jefe y también conduces, activa Ajustes → «Soy también chófer» y reinicia la app. Arriba tendrás un conmutador «Empresa» / «Chófer» para pasar de gestionar la flota a apuntar tus carreras. Si empiezas de cero solo, elige «Soy mi propia empresa» al registrarte.",
+    "ca": "Si ets cap i també condueixes, activa Ajustos → «També soc xofer» i reinicia l'app. A dalt tindràs un commutador «Empresa» / «Xofer» per passar de gestionar la flota a apuntar les teves carreres. Si comences de zero sol, tria «Soc la meva pròpia empresa» en registrar-te.",
+    "en": "If you're the boss and also drive, turn on Settings → “I'm also a driver” and restart the app. You'll get a “Company” / “Driver” switch at the top. If you're starting alone, choose “I'm my own company” when signing up."
+   }
+  },
+  "agenda": {
+   "cat": "extras",
+   "q": {
+    "es": [
+     "agenda",
+     "apuntar un servicio para mañana",
+     "reservas",
+     "programar una carrera",
+     "no veo la agenda"
+    ],
+    "ca": [
+     "agenda",
+     "apuntar un servei per demà",
+     "reserves",
+     "programar una carrera"
+    ],
+    "en": [
+     "agenda",
+     "book a ride for tomorrow",
+     "bookings",
+     "schedule a ride"
+    ]
+   },
+   "a": {
+    "es": "La Agenda sirve para apuntar servicios programados (cliente, recogida, destino, teléfono, precio, fecha y hora), compartidos con toda la flota. Es una función que se activa por empresa: si no la ves, aún no está activa en la tuya. Si te interesa, crea un ticket y te contamos.",
+    "ca": "L'Agenda serveix per apuntar serveis programats (client, recollida, destinació, telèfon, preu, data i hora), compartits amb tota la flota. És una funció que s'activa per empresa: si no la veus, encara no està activa a la teva. Si t'interessa, crea un tiquet i t'ho expliquem.",
+    "en": "The Agenda lets you log scheduled rides (client, pickup, destination, phone, price, date and time), shared with the whole fleet. It's enabled per company: if you can't see it, it isn't active for yours yet. If you're interested, create a ticket and we'll tell you more."
+   }
+  },
+  "privacy": {
+   "cat": "cuenta",
+   "q": {
+    "es": [
+     "guardais mi ubicacion",
+     "se graba lo que digo",
+     "privacidad",
+     "mis datos estan seguros",
+     "quien ve mis datos"
+    ],
+    "ca": [
+     "deseu la meva ubicació",
+     "es grava el que dic",
+     "privacitat",
+     "les meves dades estan segures"
+    ],
+    "en": [
+     "do you store my location",
+     "do you record what i say",
+     "privacy",
+     "is my data safe"
+    ]
+   },
+   "a": {
+    "es": "La ubicación solo se comparte con la app abierta en primer plano y no se guarda historial. El audio de la voz solo se usa al pulsar el micro para transcribirlo y no se guarda. Los datos de tu empresa solo los ven tu empresa y, si hace falta, soporte.",
+    "ca": "La ubicació només es comparteix amb l'app oberta en primer pla i no es desa historial. L'àudio de la veu només es fa servir en prémer el micro per transcriure'l i no es desa. Les dades de la teva empresa només les veu la teva empresa i, si cal, suport.",
+    "en": "Location is only shared with the app open in the foreground and no history is kept. Voice audio is only used when you tap the mic, to transcribe it, and isn't stored. Your company's data is only visible to your company and, if needed, support."
+   }
+  },
+  "delete_account": {
+   "cat": "cuenta",
+   "q": {
+    "es": [
+     "como borro mi cuenta",
+     "eliminar mi cuenta",
+     "borrar mis datos",
+     "dar de baja la empresa",
+     "cerrar la empresa",
+     "quiero borrar mi cuenta",
+     "quiero eliminar la cuenta"
+    ],
+    "ca": [
+     "com esborro el meu compte",
+     "eliminar el meu compte",
+     "esborrar les meves dades",
+     "donar de baixa l'empresa",
+     "vull esborrar el meu compte"
+    ],
+    "en": [
+     "how do i delete my account",
+     "delete my data",
+     "close the company"
+    ]
+   },
+   "a": {
+    "es": "Ajustes → «Eliminar mi cuenta» (abajo del todo), con doble confirmación. La cuenta queda inutilizable. Los datos fiscales de las carreras se conservan 5 años por obligación legal y después se eliminan.\n\nPara cerrar la empresa entera (jefe): «Suscripción» → «Dar de baja la empresa», escribiendo el nombre para confirmar. Cierra el acceso a todos.",
+    "ca": "Ajustos → «Eliminar el meu compte» (a baix de tot), amb doble confirmació. El compte queda inutilitzable. Les dades fiscals de les carreres es conserven 5 anys per obligació legal i després s'eliminen.\n\nPer tancar tota l'empresa (cap): «Subscripció» → «Donar de baixa l'empresa», escrivint el nom per confirmar. Tanca l'accés a tothom.",
+    "en": "Settings → “Delete my account” (at the bottom), with double confirmation. The account becomes unusable. Ride tax data is kept for 5 years by law and then deleted.\n\nTo close the whole company (boss): “Subscription” → “Close the company”, typing the name to confirm. It closes access for everyone."
+   }
+  },
+  "whatsnew": {
+   "cat": "extras",
+   "action": "whatsnew",
+   "q": {
+    "es": [
+     "novedades",
+     "que hay de nuevo",
+     "version de la app",
+     "actualizar la app",
+     "ultima version"
+    ],
+    "ca": [
+     "novetats",
+     "què hi ha de nou",
+     "versió de l'app",
+     "actualitzar l'app"
+    ],
+    "en": [
+     "whats new",
+     "app version",
+     "update the app"
+    ]
+   },
+   "a": {
+    "es": "En Ajustes → «Novedades» tienes las mejoras de cada versión. La app se actualiza desde Google Play; si algo raro pasa, prueba primero a actualizarla.",
+    "ca": "A Ajustos → «Novetats» tens les millores de cada versió. L'app s'actualitza des de Google Play; si passa alguna cosa estranya, prova primer d'actualitzar-la.",
+    "en": "Settings → “What's new” lists the improvements in each version. The app updates from Google Play; if something odd happens, try updating it first."
+   }
+  },
+  "offline": {
+   "cat": "errores",
+   "q": {
+    "es": [
+     "algo ha ido mal",
+     "no se ha podido cargar",
+     "la app no carga",
+     "se queda cargando",
+     "error generico",
+     "la app va lenta",
+     "se cierra sola"
+    ],
+    "ca": [
+     "alguna cosa ha anat malament",
+     "no s'ha pogut carregar",
+     "l'app no carrega",
+     "es queda carregant"
+    ],
+    "en": [
+     "something went wrong",
+     "could not load",
+     "app wont load",
+     "keeps loading",
+     "app crashes"
+    ]
+   },
+   "a": {
+    "es": "Casi siempre es la conexión. Prueba esto:\n1. Comprueba que tienes datos o wifi.\n2. Pulsa «Reintentar».\n3. Cierra la app del todo y vuelve a abrirla.\n4. Actualiza la app desde Google Play.\n\nSi sigue pasando, cuéntamelo y creamos un ticket con los detalles.",
+    "ca": "Gairebé sempre és la connexió. Prova això:\n1. Comprova que tens dades o wifi.\n2. Prem «Tornar-ho a provar».\n3. Tanca l'app del tot i torna-la a obrir.\n4. Actualitza l'app des de Google Play.\n\nSi continua passant, explica-m'ho i creem un tiquet amb els detalls.",
+    "en": "It's almost always the connection. Try this:\n1. Check you have data or wifi.\n2. Tap “Retry”.\n3. Close the app completely and reopen it.\n4. Update the app from Google Play.\n\nIf it keeps happening, tell me and we'll create a ticket with the details."
+   }
+  },
+  "blocked": {
+   "cat": "errores",
+   "q": {
+    "es": [
+     "operacion bloqueada",
+     "contacta con el administrador de la flota",
+     "no me deja guardar"
+    ],
+    "ca": [
+     "operació bloquejada",
+     "no em deixa desar"
+    ],
+    "en": [
+     "operation blocked",
+     "it wont let me save"
+    ]
+   },
+   "a": {
+    "es": "«Operación bloqueada» significa que tu cuenta no puede hacer esa acción ahora (por ejemplo, la empresa está inactiva o tu jefe te ha retirado el acceso). Habla con tu jefe. Si eres el jefe, revisa la suscripción; si todo está bien, crea un ticket.",
+    "ca": "«Operació bloquejada» vol dir que el teu compte no pot fer aquesta acció ara (per exemple, l'empresa està inactiva o el teu cap t'ha retirat l'accés). Parla amb el teu cap. Si ets el cap, revisa la subscripció; si tot està bé, crea un tiquet.",
+    "en": "“Operation blocked” means your account can't do that right now (e.g. the company is inactive or your boss removed your access). Talk to your boss. If you're the boss, check the subscription; if all looks fine, create a ticket."
+   }
+  },
+  "tutorial": {
+   "cat": "extras",
+   "q": {
+    "es": [
+     "ver el tutorial otra vez",
+     "videos de ayuda",
+     "como funciona la app",
+     "guia de uso",
+     "manual de instrucciones"
+    ],
+    "ca": [
+     "veure el tutorial un altre cop",
+     "vídeos d'ajuda",
+     "com funciona l'app",
+     "guia d'ús"
+    ],
+    "en": [
+     "see the tutorial again",
+     "help videos",
+     "how does the app work",
+     "user guide"
+    ]
+   },
+   "a": {
+    "es": "Estamos preparando videotutoriales de cada parte de la app; cuando estén, te los recomendaré aquí mismo. Mientras tanto, pregúntame lo que necesites: cómo registrar carreras, cerrar la jornada, invitar conductores, exportar informes…",
+    "ca": "Estem preparant vídeos tutorials de cada part de l'app; quan estiguin, te'ls recomanaré aquí mateix. Mentrestant, pregunta'm el que necessitis: com registrar carreres, tancar la jornada, convidar conductors, exportar informes…",
+    "en": "We're preparing video tutorials for each part of the app; when they're ready I'll recommend them right here. Meanwhile, ask me anything: logging rides, ending a shift, inviting drivers, exporting reports…"
+   }
+  },
+  "support": {
+   "cat": "extras",
+   "action": "tickets",
+   "q": {
+    "es": [
+     "donde veo mis tickets",
+     "me han respondido",
+     "respuesta de soporte",
+     "informar de un error",
+     "ver mi ticket"
+    ],
+    "ca": [
+     "on veig els meus tiquets",
+     "m'han respost",
+     "resposta de suport",
+     "informar d'un error"
+    ],
+    "en": [
+     "where are my tickets",
+     "support reply",
+     "report an error",
+     "see my ticket"
+    ]
+   },
+   "a": {
+    "es": "Tus tickets están en Ajustes → «Informar de un error». Ahí ves cada conversación con soporte y sus respuestas; cuando te contesten, verás un aviso en ese menú.",
+    "ca": "Els teus tiquets són a Ajustos → «Informar d'un error». Allà veus cada conversa amb suport i les respostes; quan et contestin, veuràs un avís en aquest menú.",
+    "en": "Your tickets are in Settings → “Report an error”. There you'll see each conversation with support and its replies; when they answer, you'll see a badge on that menu."
+   }
+  }
+ }
+}

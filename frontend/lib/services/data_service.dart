@@ -1929,6 +1929,75 @@ class DataService {
     } catch (_) {/* sin feedback no pasa nada */}
   }
 
+  // ---------------- Asistente virtual (bot de FAQ sin IA, mig. 087) ----------------
+
+  Map<String, String> get _jsonBearer => {
+        'Authorization': 'Bearer ${_c.auth.currentSession?.accessToken ?? ''}',
+        'Content-Type': 'application/json',
+      };
+
+  /// Lo que el admin ha enseñado/editado + frases aprendidas. Resiliente: si
+  /// falla (sin red, backend viejo) devuelve null y el bot usa solo la semilla.
+  Future<Map<String, dynamic>?> assistantRemoteKb() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$backendUrl/api/v1/assistant/kb'), headers: _bearer)
+          .timeout(const Duration(seconds: 6));
+      if (res.statusCode != 200) return null;
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Registra una pregunta y lo que respondió el bot. Devuelve el id (o null).
+  Future<String?> assistantLog(Map<String, dynamic> data) async {
+    try {
+      final res = await http
+          .post(Uri.parse('$backendUrl/api/v1/assistant/log'), headers: _jsonBearer, body: jsonEncode(data))
+          .timeout(const Duration(seconds: 6));
+      if (res.statusCode != 200) return null;
+      return (jsonDecode(res.body) as Map)['id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// "¿Te ha servido?". Si sirvió, `learn` = preguntas previas no entendidas que
+  /// el bot aprende como sinónimos de esa respuesta.
+  Future<void> assistantFeedback(String id, bool helpful, {List<String> learn = const []}) async {
+    try {
+      await http
+          .post(Uri.parse('$backendUrl/api/v1/assistant/feedback'),
+              headers: _jsonBearer, body: jsonEncode({'id': id, 'helpful': helpful, 'learn': learn}))
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {/* best-effort */}
+  }
+
+  Future<Map<String, dynamic>> _adminAsst(String method, String path, [Map<String, dynamic>? body]) async {
+    final uri = Uri.parse('$backendUrl/api/v1/admin/assistant/$path');
+    final res = switch (method) {
+      'GET' => await http.get(uri, headers: _bearer),
+      'PUT' => await http.put(uri, headers: _jsonBearer, body: jsonEncode(body ?? {})),
+      'DELETE' => await http.delete(uri, headers: _bearer),
+      _ => await http.post(uri, headers: _jsonBearer, body: jsonEncode(body ?? {})),
+    };
+    final b = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(b['error'] ?? 'Error (${res.statusCode})');
+    return b;
+  }
+
+  /// Admin (pestaña Asistente de Soporte).
+  Future<Map<String, dynamic>> adminAssistantSummary({int days = 30}) => _adminAsst('GET', 'summary?days=$days');
+  Future<Map<String, dynamic>> adminAssistantEntries() => _adminAsst('GET', 'entries');
+  Future<void> adminAssistantSaveEntry(String id, Map<String, dynamic>? data, {bool active = true}) =>
+      _adminAsst('PUT', 'entries/$id', {'data': data, 'active': active});
+  Future<void> adminAssistantDeleteEntry(String id) => _adminAsst('DELETE', 'entries/$id');
+  Future<void> adminAssistantTeach(String phrase, String entryId, {String? lang}) =>
+      _adminAsst('POST', 'teach', {'phrase': phrase, 'entry_id': entryId, 'lang': lang});
+  Future<void> adminAssistantForget(String learnedId) => _adminAsst('DELETE', 'learned/$learnedId');
+  Future<void> adminAssistantDismiss(String phrase) => _adminAsst('POST', 'dismiss', {'phrase': phrase});
+
   // ---------------- Facturación / Suscripción (Fase 4) ----------------
 
   /// Datos de suscripción del tenant (RLS: cualquier miembro lee su tenant).

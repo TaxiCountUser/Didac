@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import 'admin_assistant_tab.dart';
 import 'admin_config_tab.dart';
 import 'admin_theme.dart';
 import 'admin_incident_chat_screen.dart';
@@ -33,7 +34,7 @@ class AdminModuleScreen extends StatelessWidget {
       l.t('adm_audit_tab'),
     ];
     const children = <Widget>[
-      _IncidentsTab(), _ChallengesTab(), ReferralsTab(),
+      _SupportModule(), _ChallengesTab(), ReferralsTab(),
       SecurityTab(mode: 'monitoring'), ConfigTab(),
       SecurityTab(mode: 'audit'),
     ];
@@ -58,6 +59,38 @@ class AdminModuleScreen extends StatelessWidget {
         body: adminConstrained(children[m]),
       ),
     );
+  }
+}
+
+/// Soporte: tickets (incidencias) + el asistente virtual (bot de FAQ).
+class _SupportModule extends StatefulWidget {
+  const _SupportModule();
+  @override
+  State<_SupportModule> createState() => _SupportModuleState();
+}
+
+class _SupportModuleState extends State<_SupportModule> {
+  int _tab = 0;
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Column(children: [
+      SizedBox(
+        height: 40,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+          children: [
+            AdminPill(label: l.t('adm_asst_tickets_tab'), selected: _tab == 0, color: AdminColors.blue,
+                onTap: () => setState(() => _tab = 0)),
+            const SizedBox(width: 6),
+            AdminPill(label: l.t('adm_asst_tab'), selected: _tab == 1, color: AdminColors.amber,
+                onTap: () => setState(() => _tab = 1)),
+          ],
+        ),
+      ),
+      Expanded(child: _tab == 0 ? const _IncidentsTab() : const AssistantAdminTab()),
+    ]);
   }
 }
 

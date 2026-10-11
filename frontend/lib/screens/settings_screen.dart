@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../assistant/assistant_screen.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
@@ -98,6 +99,25 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => TicketsScreen(profile: widget.profile)),
     );
+  }
+
+  // Asistente virtual. `actions` = pantallas a las que puede llevar ("Ir allí").
+  void _openAssistant() {
+    final l = context.l10n;
+    final isOwner = widget.profile.isOwner;
+    _open(AssistantScreen(profile: widget.profile, actions: {
+      'tickets': _openTickets,
+      'change_password': _changePassword,
+      'username': _editUsername,
+      'language': _pickLanguage,
+      'whatsnew': () => _open(AboutScreen(isOwner: isOwner)),
+      if (isOwner) 'locate': () => _open(LocateVehicleScreen(profile: widget.profile)),
+      if (isOwner) 'subscription': () => _open(Scaffold(
+            appBar: AppBar(title: Text(l.t('nav_subscription'))),
+            body: SubscriptionScreen(profile: widget.profile),
+          )),
+      if (isOwner && _subActive) 'referral': () => _open(ReferralScreen(profile: widget.profile)),
+    }));
   }
 
   String _vehLabel(Map<String, dynamic> v) {
@@ -598,6 +618,15 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               trailing: const Icon(Icons.chevron_right),
               onTap: _openTickets,
             ),
+            // Asistente virtual (bot de FAQ sin IA): resuelve dudas y, si no puede,
+            // crea un ticket que llega al chat de Soporte del admin.
+            ListTile(
+              leading: const Icon(Icons.auto_awesome, color: Color(0xFFFFA000)),
+              title: Text(l.t('asst_tile')),
+              subtitle: Text(l.t('asst_tile_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _openAssistant,
+            ),
           ],
 
           // ── Menú del CONDUCTOR (orden: vehículo, mensaje al jefe, retos, error) ──
@@ -645,6 +674,15 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               subtitle: Text(_newReply ? l.t('tk_new_reply') : l.t('set_report_bug_sub')),
               trailing: const Icon(Icons.chevron_right),
               onTap: _openTickets,
+            ),
+            // Asistente virtual (bot de FAQ sin IA): resuelve dudas y, si no puede,
+            // crea un ticket que llega al chat de Soporte del admin.
+            ListTile(
+              leading: const Icon(Icons.auto_awesome, color: Color(0xFFFFA000)),
+              title: Text(l.t('asst_tile')),
+              subtitle: Text(l.t('asst_tile_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _openAssistant,
             ),
           ],
 

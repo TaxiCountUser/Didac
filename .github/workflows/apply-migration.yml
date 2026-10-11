@@ -1,0 +1,39 @@
+name: Aplicar migración a la BD
+
+# Aplica UNA migración de supabase/migrations/ a la BD de producción (Supabase),
+# usando el mismo secret SUPABASE_DB_URL que el backup diario. SOLO manual:
+#   gh workflow run apply-migration.yml -f file=087_assistant.sql
+# ⚠️ Antes, lanza el backup (backup-db.yml) y espera a que acabe en verde.
+# Las migraciones deben ser idempotentes (if not exists / create or replace).
+
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'Archivo de supabase/migrations (p.ej. 087_assistant.sql)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aplicar con psql (Docker postgres:17)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          FILE: ${{ github.event.inputs.file }}
+        run: |
+          case "$FILE" in
+            *[!A-Za-z0-9_.-]*|'') echo "::error::Nombre de archivo no válido"; exit 1;;
+          esac
+          test -f "supabase/migrations/$FILE" || { echo "::error::No existe supabase/migrations/$FILE"; exit 1; }
+          URL="$(printf '%s' "$SUPABASE_DB_URL" | tr -d '\r' \
+            | grep -oE 'postgres(ql)?://[^[:space:]"'\'']+' | head -n1)"
+          [ -n "$URL" ] || { echo "::error::SUPABASE_DB_URL sin URI postgresql://"; exit 1; }
+          docker run --rm -v "$PWD/supabase/migrations:/m" --entrypoint psql postgres:17 \
+            "$URL" -v ON_ERROR_STOP=1 -1 -f "/m/$FILE" -c "notify pgrst, 'reload schema';"
+          echo "Migración $FILE aplicada."
