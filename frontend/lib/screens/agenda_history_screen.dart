@@ -8,8 +8,9 @@ import '../widgets/agenda_tile.dart';
 import 'agenda_input_screen.dart';
 
 /// Histórico y búsqueda de la agenda. Permite ver los servicios PASADOS y los
-/// PRÓXIMOS (incluidos los muy lejanos) y buscar por empresa/cliente/ruta en
-/// todas las fechas. Los servicios nunca se borran: aquí se recuperan todos.
+/// PRÓXIMOS (incluidos los muy lejanos), buscar por empresa/cliente/ruta en
+/// todas las fechas, y filtrar por una FECHA concreta. Los servicios nunca se
+/// borran: aquí se recuperan todos.
 class AgendaHistoryScreen extends StatefulWidget {
   final Profile profile;
   const AgendaHistoryScreen({super.key, required this.profile});
@@ -22,7 +23,8 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
   final _service = DataService();
   final _searchCtrl = TextEditingController();
   String _query = '';
-  int _segment = 0; // 0 = pasados, 1 = próximos (solo cuando no hay búsqueda)
+  DateTime? _pickedDay; // filtro por fecha concreta (prioritario)
+  int _segment = 0; // 0 = pasados, 1 = próximos (solo sin búsqueda ni fecha)
   late Future<List<Map<String, dynamic>>> _future;
 
   @override
@@ -37,7 +39,22 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
     super.dispose();
   }
 
-  Future<List<Map<String, dynamic>>> _load() {
+  bool _matches(Map<String, dynamic> e, String q) {
+    for (final k in const ['name', 'pickup', 'destination', 'contact']) {
+      final v = (e[k] as String?)?.toLowerCase() ?? '';
+      if (v.contains(q)) return true;
+    }
+    return false;
+  }
+
+  Future<List<Map<String, dynamic>>> _load() async {
+    final day = _pickedDay;
+    if (day != null) {
+      final rows = await _service.listAgendaByDate(day);
+      final q = _query.trim().toLowerCase();
+      if (q.isEmpty) return rows;
+      return rows.where((e) => _matches(e, q)).toList();
+    }
     if (_query.trim().isNotEmpty) return _service.searchAgenda(_query);
     return _segment == 0 ? _service.listAgendaHistory() : _service.listAgenda();
   }
@@ -45,8 +62,6 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
   void _reload() => setState(() => _future = _load());
 
   void _onSearchChanged(String q) {
-    // setState en cada tecla para refrescar el icono de limpiar; al vaciar la
-    // caja volvemos a la vista por segmento (la búsqueda se lanza al pulsar Intro).
     setState(() {
       if (q.trim().isEmpty && _query.isNotEmpty) {
         _query = '';
@@ -55,12 +70,10 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
     });
   }
 
-  void _runSearch(String q) {
-    setState(() {
-      _query = q;
-      _future = _load();
-    });
-  }
+  void _runSearch(String q) => setState(() {
+        _query = q;
+        _future = _load();
+      });
 
   void _setSegment(int s) {
     if (s == _segment) return;
@@ -69,6 +82,27 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
       _future = _load();
     });
   }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _pickedDay ?? now,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 5, 12, 31),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _pickedDay = picked;
+        _future = _load();
+      });
+    }
+  }
+
+  void _clearDate() => setState(() {
+        _pickedDay = null;
+        _future = _load();
+      });
 
   Future<void> _edit(Map<String, dynamic> ev) async {
     final changed = await Navigator.of(context).push<bool>(
@@ -111,41 +145,70 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
     }
   }
 
+  String _dmy(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final searching = _query.trim().isNotEmpty;
+    final byDate = _pickedDay != null;
     return Scaffold(
       appBar: AppBar(title: Text(l.t('ag_history_title'))),
       body: Column(
         children: [
-          // Buscador.
+          // Buscador por texto + botón de fecha.
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-            child: TextField(
-              controller: _searchCtrl,
-              textInputAction: TextInputAction.search,
-              onSubmitted: _runSearch,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: l.t('ag_search_hint'),
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchCtrl.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          _runSearch('');
-                        },
-                      ),
-                isDense: true,
-                border: const OutlineInputBorder(),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: _runSearch,
+                    onChanged: _onSearchChanged,
+                    decoration: InputDecoration(
+                      hintText: l.t('ag_search_hint'),
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchCtrl.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                _runSearch('');
+                              },
+                            ),
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: l.t('ag_pick_date'),
+                  onPressed: _pickDate,
+                  icon: const Icon(Icons.event),
+                ),
+              ],
             ),
           ),
-          // Segmento Pasados / Próximos (solo si no estamos buscando).
-          if (!searching)
+          // Chip con la fecha elegida (si hay) para poder quitarla.
+          if (byDate)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: InputChip(
+                  avatar: const Icon(Icons.event, size: 18),
+                  label: Text(_dmy(_pickedDay!)),
+                  onDeleted: _clearDate,
+                ),
+              ),
+            ),
+          // Segmento Pasados / Próximos (solo si no filtramos por texto ni fecha).
+          if (!searching && !byDate)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
               child: SegmentedButton<int>(
@@ -173,9 +236,11 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
                   }
                   final items = snap.data ?? const [];
                   if (items.isEmpty) {
-                    final msg = searching
-                        ? l.t('ag_no_results')
-                        : (_segment == 0 ? l.t('ag_no_past') : l.t('ag_empty'));
+                    final msg = byDate
+                        ? l.t('ag_no_on_date')
+                        : searching
+                            ? l.t('ag_no_results')
+                            : (_segment == 0 ? l.t('ag_no_past') : l.t('ag_empty'));
                     return ListView(children: [
                       const SizedBox(height: 100),
                       Icon(Icons.calendar_month,

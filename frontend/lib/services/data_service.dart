@@ -262,6 +262,21 @@ class DataService {
     return (rows as List).cast<Map<String, dynamic>>();
   }
 
+  /// Lista los servicios de un DÍA concreto (hora local), ordenados por hora.
+  /// Para buscar una reserva por fecha exacta, sea pasada o futura.
+  Future<List<Map<String, dynamic>>> listAgendaByDate(DateTime day, {int limit = 200}) async {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    final rows = await _c
+        .from('agenda_events')
+        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email)')
+        .gte('scheduled_at', start.toUtc().toIso8601String())
+        .lt('scheduled_at', end.toUtc().toIso8601String())
+        .order('scheduled_at', ascending: true)
+        .limit(limit);
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
+
   /// Crea un servicio en la agenda de la empresa.
   Future<void> addAgendaEvent({
     required String tenantId,

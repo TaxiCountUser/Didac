@@ -90,6 +90,7 @@ class _AppLocalizationsDelegate
 // ============================================================
 const Map<String, Map<String, String>> _values = {
   'es': {
+    'ag_pick_date': 'Buscar por fecha', 'ag_no_on_date': 'No hay servicios en esa fecha.',
     'ag_history': 'Histórico y búsqueda',
     'ag_history_title': 'Agenda · histórico',
     'ag_search_hint': 'Buscar empresa, cliente o ruta…',
@@ -1422,6 +1423,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplicar', 'ref_applied': '¡Código aplicado!',
   },
   'en': {
+    'ag_pick_date': 'Search by date', 'ag_no_on_date': 'No services on that date.',
     'ag_history': 'History and search',
     'ag_history_title': 'Agenda · history',
     'ag_search_hint': 'Search company, client or route…',
@@ -2671,6 +2673,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Apply', 'ref_applied': 'Code applied!',
   },
   'ca': {
+    'ag_pick_date': 'Cerca per data', 'ag_no_on_date': 'No hi ha serveis en aquesta data.',
     'ag_history': 'Històric i cerca',
     'ag_history_title': 'Agenda · històric',
     'ag_search_hint': 'Cerca empresa, client o ruta…',
@@ -3970,6 +3973,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplica', 'ref_applied': 'Codi aplicat!',
   },
   'fr': {
+    'ag_pick_date': 'Rechercher par date', 'ag_no_on_date': 'Aucun service à cette date.',
     'ag_history': 'Historique et recherche',
     'ag_history_title': 'Agenda · historique',
     'ag_search_hint': 'Rechercher entreprise, client ou trajet…',
@@ -5270,6 +5274,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Appliquer', 'ref_applied': 'Code appliqué !',
   },
   'it': {
+    'ag_pick_date': 'Cerca per data', 'ag_no_on_date': 'Nessun servizio in questa data.',
     'ag_history': 'Storico e ricerca',
     'ag_history_title': 'Agenda · storico',
     'ag_search_hint': 'Cerca azienda, cliente o tragitto…',
@@ -6567,6 +6572,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Applica', 'ref_applied': 'Codice applicato!',
   },
   'de': {
+    'ag_pick_date': 'Nach Datum suchen', 'ag_no_on_date': 'Keine Dienste an diesem Datum.',
     'ag_history': 'Verlauf und Suche',
     'ag_history_title': 'Agenda · Verlauf',
     'ag_search_hint': 'Firma, Kunde oder Route suchen…',
@@ -7864,6 +7870,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Anwenden', 'ref_applied': 'Code angewendet!',
   },
   'pt': {
+    'ag_pick_date': 'Pesquisar por data', 'ag_no_on_date': 'Não há serviços nessa data.',
     'ag_history': 'Histórico e pesquisa',
     'ag_history_title': 'Agenda · histórico',
     'ag_search_hint': 'Pesquisar empresa, cliente ou rota…',
@@ -9161,6 +9168,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplicar', 'ref_applied': 'Código aplicado!',
   },
   'eu': {
+    'ag_pick_date': 'Bilatu dataz', 'ag_no_on_date': 'Ez dago zerbitzurik data horretan.',
     'ag_history': 'Historia eta bilaketa',
     'ag_history_title': 'Agenda · historia',
     'ag_search_hint': 'Bilatu enpresa, bezeroa edo ibilbidea…',
