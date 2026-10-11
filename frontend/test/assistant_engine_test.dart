@@ -58,6 +58,11 @@ void main() {
     });
   }
 
+  test('una sola palabra rara que casa no basta', () {
+    final r = engine.search('el cacharro no traga mis papeles', lang: 'es');
+    expect(r.isEmpty || r.first.score < 0.5, isTrue, reason: r.isEmpty ? '' : '${r.first.entry.id} ${r.first.score}');
+  });
+
   test('pregunta sin relación -> nada seguro', () {
     final r = engine.search('receta de paella valenciana', lang: 'es');
     expect(r.isEmpty || r.first.score < 0.45, isTrue, reason: r.isEmpty ? '' : '${r.first.entry.id} ${r.first.score}');

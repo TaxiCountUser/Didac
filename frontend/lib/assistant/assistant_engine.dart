@@ -302,7 +302,9 @@ class AssistantEngine {
     for (final k in _idf.keys) {
       if (similar(tok, k)) return _idf[k]!;
     }
-    return 0.6;
+    // Un tercio de la más rara: una sola palabra que casa no debe bastar
+    // para contestar con seguridad (mismo criterio que ProCount).
+    return 0.35 * _maxIdf;
   }
 
   /// Puntúa cada entrada (0..1) y devuelve las mejores, de mayor a menor.
@@ -326,8 +328,12 @@ class AssistantEngine {
       for (final doc in _docs[e.id] ?? const <List<String>>[]) {
         if (qTotal == 0) break;
         var qHit = 0.0;
+        var hits = 0;
         for (final t in qt) {
-          if (doc.any((d) => similar(t, d))) qHit += qWeights[t]!;
+          if (doc.any((d) => similar(t, d))) {
+            qHit += qWeights[t]!;
+            hits++;
+          }
         }
         if (qHit == 0) continue;
         var dTotal = 0.0, dHit = 0.0;
@@ -336,7 +342,8 @@ class AssistantEngine {
           dTotal += w;
           if (qt.any((t) => similar(t, d))) dHit += w;
         }
-        final s = 0.6 * (qHit / qTotal) + 0.4 * (dTotal == 0 ? 0 : dHit / dTotal);
+        var s = 0.6 * (qHit / qTotal) + 0.4 * (dTotal == 0 ? 0 : dHit / dTotal);
+        if (hits * 2 < qt.length) s *= 0.8; // casa menos de la mitad: mejor preguntar
         if (s > best) best = s;
       }
       if (best <= 0) continue;
