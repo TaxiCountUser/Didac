@@ -16,6 +16,25 @@ String agendaDayLabel(BuildContext context, DateTime? d) {
   return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
 
+/// Construye el mapa de prellenado para registrar un servicio de la agenda como
+/// carrera (lo consume `TransactionInputScreen.initial`).
+Map<String, dynamic> agendaToTripInitial(Map<String, dynamic> ev) {
+  String? s(String k) {
+    final v = (ev[k] as String?)?.trim();
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  return <String, dynamic>{
+    'type': 'income',
+    if (ev['price_approx'] != null) 'amount': ev['price_approx'],
+    if (s('pickup') != null) 'origin': s('pickup'),
+    if (s('destination') != null) 'destination': s('destination'),
+    if (s('name') != null) 'client_name': s('name'),
+    if (s('note') != null) 'description': s('note'),
+    if (ev['scheduled_at'] != null) 'created_at': ev['scheduled_at'],
+  };
+}
+
 /// Construye una lista con cabeceras de día a partir de eventos YA ordenados.
 /// [tile] pinta cada fila (normalmente un [AgendaTile]).
 List<Widget> buildAgendaGrouped(
@@ -50,6 +69,7 @@ class AgendaTile extends StatelessWidget {
   final VoidCallback onToggleDone;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onRegister; // registrar el servicio como carrera
   const AgendaTile({
     super.key,
     required this.ev,
@@ -57,6 +77,7 @@ class AgendaTile extends StatelessWidget {
     required this.onToggleDone,
     required this.onEdit,
     required this.onDelete,
+    required this.onRegister,
   });
 
   @override
@@ -105,10 +126,19 @@ class AgendaTile extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w600)),
         PopupMenuButton<String>(
           onSelected: (v) {
+            if (v == 'register') onRegister();
             if (v == 'edit') onEdit();
             if (v == 'delete') onDelete();
           },
           itemBuilder: (ctx) => [
+            PopupMenuItem(
+              value: 'register',
+              child: Row(children: [
+                const Icon(Icons.add_task, size: 18),
+                const SizedBox(width: 8),
+                Text(l.t('ag_register_trip')),
+              ]),
+            ),
             PopupMenuItem(value: 'edit', child: Text(l.t('edit'))),
             PopupMenuItem(value: 'delete', child: Text(l.t('ag_delete'))),
           ],

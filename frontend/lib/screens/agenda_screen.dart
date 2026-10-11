@@ -7,6 +7,7 @@ import '../util/error_ui.dart';
 import '../widgets/agenda_tile.dart';
 import 'agenda_input_screen.dart';
 import 'agenda_history_screen.dart';
+import 'transaction_input_screen.dart';
 
 /// AGENDA compartida de la empresa (opción oculta y de pago, Fase 1). Lista de
 /// servicios PRÓXIMOS, agrupados por día. El histórico (pasados) y la búsqueda
@@ -88,6 +89,23 @@ class _AgendaScreenState extends State<AgendaScreen> {
     }
   }
 
+  // Registra el servicio como una carrera: abre el formulario prellenado y, si
+  // se guarda, marca el servicio como hecho para no duplicarlo.
+  Future<void> _register(Map<String, dynamic> ev) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TransactionInputScreen(
+            profile: widget.profile, initial: agendaToTripInitial(ev), popWithResult: true),
+      ),
+    );
+    if (saved == true) {
+      try {
+        await _service.setAgendaStatus(ev['id'] as String, 'done');
+      } catch (_) {/* el registro ya se guardó; marcar hecho es best-effort */}
+      if (mounted) _reload();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -140,6 +158,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   onToggleDone: () => _toggleDone(ev),
                   onEdit: () => _edit(ev),
                   onDelete: () => _delete(ev),
+                  onRegister: () => _register(ev),
                 );
               }),
             );

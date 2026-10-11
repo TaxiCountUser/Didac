@@ -90,6 +90,7 @@ class _AppLocalizationsDelegate
 // ============================================================
 const Map<String, Map<String, String>> _values = {
   'es': {
+    'ag_register_trip': 'Registrar esta carrera',
     'ag_pick_date': 'Buscar por fecha', 'ag_no_on_date': 'No hay servicios en esa fecha.',
     'ag_history': 'Histórico y búsqueda',
     'ag_history_title': 'Agenda · histórico',
@@ -1423,6 +1424,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplicar', 'ref_applied': '¡Código aplicado!',
   },
   'en': {
+    'ag_register_trip': 'Log this trip',
     'ag_pick_date': 'Search by date', 'ag_no_on_date': 'No services on that date.',
     'ag_history': 'History and search',
     'ag_history_title': 'Agenda · history',
@@ -2673,6 +2675,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Apply', 'ref_applied': 'Code applied!',
   },
   'ca': {
+    'ag_register_trip': 'Registrar aquesta carrera',
     'ag_pick_date': 'Cerca per data', 'ag_no_on_date': 'No hi ha serveis en aquesta data.',
     'ag_history': 'Històric i cerca',
     'ag_history_title': 'Agenda · històric',
@@ -3973,6 +3976,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplica', 'ref_applied': 'Codi aplicat!',
   },
   'fr': {
+    'ag_register_trip': 'Enregistrer cette course',
     'ag_pick_date': 'Rechercher par date', 'ag_no_on_date': 'Aucun service à cette date.',
     'ag_history': 'Historique et recherche',
     'ag_history_title': 'Agenda · historique',
@@ -5274,6 +5278,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Appliquer', 'ref_applied': 'Code appliqué !',
   },
   'it': {
+    'ag_register_trip': 'Registra questa corsa',
     'ag_pick_date': 'Cerca per data', 'ag_no_on_date': 'Nessun servizio in questa data.',
     'ag_history': 'Storico e ricerca',
     'ag_history_title': 'Agenda · storico',
@@ -6572,6 +6577,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Applica', 'ref_applied': 'Codice applicato!',
   },
   'de': {
+    'ag_register_trip': 'Diese Fahrt erfassen',
     'ag_pick_date': 'Nach Datum suchen', 'ag_no_on_date': 'Keine Dienste an diesem Datum.',
     'ag_history': 'Verlauf und Suche',
     'ag_history_title': 'Agenda · Verlauf',
@@ -7870,6 +7876,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Anwenden', 'ref_applied': 'Code angewendet!',
   },
   'pt': {
+    'ag_register_trip': 'Registar esta viagem',
     'ag_pick_date': 'Pesquisar por data', 'ag_no_on_date': 'Não há serviços nessa data.',
     'ag_history': 'Histórico e pesquisa',
     'ag_history_title': 'Agenda · histórico',
@@ -9168,6 +9175,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplicar', 'ref_applied': 'Código aplicado!',
   },
   'eu': {
+    'ag_register_trip': 'Erregistratu bidaia hau',
     'ag_pick_date': 'Bilatu dataz', 'ag_no_on_date': 'Ez dago zerbitzurik data horretan.',
     'ag_history': 'Historia eta bilaketa',
     'ag_history_title': 'Agenda · historia',

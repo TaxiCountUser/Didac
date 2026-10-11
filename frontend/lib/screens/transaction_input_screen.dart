@@ -37,6 +37,9 @@ class TransactionInputScreen extends StatefulWidget {
   final bool isPreview;
   final String? editId; // si != null, edita la transacción existente
   final bool embedded; // si true, no envuelve en Scaffold (para pestañas)
+  // Si true, al crear una carrera nueva vuelve a la pantalla anterior con
+  // Navigator.pop(true) en vez de ir a home (para registrar desde la agenda).
+  final bool popWithResult;
   const TransactionInputScreen({
     super.key,
     required this.profile,
@@ -44,6 +47,7 @@ class TransactionInputScreen extends StatefulWidget {
     this.isPreview = false,
     this.editId,
     this.embedded = false,
+    this.popWithResult = false,
   });
 
   @override
@@ -293,7 +297,11 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_isTrip ? l.t('ti_trip_saved') : l.t('ti_expense_saved'))),
       );
-      Navigator.of(context).popUntil((r) => r.isFirst);
+      if (widget.popWithResult) {
+        Navigator.of(context).pop(true); // vuelve a la agenda (registrar carrera)
+      } else {
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);

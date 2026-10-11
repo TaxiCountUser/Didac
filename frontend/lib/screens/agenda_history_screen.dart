@@ -6,6 +6,7 @@ import '../services/data_service.dart';
 import '../util/error_ui.dart';
 import '../widgets/agenda_tile.dart';
 import 'agenda_input_screen.dart';
+import 'transaction_input_screen.dart';
 
 /// Histórico y búsqueda de la agenda. Permite ver los servicios PASADOS y los
 /// PRÓXIMOS (incluidos los muy lejanos), buscar por empresa/cliente/ruta en
@@ -145,6 +146,21 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
     }
   }
 
+  Future<void> _register(Map<String, dynamic> ev) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TransactionInputScreen(
+            profile: widget.profile, initial: agendaToTripInitial(ev), popWithResult: true),
+      ),
+    );
+    if (saved == true) {
+      try {
+        await _service.setAgendaStatus(ev['id'] as String, 'done');
+      } catch (_) {/* best-effort */}
+      if (mounted) _reload();
+    }
+  }
+
   String _dmy(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
@@ -257,6 +273,7 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
                         onToggleDone: () => _toggleDone(ev),
                         onEdit: () => _edit(ev),
                         onDelete: () => _delete(ev),
+                        onRegister: () => _register(ev),
                       );
                     }),
                   );
