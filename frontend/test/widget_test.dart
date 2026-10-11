@@ -19,7 +19,8 @@ void main() {
     await tester.pumpWidget(_app(const LoginScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('TaxiCount'), findsOneWidget);
+    // La marca se pinta como imagen (brandLogotipo), no como texto.
+    expect(find.image(const AssetImage('assets/brand/logotipo.png')), findsOneWidget);
     expect(find.byKey(const Key('email_field')), findsOneWidget);
     expect(find.byKey(const Key('password_field')), findsOneWidget);
   });

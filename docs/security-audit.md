@@ -30,6 +30,16 @@ bounds check **cuando se pasa `buf`**"). exceljs genera UUIDs **sin** el argumen
 residual (no hay HIGH/CRITICAL) y se revisará cuando exceljs publique una versión
 con uuid ≥ 11.1.1.
 
+### Actualización 2026-10-11 (CI `audit-backend` + `deps-scan`)
+
+`npm audit` y `osv-scanner` marcaron 31 avisos (21 HIGH) en transitivas del
+backend, todos con versión parcheada **dentro del rango semver** (sin `--force`
+ni overrides nuevos): `npm audit fix` + `fastify` `^5.8.5` → `^5.12.5`.
+Versiones resueltas: `fastify` 5.12.5, `@grpc/grpc-js` 1.14.6
+(GHSA-f596-whhp-79r4, GHSA-m9gg-hp2v-232j), `@fastify/busboy` 3.2.3,
+`fast-uri` 3.1.8, `brace-expansion` 1.1.21 / 2.1.7, `qs` 6.16.0.
+`npm audit` → **0 vulnerabilidades**; `npm test` y `test:ci` verdes.
+
 ## OWASP Top 10
 
 ### A01 — Broken Access Control ✅
