@@ -9,7 +9,7 @@
 
 Hola, compañeros de Élite Taxi:
 
-Me llamo **Didac**, soy taxista en **Figueres** (licencia nº 13) y afiliado al **STACC** desde que empecé, en 2020. Os escribo como compañero, no como una empresa, porque sé de la pelea que lleváis dando por el sector y por el taxi de verdad frente a Uber y las VTC. Esa pelea es justo la que me ha movido a hacer lo que os cuento.
+Me llamo **Didac Oliveras**, soy taxista en **Figueres** (licencia nº 13) y afiliado al **STACC** desde que empecé, en 2020. Os escribo como compañero, no como una empresa, porque sé de la pelea que lleváis dando por el sector y por el taxi de verdad frente a Uber y las VTC. Esa pelea es justo la que me ha movido a hacer lo que os cuento.
 
 Soy la **cuarta generación de taxistas** de mi familia. El primero fue mi bisabuelo: hacia **1940**, justo después de la guerra, se compró un Ford de segunda mano con la chapa de **"SP" (Servicio Público)**, el escudo de la ciudad y el número de licencia en la puerta (conservo la foto). Después vino mi abuelo, luego mis padres —que hoy siguen al volante con la licencia nº 7— y ahora yo, con la nº 13. **Llevamos unos 85 años en esto**: prácticamente toda la historia del taxi tal y como lo conocemos.
 
@@ -33,18 +33,18 @@ Pero os escribo también por algo más grande, y a vosotros especialmente: un su
 
 **Lo que os propongo:**
 
-- Una **oferta para vuestros afiliados** (la concretamos juntos): de salida, **1 mes de cortesía + la Agenda gratis**, y lo ajustamos para que os cuadre.
+- Una **oferta para vuestros afiliados/socios** (la concretamos juntos): por ejemplo, **un mes y medio de cortesía con la Agenda incluida**, y lo ajustamos para que os cuadre.
 - Para **todos**, afiliados o no, **medio precio durante el primer año** de lanzamiento.
 
 **Lo que os pido:** que me ayudéis a darla a conocer entre vuestros afiliados —un enlace, una charla o demo, una mención en vuestra web o boletín—. Que la haya creado un taxista, y no una multinacional, creo que dice mucho.
 
-Cualquier duda la respondo yo mismo. En la app tenéis un chat que habla **directamente conmigo y con Jordi** (mi socio, que lleva la seguridad y la protección de datos), y contestamos en menos de 48 horas.
+Cualquier duda la respondo yo mismo. En la app tenéis un chat que habla **directamente conmigo y con Jordi Pujadas** (mi socio, que lleva la seguridad y la protección de datos), y contestamos en menos de 48 horas.
 
 Me tenéis en **www.taxicount.com**, donde está todo. Me encantaría enseñárosla en persona cuando queráis.
 
 Gracias por leerme, compañeros.
 
 Un abrazo,
-**Didac**
-Taxista en Figueres · Creador de TaxiCount
+**Didac Oliveras**
+Taxista en Figueres · Creador de TaxiCount (con Jordi Pujadas)
 auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com

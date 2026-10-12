@@ -9,7 +9,7 @@
 
 Hola, companys:
 
-Em dic **Didac**, soc taxista a **Figueres** (llicència núm. 13) i afiliat a l'**STACC** des que vaig començar, el 2020 —els meus pares també ho són—. Us escric com a company, no pas com una empresa.
+Em dic **Didac Oliveras**, soc taxista a **Figueres** (llicència núm. 13) i afiliat a l'**STACC** des que vaig començar, el 2020 —els meus pares també ho són—. Us escric com a company, no pas com una empresa.
 
 Soc la **quarta generació de taxistes** de la família. El primer va ser el meu besavi: cap al **1940**, just després de la guerra, es va comprar un Ford de segona mà amb la xapa d'**"SP" (Servei Públic)**, l'escut de la ciutat i el número de llicència a la porta (en conservo la foto). Després va venir el meu avi, més tard els meus pares —que avui encara condueixen amb la llicència núm. 7— i ara jo, amb la núm. 13. **Fa uns 85 anys que hi som**: pràcticament tota la història del taxi tal com el coneixem.
 
@@ -33,18 +33,18 @@ Us escric també per una cosa més gran, un somni. Mentre Uber, FreeNow o Cabify
 
 **El que us proposo:**
 
-- Una **oferta per als vostres afiliats** (la concretem junts): de sortida, **1 mes de cortesia + l'Agenda gratis**, i ho ajustem perquè us quadri.
+- Una **oferta per als vostres afiliats/socis** (la concretem junts): per exemple, **un mes i mig de cortesia amb l'Agenda inclosa**, i ho ajustem perquè us quadri.
 - Per a **tothom**, afiliat o no, **mig preu durant el primer any** de llançament.
 
 **El que us demano:** que m'ajudeu a donar-la a conèixer entre els afiliats —un enllaç, una xerrada o demostració, una menció al web o al butlletí—. Que l'hagi feta un taxista, i no una multinacional, crec que diu molt.
 
-Qualsevol dubte el responc jo mateix. A l'app hi ha un xat que parla **directament amb mi i amb en Jordi** (el meu soci, que porta la seguretat i la protecció de dades), i contestem en menys de 48 hores.
+Qualsevol dubte el responc jo mateix. A l'app hi ha un xat que parla **directament amb mi i amb en Jordi Pujadas** (el meu soci, que porta la seguretat i la protecció de dades), i contestem en menys de 48 hores.
 
 Em teniu a **www.taxicount.com**, on hi ha tot. M'encantaria ensenyar-vos-la en persona quan vulgueu.
 
 Gràcies per llegir-me, companys.
 
 Una abraçada,
-**Didac**
-Taxista a Figueres · Creador de TaxiCount
+**Didac Oliveras**
+Taxista a Figueres · Creador de TaxiCount (amb en Jordi Pujadas)
 auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com

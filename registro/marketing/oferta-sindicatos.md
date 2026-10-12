@@ -22,9 +22,8 @@ La app de gestión **hecha por un taxista, para taxistas**. Registras tus carrer
 - **50 % de descuento durante el primer año.**
 - Siempre habrá promociones (Black Friday, Cyber Monday…).
 
-## Oferta especial para afiliados del sindicato *(a concretar juntos)*
-- **1 mes de cortesía.**
-- **Agenda gratis** (periodo a acordar).
+## Oferta especial para afiliados/socios del sindicato *(a concretar juntos)*
+- Por ejemplo: **un mes y medio de cortesía con la Agenda incluida.**
 - *(Abierto a ajustar: descuento permanente para afiliados, días gratis por traer compañeros, etc.)*
 
 ## Qué pedimos al sindicato
@@ -34,4 +33,4 @@ La app de gestión **hecha por un taxista, para taxistas**. Registras tus carrer
 
 ## Contacto
 **www.taxicount.com** · auxproduccio@gmail.com · +34 634 46 56 31 · chat directo dentro de la app.
-Creada por **Didac**, taxista en Figueres (4ª generación), afiliado al STACC.
+Creada por **Didac Oliveras** (con **Jordi Pujadas**), taxista en Figueres (4ª generación), afiliado al STACC.
