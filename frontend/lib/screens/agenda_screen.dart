@@ -106,6 +106,12 @@ class _AgendaScreenState extends State<AgendaScreen> {
     }
   }
 
+  // Asignar el servicio a un conductor (solo el titular).
+  Future<void> _assign(Map<String, dynamic> ev) async {
+    final changed = await showAssignAgendaSheet(context, _service, ev);
+    if (changed && mounted) _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -159,6 +165,8 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   onEdit: () => _edit(ev),
                   onDelete: () => _delete(ev),
                   onRegister: () => _register(ev),
+                  onAssign: () => _assign(ev),
+                  canAssign: widget.profile.isOwner,
                 );
               }),
             );

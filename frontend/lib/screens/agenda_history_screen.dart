@@ -161,6 +161,11 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
     }
   }
 
+  Future<void> _assign(Map<String, dynamic> ev) async {
+    final changed = await showAssignAgendaSheet(context, _service, ev);
+    if (changed && mounted) _reload();
+  }
+
   String _dmy(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
@@ -274,6 +279,8 @@ class _AgendaHistoryScreenState extends State<AgendaHistoryScreen> {
                         onEdit: () => _edit(ev),
                         onDelete: () => _delete(ev),
                         onRegister: () => _register(ev),
+                        onAssign: () => _assign(ev),
+                        canAssign: widget.profile.isOwner,
                       );
                     }),
                   );

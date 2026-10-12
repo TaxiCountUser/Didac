@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/data_service.dart';
+import '../util/error_ui.dart';
 
 /// Etiqueta de día para la agenda: Hoy / Mañana para fechas próximas; si no, la
 /// fecha (dd/mm/aaaa). Reutilizada por la agenda y por su histórico.
@@ -33,6 +35,65 @@ Map<String, dynamic> agendaToTripInitial(Map<String, dynamic> ev) {
     if (s('note') != null) 'description': s('note'),
     if (ev['scheduled_at'] != null) 'created_at': ev['scheduled_at'],
   };
+}
+
+/// Muestra una hoja para ASIGNAR el servicio a un conductor (o a toda la flota).
+/// Solo tiene sentido para el titular. Devuelve true si cambió la asignación.
+Future<bool> showAssignAgendaSheet(
+    BuildContext context, DataService service, Map<String, dynamic> ev) async {
+  final l = context.l10n;
+  List<Map<String, dynamic>> drivers;
+  try {
+    drivers = await service.listDrivers();
+  } catch (e) {
+    if (context.mounted) showError(context, e, screen: 'Agenda');
+    return false;
+  }
+  if (!context.mounted) return false;
+  final current = ev['assigned_to'] as String?;
+  final sel = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: ListView(shrinkWrap: true, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: Text(l.t('ag_assign_title'),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+        ),
+        ListTile(
+          leading: const Icon(Icons.groups),
+          title: Text(l.t('ag_assign_all')),
+          trailing: current == null ? const Icon(Icons.check, color: Colors.green) : null,
+          onTap: () => Navigator.pop(ctx, ''),
+        ),
+        const Divider(height: 1),
+        ...drivers.map((d) {
+          final name = (d['name'] as String?)?.trim();
+          final label = (name != null && name.isNotEmpty)
+              ? name
+              : ((d['email'] as String?) ?? '—');
+          return ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: Text(label),
+            trailing: current == d['id'] ? const Icon(Icons.check, color: Colors.green) : null,
+            onTap: () => Navigator.pop(ctx, d['id'] as String),
+          );
+        }),
+        const SizedBox(height: 8),
+      ]),
+    ),
+  );
+  if (sel == null) return false; // cerrado sin elegir
+  final newId = sel.isEmpty ? null : sel;
+  if (newId == current) return false; // sin cambios
+  try {
+    await service.assignAgenda(ev['id'] as String, newId);
+    return true;
+  } catch (e) {
+    if (context.mounted) showError(context, e, screen: 'Agenda');
+    return false;
+  }
 }
 
 /// Construye una lista con cabeceras de día a partir de eventos YA ordenados.
@@ -70,6 +131,8 @@ class AgendaTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRegister; // registrar el servicio como carrera
+  final VoidCallback onAssign; // asignar a un conductor (solo titular)
+  final bool canAssign; // solo el titular ve la opción de asignar
   const AgendaTile({
     super.key,
     required this.ev,
@@ -78,6 +141,8 @@ class AgendaTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onRegister,
+    required this.onAssign,
+    this.canAssign = false,
   });
 
   @override
@@ -96,10 +161,14 @@ class AgendaTile extends StatelessWidget {
     final price = ev['price_approx'];
     final author =
         (ev['users'] as Map?)?['name'] ?? (ev['users'] as Map?)?['email'] ?? '';
+    final assignedTo = ev['assigned_to'] as String?;
+    final assigneeName =
+        (ev['assignee'] as Map?)?['name'] ?? (ev['assignee'] as Map?)?['email'];
     final route = (pickup.isNotEmpty || dest.isNotEmpty)
         ? '${pickup.isEmpty ? '—' : pickup} → ${dest.isEmpty ? '—' : dest}'
         : '';
     final sub = <String>[
+      if (assignedTo != null) '👤 ${l.t('ag_for')}: ${assigneeName ?? '—'}',
       if (contact.isNotEmpty) '📞 $contact',
       if (author.toString().isNotEmpty) '${l.t('ag_by')}: $author',
       if (note.isNotEmpty) note,
@@ -127,6 +196,7 @@ class AgendaTile extends StatelessWidget {
         PopupMenuButton<String>(
           onSelected: (v) {
             if (v == 'register') onRegister();
+            if (v == 'assign') onAssign();
             if (v == 'edit') onEdit();
             if (v == 'delete') onDelete();
           },
@@ -139,6 +209,15 @@ class AgendaTile extends StatelessWidget {
                 Text(l.t('ag_register_trip')),
               ]),
             ),
+            if (canAssign)
+              PopupMenuItem(
+                value: 'assign',
+                child: Row(children: [
+                  const Icon(Icons.person_add_alt, size: 18),
+                  const SizedBox(width: 8),
+                  Text(l.t('ag_assign')),
+                ]),
+              ),
             PopupMenuItem(value: 'edit', child: Text(l.t('edit'))),
             PopupMenuItem(value: 'delete', child: Text(l.t('ag_delete'))),
           ],

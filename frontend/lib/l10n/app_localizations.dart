@@ -90,6 +90,7 @@ class _AppLocalizationsDelegate
 // ============================================================
 const Map<String, Map<String, String>> _values = {
   'es': {
+    'ag_assign': 'Asignar a conductor', 'ag_assign_all': 'Toda la flota', 'ag_assign_title': 'Asignar servicio a', 'ag_for': 'Para',
     'ag_register_trip': 'Registrar esta carrera',
     'ag_pick_date': 'Buscar por fecha', 'ag_no_on_date': 'No hay servicios en esa fecha.',
     'ag_history': 'Histórico y búsqueda',
@@ -1424,6 +1425,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplicar', 'ref_applied': '¡Código aplicado!',
   },
   'en': {
+    'ag_assign': 'Assign to driver', 'ag_assign_all': 'Whole fleet', 'ag_assign_title': 'Assign service to', 'ag_for': 'For',
     'ag_register_trip': 'Log this trip',
     'ag_pick_date': 'Search by date', 'ag_no_on_date': 'No services on that date.',
     'ag_history': 'History and search',
@@ -2675,6 +2677,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Apply', 'ref_applied': 'Code applied!',
   },
   'ca': {
+    'ag_assign': 'Assignar a conductor', 'ag_assign_all': 'Tota la flota', 'ag_assign_title': 'Assignar servei a', 'ag_for': 'Per a',
     'ag_register_trip': 'Registrar aquesta carrera',
     'ag_pick_date': 'Cerca per data', 'ag_no_on_date': 'No hi ha serveis en aquesta data.',
     'ag_history': 'Històric i cerca',
@@ -3976,6 +3979,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplica', 'ref_applied': 'Codi aplicat!',
   },
   'fr': {
+    'ag_assign': 'Attribuer à un chauffeur', 'ag_assign_all': 'Toute la flotte', 'ag_assign_title': 'Attribuer la course à', 'ag_for': 'Pour',
     'ag_register_trip': 'Enregistrer cette course',
     'ag_pick_date': 'Rechercher par date', 'ag_no_on_date': 'Aucun service à cette date.',
     'ag_history': 'Historique et recherche',
@@ -5278,6 +5282,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Appliquer', 'ref_applied': 'Code appliqué !',
   },
   'it': {
+    'ag_assign': 'Assegna a un conducente', 'ag_assign_all': 'Tutta la flotta', 'ag_assign_title': 'Assegna il servizio a', 'ag_for': 'Per',
     'ag_register_trip': 'Registra questa corsa',
     'ag_pick_date': 'Cerca per data', 'ag_no_on_date': 'Nessun servizio in questa data.',
     'ag_history': 'Storico e ricerca',
@@ -6577,6 +6582,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Applica', 'ref_applied': 'Codice applicato!',
   },
   'de': {
+    'ag_assign': 'Fahrer zuweisen', 'ag_assign_all': 'Gesamte Flotte', 'ag_assign_title': 'Dienst zuweisen an', 'ag_for': 'Für',
     'ag_register_trip': 'Diese Fahrt erfassen',
     'ag_pick_date': 'Nach Datum suchen', 'ag_no_on_date': 'Keine Dienste an diesem Datum.',
     'ag_history': 'Verlauf und Suche',
@@ -7876,6 +7882,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Anwenden', 'ref_applied': 'Code angewendet!',
   },
   'pt': {
+    'ag_assign': 'Atribuir a motorista', 'ag_assign_all': 'Toda a frota', 'ag_assign_title': 'Atribuir serviço a', 'ag_for': 'Para',
     'ag_register_trip': 'Registar esta viagem',
     'ag_pick_date': 'Pesquisar por data', 'ag_no_on_date': 'Não há serviços nessa data.',
     'ag_history': 'Histórico e pesquisa',
@@ -9175,6 +9182,7 @@ const Map<String, Map<String, String>> _values = {
     'ref_apply': 'Aplicar', 'ref_applied': 'Código aplicado!',
   },
   'eu': {
+    'ag_assign': 'Esleitu gidari bati', 'ag_assign_all': 'Flota osoa', 'ag_assign_title': 'Esleitu zerbitzua honi', 'ag_for': 'Norentzat',
     'ag_register_trip': 'Erregistratu bidaia hau',
     'ag_pick_date': 'Bilatu dataz', 'ag_no_on_date': 'Ez dago zerbitzurik data horretan.',
     'ag_history': 'Historia eta bilaketa',

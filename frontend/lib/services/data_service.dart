@@ -226,7 +226,7 @@ class DataService {
     final since = from ?? DateTime.now().subtract(const Duration(hours: 12));
     final rows = await _c
         .from('agenda_events')
-        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email)')
+        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email), assigned_to, assignee:assigned_to(name, email)')
         .gte('scheduled_at', since.toUtc().toIso8601String())
         .order('scheduled_at', ascending: true)
         .limit(limit);
@@ -239,7 +239,7 @@ class DataService {
     final until = DateTime.now().subtract(const Duration(hours: 12));
     final rows = await _c
         .from('agenda_events')
-        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email)')
+        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email), assigned_to, assignee:assigned_to(name, email)')
         .lt('scheduled_at', until.toUtc().toIso8601String())
         .order('scheduled_at', ascending: false)
         .limit(limit);
@@ -255,7 +255,7 @@ class DataService {
     final p = '*$safe*'; // comodín ilike de PostgREST
     final rows = await _c
         .from('agenda_events')
-        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email)')
+        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email), assigned_to, assignee:assigned_to(name, email)')
         .or('name.ilike.$p,pickup.ilike.$p,destination.ilike.$p,contact.ilike.$p')
         .order('scheduled_at', ascending: false)
         .limit(limit);
@@ -269,7 +269,7 @@ class DataService {
     final end = start.add(const Duration(days: 1));
     final rows = await _c
         .from('agenda_events')
-        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email)')
+        .select('id, scheduled_at, name, pickup, destination, contact, price_approx, note, status, created_by, users:created_by(name, email), assigned_to, assignee:assigned_to(name, email)')
         .gte('scheduled_at', start.toUtc().toIso8601String())
         .lt('scheduled_at', end.toUtc().toIso8601String())
         .order('scheduled_at', ascending: true)
@@ -310,6 +310,12 @@ class DataService {
   /// Marca un servicio como hecho / cancelado / pendiente.
   Future<void> setAgendaStatus(String id, String status) async {
     await _c.from('agenda_events').update({'status': status}).eq('id', id);
+  }
+
+  /// Asigna el servicio a un conductor concreto (driverId) o a TODA la flota
+  /// (null). Solo el titular puede hacerlo (lo blinda un trigger en la BD).
+  Future<void> assignAgenda(String id, String? driverId) async {
+    await _c.from('agenda_events').update({'assigned_to': driverId}).eq('id', id);
   }
 
   /// Borra un servicio de la agenda.
