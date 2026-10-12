@@ -7,6 +7,7 @@ Carpeta con todo el material para dar a conocer TaxiCount: cartas a sindicatos, 
 - **[carta-stacc-catala.md](carta-stacc-catala.md)** — versión **cercana** (de taxista a taxistas).
 - **[carta-stacc-formal-catala.md](carta-stacc-formal-catala.md)** — versión **formal / profesional** (institucional).
 - **[carta-stacc-proposta-catala.md](carta-stacc-proposta-catala.md)** — versión **estructura de propuesta/dossier** (secciones).
+- **[carta-stacc-formal-personal-catala.md](carta-stacc-formal-personal-catala.md)** — versión **formal + historia personal** (mezcla: formalidad institucional conservando de dónde viene el proyecto y el compromiso). ⭐ recomendada.
 
 **Otros:**
 - **[carta-elitetaxi-castellano.md](carta-elitetaxi-castellano.md)** — carta en **castellano** para **Élite Taxi**.
