@@ -14,7 +14,7 @@ Carpeta con todo el material para dar a conocer TaxiCount: cartas a sindicatos, 
 - **[oferta-sindicatos.md](oferta-sindicatos.md)** — hoja de oferta (1 página) para acompañar las cartas.
 - **[carta-sindicatos.md](carta-sindicatos.md)** — índice/borrador genérico (sustituido por las versiones a medida).
 
-Firmantes en todas: **Didac Oliveras** y **Jordi Pujadas**.
+Firmantes en todas: **Dídac Oliveras** y **Jordi Pujadas**.
 
 **Contacto en todas:** auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com
 **Pendiente:** adjuntar la **foto del Ford** del bisabuelo (chapa "SP") y, opcional, la del Avensis.

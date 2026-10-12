@@ -9,7 +9,7 @@
 
 Hola, companys:
 
-Em dic **Didac Oliveras**, soc taxista a **Figueres** (llicència núm. 13) i afiliat a l'**STACC** des que vaig començar, el 2020 —els meus pares també ho són—. Us escric com a company, no pas com una empresa.
+Em dic **Dídac Oliveras**, soc taxista a **Figueres** (llicència núm. 13) i afiliat a l'**STACC** des que vaig començar, el 2020 —els meus pares també ho són—. Us escric com a company, no pas com una empresa.
 
 Soc la **quarta generació de taxistes** de la família. El primer va ser el meu besavi: cap al **1940**, just després de la guerra, es va comprar un Ford de segona mà amb la xapa d'**"SP" (Servei Públic)**, l'escut de la ciutat i el número de llicència a la porta (en conservo la foto). Després va venir el meu avi, més tard els meus pares —que avui encara condueixen amb la llicència núm. 7— i ara jo, amb la núm. 13. **Fa uns 85 anys que hi som**: pràcticament tota la història del taxi tal com el coneixem.
 
@@ -45,6 +45,6 @@ Em teniu a **www.taxicount.com**, on hi ha tot. M'encantaria ensenyar-vos-la en 
 Gràcies per llegir-me, companys.
 
 Una abraçada,
-**Didac Oliveras**
+**Dídac Oliveras**
 Taxista a Figueres · Creador de TaxiCount (amb en Jordi Pujadas)
 auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com

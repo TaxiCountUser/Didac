@@ -6,7 +6,7 @@
 ---
 
 ## Qui som
-- **Didac Oliveras** — taxista a **Figueres** (llicència núm. 13), **quarta generació** de taxistes de la família (des de cap al 1940), afiliat a l'**STACC** des del 2020.
+- **Dídac Oliveras** — taxista a **Figueres** (llicència núm. 13), **quarta generació** de taxistes de la família (des de cap al 1940), afiliat a l'**STACC** des del 2020.
 - **Jordi Pujadas** — enginyer informàtic; s'encarrega de la seguretat i la protecció de dades.
 - Una eina **feta per taxistes, per a taxistes**.
 
@@ -33,5 +33,5 @@ Una aplicació de taxi d'àmbit estatal, **en forma de cooperativa**, de la qual
 - **Us demanem:** ajudar-nos a difondre-la (un enllaç, el butlletí, el web o una xerrada/demostració).
 
 ## Contacte
-**Didac Oliveras** (amb en Jordi Pujadas) · Taxista a Figueres · Creador de TaxiCount
+**Dídac Oliveras** (amb en Jordi Pujadas) · Taxista a Figueres · Creador de TaxiCount
 auxproduccio@gmail.com · +34 634 46 56 31 · **www.taxicount.com**

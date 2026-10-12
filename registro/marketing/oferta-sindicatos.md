@@ -33,4 +33,4 @@ La app de gestión **hecha por un taxista, para taxistas**. Registras tus carrer
 
 ## Contacto
 **www.taxicount.com** · auxproduccio@gmail.com · +34 634 46 56 31 · chat directo dentro de la app.
-Creada por **Didac Oliveras** (con **Jordi Pujadas**), taxista en Figueres (4ª generación), afiliado al STACC.
+Creada por **Dídac Oliveras** (con **Jordi Pujadas**), taxista en Figueres (4ª generación), afiliado al STACC.

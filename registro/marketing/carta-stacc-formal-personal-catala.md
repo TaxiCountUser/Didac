@@ -10,7 +10,7 @@
 
 A l'atenció de la junta directiva de l'STACC,
 
-Em presento. Em dic **Didac Oliveras**, soc taxista a Figueres (llicència núm. 13) i afiliat a l'STACC des de l'any 2020. Si em permeteu començar pel principi, és perquè crec que ajuda a entendre d'on surt el que us vull proposar: soc la **quarta generació de taxistes** de la meva família. El primer va ser el meu besavi, que cap al **1940**, tot just acabada la guerra, es va comprar un Ford de segona mà amb la xapa d'**"SP" (Servei Públic)**, l'escut de la ciutat i el número de llicència a la porta. Després va venir el meu avi, més tard els meus pares —que avui encara condueixen amb la llicència núm. 7— i ara jo, amb la núm. 13. Són **uns 85 anys** de la família al volant: pràcticament tota la història del taxi tal com el coneixem.
+Em presento. Em dic **Dídac Oliveras**, soc taxista a Figueres (llicència núm. 13) i afiliat a l'STACC des de l'any 2020. Si em permeteu començar pel principi, és perquè crec que ajuda a entendre d'on surt el que us vull proposar: soc la **quarta generació de taxistes** de la meva família. El primer va ser el meu besavi, que cap al **1940**, tot just acabada la guerra, es va comprar un Ford de segona mà amb la xapa d'**"SP" (Servei Públic)**, l'escut de la ciutat i el número de llicència a la porta. Després va venir el meu avi, més tard els meus pares —que avui encara condueixen amb la llicència núm. 7— i ara jo, amb la núm. 13. Són **uns 85 anys** de la família al volant: pràcticament tota la història del taxi tal com el coneixem.
 
 Juntament amb en **Jordi Pujadas**, enginyer informàtic i soci del projecte —que s'encarrega de la seguretat i la protecció de dades—, he desenvolupat **TaxiCount**, una aplicació de gestió pensada específicament per al nostre ofici.
 
@@ -36,6 +36,6 @@ Juntament amb en **Jordi Pujadas**, enginyer informàtic i soci del projecte —
 Que l'hagi feta un taxista en actiu, i no una multinacional, espero que es noti en cada detall. Quedo a la vostra disposició per ampliar qualsevol punt o oferir-vos una demostració presencial.
 
 Ben cordialment,
-**Didac Oliveras**
+**Dídac Oliveras**
 Taxista a Figueres (4a generació) · Creador de TaxiCount (amb en Jordi Pujadas)
 auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com

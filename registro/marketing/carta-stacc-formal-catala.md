@@ -9,7 +9,7 @@
 
 A l'atenció de la junta directiva de l'STACC,
 
-Em presento: em dic **Didac Oliveras**, soc taxista a Figueres (llicència núm. 13), quarta generació de taxistes de la meva família i afiliat a l'STACC des de l'any 2020. Juntament amb en **Jordi Pujadas**, enginyer informàtic, he desenvolupat **TaxiCount**, una aplicació de gestió pensada específicament per al nostre sector.
+Em presento: em dic **Dídac Oliveras**, soc taxista a Figueres (llicència núm. 13), quarta generació de taxistes de la meva família i afiliat a l'STACC des de l'any 2020. Juntament amb en **Jordi Pujadas**, enginyer informàtic, he desenvolupat **TaxiCount**, una aplicació de gestió pensada específicament per al nostre sector.
 
 M'adreço a vosaltres amb una doble intenció: presentar-vos l'eina i proposar-vos una col·laboració que pugui beneficiar els vostres afiliats.
 
@@ -33,6 +33,6 @@ M'adreço a vosaltres amb una doble intenció: presentar-vos l'eina i proposar-v
 Quedo a la vostra disposició per ampliar qualsevol punt o oferir-vos una demostració presencial.
 
 Ben cordialment,
-**Didac Oliveras**
+**Dídac Oliveras**
 Taxista a Figueres · Creador de TaxiCount (amb en Jordi Pujadas)
 auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com
