@@ -1,0 +1,23 @@
+<!--
+  Plantilla del correo de VERIFICACIÓN de Supabase con la bienvenida + aviso de planes.
+  Dónde pegarla: Supabase (cuenta de TaxiCount) -> proyecto -> Authentication ->
+  Emails -> Templates -> "Confirm signup":
+    - Subject:  Confirma tu correo y empieza tus 15 días gratis en TaxiCount
+    - Message body: TODO lo que hay debajo de este comentario.
+  {{ .ConfirmationURL }} lo rellena Supabase (no tocar).
+  Quien entra con Google no recibe este correo: a esos les llega el de bienvenida
+  del backend (trial_emails.js).
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f2ec;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;color:#222"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden">
+<tr><td style="padding:20px 24px 14px;border-bottom:4px solid #FFC107"><img src="https://www.taxicount.com/marca.png" width="210" alt="TaxiCount" style="display:block;width:210px;height:auto"></td></tr>
+<tr><td style="padding:26px 24px 8px">
+<h1 style="margin:0 0 14px;font-size:21px">¡Bienvenido a TaxiCount!</h1>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.5">Solo falta un paso: confirma tu correo para activar la cuenta.</p>
+<a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#FFC107;color:#1f1f1f;text-decoration:none;font-weight:bold;padding:13px 22px;border-radius:10px">Confirmar mi correo</a>
+<p style="margin:22px 0 12px;font-size:15px;line-height:1.5">Durante <b>15 días</b> puedes usarlo todo gratis y sin límite de conductores: registrar carreras por voz, cuadrar la caja y sacar tus informes en Excel.</p>
+<p style="margin:0 0 12px;font-size:15px;line-height:1.5">Cuando acabe la prueba, podrás seguir con un plan desde <a href="https://www.taxicount.com" style="color:#b8860b">www.taxicount.com</a> (desde 3 € al mes por conductor). Te avisaremos unos días antes.</p>
+<p style="margin:0 0 8px;font-size:12px;color:#888">Si no has creado una cuenta en TaxiCount, ignora este correo.</p>
+</td></tr>
+<tr><td style="padding:20px 24px 24px;font-size:12px;color:#888;line-height:1.5;border-top:1px solid #eee">¿Dudas? Escríbenos desde el chat de soporte de la app. Lo leemos nosotros, Dídac y Jordi.</td></tr>
+</table></td></tr></table>

@@ -1,0 +1,50 @@
+name: Correos de bienvenida y fin de prueba (diario)
+
+# Una vez al día llama al backend, que envía con Resend (mig. 089, trial_emails.js):
+#   - bienvenida a quien se registró con Google (no recibe el de verificación),
+#   - "tu prueba termina el día X" (~3 días antes),
+#   - "tu prueba ha terminado" (el día que acaba).
+# Solo al jefe/autónomo, una vez cada aviso. Sin RESEND_API_KEY en Render no envía.
+#
+# Secrets del repo (ya existen para otros crons):
+#   PROD_BACKEND_URL -> URL del backend en Render (sin barra final)
+#   CRON_SECRET      -> el mismo valor que la env var CRON_SECRET en Render
+#
+# A mano: Actions -> "Correos de bienvenida..." -> Run workflow. Si rellenas
+# "test_to", NO se envía nada a clientes: solo los 3 correos de ejemplo a esa
+# dirección (para ver cómo quedan).
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 08:00 UTC = 09:00/10:00 en España
+  workflow_dispatch:
+    inputs:
+      test_to:
+        description: 'Solo prueba: enviar los 3 correos de ejemplo a este email (vacío = pasada real)'
+        required: false
+        default: ''
+      locale:
+        description: 'Idioma de la prueba (es | ca | en)'
+        required: false
+        default: 'es'
+
+permissions: {}
+
+jobs:
+  trial-emails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar correos
+        env:
+          TEST_TO: ${{ github.event.inputs.test_to }}
+          LOCALE: ${{ github.event.inputs.locale }}
+        run: |
+          BODY='{}'
+          if [ -n "$TEST_TO" ]; then
+            BODY=$(printf '{"test_to":"%s","locale":"%s"}' "$TEST_TO" "${LOCALE:-es}")
+          fi
+          curl --fail-with-body -sS -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            "${{ secrets.PROD_BACKEND_URL }}/api/v1/admin/cron/trial-emails"

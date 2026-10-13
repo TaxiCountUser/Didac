@@ -71,7 +71,7 @@ La arquitectura es sólida y está bien alineada con su stack.
 |---|---|
 | Backend | Fastify, `server.js` ~3.500 líneas + 6 módulos · 69 rutas HTTP |
 | Frontend | Flutter, ~45 pantallas, i18n propia (es/en/ca/fr/it/de/pt/eu) |
-| Base de datos | 85 migraciones · 35 tablas · ~28 RPCs · 53 políticas RLS |
+| Base de datos | 89 migraciones · 35+ tablas · ~28 RPCs · 53 políticas RLS |
 | Idiomas de la app | 8: español, inglés, catalán, francés, italiano, alemán, portugués, euskera |
 | Coste operativo | ~88 €/mes |
 
@@ -611,11 +611,11 @@ Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) 
 | **Kong (Gateway)** | `2.8.1` | 54321 | expone `/auth/v1` y `/rest/v1`; plugins cors/key-auth/acl |
 | **Realtime** | `v2.30.34` (perfil opcional) | — | publica `transactions` en `supabase_realtime` |
 
-**Cifras del esquema:** 85 migraciones · **35 tablas** · **~28 RPCs** `public.*` · **53 políticas RLS** · 3 triggers.
+**Cifras del esquema:** 89 migraciones · **35 tablas** · **~28 RPCs** `public.*` · **53 políticas RLS** · 3 triggers.
 
 **Borrado de cuenta (RGPD art. 17 / requisito Google Play, mig. 085):** borrado LÓGICO compatible con la retención fiscal (5 años). El usuario lo pide en Ajustes → `POST /api/v1/account/request-deletion` marca `users.deleted_at` + `active=false` (no borra Auth); `getCaller` y el login rechazan cuentas con `deleted_at`; el `auth_gate` expulsa. La purga física la decide la administración. Página pública `/borrar-cuenta` (backend) para declarar en Play.
 
-**Pagos y Google Play (`kStoreBuild`, 2026-10-13):** la política de Pagos de Play exige Play Billing para vender servicios digitales DENTRO de la app. Solución "tipo Netflix": el build Android (`build-apk.yml` añade `--dart-define=STORE_BUILD=true` → `config.dart::kStoreBuild`) **no vende ni dice dónde pagar**: en `subscription_screen` desaparecen precios, selector mensual/anual, botón Suscribirse, compra/quita de asientos, cupones y portal de Stripe (queda el estado del plan, días de prueba, días gratis, referidos, cancelar y dar de baja) y aparece un aviso neutro (`store_no_purchase`); `subscription_gate_screen` muestra `store_gate_owner_msg` + botón «Comprobar de nuevo»; el asistente virtual no carga la categoría `suscripcion` del `kb.json` (`AssistantKb.build(..., excludeCats)`). La **web** (sin el define) sigue con Stripe igual. Pendiente: correo automático de fin de prueba con el enlace de pago (fuera de la app sí está permitido; hoy el backend no envía emails).
+**Pagos y Google Play (`kStoreBuild`, 2026-10-13):** la política de Pagos de Play exige Play Billing para vender servicios digitales DENTRO de la app. Solución "tipo Netflix": el build Android (`build-apk.yml` añade `--dart-define=STORE_BUILD=true` → `config.dart::kStoreBuild`) **no vende ni dice dónde pagar**: en `subscription_screen` desaparecen precios, selector mensual/anual, botón Suscribirse, compra/quita de asientos, cupones y portal de Stripe (queda el estado del plan, días de prueba, días gratis, referidos, cancelar y dar de baja) y aparece un aviso neutro (`store_no_purchase`); `subscription_gate_screen` muestra `store_gate_owner_msg` + botón «Comprobar de nuevo»; el asistente virtual no carga la categoría `suscripcion` del `kb.json` (`AssistantKb.build(..., excludeCats)`). La **web** (sin el define) sigue con Stripe igual. Como la app no puede decir dónde pagar, el aviso va por **correo** (fuera de la app sí está permitido): `backend/src/trial_emails.js` + mig. **089** (`trial_emails_sent`, un aviso por empresa/tipo/fecha de fin) + cron diario `trial-emails.yml` → `POST /api/v1/admin/cron/trial-emails`. Envía con la API de **Resend** (env `RESEND_API_KEY`; sin ella no envía) al owner, en es/ca/en según `device_tokens.locale`: **bienvenida** a quien se registró con Google (los de email reciben el de verificación de Supabase, cuya plantilla con la bienvenida está en `registro/plantilla-correo-verificacion.html`), **"tu prueba termina el día X"** (≤3 días antes) y **"tu prueba ha terminado"** (≤3 días después); nunca a empresas de pago, cerradas ni a conductores. `test_to` en el workflow envía los 3 de ejemplo a una dirección sin tocar clientes. Test: `tests/unit/trial_emails.test.js`.
 
 **Diseño de claves foráneas:** todas las tablas de negocio llevan `tenant_id` con
 `ON DELETE CASCADE` (o `SET NULL` para el admin y para `user_id`/`vehicle_id` en

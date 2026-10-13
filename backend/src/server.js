@@ -28,6 +28,7 @@ import { registerOdometerRoutes } from './odometer.js';
 import { registerAuditViewerRoutes } from './audit_viewers.js';
 import { createParseFeedback, registerParseFeedbackRoutes } from './parse_feedback.js';
 import { registerAssistantRoutes } from './assistant.js';
+import { createTrialEmails, registerTrialEmailRoutes } from './trial_emails.js';
 import { registerAdminUsersRoutes } from './admin_users.js';
 import { registerCompaniesRoutes } from './companies.js';
 import { registerFlagsRoutes } from './flags.js';
@@ -573,6 +574,11 @@ export async function buildApp(options = {}) {
   // Asistente virtual (bot de FAQ sin IA): KB aprendida + registro + panel admin
   // (pestaña Asistente de Soporte). Plugin en ./assistant.js.
   registerAssistantRoutes(app, { supabase, getCaller, adminGuard, logAdminAction });
+
+  // Correos de bienvenida / fin de prueba (Resend; mig. 089). La app de Play no
+  // puede decir dónde pagar, así que el aviso va por correo. Cron trial-emails.yml.
+  const trialEmails = createTrialEmails({ supabase, log: app.log });
+  registerTrialEmailRoutes(app, { trialEmails, cronOrAdmin, markCronRun });
 
   // Administradores + usuarios (admin): plugin en ./admin_users.js (Fase B).
   registerAdminUsersRoutes(app, { supabase, adminGuard, logAdminAction });
