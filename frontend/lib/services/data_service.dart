@@ -8,6 +8,7 @@ import '../config.dart';
 import '../models/profile.dart';
 import '../models/tenant_state.dart';
 import '../util/device_tz.dart';
+import '../util/format.dart' show deviceUtcOffsetMin, wallToUtc;
 
 /// Resumen financiero de un conjunto de transacciones.
 class TxSummary {
@@ -1580,6 +1581,9 @@ class DataService {
     };
     // Si no se indica, la BD pone now() por defecto.
     if (createdAt != null) row['created_at'] = createdAt.toUtc().toIso8601String();
+    // Diferencia horaria del móvil al apuntarla (mig. 091): la carrera se enseñará
+    // siempre a la hora a la que se apuntó, se mire desde donde se mire.
+    row['utc_offset_min'] = deviceUtcOffsetMin(createdAt);
     await _c.from('transactions').insert(row);
   }
 
@@ -1913,6 +1917,7 @@ class DataService {
     DateTime? createdAt,
     String? vehicleId,
     bool setVehicle = false,
+    int? utcOffsetMin, // la de la carrera (mig. 091); null = carrera antigua
   }) async {
     final patch = <String, dynamic>{
       'amount': amount,
@@ -1926,7 +1931,17 @@ class DataService {
       'client_name': clientName,
     };
     if (setVehicle) patch['vehicle_id'] = vehicleId;
-    if (createdAt != null) patch['created_at'] = createdAt.toUtc().toIso8601String();
+    // [createdAt] = la hora "de pared" del formulario. Si la carrera ya tiene su
+    // diferencia horaria, se respeta (una carrera de México sigue en hora de
+    // México aunque se edite desde España); si es antigua, se le pone la del móvil.
+    if (createdAt != null) {
+      if (utcOffsetMin != null) {
+        patch['created_at'] = wallToUtc(createdAt, utcOffsetMin).toIso8601String();
+      } else {
+        patch['created_at'] = createdAt.toUtc().toIso8601String();
+        patch['utc_offset_min'] = deviceUtcOffsetMin(createdAt);
+      }
+    }
     final updated = await _c
         .from('transactions')
         .update(patch)

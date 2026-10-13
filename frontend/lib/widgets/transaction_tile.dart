@@ -23,7 +23,7 @@ class TransactionTile extends StatelessWidget {
     final l = context.l10n;
     final type = tx['type'] as String?;
     final amount = (tx['amount'] as num).toDouble();
-    final created = parseCreatedAt(tx['created_at']);
+    final created = txWallTime(tx); // hora tal como se apuntó (mig. 091)
     final color = typeColor(type);
     final sign = type == 'income' ? '+' : '-';
 

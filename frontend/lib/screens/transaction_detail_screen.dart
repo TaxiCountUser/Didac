@@ -78,6 +78,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             'odometer_km': tx['odometer_km'],
             'client_name': tx['client_name'],
             'created_at': tx['created_at'],
+            'utc_offset_min': tx['utc_offset_min'],
             'vehicle_id': tx['vehicle_id'],
           },
         ),
@@ -158,7 +159,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     final tx = _tx!;
     final type = tx['type'] as String?;
     final amount = (tx['amount'] as num).toDouble();
-    final created = parseCreatedAt(tx['created_at']);
+    final created = txWallTime(tx); // hora tal como se apuntó (mig. 091)
     final veh = vehicleLabel(tx);
 
     return ListView(

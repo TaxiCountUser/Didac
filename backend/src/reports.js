@@ -123,6 +123,17 @@ function fmtsFor(tz) {
 // Formato AAAA-MM-DD / HH:MM.
 export const fmtDate = (iso, tz) => fmtsFor(tz).date.format(new Date(iso));
 export const fmtTime = (iso, tz) => fmtsFor(tz).time.format(new Date(iso));
+// Fecha/hora de una CARRERA tal como se apuntó (mig. 091): si tiene la diferencia
+// horaria del móvil al apuntarla (utc_offset_min), se usa ESA (una carrera de las
+// 08:15 en México sale a las 08:15 aunque el informe se pida desde España); si no
+// (carreras antiguas), la zona de quien pide el informe.
+function txShifted(t) {
+  const off = t.utc_offset_min;
+  if (off === null || off === undefined || !Number.isFinite(Number(off))) return null;
+  return new Date(new Date(t.created_at).getTime() + Number(off) * 60000);
+}
+export const txDate = (t, tz) => { const w = txShifted(t); return w ? fmtDate(w, 'UTC') : fmtDate(t.created_at, tz); };
+export const txTime = (t, tz) => { const w = txShifted(t); return w ? fmtTime(w, 'UTC') : fmtTime(t.created_at, tz); };
 const tipoLabel = (t) => (t === 'income' ? 'Ingreso' : 'Gasto');
 // Importe con formato español, igual que el Excel: 1.234,50 €.
 const _fEur = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
@@ -172,8 +183,8 @@ const COLS = [
 ];
 
 const rowFor = (t, tz) => ({
-  fecha: fmtDate(t.created_at, tz),
-  hora: fmtTime(t.created_at, tz),
+  fecha: txDate(t, tz),
+  hora: txTime(t, tz),
   importe: Number(t.amount),
   tipo: tipoLabel(t.type),
   categoria: catDisplay(t),

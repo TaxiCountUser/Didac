@@ -66,6 +66,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   String _type = 'income'; // por defecto, carrera
   String _payment = 'tarjeta';
   late DateTime _when; // fecha y hora del registro (por defecto, ahora)
+  int? _utcOffsetMin; // al EDITAR: la diferencia horaria de la carrera (mig. 091)
   bool _saving = false;
 
   // Vehículos asignados al conductor (para imputar el coche).
@@ -94,7 +95,10 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       if (i['destination'] != null) _destination.text = i['destination'] as String;
       if (i['odometer_km'] != null) _km.text = (i['odometer_km']).toString();
       if (i['client_name'] != null) _client.text = i['client_name'] as String;
-      if (i['created_at'] != null) _when = parseCreatedAt(i['created_at']).toLocal();
+      // Hora tal como se apuntó (una carrera de México se edita en hora de México).
+      if (i['created_at'] != null) _when = txWallTime(i);
+      final off = i['utc_offset_min'];
+      if (off is num) _utcOffsetMin = off.toInt();
     }
   }
 
@@ -267,6 +271,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           odometerKm: odometer,
           clientName: client,
           createdAt: _when,
+          utcOffsetMin: _utcOffsetMin,
           vehicleId: _vehicleId,
           setVehicle: !widget.profile.isOwner,
         );

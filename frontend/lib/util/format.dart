@@ -90,6 +90,29 @@ DateTime parseCreatedAt(dynamic v) {
   return DateTime.parse(v as String);
 }
 
+/// Hora de una CARRERA tal como se apuntó (mig. 091): created_at (UTC) + la
+/// diferencia horaria que tenía el móvil al apuntarla (`utc_offset_min`). Así una
+/// carrera de las 08:15 en México sale a las 08:15 aunque se mire desde España.
+/// Devuelve un DateTime LOCAL con esos campos (fmtDateTime/toLocal no lo mueven).
+/// Sin ese dato (carreras antiguas): la hora del móvil, como siempre.
+DateTime txWallTime(Map tx) {
+  final utc = parseCreatedAt(tx['created_at']).toUtc();
+  final off = tx['utc_offset_min'];
+  if (off is! num) return utc.toLocal();
+  final w = utc.add(Duration(minutes: off.toInt()));
+  return DateTime(w.year, w.month, w.day, w.hour, w.minute, w.second, w.millisecond);
+}
+
+/// Inverso de [txWallTime]: de una hora "de pared" (lo que se ve en el
+/// formulario) y la diferencia de la carrera, al instante UTC a guardar.
+DateTime wallToUtc(DateTime wall, int offsetMin) =>
+    DateTime.utc(wall.year, wall.month, wall.day, wall.hour, wall.minute, wall.second, wall.millisecond)
+        .subtract(Duration(minutes: offsetMin));
+
+/// Diferencia con UTC (minutos) del móvil en ese momento (tiene en cuenta el
+/// horario de verano de ESA fecha). Se guarda con cada carrera nueva.
+int deviceUtcOffsetMin([DateTime? at]) => (at ?? DateTime.now()).toLocal().timeZoneOffset.inMinutes;
+
 /// Nombre legible del conductor a partir de la relación embebida `users`.
 String driverName(Map<String, dynamic> tx) {
   final u = tx['users'];
