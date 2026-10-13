@@ -77,6 +77,13 @@ export async function sendToTokens(tokens, { title, body, data } = {}, log) {
     data: Object.fromEntries(
       Object.entries(data || {}).map(([k, v]) => [k, String(v)]),
     ),
+    // Android: canal propio con el claxon (lo crea la app, MainActivity.kt) y
+    // prioridad alta (aviso flotante). `sound` cubre Android < 8 (sin canales).
+    // Si la app instalada aún no tiene el canal, Android usa el de por defecto.
+    android: {
+      priority: 'high',
+      notification: { channelId: 'taxicount_claxon', sound: 'claxon' },
+    },
     tokens: list,
   };
 

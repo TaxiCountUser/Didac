@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
@@ -42,8 +43,12 @@ class PushService {
       FirebaseMessaging.onBackgroundMessage(_bgHandler);
       // Notificación RECIBIDA con la app en primer plano: el sistema no la muestra,
       // así que avisamos in-app (SnackBar) vía el callback de main.dart.
-      FirebaseMessaging.onMessage.listen((m) =>
-          onForeground?.call(m.data, m.notification?.title, m.notification?.body));
+      // Además mostramos la notificación del SISTEMA (con el claxon), para que suene
+      // también con la app abierta.
+      FirebaseMessaging.onMessage.listen((m) {
+        _showSystem(m.notification?.title, m.notification?.body);
+        onForeground?.call(m.data, m.notification?.title, m.notification?.body);
+      });
       // Toque de notificación con la app en segundo plano.
       FirebaseMessaging.onMessageOpenedApp.listen((m) => onTap?.call(m.data));
       // App abierta DESDE una notificación (estado terminado).
@@ -145,6 +150,16 @@ class PushService {
         ),
       );
       if (go == true) await openAppSettings();
+    } catch (_) {}
+  }
+
+  /// Canal nativo (MainActivity.kt): muestra una notificación del sistema con el
+  /// sonido del claxon. Solo Android; nunca lanza.
+  static const _native = MethodChannel('taxicount/notify');
+  static Future<void> _showSystem(String? title, String? body) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _native.invokeMethod('show', {'title': title ?? 'TaxiCount', 'body': body ?? ''});
     } catch (_) {}
   }
 
