@@ -54,6 +54,22 @@ login por navegador (sin romper nada). En **web** sigue el flujo de navegador
 > Sin el secret, el APK funciona igual que hasta ahora (login por navegador). El
 > cambio de código es seguro y no rompe nada mientras no lo configures.
 
+### ⚠️ Google Play (Play App Signing) — error `sign_in_failed, 10`
+
+Play vuelve a firmar la app con **su** clave, así que el SHA-1 de la app instalada
+desde Play **no** es el de subida. Hay que registrarlo **en el proyecto de Google
+Cloud del Web Client ID** (`taxicount-500507`, nº 113080191575), **no** en Firebase
+(`taxicount-75bc2` es otro proyecto, solo para push).
+
+| Cliente Android (proyecto taxicount-500507) | SHA-1 | Para |
+|---|---|---|
+| app.taxicount OAuth Android (`-sp5c…`) | `DF:87:2D:D0:…:2D:78:EE` | APK sideload / clave de subida |
+| app.taxicount Android (Google Play signing) (`-in8t…`) | `B2:F7:97:1C:…:92:1F` | Instalación desde Google Play |
+
+El SHA-1 de Play sale en Play Console → Protegida con Play → Firma de aplicaciones →
+"Clave de firma de aplicación". La pantalla de consentimiento debe estar **publicada**
+(Google Auth Platform → Público → Publicar app); en "Prueba" solo entran usuarios de prueba.
+
 ## Estado del código
 
 - Opción A/B: solo configuración (sin cambios de código).
