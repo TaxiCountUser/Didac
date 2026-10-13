@@ -52,6 +52,22 @@ const PUSH = {
     ca: { title: '🔧 Revisió de manteniment', body: '{label}: toca revisió (has superat els {target} km).' },
     en: { title: '🔧 Maintenance service', body: '{label}: service due (you passed {target} km).' },
   },
+  // Recordatorios de la agenda (agenda_reminders.js). {detail} = "Recogida → Destino · Cliente".
+  agenda_tomorrow: {
+    es: { title: '📅 Servicio mañana', body: 'Recuerda: mañana a las {time} tienes este servicio: {detail}' },
+    ca: { title: '📅 Servei demà', body: 'Recorda: demà a les {time} tens aquest servei: {detail}' },
+    en: { title: '📅 Booking tomorrow', body: 'Reminder: tomorrow at {time} you have this booking: {detail}' },
+  },
+  agenda_today: {
+    es: { title: '📅 Servicio hoy', body: 'Recuerda: hoy a las {time} tienes este servicio: {detail}' },
+    ca: { title: '📅 Servei avui', body: 'Recorda: avui a les {time} tens aquest servei: {detail}' },
+    en: { title: '📅 Booking today', body: 'Reminder: today at {time} you have this booking: {detail}' },
+  },
+  agenda_hour: {
+    es: { title: '⏰ Servicio en 1 hora', body: 'A las {time}: {detail}' },
+    ca: { title: '⏰ Servei d\'aquí 1 hora', body: 'A les {time}: {detail}' },
+    en: { title: '⏰ Booking in 1 hour', body: 'At {time}: {detail}' },
+  },
   chat_from: {
     es: { title: 'Mensaje de {name}', body: '{text}' },
     ca: { title: 'Missatge de {name}', body: '{text}' },

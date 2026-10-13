@@ -9,6 +9,7 @@ import 'auth_gate.dart';
 import 'l10n/app_localizations.dart';
 import 'services/data_service.dart';
 import 'services/push_service.dart';
+import 'screens/agenda_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/fleet_chat_screen.dart';
 import 'screens/fleet_chats_screen.dart';
@@ -114,6 +115,9 @@ Future<void> main() async {
       } else if (type == 'maintenance') {
         // Aviso de mantenimiento: el jefe abre Vehículos.
         if (p.isOwner) page = VehiclesScreen(profile: p);
+      } else if (type == 'agenda') {
+        // Recordatorio de un servicio de la agenda (1 día / 1 hora antes).
+        page = AgendaScreen(profile: p);
       } else {
         // Usuario normal: soporte -> sus tickets; incidencia -> sus incidencias.
         if (type == 'support') {

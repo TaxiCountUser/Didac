@@ -29,6 +29,7 @@ import { registerAuditViewerRoutes } from './audit_viewers.js';
 import { createParseFeedback, registerParseFeedbackRoutes } from './parse_feedback.js';
 import { registerAssistantRoutes } from './assistant.js';
 import { createTrialEmails, registerTrialEmailRoutes } from './trial_emails.js';
+import { createAgendaReminders, registerAgendaReminders } from './agenda_reminders.js';
 import { registerAdminUsersRoutes } from './admin_users.js';
 import { registerCompaniesRoutes } from './companies.js';
 import { registerFlagsRoutes } from './flags.js';
@@ -579,6 +580,11 @@ export async function buildApp(options = {}) {
   // puede decir dónde pagar, así que el aviso va por correo. Cron trial-emails.yml.
   const trialEmails = createTrialEmails({ supabase, log: app.log });
   registerTrialEmailRoutes(app, { trialEmails, cronOrAdmin, markCronRun });
+
+  // Recordatorios push de la agenda (1 día antes / 1 hora antes; mig. 090).
+  // Intervalo de 60 s dentro del proceso + endpoint de cron para lanzarlo a mano.
+  const agendaReminders = createAgendaReminders({ supabase, notifyUsers, log: app.log });
+  registerAgendaReminders(app, { agendaReminders, cronOrAdmin, markCronRun });
 
   // Administradores + usuarios (admin): plugin en ./admin_users.js (Fase B).
   registerAdminUsersRoutes(app, { supabase, adminGuard, logAdminAction });
