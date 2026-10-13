@@ -1,5 +1,7 @@
 # TaxiCount — guia de treball (estalvi de tokens)
 
+> **NORMA Nº 1 — IDIOMA:** escriu SEMPRE a l'usuari en **castellà** (o català si ell escriu en català). **MAI en anglès**, tampoc els avisos curts de progrés entre eines ("Saving…", "All green", "Uploaded…"), ni les preguntes, ni els captions. Repassa cada frase abans d'enviar-la. (L'usuari ho ha hagut de reclamar tres vegades el 2026-10-13.)
+
 > **Índex d'aquesta guia:** Regla d'or (fitxers grossos) · graphify · Subagents ·
 > Rutina post-canvi · Backend (mapa d'àncores + closure `buildApp`) · Pla de troceig ·
 > Frontend · Estil de codi · Docs vius.
