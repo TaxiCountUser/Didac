@@ -18,6 +18,7 @@ import 'screens/referral_screen.dart';
 import 'screens/tickets_screen.dart';
 import 'screens/vehicles_screen.dart';
 import 'widgets/maintenance_banner.dart';
+import 'util/sign_out.dart';
 
 /// Navegador raíz, para poder navegar desde fuera del árbol (deep-links de push).
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -49,7 +50,7 @@ Future<void> main() async {
     final prefs = await SharedPreferences.getInstance();
     final remember = prefs.getBool('remember_me') ?? true;
     if (!remember && Supabase.instance.client.auth.currentSession != null) {
-      await Supabase.instance.client.auth.signOut();
+      await appSignOut();
     }
   } catch (_) {/* best-effort */}
   // Cerrar sesión desde una pantalla abierta con push (p. ej. una tarjeta del

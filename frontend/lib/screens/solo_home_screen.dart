@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import 'owner_home_screen.dart';
 import 'driver_home_screen.dart';
 import 'settings_screen.dart';
+import '../util/sign_out.dart';
 
 /// Modo autónomo: el usuario es su propia empresa y su propio chófer. Un
 /// conmutador arriba alterna entre la vista de Empresa (gestión) y la de Chófer
@@ -55,7 +55,7 @@ class _SoloHomeScreenState extends State<SoloHomeScreen> {
           ),
           IconButton(
             tooltip: l.t('logout'),
-            onPressed: () => Supabase.instance.client.auth.signOut(),
+            onPressed: () => appSignOut(),
             icon: const Icon(Icons.logout),
           ),
         ],

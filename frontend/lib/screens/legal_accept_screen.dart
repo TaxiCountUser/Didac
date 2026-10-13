@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../util/sign_out.dart';
 
 /// Pantalla legal de aceptación OBLIGATORIA (RGPD). Se muestra cuando el perfil
 /// tiene legal_accepted_version < kLegalVersion: al registrarse (primer acceso)
@@ -50,7 +50,7 @@ class _LegalAcceptScreenState extends State<LegalAcceptScreen> {
         automaticallyImplyLeading: false,
         actions: [
           TextButton(
-            onPressed: _loading ? null : () => Supabase.instance.client.auth.signOut(),
+            onPressed: _loading ? null : () => appSignOut(),
             child: Text(l.t('logout'), style: const TextStyle(color: Colors.white)),
           ),
         ],

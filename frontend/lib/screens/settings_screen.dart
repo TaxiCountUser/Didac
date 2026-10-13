@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../assistant/assistant_screen.dart';
 import '../config.dart';
@@ -24,6 +23,7 @@ import 'referral_screen.dart';
 import 'tickets_screen.dart';
 import 'locate_vehicle_screen.dart';
 import 'subscription_screen.dart';
+import '../util/sign_out.dart';
 
 /// Ajustes. Cabecera con nombre/cuenta/vehículo (chofer) o empresa (jefe) y
 /// acciones: idioma, reportar fallo, incidencias, suscripción/localizar, cuenta.
@@ -739,7 +739,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     if (ok != true) return;
     try {
       await _service.requestAccountDeletion();
-      await Supabase.instance.client.auth.signOut();
+      await appSignOut();
       // El AuthGate reacciona al signOut y vuelve a la pantalla de login.
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));

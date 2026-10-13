@@ -19,6 +19,7 @@ import 'screens/no_fleet_screen.dart';
 import 'screens/choose_path_screen.dart';
 import 'screens/subscription_gate_screen.dart';
 import 'screens/tutorial_gate.dart';
+import 'util/sign_out.dart';
 
 /// Decide qué pantalla mostrar según la sesión y el rol del usuario.
 class AuthGate extends StatelessWidget {
@@ -116,7 +117,7 @@ class _ProfileRouterState extends State<ProfileRouter> {
                   const SizedBox(height: 12),
                   FilledButton(onPressed: _reload, child: const Text('Reintentar')),
                   TextButton(
-                    onPressed: () => Supabase.instance.client.auth.signOut(),
+                    onPressed: () => appSignOut(),
                     child: const Text('Cerrar sesión'),
                   ),
                 ],
@@ -213,7 +214,7 @@ class _AccountDeletedScreen extends StatelessWidget {
                 Text(l.t('acc_deleted_body'), textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  onPressed: () => appSignOut(),
                   child: Text(l.t('cpw_signout')),
                 ),
               ],
@@ -252,7 +253,7 @@ class _AdminOnWebScreen extends StatelessWidget {
                 Text(l.t('admin_on_web_body'), textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  onPressed: () => appSignOut(),
                   child: Text(l.t('cpw_signout')),
                 ),
               ],

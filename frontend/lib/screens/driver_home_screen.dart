@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
@@ -17,6 +16,7 @@ import 'add_record_screen.dart';
 import 'agenda_screen.dart';
 import 'driver_transactions_screen.dart';
 import 'settings_screen.dart';
+import '../util/sign_out.dart';
 
 /// Home del Driver: elige entre añadir un registro o ver sus transacciones.
 /// Al abrir, si procede, pide los km del coche con los que empieza el día.
@@ -345,7 +345,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
                 ),
                 IconButton(
                   tooltip: l.t('logout'),
-                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  onPressed: () => appSignOut(),
                   icon: const Icon(Icons.logout),
                 ),
               ],

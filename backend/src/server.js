@@ -1515,6 +1515,21 @@ export async function buildApp(options = {}) {
     return reply.send({ ok: true });
   });
 
+  // Al CERRAR SESIÓN la app desapunta el móvil de la cuenta que sale (si no, esa
+  // cuenta seguiría recibiendo sus avisos en ese móvil hasta que entrase otra).
+  // Solo borra el token si es del propio llamante.
+  app.post('/api/v1/device-token/unlink', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    const token = String(request.body?.token ?? '').trim();
+    if (!token) return reply.code(400).send({ error: 'Falta el token' });
+    const { error } = await supabase.from('device_tokens').delete()
+      .eq('token', token).eq('user_id', caller.id);
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ ok: true });
+  });
+
   app.post('/api/v1/error-reports', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
     const caller = await getCaller(request);

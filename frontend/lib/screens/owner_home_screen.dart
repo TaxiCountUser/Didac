@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
@@ -9,6 +8,7 @@ import 'vehicles_screen.dart';
 import 'drivers_screen.dart';
 import 'fleet_chats_screen.dart';
 import 'settings_screen.dart';
+import '../util/sign_out.dart';
 
 /// Home del Owner: pestañas de Vehículos y Conductores.
 ///
@@ -64,7 +64,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 ),
                 IconButton(
                   tooltip: l.t('logout'),
-                  onPressed: () => Supabase.instance.client.auth.signOut(),
+                  onPressed: () => appSignOut(),
                   icon: const Icon(Icons.logout),
                 ),
               ],

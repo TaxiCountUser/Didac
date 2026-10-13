@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import '../util/brand.dart';
+import '../util/sign_out.dart';
 
 /// Pantalla para un usuario que ha entrado (p. ej. con Google) pero todavía no
 /// pertenece a ninguna flota. Puede crear su propia empresa (propietario) o
@@ -175,7 +175,7 @@ class _ChoosePathScreenState extends State<ChoosePathScreen> {
         actions: [
           IconButton(
             tooltip: l.t('logout'),
-            onPressed: () => Supabase.instance.client.auth.signOut(),
+            onPressed: () => appSignOut(),
             icon: const Icon(Icons.logout),
           ),
         ],

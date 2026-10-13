@@ -105,6 +105,10 @@ class PushService {
     if (kIsWeb) return;
     try {
       await init();
+      // SIEMPRE: el móvil queda apuntado a la cuenta que está abierta AHORA, tenga
+      // o no el permiso concedido (antes, sin permiso no se reasignaba y al cambiar
+      // de cuenta el móvil seguía con la anterior: los avisos iban a otra cuenta).
+      await syncToken(tenantId);
       // Ya activas: solo asegurar el token guardado, sin molestar.
       if (await notificationsGranted()) {
         await register(tenantId);
@@ -141,6 +145,39 @@ class PushService {
         ),
       );
       if (go == true) await openAppSettings();
+    } catch (_) {}
+  }
+
+  /// Apunta este móvil a la cuenta abierta (sin pedir permiso). Best-effort.
+  Future<void> syncToken(String tenantId) async {
+    if (kIsWeb) return;
+    try {
+      await init();
+      if (!_inited) return;
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) await _save(token, tenantId);
+    } catch (_) {}
+  }
+
+  /// Al CERRAR SESIÓN: desapunta este móvil de la cuenta que sale, para que deje
+  /// de recibir sus avisos aquí. Llamar ANTES de signOut (necesita la sesión).
+  /// Con tiempo límite: nunca bloquea el cierre de sesión.
+  Future<void> unlinkCurrentUser() async {
+    if (kIsWeb || !_inited) return;
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) return;
+      final token = await FirebaseMessaging.instance.getToken()
+          .timeout(const Duration(seconds: 3));
+      if (token == null) return;
+      await http.post(
+        Uri.parse('$backendUrl/api/v1/device-token/unlink'),
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'token': token}),
+      ).timeout(const Duration(seconds: 4));
     } catch (_) {}
   }
 

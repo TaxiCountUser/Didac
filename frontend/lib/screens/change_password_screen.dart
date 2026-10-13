@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
+import '../util/sign_out.dart';
 
 /// M-05: pantalla obligatoria de cambio de contraseña en el primer login.
 /// Se muestra cuando el perfil tiene `must_change_password = true` (conductor
@@ -67,7 +68,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         actions: [
           if (widget.forced)
             TextButton(
-              onPressed: _loading ? null : () => Supabase.instance.client.auth.signOut(),
+              onPressed: _loading ? null : () => appSignOut(),
               child: Text(l.t('cpw_signout'), style: const TextStyle(color: Colors.white)),
             ),
         ],

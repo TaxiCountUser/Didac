@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../l10n/app_localizations.dart';
+import '../util/sign_out.dart';
 
 /// Pantalla para un conductor al que el jefe ha sacado de la flota.
 /// No puede acceder a ningún dato (la RLS lo bloquea); solo ve este aviso.
@@ -33,7 +33,7 @@ class NoFleetScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
-                onPressed: () => Supabase.instance.client.auth.signOut(),
+                onPressed: () => appSignOut(),
                 icon: const Icon(Icons.logout),
                 label: Text(l.t('logout')),
               ),

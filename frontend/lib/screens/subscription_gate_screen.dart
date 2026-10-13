@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import 'subscription_screen.dart';
+import '../util/sign_out.dart';
 
 /// Pantalla de bloqueo: la prueba de 15 días terminó y no hay suscripción
 /// activa. El Owner/autónomo puede suscribirse; el conductor solo ve el aviso
@@ -24,7 +24,7 @@ class SubscriptionGateScreen extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: l.t('logout'),
-            onPressed: () => Supabase.instance.client.auth.signOut(),
+            onPressed: () => appSignOut(),
             icon: const Icon(Icons.logout),
           ),
         ],

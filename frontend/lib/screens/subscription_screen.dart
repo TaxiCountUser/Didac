@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
@@ -9,6 +8,7 @@ import '../models/profile.dart';
 import '../services/data_service.dart';
 import '../util/error_ui.dart';
 import 'referral_screen.dart';
+import '../util/sign_out.dart';
 
 /// Clave i18n del estado de suscripción.
 String subscriptionStatusKey(String? status) => switch (status) {
@@ -446,7 +446,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     try {
       await _service.closeCompany(ctrl.text.trim());
       // Cuenta cerrada: cerramos sesión (el listener global lleva al login).
-      await Supabase.instance.client.auth.signOut();
+      await appSignOut();
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
