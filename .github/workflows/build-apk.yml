@@ -92,10 +92,12 @@ jobs:
           add STRIPE_PRICE_SEAT_MONTHLY "$STRIPE_PRICE_SEAT_MONTHLY"
           add STRIPE_PRICE_SEAT_YEARLY "$STRIPE_PRICE_SEAT_YEARLY"
           add GOOGLE_WEB_CLIENT_ID "$GOOGLE_WEB_CLIENT_ID"
-          echo "args=$D" >> "$GITHUB_OUTPUT"
           if [ -z "$D" ]; then
             echo "::warning::Sin secrets PROD_*: el APK apuntará a localhost (solo sirve para validar la compilación)."
           fi
+          # Google Play: la app no vende nada (política de Pagos) -> oculta pago/precios.
+          add STORE_BUILD true
+          echo "args=$D" >> "$GITHUB_OUTPUT"
 
       # Versión: el versionCode sube en cada build (nº de ejecución) para que la
       # app detecte que hay una más nueva. versionName legible 1.0.<run> (lanzamiento

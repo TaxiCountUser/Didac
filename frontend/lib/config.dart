@@ -27,6 +27,12 @@ const backendUrl = String.fromEnvironment(
 // mismo Client ID que Supabase tiene configurado en su proveedor de Google.
 const kGoogleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID', defaultValue: '');
 
+// Build para Google Play (lo activa build-apk.yml con --dart-define=STORE_BUILD=true).
+// Política de Pagos de Play: la app NO vende nada ni dice dónde pagar (sin botón de
+// suscribirse, precios, cupones ni portal de Stripe), como Netflix: solo se USA una
+// cuenta que se paga fuera. La web (sin el define) sigue con Stripe como siempre.
+const kStoreBuild = bool.fromEnvironment('STORE_BUILD');
+
 // (Auto-actualización eliminada: en Google Play las actualizaciones las gestiona
 // Play. Antes había un `updateManifestUrl` que apuntaba a la GitHub Release.)
 

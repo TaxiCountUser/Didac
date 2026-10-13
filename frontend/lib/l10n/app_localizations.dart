@@ -899,6 +899,10 @@ const Map<String, Map<String, String>> _values = {
     'gate_driver_msg':
         'La empresa no tiene una suscripción activa. Avisa a tu jefe para reactivarla.',
     'gate_subscribe': 'Ver planes y suscribirme',
+    'store_no_purchase': 'La suscripción no se puede contratar ni modificar desde esta app.',
+    'store_sub_inactive': 'Tu cuenta no tiene una suscripción activa.',
+    'store_gate_owner_msg': 'Tu cuenta no tiene una suscripción activa. Cuando la tengas, pulsa «Comprobar de nuevo».',
+    'store_recheck': 'Comprobar de nuevo',
     // Aviso de días de prueba restantes
     'trial_days_left': 'Prueba gratis: te quedan {n} días',
     // Tutorial de primera vez
@@ -2181,6 +2185,10 @@ const Map<String, Map<String, String>> _values = {
     'gate_driver_msg':
         'The company has no active subscription. Ask your boss to reactivate it.',
     'gate_subscribe': 'See plans and subscribe',
+    'store_no_purchase': 'The subscription can\'t be purchased or changed in this app.',
+    'store_sub_inactive': 'Your account has no active subscription.',
+    'store_gate_owner_msg': 'Your account has no active subscription. Once it does, tap “Check again”.',
+    'store_recheck': 'Check again',
     'trial_days_left': 'Free trial: {n} days left',
     'tut_skip': 'Skip tutorial', 'tut_next': 'Next', 'tut_start': 'Start!',
     'tut_1_title': 'Welcome to TaxiCount',
@@ -3464,6 +3472,10 @@ const Map<String, Map<String, String>> _values = {
     'gate_driver_msg':
         "L'empresa no té una subscripció activa. Avisa el teu cap perquè la reactivi.",
     'gate_subscribe': 'Veure plans i subscriure\'m',
+    'store_no_purchase': 'La subscripció no es pot contractar ni modificar des d\'aquesta app.',
+    'store_sub_inactive': 'El teu compte no té cap subscripció activa.',
+    'store_gate_owner_msg': 'El teu compte no té cap subscripció activa. Quan la tinguis, prem «Comprovar de nou».',
+    'store_recheck': 'Comprovar de nou',
     'trial_days_left': 'Prova gratis: et queden {n} dies',
     'tut_skip': 'Salta el tutorial', 'tut_next': 'Següent',
     'tut_start': 'Comença!',
@@ -4764,6 +4776,10 @@ const Map<String, Map<String, String>> _values = {
     'gate_driver_msg':
         'L\'entreprise n\'a pas d\'abonnement actif. Prévenez votre patron pour le réactiver.',
     'gate_subscribe': 'Voir les plans et m\'abonner',
+    'store_no_purchase': 'L\'abonnement ne peut pas être souscrit ni modifié depuis cette app.',
+    'store_sub_inactive': 'Votre compte n\'a pas d\'abonnement actif.',
+    'store_gate_owner_msg': 'Votre compte n\'a pas d\'abonnement actif. Une fois actif, appuyez sur « Vérifier à nouveau ».',
+    'store_recheck': 'Vérifier à nouveau',
     'trial_days_left': 'Essai gratuit : il vous reste {n} jours',
     'tut_skip': 'Passer le tutoriel', 'tut_next': 'Suivant',
     'tut_start': 'Commencer !',
@@ -6064,6 +6080,10 @@ const Map<String, Map<String, String>> _values = {
     'gate_driver_msg':
         'L\'azienda non ha un abbonamento attivo. Avvisa il tuo capo per riattivarlo.',
     'gate_subscribe': 'Vedi i piani e abbonati',
+    'store_no_purchase': 'L\'abbonamento non può essere sottoscritto né modificato da questa app.',
+    'store_sub_inactive': 'Il tuo account non ha un abbonamento attivo.',
+    'store_gate_owner_msg': 'Il tuo account non ha un abbonamento attivo. Quando sarà attivo, tocca «Controlla di nuovo».',
+    'store_recheck': 'Controlla di nuovo',
     'trial_days_left': 'Prova gratis: ti restano {n} giorni',
     'tut_skip': 'Salta tutorial', 'tut_next': 'Avanti',
     'tut_start': 'Inizia!',
@@ -7364,6 +7384,10 @@ const Map<String, Map<String, String>> _values = {
     'gate_driver_msg':
         'Das Unternehmen hat kein aktives Abo. Sag deinem Chef Bescheid, damit er es reaktiviert.',
     'gate_subscribe': 'Tarife ansehen und abonnieren',
+    'store_no_purchase': 'Das Abo kann in dieser App weder abgeschlossen noch geändert werden.',
+    'store_sub_inactive': 'Ihr Konto hat kein aktives Abo.',
+    'store_gate_owner_msg': 'Ihr Konto hat kein aktives Abo. Sobald es aktiv ist, tippen Sie auf „Erneut prüfen“.',
+    'store_recheck': 'Erneut prüfen',
     'trial_days_left': 'Gratis-Test: dir bleiben {n} Tage',
     'tut_skip': 'Tutorial überspringen', 'tut_next': 'Weiter',
     'tut_start': 'Los!',
@@ -8664,6 +8688,10 @@ const Map<String, Map<String, String>> _values = {
     'gate_driver_msg':
         'A empresa não tem uma subscrição ativa. Avisa o teu chefe para a reativar.',
     'gate_subscribe': 'Ver planos e subscrever',
+    'store_no_purchase': 'A subscrição não pode ser contratada nem alterada a partir desta app.',
+    'store_sub_inactive': 'A tua conta não tem uma subscrição ativa.',
+    'store_gate_owner_msg': 'A tua conta não tem uma subscrição ativa. Quando a tiveres, toca em «Verificar novamente».',
+    'store_recheck': 'Verificar novamente',
     'trial_days_left': 'Experiência grátis: faltam-te {n} dias',
     'tut_skip': 'Saltar tutorial', 'tut_next': 'Seguinte',
     'tut_start': 'Começar!',
@@ -9991,6 +10019,10 @@ const Map<String, Map<String, String>> _values = {
     'gate_driver_msg':
         'Enpresak ez du harpidetza aktiborik. Abisatu zure nagusiari berraktibatzeko.',
     'gate_subscribe': 'Ikusi planak eta harpidetu',
+    'store_no_purchase': 'Harpidetza ezin da aplikazio honetatik kontratatu edo aldatu.',
+    'store_sub_inactive': 'Zure kontuak ez du harpidetza aktiborik.',
+    'store_gate_owner_msg': 'Zure kontuak ez du harpidetza aktiborik. Izaten duzunean, sakatu «Egiaztatu berriro».',
+    'store_recheck': 'Egiaztatu berriro',
     // Aviso de días de prueba restantes
     'trial_days_left': 'Doako proba: {n} egun geratzen zaizkizu',
     // Tutorial de primera vez

@@ -98,7 +98,10 @@ class AssistantKb {
 
   /// Construye la KB desde el JSON semilla y, si hay, lo del backend:
   /// `remote = {entries: [{id, data, active}], learned: [{phrase, entry_id}]}`.
-  factory AssistantKb.build(Map<String, dynamic> seed, [Map<String, dynamic>? remote]) {
+  /// `excludeCats`: categorías que no se cargan (p. ej. 'suscripcion' en el build de
+  /// Google Play, donde la app no puede explicar cómo pagar).
+  factory AssistantKb.build(Map<String, dynamic> seed, [Map<String, dynamic>? remote,
+      Set<String> excludeCats = const {}]) {
     final entries = <String, KbEntry>{};
     (seed['entries'] as Map? ?? {}).forEach((id, m) {
       entries['$id'] = KbEntry.fromMap('$id', (m as Map).cast<String, dynamic>());
@@ -111,6 +114,7 @@ class AssistantKb {
         entries[id] = KbEntry.fromMap(id, (r['data'] as Map).cast<String, dynamic>());
       }
     }
+    if (excludeCats.isNotEmpty) entries.removeWhere((_, e) => excludeCats.contains(e.cat));
     final learned = <String, String>{};
     for (final l in (remote?['learned'] as List? ?? const [])) {
       final id = '${l['entry_id']}';

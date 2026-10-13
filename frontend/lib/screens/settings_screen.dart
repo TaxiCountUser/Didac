@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../assistant/assistant_screen.dart';
+import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
@@ -112,7 +113,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       'language': _pickLanguage,
       'whatsnew': () => _open(AboutScreen(isOwner: isOwner)),
       if (isOwner) 'locate': () => _open(LocateVehicleScreen(profile: widget.profile)),
-      if (isOwner) 'subscription': () => _open(Scaffold(
+      if (isOwner && !kStoreBuild) 'subscription': () => _open(Scaffold(
             appBar: AppBar(title: Text(l.t('nav_subscription'))),
             body: SubscriptionScreen(profile: widget.profile),
           )),

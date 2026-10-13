@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
@@ -92,7 +93,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Future<void> _load() async {
     final seed = jsonDecode(await rootBundle.loadString('assets/assistant/kb.json')) as Map<String, dynamic>;
     final remote = await _service.assistantRemoteKb();
-    final kb = AssistantKb.build(seed, remote);
+    // Build de Google Play: fuera las respuestas de suscripción/precios/pago.
+    final kb = AssistantKb.build(seed, remote, kStoreBuild ? const {'suscripcion'} : const {});
     if (!mounted) return;
     setState(() {
       _kb = kb;

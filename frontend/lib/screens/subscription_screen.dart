@@ -108,6 +108,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       });
       // Cupón activo: se guarda en estado (para la banda del plan anual) y, además,
       // se muestra el aviso con "copiar" una sola vez por entrada.
+      if (kStoreBuild) return; // Google Play: sin cupones (son para comprar)
       try {
         final c = await _service.tenantActiveCoupon();
         if (mounted) setState(() => _coupon = c);
@@ -266,6 +267,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             const SizedBox(height: 12),
             _savingsCards(l),
           ],
+          // Google Play: aviso neutro en lugar de planes/precios/botón de pago.
+          if (kStoreBuild) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: Text(l.t('store_no_purchase')),
+              ),
+            ),
+          ],
+          if (!kStoreBuild) ...[
           const SizedBox(height: 24),
           Text(
             subscriptionIsActive(status) ? l.t('sub_billing_period') : l.t('sub_choose_plan'),
@@ -290,6 +302,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ),
           const SizedBox(height: 8),
           _seatPlanCard(l, status),
+          ],
           const SizedBox(height: 12),
           Card(
             color: Colors.amber.shade50,
@@ -601,6 +614,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             else ...[
               Text(l.t('seats_paid', {'n': '$seats'})),
               Text(l.t('seats_active', {'n': '$_activeDrivers'})),
+              // Google Play: comprar/quitar asientos es una compra -> no se ofrece.
+              if (!kStoreBuild) ...[
               const SizedBox(height: 8),
               // El +/- ajusta un valor PENDIENTE: se puede subir/bajar varios de
               // golpe y se aplica todo junto con UN solo cobro y UNA confirmación.
@@ -655,6 +670,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   ],
                 );
               }),
+              ],
             ],
           ],
         ),
@@ -768,17 +784,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ],
               ),
             ],
-            const SizedBox(height: 8),
-            Text(l.t('sub_seat_current', {
-              'n': '$count',
-              'cost': _eur(est),
-              'period': yearly ? l.t('sub_per_year') : l.t('sub_per_month'),
-            })),
+            // Google Play: sin importes ni enlaces de pago (solo el estado del plan).
+            if (!kStoreBuild) ...[
+              const SizedBox(height: 8),
+              Text(l.t('sub_seat_current', {
+                'n': '$count',
+                'cost': _eur(est),
+                'period': yearly ? l.t('sub_per_year') : l.t('sub_per_month'),
+              })),
+            ],
             if (!subscriptionIsActive(status)) ...[
               const SizedBox(height: 8),
-              Text(l.t('sub_inactive_msg'), style: const TextStyle(color: Color(0xFFC62828))),
+              Text(l.t(kStoreBuild ? 'store_sub_inactive' : 'sub_inactive_msg'),
+                  style: const TextStyle(color: Color(0xFFC62828))),
             ],
-            if (hasCustomer) ...[
+            if (hasCustomer && !kStoreBuild) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 key: const Key('open_portal_button'),
@@ -789,7 +809,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ],
             // Aplicar un cupón a la suscripción activa (descuento en la próxima
             // renovación). Al suscribirse, el cupón se pone en el Checkout.
-            if (hasCustomer && subscriptionIsActive(status))
+            if (hasCustomer && subscriptionIsActive(status) && !kStoreBuild)
               TextButton.icon(
                 onPressed: _busy ? null : _applyCoupon,
                 icon: const Icon(Icons.local_offer_outlined, size: 18),

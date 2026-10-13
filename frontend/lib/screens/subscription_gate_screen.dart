@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import 'subscription_screen.dart';
@@ -46,12 +47,22 @@ class SubscriptionGateScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    canSubscribe ? l.t('gate_owner_msg') : l.t('gate_driver_msg'),
+                    !canSubscribe
+                        ? l.t('gate_driver_msg')
+                        : l.t(kStoreBuild ? 'store_gate_owner_msg' : 'gate_owner_msg'),
                     style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
-                  if (canSubscribe)
+                  // Google Play: no se vende en la app; solo "comprobar de nuevo" por si
+                  // la suscripción ya se activó fuera.
+                  if (canSubscribe && kStoreBuild)
+                    FilledButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l.t('store_recheck')),
+                      onPressed: onChanged,
+                    ),
+                  if (canSubscribe && !kStoreBuild)
                     FilledButton.icon(
                       icon: const Icon(Icons.workspace_premium),
                       label: Text(l.t('gate_subscribe')),
