@@ -22,7 +22,7 @@ const cache = new Map();
 export function cacheKey(format, f = {}) {
   return [
     format, f.tenantId, f.startDate || '', f.endDate || '', f.driverId || '', f.vehicleId || '',
-    f.client || '', f.excludeClient || '',
+    f.client || '', f.excludeClient || '', safeTz(f.tz),
     (f.clients || []).join('+'), (f.excludeClients || []).join('+'),
   ].join('|');
 }
@@ -85,7 +85,7 @@ export async function fetchReportData(supabase, filters = {}) {
     groups.get(t.user_id).txs.push(t);
   }
 
-  return { tenantName: tenant?.name || 'TaxiCount', startDate, endDate, transactions, groups };
+  return { tenantName: tenant?.name || 'TaxiCount', startDate, endDate, transactions, groups, tz: safeTz(filters.tz) };
 }
 
 function totals(txs) {
@@ -99,22 +99,35 @@ function totals(txs) {
   return { income, expense, balance: income - expense };
 }
 
-const fmtDate = (iso) => new Date(iso).toISOString().slice(0, 10);
-const fmtTime = (iso) => new Date(iso).toISOString().slice(11, 16); // HH:MM (UTC)
-const tipoLabel = (t) => (t === 'income' ? 'Ingreso' : 'Gasto');
-const money = (n) => Number(n).toFixed(2);
-
-// Concepto legible: carrera => "origen → destino (km)"; gasto => categoría.
-function concepto(t) {
-  if (t.type === 'income') {
-    const o = (t.origin || '').trim();
-    const d = (t.destination || '').trim();
-    let s = o || d ? `${o || '—'} → ${d || '—'}` : 'Carrera';
-    if (t.odometer_km != null) s += ` (${t.odometer_km} km)`;
-    return s;
-  }
-  return catDisplay(t);
+// Fecha y hora en la ZONA HORARIA DE QUIEN PIDE EL INFORME, la misma con la que
+// la app/web le enseña sus carreras (hora del móvil/navegador): así el Excel/PDF
+// dicen EXACTAMENTE la misma hora que la app (antes salían en UTC: 1–2 h menos, y
+// una carrera a las 00:30 salía con el día anterior). La app manda `tz` (IANA,
+// p. ej. 'Europe/Madrid', 'Atlantic/Canary'); si falta o no es válida, España.
+export const DEFAULT_TZ = 'Europe/Madrid';
+export function safeTz(tz) {
+  if (typeof tz !== 'string' || !tz || tz.length > 64) return DEFAULT_TZ;
+  try { new Intl.DateTimeFormat('en', { timeZone: tz }); return tz; } catch { return DEFAULT_TZ; }
 }
+const _fmts = new Map();
+function fmtsFor(tz) {
+  const z = safeTz(tz);
+  if (!_fmts.has(z)) {
+    _fmts.set(z, {
+      date: new Intl.DateTimeFormat('sv-SE', { timeZone: z, year: 'numeric', month: '2-digit', day: '2-digit' }),
+      time: new Intl.DateTimeFormat('es-ES', { timeZone: z, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
+    });
+  }
+  return _fmts.get(z);
+}
+// Formato AAAA-MM-DD / HH:MM.
+export const fmtDate = (iso, tz) => fmtsFor(tz).date.format(new Date(iso));
+export const fmtTime = (iso, tz) => fmtsFor(tz).time.format(new Date(iso));
+const tipoLabel = (t) => (t === 'income' ? 'Ingreso' : 'Gasto');
+// Importe con formato español, igual que el Excel: 1.234,50 €.
+const _fEur = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
+const eur = (n) => `${_fEur.format(Number(n))} €`;
+
 // Categoría MOSTRADA de un gasto en el listado: "Otros" con texto libre sale como
 // "otros (ITV)" (categoría + lo que escribió el usuario). En el resumen/total, en
 // cambio, se agrupa por el texto libre a secas ("ITV") vía expenseCatKey.
@@ -154,13 +167,13 @@ const COLS = [
   { header: 'Destino', key: 'destino', width: 18 },
   { header: 'Km', key: 'km', width: 10 },
   { header: 'Cliente', key: 'cliente', width: 18 },
-  { header: 'Método de pago', key: 'pago', width: 14 },
+  { header: 'Método de pago', key: 'pago', width: 16 },
   { header: 'Descripción', key: 'descripcion', width: 28 },
 ];
 
-const rowFor = (t) => ({
-  fecha: fmtDate(t.created_at),
-  hora: fmtTime(t.created_at),
+const rowFor = (t, tz) => ({
+  fecha: fmtDate(t.created_at, tz),
+  hora: fmtTime(t.created_at, tz),
   importe: Number(t.amount),
   tipo: tipoLabel(t.type),
   categoria: catDisplay(t),
@@ -285,6 +298,44 @@ const MONEY_FMT = '#,##0.00" €"';
 const RED_ARGB = 'FFC00000';
 const RED_HEX = '#C00000';
 
+// Aspecto de TABLA igual que el PDF: cabecera en gris con línea gruesa debajo y
+// una línea fina gris entre filas del detalle (también las de separación). Solo
+// el detalle (filas 1..lastRow); el resumen de debajo queda sin líneas.
+const HEAD_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEEEEE' } };
+const LINE = { style: 'thin', color: { argb: 'FFBDBDBD' } };
+function styleTable(ws, lastRow) {
+  const n = ws.columns.length;
+  for (let r = 1; r <= lastRow; r++) {
+    const row = ws.getRow(r);
+    for (let c = 1; c <= n; c++) {
+      const cell = row.getCell(c);
+      if (r === 1) {
+        cell.fill = HEAD_FILL;
+        cell.font = { bold: true };
+        cell.border = { bottom: { style: 'medium', color: { argb: 'FF000000' } } };
+      } else {
+        cell.border = { bottom: LINE };
+      }
+    }
+  }
+}
+
+// Impresión de una hoja: horizontal, ajustada al ancho de 1 página, cabecera
+// repetida en cada página y SIN la columna Descripción (la última): se ve en
+// pantalla pero queda fuera del área de impresión.
+function setupPrint(ws) {
+  const lastPrinted = ws.columns.length - 1; // la última es Descripción
+  const colLetter = ws.getColumn(lastPrinted).letter;
+  ws.pageSetup = {
+    paperSize: 9, // A4
+    orientation: 'landscape',
+    fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+    printArea: `A1:${colLetter}${Math.max(ws.rowCount, 1)}`,
+    printTitlesRow: '1:1',
+    margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
+  };
+}
+
 export async function buildExcel(data) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'TaxiCount';
@@ -297,10 +348,12 @@ export async function buildExcel(data) {
     ws.getColumn('importe').numFmt = MONEY_FMT;
     ws.getRow(1).font = { bold: true };
     for (const t of orderedDetail(g.txs)) {
-      const row = ws.addRow(t ? rowFor(t) : {});
+      const row = ws.addRow(t ? rowFor(t, data.tz) : {});
       if (t && t.type !== 'income') row.getCell('importe').font = { color: { argb: RED_ARGB } };
     }
+    styleTable(ws, ws.rowCount);
     addTotals(ws, g.txs);
+    setupPrint(ws);
   }
 
   // Pestaña consolidada (todas las transacciones, con columna Conductor)
@@ -311,109 +364,118 @@ export async function buildExcel(data) {
   for (const t of orderedDetail(data.transactions)) {
     if (!t) { cws.addRow({}); continue; }
     const u = t.users || {};
-    const row = cws.addRow({ conductor: u.name || u.email || '', ...rowFor(t) });
+    const row = cws.addRow({ conductor: u.name || u.email || '', ...rowFor(t, data.tz) });
     if (t.type !== 'income') row.getCell('importe').font = { color: { argb: RED_ARGB } };
   }
+  styleTable(cws, cws.rowCount);
   addTotals(cws, data.transactions);
+  setupPrint(cws);
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.from(buf);
 }
 
 // ---------------- PDF ----------------
-function detailTable(txs) {
-  const body = [
-    [
-      { text: 'Fecha', bold: true },
-      { text: 'Concepto', bold: true },
-      { text: 'Cliente', bold: true },
-      { text: 'Importe', bold: true },
-      { text: 'Tipo', bold: true },
-      { text: 'Pago', bold: true },
-    ],
-  ];
+// Tabla de detalle IGUAL que la hoja del Excel (mismas columnas y orden, mismos
+// datos de rowFor) salvo la Descripción, que no se imprime. withDriver = columna
+// Conductor delante (la del Consolidado).
+const PDF_COLS = COLS.filter((c) => c.key !== 'descripcion');
+function detailTable(txs, tz, withDriver = false) {
+  const cols = withDriver ? [{ header: 'Conductor', key: 'conductor' }, ...PDF_COLS] : PDF_COLS;
+  const body = [cols.map((c) => ({ text: c.header, bold: true, fillColor: '#EEEEEE' }))];
   // Mismo orden que el Excel: ingresos agrupados por cliente (Particular primero),
   // fila en blanco entre grupos, y los gastos al final; null = fila en blanco.
   for (const t of orderedDetail(txs)) {
-    if (!t) { body.push([' ', '', '', '', '', '']); continue; }
-    // Solo la cifra (€) de los gastos va en rojo.
-    const amount = t.type !== 'income'
-      ? { text: `${money(t.amount)} €`, color: RED_HEX }
-      : `${money(t.amount)} €`;
-    body.push([
-      `${fmtDate(t.created_at)} ${fmtTime(t.created_at)}`,
-      concepto(t),
-      clienteLabel(t),
-      amount,
-      tipoLabel(t.type),
-      t.payment_method || '',
-    ]);
+    if (!t) { body.push(cols.map(() => ' ')); continue; }
+    const u = t.users || {};
+    const r = { conductor: u.name || u.email || '', ...rowFor(t, tz) };
+    body.push(cols.map((c) => {
+      if (c.key === 'importe') {
+        // Solo la cifra (€) de los gastos va en rojo.
+        return { text: eur(r.importe), alignment: 'right', color: t.type !== 'income' ? RED_HEX : undefined };
+      }
+      if (c.key === 'km') return { text: String(r.km), alignment: 'right' };
+      return String(r[c.key] ?? '');
+    }));
   }
+  // Origen/Destino/Cliente se reparten el ancho sobrante; el resto, a su medida.
+  const flex = new Set(['origen', 'destino', 'cliente', 'conductor']);
   return {
-    table: { headerRows: 1, widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'], body },
-    margin: [0, 4, 0, 12],
+    table: { headerRows: 1, widths: cols.map((c) => (flex.has(c.key) ? '*' : 'auto')), body },
+    layout: 'lightHorizontalLines',
+    fontSize: 8,
+    margin: [0, 4, 0, 10],
   };
 }
 
-// Resumen ampliado para el PDF, IGUAL que el Excel (addTotals): primero los
-// GASTOS con categoría · método de pago en la misma línea, luego los INGRESOS por
-// método, y el balance. Todo en negrita. Tabla de 2 columnas sin bordes.
+// Resumen para el PDF, IGUAL que el del Excel (addTotals): primero los GASTOS con
+// categoría · método de pago en la misma línea, luego los INGRESOS por método y
+// el balance, con las mismas líneas en blanco entre bloques. Todo en negrita y
+// compacto (2 columnas estrechas, como en la hoja). Ojo: la fuente estándar del
+// PDF (Helvetica) no tiene el signo "−" (U+2212): se usa el guion normal.
 function summaryBlock(txs) {
   const t = totals(txs);
   const rows = [];
   const row = (label, val, red) =>
     rows.push([
-      { text: label, bold: true },
-      { text: val === undefined ? '' : `${money(val)} €`, bold: true, alignment: 'right', color: (red && val !== undefined) ? RED_HEX : undefined },
+      { text: label, bold: true, preserveLeadingSpaces: true },
+      { text: val === undefined ? '' : eur(val), bold: true, alignment: 'right', color: (red && val !== undefined) ? RED_HEX : undefined },
     ]);
-  // Gastos primero (en rojo): categoría · método de pago.
+  const gap = () => rows.push([{ text: ' ', fontSize: 4 }, '']);
   const expCombo = groupSum(txs, 'expense',
     (x) => `${catLabel(expenseCatKey(x))} · ${payLabel(x.payment_method || '')}`);
   if (expCombo.size) {
-    row('Gastos (categoría · método de pago)', undefined, true);
+    row('GASTOS (categoría · método de pago)', undefined, true);
     for (const [label, v] of expCombo) row(`   ${label}`, v, true);
   }
   row('TOTAL Gastos', t.expense, true);
-  // Ingresos por método de pago (debajo de los gastos).
+  gap();
   const incByPay = orderPay(groupSum(txs, 'income', (x) => x.payment_method || ''));
   if (incByPay.length) {
-    row('Ingresos por método de pago');
+    row('INGRESOS POR MÉTODO DE PAGO');
     for (const [label, v] of incByPay) row(`   ${label}`, v);
   }
   row('TOTAL Ingresos', t.income);
-  row('BALANCE (Ingresos − Gastos)', t.balance);
-  return { table: { widths: ['*', 'auto'], body: rows }, layout: 'noBorders', margin: [0, 4, 0, 12] };
+  gap();
+  row('BALANCE (Ingresos - Gastos)', t.balance);
+  return { table: { widths: [210, 70], body: rows }, layout: 'noBorders', margin: [0, 4, 0, 12] };
 }
 
 export function buildPdf(data) {
   const printer = new PdfPrinter(FONTS);
   const range =
     data.startDate || data.endDate
-      ? `${data.startDate ? fmtDate(data.startDate) : '—'} a ${data.endDate ? fmtDate(data.endDate) : '—'}`
+      ? `${data.startDate ? fmtDate(data.startDate, data.tz) : '—'} a ${data.endDate ? fmtDate(new Date(data.endDate).getTime() - 1, data.tz) : '—'}`
       : 'Todo el periodo';
 
   const content = [
     { text: 'Informe TaxiCount', style: 'h1' },
     { text: `Flota: ${data.tenantName}`, margin: [0, 2, 0, 0] },
     { text: `Rango de fechas: ${range}`, margin: [0, 2, 0, 8] },
-
-    { text: 'Resumen', style: 'h2' },
-    summaryBlock(data.transactions),
-
-    { text: 'Detalle por conductor', style: 'h2' },
   ];
 
+  // Misma estructura que el Excel: una sección por conductor (= su pestaña: tabla
+  // + totales), cada una en página nueva, y al final el Consolidado.
   if (data.groups.size === 0) {
     content.push({ text: 'No hay transacciones para los filtros seleccionados.', italics: true });
   } else {
+    let first = true;
     for (const [, g] of data.groups) {
-      content.push({ text: g.name, style: 'h3', margin: [0, 6, 0, 0] });
-      content.push(detailTable(g.txs));
+      content.push({ text: g.name, style: 'h2', pageBreak: first ? undefined : 'before' });
+      content.push(detailTable(g.txs, data.tz));
       content.push(summaryBlock(g.txs));
+      first = false;
     }
+    content.push({ text: 'Consolidado (todos los conductores)', style: 'h2', pageBreak: 'before' });
+    content.push(detailTable(data.transactions, data.tz, true));
+    content.push(summaryBlock(data.transactions));
   }
 
   const docDefinition = {
+    pageSize: 'A4',
+    pageOrientation: 'landscape',
+    pageMargins: [28, 28, 28, 34],
+    footer: (page, pages) => ({ text: `${page} / ${pages}`, alignment: 'right', fontSize: 8, margin: [0, 8, 28, 0] }),
     defaultStyle: { font: 'Helvetica', fontSize: 9 },
     styles: {
       h1: { fontSize: 18, bold: true },

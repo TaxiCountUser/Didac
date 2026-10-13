@@ -90,8 +90,9 @@ async function run() {
   });
 
   await check('el PDF contiene los importes del resumen', async () => {
-    assert.ok(text.includes('100.00'), `falta 100.00 en: ${text.slice(0, 200)}`);
-    assert.ok(text.includes('50.00'), 'falta el total/balance 50.00');
+    // Formato español, igual que el Excel (100,00 €).
+    assert.ok(text.includes('100,00'), `falta 100,00 en: ${text.slice(0, 200)}`);
+    assert.ok(text.includes('50,00'), 'falta el total/balance 50,00');
   });
 
   // Limpieza

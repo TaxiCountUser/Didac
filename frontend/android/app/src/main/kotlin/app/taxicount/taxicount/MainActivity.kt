@@ -68,6 +68,10 @@ class MainActivity : FlutterActivity() {
                     } catch (e: Exception) {
                         result.success(false) // sin permiso u otro fallo: nunca rompe la app
                     }
+                } else if (call.method == "timezone") {
+                    // Zona horaria del móvil (IANA): los informes Excel/PDF ponen la
+                    // misma hora que enseña la app.
+                    result.success(java.util.TimeZone.getDefault().id)
                 } else {
                     result.notImplemented()
                 }

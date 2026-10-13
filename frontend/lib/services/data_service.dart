@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
 import '../models/profile.dart';
 import '../models/tenant_state.dart';
+import '../util/device_tz.dart';
 
 /// Resumen financiero de un conjunto de transacciones.
 class TxSummary {
@@ -2130,6 +2131,8 @@ class DataService {
   }) async {
     final token = _c.auth.currentSession?.accessToken;
     if (token == null) throw Exception('No hay sesión activa');
+    // Zona horaria del móvil/navegador: el informe pone la MISMA hora que la app.
+    final tz = await deviceTimeZone();
     final res = await http.post(
       Uri.parse('$backendUrl/api/v1/reports/$format'),
       headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
@@ -2140,6 +2143,7 @@ class DataService {
         'vehicleId': vehicleId,
         if (clients != null && clients.isNotEmpty) 'clients': clients,
         if (excludeClients != null && excludeClients.isNotEmpty) 'excludeClients': excludeClients,
+        if (tz != null) 'tz': tz,
       }),
     );
     if (res.statusCode == 504) {

@@ -24,8 +24,9 @@ export function registerReportsRoutes(app, {
       return reply.code(403).send({ error: 'Solo un Owner puede exportar informes' });
     }
 
-    const { startDate, endDate, driverId, vehicleId, client, excludeClient, clients, excludeClients } = request.body ?? {};
-    const filters = { tenantId: caller.tenant_id, startDate, endDate, driverId, vehicleId, client, excludeClient, clients, excludeClients };
+    const { startDate, endDate, driverId, vehicleId, client, excludeClient, clients, excludeClients, tz } = request.body ?? {};
+    // tz = zona horaria del móvil/navegador (la hora del informe = la que ve en la app).
+    const filters = { tenantId: caller.tenant_id, startDate, endDate, driverId, vehicleId, client, excludeClient, clients, excludeClients, tz };
     const ext = format === 'excel' ? 'xlsx' : 'pdf';
     const mime = format === 'excel' ? XLSX_MIME : 'application/pdf';
     const filename = `TaxiCount_export_${new Date().toISOString().slice(0, 10)}.${ext}`;
