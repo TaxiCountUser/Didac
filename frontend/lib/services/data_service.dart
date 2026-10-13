@@ -746,6 +746,32 @@ class DataService {
     }
   }
 
+  /// Km que el propio cliente puede corregir (backend odometer.js): el conductor
+  /// ve los suyos; el jefe, los de toda la empresa (con `user_name`). Entradas
+  /// {source: 'reading'|'transaction', id, km, at, vehicle_id, plate, initial_km}.
+  Future<List<Map<String, dynamic>>> myOdometerEntries() async {
+    final res = await http.get(Uri.parse('$backendUrl/api/v1/odometer/entries'), headers: _bearer);
+    final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+    if (res.statusCode != 200) throw Exception(body['error'] ?? 'Error (${res.statusCode})');
+    return ((body['entries'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// Baja un km mal apuntado (solo a la baja; queda registrado). km=null lo borra
+  /// (la lectura entera, o solo el km de la carrera). Si el backend lo rechaza,
+  /// lanza Exception con el CÓDIGO (km_not_lower, km_below_initial, forbidden…).
+  Future<void> correctMyOdometer(String source, String id, int? km) async {
+    final uri = Uri.parse('$backendUrl/api/v1/odometer/entries/$source/$id');
+    final res = km == null
+        ? await http.delete(uri, headers: _bearer)
+        : await http.patch(uri,
+            headers: {..._bearer, 'Content-Type': 'application/json'},
+            body: jsonEncode({'km': km}));
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['code'] ?? body['error'] ?? 'Error (${res.statusCode})');
+    }
+  }
+
   /// Corrige el odómetro apuntado en una carrera (transactions.odometer_km).
   /// km=null borra ese valor de la carrera (sin tocar importe/fecha). Solo admin.
   Future<void> adminCorrectTransactionOdometer(String id, int? km) async {
@@ -1435,7 +1461,9 @@ class DataService {
   // ---------------- Km diarios (odómetro) ----------------
 
   /// Últimos km conocidos de un vehículo (máx. entre lecturas y transacciones).
-  Future<int?> lastOdometer(String vehicleId) async {
+  /// [excludeTxId]: al EDITAR una carrera, no se compara consigo misma (si no, un
+  /// km de más en esa carrera impedía corregirlo).
+  Future<int?> lastOdometer(String vehicleId, {String? excludeTxId}) async {
     int? best;
     final r = await _c
         .from('odometer_readings')
@@ -1444,13 +1472,13 @@ class DataService {
         .order('reading_km', ascending: false)
         .limit(1);
     if ((r as List).isNotEmpty) best = (r.first['reading_km'] as num).toInt();
-    final t = await _c
+    var tq = _c
         .from('transactions')
         .select('odometer_km')
         .eq('vehicle_id', vehicleId)
-        .not('odometer_km', 'is', null)
-        .order('odometer_km', ascending: false)
-        .limit(1);
+        .not('odometer_km', 'is', null);
+    if (excludeTxId != null) tq = tq.neq('id', excludeTxId);
+    final t = await tq.order('odometer_km', ascending: false).limit(1);
     if ((t as List).isNotEmpty && t.first['odometer_km'] != null) {
       final k = (t.first['odometer_km'] as num).toInt();
       if (best == null || k > best) best = k;

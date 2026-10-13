@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 import '../services/data_service.dart';
 import 'admin_incident_chat_screen.dart';
+import 'admin_km_correction.dart';
 import 'admin_theme.dart';
 
 /// Ficha de empresa del panel rediseñado (Fase 2). Porta TODA la funcionalidad
@@ -1189,6 +1190,13 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                   ),
                 ],
               ),
+            ),
+            // Corregir km mal introducidos (auditado). Siempre visible: es una
+            // corrección de datos, como la de Retos, no gestión del equipo.
+            IconButton(
+              icon: const Icon(Icons.edit_road, size: 18, color: AdminColors.blue),
+              tooltip: l.t('adm_km_correct'),
+              onPressed: () => showAdminKmCorrection(context, u['id'] as String),
             ),
             // Gestión operativa del equipo del cliente: solo en modo soporte
             // (auditada). Fuera de él, la ficha es de supervisión (solo lectura).

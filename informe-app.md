@@ -382,10 +382,12 @@ mantenimiento + administradores). *(patrón botones→KPI→contenido en todos, 
 > el crédito Stripe no consumido (clawback b) y se borra la recompensa, para que desaparezca
 > de las estadísticas de completados y del coste. Los logros limpios siguen auto-aprobados.
 >
-> **Corregir km:** desde el detalle del reto, el admin puede editar o eliminar una lectura
-> de cuentakilómetros mal introducida por el conductor (inicio/cierre de jornada) —
+> **Corregir km:** el admin puede editar o eliminar cualquier km mal introducido (km inicial
+> del vehículo, lecturas de jornada y km de cada carrera) —
 > `GET /admin/drivers/:id/odometer`, `PATCH`/`DELETE /admin/odometer/:id`, todo auditado.
-> Los retos se recalculan solos en la siguiente lectura (odómetro en vivo).
+> Se abre desde el detalle del reto **y (2026-10-13) desde la ficha de empresa** (icono
+> «Corregir km» en cada usuario, fuera del modo soporte); diálogo compartido
+> `admin_km_correction.dart` (`showAdminKmCorrection`). Los retos se recalculan solos.
 
 ### 4.4 Observabilidad — 12 semáforos de salud + panel de métricas
 Alimentados por `system_config`, la bandeja `webhook_events` y sondas en vivo;
@@ -423,6 +425,7 @@ visibles en portada y en la pestaña *Semáforos* de Auditoría (`GET /admin/sem
 - **Mantenimiento de vehículos:** fechas en `vehicles` (itv/taximeter_itv/insurance/transport_card + revisión por km) + `maintenance_reminders_sent` (throttle de avisos). Cron diario (maintenance-reminders.yml) avisa al jefe por push en hitos 30/15/7/1 días/día/caducado y ~1000/~200/0 km. **Periodo de renovación (mig. 083):** columnas `itv_period_months`/`taximeter_itv_period_months`/`insurance_period_months`; en la ficha el owner elige "cada 6/12/24 meses" y la app calcula la próxima caducidad (base = fecha futura actual o hoy). No cambia el cron: sigue avisando sobre la fecha.
 - **Convertir empresa↔autónomo (admin):** la flag `tenants.solo` (autónomo = el owner es también su propio chófer) se puede cambiar desde el panel admin (ficha de empresa, dentro de **Modo soporte**, auditado) vía `PATCH /admin/company/:id {solo}` (companies.js, ya existía). Solo cambia la flag; no crea ni borra chóferes. Complementa la RPC `set_solo_mode` que ya tenía el propietario en Ajustes.
 - **Corregir alta de un vehículo (jefe):** desde la ficha puede editar matrícula, modelo y km inicial por si se equivocó al darlo de alta. El km inicial NO se cambia a secas: reescala toda la escala del odómetro (lecturas de odómetro y carreras + `last_revision_km`) por el mismo delta, así los km ya recorridos se CONSERVAN (reto de km = lectura − inicial, invariante) y el odómetro pasa a la escala corregida. RPC atómico `rebase_vehicle_initial_km` (mig. 073, SECURITY DEFINER, solo Owner).
+- **Corregir kilómetros (conductor, jefe y autónomo, 2026-10-13):** quien apunta un km de más (p. ej. 324.423 en vez de 32.442) dejaba ese número como «último km» del coche (`lastOdometer` = máximo) y la app ya no le dejaba apuntar menos; las lecturas de jornada no se pueden editar desde el cliente (RLS de `odometer_readings` solo select/insert). Ahora: Ajustes → **«Corregir kilómetros»** (`km_correction_screen.dart`, también desde el aviso «km demasiado bajos» al guardar una carrera) lista los km (el conductor, los suyos; el jefe, los de toda la flota con quién los apuntó) y marca los «km actuales» de cada coche. Backend `odometer.js` (`registerOdometerSelfRoutes`): `GET /api/v1/odometer/entries`, `PATCH`/`DELETE /api/v1/odometer/entries/:source/:id` (source `reading`|`transaction`), con service_role y reglas en `checkSelfCorrection` (test `tests/unit/odometer_self.test.js`): **solo a la BAJA** (subir inflaría el reto de km = max − km inicial), nunca por debajo del km inicial del coche, conductor = lo suyo / jefe = su empresa; borrar quita la lectura o solo el km de la carrera. Cada cambio va a `admin_actions_log` (`odometer_self_correct`/`odometer_self_delete`, visible en Auditoría). Además, al EDITAR una carrera ya no se compara consigo misma (`lastOdometer(…, excludeTxId)`). Claves `km_fix_*`.
 - **Pulso diario (dashboard admin):** `GET /admin/daily-metrics` — métricas agregadas de la plataforma (negocio: ingresos hoy/mes/cobros/reembolsos de Stripe; uso: carreras hoy, DAU, transcripciones; crecimiento: empresas/conductores nuevos, pruebas que acaban; producto: activación, empresas en riesgo; soporte: tickets abiertos). PROTECCIÓN DE DATOS: solo recuentos y, en €, únicamente NUESTROS ingresos, nunca el dinero de las carreras de los clientes.
 - **Plataforma:** `system_config`, `admin_actions_log`, `cron_execution_logs`, `device_tokens`.
 - **Seguridad en el motor:** 53 políticas RLS + helpers `SECURITY DEFINER`

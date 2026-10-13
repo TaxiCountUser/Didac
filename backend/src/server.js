@@ -562,7 +562,7 @@ export async function buildApp(options = {}) {
   });
 
   // Corrección de odómetro (admin): plugin de rutas en ./odometer.js (Fase B).
-  registerOdometerRoutes(app, { supabase, adminGuard, logAdminAction });
+  registerOdometerRoutes(app, { supabase, adminGuard, logAdminAction, getCaller });
 
   // Visores de auditoría (admin, solo lectura): plugin en ./audit_viewers.js (Fase B).
   registerAuditViewerRoutes(app, { supabase, adminGuard });

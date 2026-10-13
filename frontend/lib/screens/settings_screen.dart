@@ -22,6 +22,7 @@ import 'driver_challenges_screen.dart';
 import 'referral_screen.dart';
 import 'tickets_screen.dart';
 import 'locate_vehicle_screen.dart';
+import 'km_correction_screen.dart';
 import 'subscription_screen.dart';
 import '../util/sign_out.dart';
 
@@ -583,6 +584,14 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(LocateVehicleScreen(profile: widget.profile)),
             ),
+            // Corregir km mal apuntados (solo a la baja; queda registrado).
+            ListTile(
+              leading: const Icon(Icons.edit_road),
+              title: Text(l.t('km_fix_title')),
+              subtitle: Text(l.t('km_fix_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(KmCorrectionScreen(profile: widget.profile)),
+            ),
             ListTile(
               leading: const Icon(Icons.workspace_premium_outlined),
               title: Text(l.t('nav_subscription')),
@@ -645,6 +654,14 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _changeVehicle,
               ),
+            // Corregir km mal apuntados (solo a la baja; queda registrado).
+            ListTile(
+              leading: const Icon(Icons.edit_road),
+              title: Text(l.t('km_fix_title')),
+              subtitle: Text(l.t('km_fix_sub')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _open(KmCorrectionScreen(profile: widget.profile)),
+            ),
             // 4) Mensaje al jefe (chat directo)
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),

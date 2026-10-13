@@ -8,6 +8,7 @@ import '../services/data_service.dart';
 import '../util/format.dart';
 import '../util/km_warning.dart';
 import 'agenda_input_screen.dart';
+import 'km_correction_screen.dart';
 import 'voice_input_screen.dart';
 
 const kCategories = <String, String>{
@@ -133,11 +134,18 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       return;
     }
     try {
-      final k = await DataService().lastOdometer(vid);
+      final k = await DataService().lastOdometer(vid, excludeTxId: widget.editId);
       if (mounted) setState(() => _lastKm = k);
     } catch (_) {
       // Sin conexión: no bloqueamos por no poder comprobar.
     }
+  }
+
+  /// Abre «Corregir kilómetros» y, al volver, recarga el último km.
+  Future<void> _openKmFix() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => KmCorrectionScreen(profile: widget.profile)));
+    if (mounted) _loadLastKm();
   }
 
   /// Devuelve el mensaje de error de los km (o null si son válidos).
@@ -221,8 +229,14 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     final kmErr = _kmError(l);
     if (kmErr != null) {
       setState(() {}); // pinta el campo en rojo
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(kmErr)));
+      // Si el "último km" es un número mal apuntado, desde aquí se corrige.
+      final tooLow = km != null && _lastKm != null && km < _lastKm!;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(kmErr),
+        action: tooLow
+            ? SnackBarAction(label: l.t('km_fix_title'), onPressed: _openKmFix)
+            : null,
+      ));
       return;
     }
     // Aviso de salto grande de km (solo carreras, con último km conocido).
