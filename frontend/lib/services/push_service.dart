@@ -26,6 +26,12 @@ class PushService {
   PushService._();
   static final PushService instance = PushService._();
   bool _inited = false;
+  // Una sola inicialización aunque la pidan varias pantallas a la vez (el
+  // autónomo monta Empresa y Chófer juntas): sin esto se duplicaban los
+  // listeners (avisos dobles con la app abierta) y competían entre sí.
+  Future<void>? _initFuture;
+  bool _refreshHooked = false;
+  String? _syncedUserId; // a qué cuenta se apuntó el móvil en esta sesión de app
 
   /// Callback al TOCAR una notificación (deep-link). Lo fija main.dart para
   /// navegar según `data['type']` (p. ej. 'referral_milestone' -> Referidos).
@@ -36,8 +42,14 @@ class PushService {
   static void Function(Map<String, dynamic> data, String? title, String? body)? onForeground;
 
   /// Inicializa Firebase + messaging. Seguro de llamar varias veces; no lanza.
-  Future<void> init() async {
-    if (kIsWeb || _inited) return;
+  Future<void> init() {
+    if (kIsWeb || _inited) return Future.value();
+    return _initFuture ??= _doInit().whenComplete(() {
+      if (!_inited) _initFuture = null; // falló: se podrá reintentar
+    });
+  }
+
+  Future<void> _doInit() async {
     try {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(_bgHandler);
@@ -91,9 +103,7 @@ class PushService {
       // Aunque el permiso esté denegado, guardamos el token si lo hay (por si se
       // concede luego); sin permiso el sistema no MUESTRA la notificación, pero
       // el envío no falla.
-      final token = await fm.getToken();
-      if (token != null) await _save(token, tenantId);
-      fm.onTokenRefresh.listen((t) => _save(t, tenantId));
+      await syncToken(tenantId);
       return granted ? 'granted' : 'denied';
     } catch (_) {
       return 'error';
@@ -164,14 +174,52 @@ class PushService {
   }
 
   /// Apunta este móvil a la cuenta abierta (sin pedir permiso). Best-effort.
-  Future<void> syncToken(String tenantId) async {
-    if (kIsWeb) return;
+  /// Devuelve true si quedó apuntado.
+  Future<bool> syncToken(String tenantId) async {
+    if (kIsWeb) return false;
     try {
       await init();
-      if (!_inited) return;
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token != null) await _save(token, tenantId);
-    } catch (_) {}
+      if (!_inited) return false;
+      final fm = FirebaseMessaging.instance;
+      if (!_refreshHooked) {
+        _refreshHooked = true;
+        fm.onTokenRefresh.listen((t) => _save(t, tenantId));
+      }
+      final token = await fm.getToken();
+      if (token == null) return false;
+      final ok = await _save(token, tenantId);
+      if (ok) _syncedUserId = Supabase.instance.client.auth.currentUser?.id;
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Al ENTRAR en una cuenta (auth_gate, antes de cualquier pantalla): apunta el
+  /// móvil a esa cuenta una vez por cuenta y arranque de la app. Así los avisos
+  /// van siempre a la cuenta abierta, pase por las pantallas que pase.
+  Future<void> syncForUser(String userId, String tenantId) async {
+    if (kIsWeb || _syncedUserId == userId) return;
+    await syncToken(tenantId);
+  }
+
+  /// «Probar aviso» (Ajustes): re-apunta el móvil y pide al servidor una push de
+  /// prueba. Devuelve cuántos móviles hay apuntados a esta cuenta (0 = ninguno),
+  /// o null si no se pudo contactar con el servidor.
+  Future<int?> sendTest(String tenantId) async {
+    await syncToken(tenantId);
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) return null;
+      final res = await http.post(
+        Uri.parse('$backendUrl/api/v1/push/test'),
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
+      ).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) return null;
+      return ((jsonDecode(res.body) as Map)['devices'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Al CERRAR SESIÓN: desapunta este móvil de la cuenta que sale, para que deje
@@ -179,6 +227,7 @@ class PushService {
   /// Con tiempo límite: nunca bloquea el cierre de sesión.
   Future<void> unlinkCurrentUser() async {
     if (kIsWeb || !_inited) return;
+    _syncedUserId = null; // la próxima cuenta que entre se volverá a apuntar
     try {
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) return;
@@ -211,15 +260,16 @@ class PushService {
     }
   }
 
-  Future<void> _save(String token, String tenantId) async {
+  Future<bool> _save(String token, String tenantId) async {
     try {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) return;
+      if (session == null) return false;
+      final info = await PackageInfo.fromPlatform();
       // Se guarda a través del backend (service_role), NO directo a Supabase: al
       // cambiar de usuario en el mismo dispositivo hay que reasignar el token a
       // quien inicia sesión ahora, y el RLS directo lo impediría (la fila la
       // posee el usuario anterior) fallando en silencio.
-      await http.post(
+      final res = await http.post(
         Uri.parse('$backendUrl/api/v1/device-token'),
         headers: {
           'Authorization': 'Bearer ${session.accessToken}',
@@ -230,8 +280,12 @@ class PushService {
           'tenant_id': tenantId.isEmpty ? null : tenantId,
           'platform': defaultTargetPlatform.name,
           'locale': localeController.value.languageCode,
+          'app_version': '${info.version}+${info.buildNumber}',
         }),
-      );
-    } catch (_) {}
+      ).timeout(const Duration(seconds: 15));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 }

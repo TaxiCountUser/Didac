@@ -1500,6 +1500,8 @@ export async function buildApp(options = {}) {
     if (!token) return reply.code(400).send({ error: 'Falta el token' });
     const platform = b.platform ? String(b.platform).slice(0, 40) : null;
     const locale = b.locale ? String(b.locale).slice(0, 5).toLowerCase() : null;
+    // Versión de la app del móvil (mig. 092): para saber qué build tiene cada uno.
+    const appVersion = b.app_version ? String(b.app_version).slice(0, 30) : null;
     // El tenant SIEMPRE es el del llamante (no se acepta del body: evitar que se
     // marque el token con un tenant ajeno).
     const tenantId = caller.tenant_id ?? null;
@@ -1509,6 +1511,7 @@ export async function buildApp(options = {}) {
       token,
       platform,
       ...(locale ? { locale } : {}),
+      ...(appVersion ? { app_version: appVersion } : {}),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'token' });
     if (error) return reply.code(400).send({ error: error.message });
@@ -1518,6 +1521,18 @@ export async function buildApp(options = {}) {
   // Al CERRAR SESIÓN la app desapunta el móvil de la cuenta que sale (si no, esa
   // cuenta seguiría recibiendo sus avisos en ese móvil hasta que entrase otra).
   // Solo borra el token si es del propio llamante.
+  // «Probar aviso» (Ajustes): manda una push de prueba a los móviles apuntados a
+  // la cuenta que llama. Devuelve { devices, sent }: devices = 0 significa que
+  // ningún móvil está apuntado a esta cuenta (por eso no le llegaba nada).
+  app.post('/api/v1/push/test', async (request, reply) => {
+    if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
+    const caller = await getCaller(request);
+    if (!caller) return reply.code(401).send({ error: 'No autenticado' });
+    if (!pushEnabled()) return reply.code(503).send({ error: 'Push no configurado' });
+    const r = await notifyUser(caller.id, 'push_test', {}, { type: 'push_test' });
+    return reply.send(r ?? { devices: 0, sent: 0 });
+  });
+
   app.post('/api/v1/device-token/unlink', async (request, reply) => {
     if (!supabase) return reply.code(500).send({ error: 'Supabase no configurado' });
     const caller = await getCaller(request);
@@ -2136,22 +2151,26 @@ export async function buildApp(options = {}) {
   // de los destinatarios por idioma (device_tokens.locale) y traduce el texto para
   // cada grupo, porque el SO muestra la push con la app cerrada (traducción en el
   // servidor). Para textos ya construidos que NO se traducen, usar notifyUsersRaw.
+  // Devuelve { devices, sent } (devices = móviles apuntados a esos usuarios; 0 =
+  // ninguno: la push no ha llegado a nadie). undefined si push está desactivado.
   async function notifyUsers(userIds, key, args = {}, data = {}) {
     const ids = [...new Set((userIds || []).filter(Boolean))];
-    if (!ids.length || !pushEnabled()) return;
+    if (!ids.length || !pushEnabled()) return undefined;
     const { data: toks } = await supabase.from('device_tokens').select('token, locale').in('user_id', ids);
-    if (!toks?.length) return;
+    if (!toks?.length) return { devices: 0, sent: 0 };
     const byLocale = {};
     for (const t of toks) (byLocale[t.locale || 'es'] ||= []).push(t.token);
-    let anyAttempt = false; let anyOk = true; const invalid = [];
+    let anyAttempt = false; let anyOk = true; const invalid = []; let sent = 0;
     for (const [loc, tokens] of Object.entries(byLocale)) {
       const { title, body } = pushText(loc, key, args);
       const result = await sendToTokens(tokens, { title, body, data }, app.log);
       if (result.attempted) { anyAttempt = true; anyOk = anyOk && result.ok; }
+      sent += result.sent || 0;
       if (result.invalidTokens?.length) invalid.push(...result.invalidTokens);
     }
     if (anyAttempt) markService('push', anyOk);
     if (invalid.length) await supabase.from('device_tokens').delete().in('token', invalid);
+    return { devices: toks.length, sent };
   }
 
   // Igual pero con title/body YA construidos (sin traducir): para avisos internos

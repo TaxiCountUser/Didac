@@ -478,6 +478,27 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     await _refreshNotifs();
   }
 
+  // «Probar aviso»: apunta el móvil a esta cuenta y pide una push de prueba (con
+  // el claxon). Si no hay ningún móvil apuntado, lo dice (antes fallaba en silencio).
+  Future<void> _testPush() async {
+    final l = context.l10n;
+    setState(() => _busyNotif = true);
+    try {
+      if (!await PushService.instance.notificationsGranted()) {
+        await _enableNotifs();
+        if (!await PushService.instance.notificationsGranted()) return;
+      }
+      final n = await PushService.instance.sendTest(widget.profile.tenantId);
+      if (!mounted) return;
+      final msg = n == null
+          ? l.t('set_push_test_error')
+          : (n == 0 ? l.t('set_push_test_none') : l.t('set_push_test_sent'));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _busyNotif = false);
+    }
+  }
+
   // Pide/re-pide el permiso de notificaciones. Si el usuario lo denegó de forma
   // permanente, el sistema ya no muestra el diálogo -> abrimos los ajustes.
   Future<void> _enableNotifs() async {
@@ -565,6 +586,17 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             trailing: const Icon(Icons.chevron_right),
             onTap: _changePassword,
           ),
+          // Probar las notificaciones (suena el claxon si todo va bien).
+          if (!kIsWeb)
+            ListTile(
+              leading: const Icon(Icons.notifications_active_outlined),
+              title: Text(l.t('set_push_test')),
+              subtitle: Text(l.t('set_push_test_sub')),
+              trailing: _busyNotif
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.chevron_right),
+              onTap: _busyNotif ? null : _testPush,
+            ),
 
           // ── Menú del EMPRESARIO ──
           // Orden pedido: Incidencias flota, Localizar vehículo, Suscripción,

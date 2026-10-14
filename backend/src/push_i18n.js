@@ -58,6 +58,11 @@ const PUSH = {
     ca: { title: '📅 Servei demà', body: 'Recorda: demà a les {time} tens aquest servei: {detail}' },
     en: { title: '📅 Booking tomorrow', body: 'Reminder: tomorrow at {time} you have this booking: {detail}' },
   },
+  push_test: {
+    es: { title: '🔔 Aviso de prueba', body: 'Si oyes el claxon, las notificaciones de TaxiCount funcionan en este móvil.' },
+    ca: { title: '🔔 Avís de prova', body: 'Si sents el clàxon, les notificacions de TaxiCount funcionen en aquest mòbil.' },
+    en: { title: '🔔 Test notification', body: 'If you hear the horn, TaxiCount notifications work on this phone.' },
+  },
   agenda_today: {
     es: { title: '📅 Servicio hoy', body: 'Recuerda: hoy a las {time} tienes este servicio: {detail}' },
     ca: { title: '📅 Servei avui', body: 'Recorda: avui a les {time} tens aquest servei: {detail}' },

@@ -6,6 +6,7 @@ import 'l10n/app_localizations.dart';
 import 'models/profile.dart';
 import 'models/tenant_state.dart';
 import 'services/data_service.dart';
+import 'services/push_service.dart';
 import 'util/device_id.dart';
 import 'config.dart';
 import 'screens/login_screen.dart';
@@ -139,6 +140,9 @@ class _ProfileRouterState extends State<ProfileRouter> {
         if (profile.isAdmin) {
           return const _AdminOnWebScreen();
         }
+        // Avisos (push): el móvil se apunta a la cuenta abierta NADA MÁS ENTRAR,
+        // antes de cualquier pantalla (una vez por cuenta y arranque).
+        if (profile.hasFleet) PushService.instance.syncForUser(profile.id, profile.tenantId);
         if (profile.isInactiveDriver) {
           return const NoFleetScreen();
         }

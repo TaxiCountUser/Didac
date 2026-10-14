@@ -87,6 +87,11 @@ export function createAgendaReminders({ supabase, notifyUsers, log }) {
     return !!(data && data.length);
   }
 
+  async function unclaim(eventId, kind, ref) {
+    await supabase.from('agenda_reminders_sent').delete()
+      .eq('event_id', eventId).eq('kind', kind).eq('ref', ref);
+  }
+
   async function recipients(ev, ownersByTenant) {
     if (ev.assigned_to) {
       const { data: u } = await supabase.from('users').select('id, active, deleted_at')
@@ -129,7 +134,14 @@ export function createAgendaReminders({ supabase, notifyUsers, log }) {
             const to = await recipients(ev, ownersByTenant);
             if (!to.length) continue;
             const { key, args } = reminderPush(kind, ev, now);
-            await notifyUsers(to, key, args, { type: 'agenda', eventId: ev.id });
+            const r = await notifyUsers(to, key, args, { type: 'agenda', eventId: ev.id });
+            // Ningún móvil apuntado a quien debía recibirlo: no se da por enviado
+            // y se reintenta en la próxima pasada (mientras siga dentro de su
+            // ventana), por si entretanto abre la app y su móvil se apunta.
+            if (r && r.devices === 0) {
+              await unclaim(ev.id, kind, String(ev.scheduled_at));
+              continue;
+            }
             sent++;
           } catch (e) {
             log?.warn?.(`[agenda-reminders] ${ev.id} ${kind}: ${e.message}`);
