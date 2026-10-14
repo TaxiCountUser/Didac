@@ -70,6 +70,10 @@ El SHA-1 de Play sale en Play Console → Protegida con Play → Firma de aplica
 "Clave de firma de aplicación". La pantalla de consentimiento debe estar **publicada**
 (Google Auth Platform → Público → Publicar app); en "Prueba" solo entran usuarios de prueba.
 
+### ⚠️ Google Play — las NOTIFICACIONES tampoco llegan (mismo motivo, 2026-10-14)
+
+La clave de API Android de Firebase (proyecto **taxicount-75bc2** → APIs y servicios → Credenciales → «Android key (auto created by Firebase)») está restringida por huella SHA-1. Si solo tiene la de subida (`DF:87:…`), la app instalada desde Play (firmada con `B2:F7:97:1C:C0:C1:28:82:20:EC:CE:BA:92:B2:33:F6:EA:6F:92:1F`) no consigue identificador de FCM y **ningún móvil de Play recibe push**. Hay que tener las DOS huellas para `app.taxicount`. Regla: cada vez que cambie una firma, revisar el cliente OAuth Android (taxicount-500507) **y** esta clave de Firebase (taxicount-75bc2).
+
 ## Estado del código
 
 - Opción A/B: solo configuración (sin cambios de código).

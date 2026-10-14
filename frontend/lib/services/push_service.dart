@@ -13,6 +13,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config.dart';
 import '../l10n/app_localizations.dart';
+import 'data_service.dart';
 
 /// Handler de mensajes en segundo plano (debe ser una función top-level).
 @pragma('vm:entry-point')
@@ -32,6 +33,16 @@ class PushService {
   Future<void>? _initFuture;
   bool _refreshHooked = false;
   String? _syncedUserId; // a qué cuenta se apuntó el móvil en esta sesión de app
+  bool _reported = false;
+
+  /// Si el móvil NO consigue apuntarse (p. ej. Firebase rechaza la firma de la app,
+  /// como pasó al pasar a Google Play), se avisa al admin (Errores técnicos) UNA
+  /// vez por arranque, en vez de fallar en silencio.
+  void _reportFailure(String what) {
+    if (_reported) return;
+    _reported = true;
+    DataService().reportClientError('push: $what', screen: 'Push').catchError((_) {});
+  }
 
   /// Callback al TOCAR una notificación (deep-link). Lo fija main.dart para
   /// navegar según `data['type']` (p. ej. 'referral_milestone' -> Referidos).
@@ -69,7 +80,9 @@ class PushService {
         Future.delayed(const Duration(milliseconds: 800), () => onTap?.call(initial.data));
       }
       _inited = true;
-    } catch (_) {/* sin Firebase configurado: la app sigue igual */}
+    } catch (e) {
+      _reportFailure('init: $e'); // sin Firebase: la app sigue igual
+    }
   }
 
   /// Pide permiso, obtiene el token FCM y lo guarda en device_tokens para el
@@ -186,11 +199,15 @@ class PushService {
         fm.onTokenRefresh.listen((t) => _save(t, tenantId));
       }
       final token = await fm.getToken();
-      if (token == null) return false;
+      if (token == null) {
+        _reportFailure('getToken devolvió null');
+        return false;
+      }
       final ok = await _save(token, tenantId);
       if (ok) _syncedUserId = Supabase.instance.client.auth.currentUser?.id;
       return ok;
-    } catch (_) {
+    } catch (e) {
+      _reportFailure('getToken: $e'); // p. ej. huella de la app no autorizada en Firebase
       return false;
     }
   }
