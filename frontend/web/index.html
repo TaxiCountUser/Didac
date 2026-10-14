@@ -19,6 +19,12 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="manifest" href="manifest.json" />
+    <!-- iPhone: «Añadir a pantalla de inicio» = app a pantalla completa con su nombre
+         (y, desde iOS 16.4, con avisos push). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="TaxiCount" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="theme-color" content="#FFF8F2" />
     <script>
       // Shim para passkeys_web (dependencia transitiva vía supabase_flutter).

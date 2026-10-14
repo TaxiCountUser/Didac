@@ -148,6 +148,8 @@ Future<void> main() async {
     ));
   };
   // Push (FCM): solo en móvil; en web es no-op. No bloquea el arranque si falla.
+  // Web del CLIENTE (no el panel admin): avisos también en la web (iPhone).
+  PushService.webEnabled = true;
   await PushService.instance.init();
   runApp(const TaxiCountApp());
 }

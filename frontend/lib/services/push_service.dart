@@ -21,11 +21,19 @@ Future<void> _bgHandler(RemoteMessage message) async {
   // El sistema ya muestra la notificación; no hace falta nada extra.
 }
 
-/// Notificaciones push (FCM). Solo en móvil (en web no se inicializa).
+/// Notificaciones push (FCM). En el móvil (Android) y, desde 2026-10-14, también
+/// en la WEB del cliente (sobre todo para iPhone: la web añadida a la pantalla de
+/// inicio recibe avisos desde iOS 16.4). En la web solo si [webEnabled] (lo pone
+/// main.dart; el panel admin no) y si la config web está puesta (config.dart).
 /// Todo es best-effort: si Firebase no está disponible, la app funciona igual.
 class PushService {
   PushService._();
   static final PushService instance = PushService._();
+  static bool webEnabled = false;
+  /// ¿Hay avisos en ESTA plataforma? (móvil sí; web solo si está activada).
+  static bool get supported => !kIsWeb || (webEnabled && kWebPushConfigured);
+  // Web: sin token VAPID no hay avisos; en el móvil no se pasa.
+  static String? get _vapid => kIsWeb ? kFirebaseVapidKey : null;
   bool _inited = false;
   // Una sola inicialización aunque la pidan varias pantallas a la vez (el
   // autónomo monta Empresa y Chófer juntas): sin esto se duplicaban los
@@ -54,7 +62,7 @@ class PushService {
 
   /// Inicializa Firebase + messaging. Seguro de llamar varias veces; no lanza.
   Future<void> init() {
-    if (kIsWeb || _inited) return Future.value();
+    if (!supported || _inited) return Future.value();
     return _initFuture ??= _doInit().whenComplete(() {
       if (!_inited) _initFuture = null; // falló: se podrá reintentar
     });
@@ -62,8 +70,17 @@ class PushService {
 
   Future<void> _doInit() async {
     try {
-      await Firebase.initializeApp();
-      FirebaseMessaging.onBackgroundMessage(_bgHandler);
+      if (kIsWeb) {
+        // Web: config PÚBLICA de la app web de Firebase (config.dart). Los avisos
+        // con la web cerrada los muestra web/firebase-messaging-sw.js.
+        await Firebase.initializeApp(options: const FirebaseOptions(
+          apiKey: kFirebaseWebApiKey, appId: kFirebaseWebAppId,
+          messagingSenderId: kFirebaseSenderId, projectId: kFirebaseProjectId,
+        ));
+      } else {
+        await Firebase.initializeApp();
+        FirebaseMessaging.onBackgroundMessage(_bgHandler);
+      }
       // Notificación RECIBIDA con la app en primer plano: el sistema no la muestra,
       // así que avisamos in-app (SnackBar) vía el callback de main.dart.
       // Además mostramos la notificación del SISTEMA (con el claxon), para que suene
@@ -91,7 +108,7 @@ class PushService {
   /// Devuelve el estado del permiso ('granted' | 'denied' | 'unsupported' |
   /// 'error') para poder mostrarlo en Ajustes.
   Future<String> register(String tenantId) async {
-    if (kIsWeb) return 'unsupported';
+    if (!supported) return 'unsupported';
     try {
       await init();
       if (!_inited) return 'error';
@@ -100,8 +117,8 @@ class PushService {
       // Android 13+ (POST_NOTIFICATIONS): lo pedimos EXPLÍCITAMENTE con
       // permission_handler, que muestra el diálogo del sistema de forma fiable.
       // (En iOS el permiso lo gestiona firebase_messaging más abajo.)
-      var granted = true;
-      if (defaultTargetPlatform == TargetPlatform.android) {
+      var granted = !kIsWeb;
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         var status = await Permission.notification.status;
         if (!status.isGranted) status = await Permission.notification.request();
         granted = status.isGranted;
@@ -130,7 +147,13 @@ class PushService {
   ///   - si el usuario lo denegó en firme -> aviso in-app que abre los ajustes.
   /// Best-effort; nunca lanza ni bloquea el arranque.
   Future<void> ensureRegistered(BuildContext context, String tenantId) async {
-    if (kIsWeb) return;
+    if (!supported) return;
+    // Web: NUNCA se pide el permiso solo (iPhone exige que lo pida un botón:
+    // Ajustes -> campana). Si ya lo dio, se apunta y listo.
+    if (kIsWeb) {
+      if (await notificationsGranted()) await syncToken(tenantId);
+      return;
+    }
     try {
       await init();
       // SIEMPRE: el móvil queda apuntado a la cuenta que está abierta AHORA, tenga
@@ -189,16 +212,18 @@ class PushService {
   /// Apunta este móvil a la cuenta abierta (sin pedir permiso). Best-effort.
   /// Devuelve true si quedó apuntado.
   Future<bool> syncToken(String tenantId) async {
-    if (kIsWeb) return false;
+    if (!supported) return false;
     try {
       await init();
       if (!_inited) return false;
+      // Web: pedir el token sin permiso dispararía el diálogo (y en iPhone falla).
+      if (kIsWeb && !await notificationsGranted()) return false;
       final fm = FirebaseMessaging.instance;
       if (!_refreshHooked) {
         _refreshHooked = true;
         fm.onTokenRefresh.listen((t) => _save(t, tenantId));
       }
-      final token = await fm.getToken();
+      final token = await fm.getToken(vapidKey: _vapid);
       if (token == null) {
         _reportFailure('getToken devolvió null');
         return false;
@@ -216,7 +241,7 @@ class PushService {
   /// móvil a esa cuenta una vez por cuenta y arranque de la app. Así los avisos
   /// van siempre a la cuenta abierta, pase por las pantallas que pase.
   Future<void> syncForUser(String userId, String tenantId) async {
-    if (kIsWeb || _syncedUserId == userId) return;
+    if (!supported || _syncedUserId == userId) return;
     await syncToken(tenantId);
   }
 
@@ -243,12 +268,12 @@ class PushService {
   /// de recibir sus avisos aquí. Llamar ANTES de signOut (necesita la sesión).
   /// Con tiempo límite: nunca bloquea el cierre de sesión.
   Future<void> unlinkCurrentUser() async {
-    if (kIsWeb || !_inited) return;
+    if (!supported || !_inited) return;
     _syncedUserId = null; // la próxima cuenta que entre se volverá a apuntar
     try {
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) return;
-      final token = await FirebaseMessaging.instance.getToken()
+      final token = await FirebaseMessaging.instance.getToken(vapidKey: _vapid)
           .timeout(const Duration(seconds: 3));
       if (token == null) return;
       await http.post(
@@ -264,9 +289,10 @@ class PushService {
 
   /// ¿Están concedidas las notificaciones? (para mostrar el estado en Ajustes).
   Future<bool> notificationsGranted() async {
-    if (kIsWeb) return false;
+    if (!supported) return false;
     try {
-      if (defaultTargetPlatform == TargetPlatform.android) {
+      if (kIsWeb) await init();
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         return (await Permission.notification.status).isGranted;
       }
       final s = await FirebaseMessaging.instance.getNotificationSettings();
@@ -295,7 +321,7 @@ class PushService {
         body: jsonEncode({
           'token': token,
           'tenant_id': tenantId.isEmpty ? null : tenantId,
-          'platform': defaultTargetPlatform.name,
+          'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
           'locale': localeController.value.languageCode,
           'app_version': '${info.version}+${info.buildNumber}',
         }),

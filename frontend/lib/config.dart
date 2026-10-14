@@ -78,3 +78,15 @@ double estimatedCost(int drivers, bool yearly) {
 /// Precio anual con un cupón (%) aplicado, para mostrar cuánto pagaría el cliente.
 double annualWithCoupon(int drivers, int couponPct) =>
     estimatedCost(drivers, true) * (100 - couponPct) / 100;
+
+// ---------------- Avisos en la WEB (iPhone: web en la pantalla de inicio) ----
+// Config PÚBLICA de la app web de Firebase «TaxiCount Web» (proyecto
+// taxicount-75bc2; no es secreta: va dentro de la web). Se repite en
+// web/firebase-messaging-sw.js. Si falta la clave o el VAPID, la web sigue sin avisos.
+const kFirebaseWebApiKey = String.fromEnvironment('FIREBASE_WEB_API_KEY', defaultValue: '');
+const kFirebaseWebAppId = '1:1063875764382:web:9c55d4eb5de28133bf1b8f';
+const kFirebaseSenderId = '1063875764382';
+const kFirebaseProjectId = 'taxicount-75bc2';
+// Clave pública de «Certificados push web» (Firebase → Cloud Messaging).
+const kFirebaseVapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY', defaultValue: '');
+const kWebPushConfigured = kFirebaseWebApiKey != '' && kFirebaseVapidKey != '';

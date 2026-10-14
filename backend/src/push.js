@@ -84,6 +84,13 @@ export async function sendToTokens(tokens, { title, body, data } = {}, log) {
       priority: 'high',
       notification: { channelId: 'taxicount_claxon', sound: 'claxon' },
     },
+    // Web (iPhone con la web en la pantalla de inicio, o navegador): icono de la
+    // marca y, al tocar el aviso, abre la web. El claxon no es posible en la web.
+    webpush: {
+      headers: { Urgency: 'high' },
+      notification: { icon: 'https://www.taxicount.com/icons/Icon-192.png' },
+      fcmOptions: { link: process.env.WEB_URL || 'https://www.taxicount.com/' },
+    },
     tokens: list,
   };
 

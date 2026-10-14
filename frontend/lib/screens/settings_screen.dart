@@ -54,7 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     super.initState();
     _loadHeader();
     _loadTicketBadge();
-    if (!kIsWeb) {
+    if (PushService.supported) {
       WidgetsBinding.instance.addObserver(this);
       _refreshNotifs();
     }
@@ -62,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
   @override
   void dispose() {
-    if (!kIsWeb) WidgetsBinding.instance.removeObserver(this);
+    if (PushService.supported) WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -473,7 +473,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           ],
         ),
       );
-      if (open == true) await openAppSettings();
+      if (open == true && !kIsWeb) await openAppSettings();
     }
     await _refreshNotifs();
   }
@@ -522,7 +522,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             ],
           ),
         );
-        if (open == true) await openAppSettings();
+        if (open == true && !kIsWeb) await openAppSettings();
       }
     } finally {
       if (mounted) setState(() => _busyNotif = false);
@@ -540,7 +540,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         actions: [
           // Campana: activada (sin tachar) / desactivada (tachada). Al pulsar,
           // activa o (vía ajustes del sistema) desactiva. En web no aplica.
-          if (!kIsWeb)
+          if (PushService.supported)
             IconButton(
               tooltip: l.t('set_notifs'),
               onPressed: _busyNotif ? null : _toggleNotifs,
@@ -587,7 +587,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             onTap: _changePassword,
           ),
           // Probar las notificaciones (suena el claxon si todo va bien).
-          if (!kIsWeb)
+          if (PushService.supported)
             ListTile(
               leading: const Icon(Icons.notifications_active_outlined),
               title: Text(l.t('set_push_test')),
