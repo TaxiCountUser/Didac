@@ -102,7 +102,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     try {
       final vehicles = await _service.myVehicles();
       if (!mounted) return;
-      if (vehicles.isEmpty) return _wdAction('start'); // sin coche: sin km
+      if (vehicles.isEmpty) { await _wdAction('start'); return; } // sin coche: sin km
       await _showKmDialog(vehicles, title: context.l10n.t('wd_start'), barrier: true,
           afterSave: (v, km) => _wdAction('start', km: km, vehicleId: v));
     } catch (e) {
@@ -115,7 +115,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     try {
       final vehicles = await _service.myVehicles();
       if (!mounted) return;
-      if (vehicles.isEmpty) return _wdAction('end');
+      if (vehicles.isEmpty) { await _wdAction('end'); return; }
       await _showKmDialog(vehicles, title: context.l10n.t('wd_end'),
           preVehicleId: _shift?['vehicle_id'] as String?, barrier: true,
           afterSave: (v, km) => _wdAction('end', km: km));
