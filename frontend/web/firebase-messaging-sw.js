@@ -7,7 +7,7 @@ importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: '__FIREBASE_WEB_API_KEY__',
+  apiKey: 'AIzaSyAz9m9puwF450EtVEAulTF4oc3ND4pwK_A',
   appId: '1:1063875764382:web:9c55d4eb5de28133bf1b8f',
   messagingSenderId: '1063875764382',
   projectId: 'taxicount-75bc2',

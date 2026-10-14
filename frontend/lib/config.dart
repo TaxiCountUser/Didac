@@ -83,10 +83,12 @@ double annualWithCoupon(int drivers, int couponPct) =>
 // Config PÚBLICA de la app web de Firebase «TaxiCount Web» (proyecto
 // taxicount-75bc2; no es secreta: va dentro de la web). Se repite en
 // web/firebase-messaging-sw.js. Si falta la clave o el VAPID, la web sigue sin avisos.
-const kFirebaseWebApiKey = String.fromEnvironment('FIREBASE_WEB_API_KEY', defaultValue: '');
+const kFirebaseWebApiKey = String.fromEnvironment('FIREBASE_WEB_API_KEY',
+    defaultValue: 'AIzaSyAz9m9puwF450EtVEAulTF4oc3ND4pwK_A');
 const kFirebaseWebAppId = '1:1063875764382:web:9c55d4eb5de28133bf1b8f';
 const kFirebaseSenderId = '1063875764382';
 const kFirebaseProjectId = 'taxicount-75bc2';
 // Clave pública de «Certificados push web» (Firebase → Cloud Messaging).
-const kFirebaseVapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY', defaultValue: '');
+const kFirebaseVapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY',
+    defaultValue: 'BITGV5ZdREXnyfo5Qh8jdozi5NLrbZdyfPQAaU-_5egSBa_b1QLlac5pg9rBB6O-JXjGodhjTCAjxjByfPIkwSw');
 const kWebPushConfigured = kFirebaseWebApiKey != '' && kFirebaseVapidKey != '';
