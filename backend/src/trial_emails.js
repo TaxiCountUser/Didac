@@ -21,7 +21,7 @@ const TEXTS = {
   es: {
     welcome_subject: 'Bienvenido a TaxiCount 🚕',
     welcome_title: '¡Bienvenido a TaxiCount!',
-    welcome_body: 'Ya tienes tu cuenta lista. Durante <b>15 días</b> puedes usarlo todo gratis y sin límite de conductores: registrar carreras por voz, cuadrar la caja y sacar tus informes en Excel.',
+    welcome_body: 'Ya tienes tu cuenta lista. Durante el <b>periodo de prueba</b> puedes usarlo todo gratis y sin límite de conductores: registrar carreras por voz, cuadrar la caja y sacar tus informes en Excel.',
     welcome_body2: 'Cuando acabe la prueba, podrás seguir con un plan desde nuestra web. Te avisaremos unos días antes.',
     welcome_cta: 'Ver planes',
     ending_subject: 'Tu prueba de TaxiCount termina el {date}',
@@ -39,7 +39,7 @@ const TEXTS = {
   ca: {
     welcome_subject: 'Benvingut a TaxiCount 🚕',
     welcome_title: 'Benvingut a TaxiCount!',
-    welcome_body: 'Ja tens el compte a punt. Durant <b>15 dies</b> pots fer-ho servir tot gratis i sense límit de conductors: registrar carreres per veu, quadrar la caixa i treure els informes en Excel.',
+    welcome_body: 'Ja tens el compte a punt. Durant el <b>període de prova</b> pots fer-ho servir tot gratis i sense límit de conductors: registrar carreres per veu, quadrar la caixa i treure els informes en Excel.',
     welcome_body2: 'Quan acabi la prova, podràs continuar amb un pla des del nostre web. T\'avisarem uns dies abans.',
     welcome_cta: 'Veure plans',
     ending_subject: 'La teva prova de TaxiCount acaba el {date}',
@@ -57,7 +57,7 @@ const TEXTS = {
   en: {
     welcome_subject: 'Welcome to TaxiCount 🚕',
     welcome_title: 'Welcome to TaxiCount!',
-    welcome_body: 'Your account is ready. For <b>15 days</b> you can use everything for free with unlimited drivers: log rides by voice, balance your takings and export your reports to Excel.',
+    welcome_body: 'Your account is ready. During the <b>trial period</b> you can use everything for free with unlimited drivers: log rides by voice, balance your takings and export your reports to Excel.',
     welcome_body2: 'When the trial ends, you can continue with a plan from our website. We\'ll remind you a few days before.',
     welcome_cta: 'See plans',
     ending_subject: 'Your TaxiCount trial ends on {date}',
@@ -199,6 +199,34 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
     return { email: true, sent, errors, details };
   }
 
+  /** Bienvenida a una LISTA de correos concreta (titulares de empresas activas),
+   *  p. ej. para dársela a los que ya estaban antes. Una vez por empresa: si ya la
+   *  recibió, no se repite. Devuelve {sent, skipped, details[]}. */
+  async function sendWelcomeTo(emails) {
+    if (!enabled()) return { email: false, sent: 0 };
+    let sent = 0; let skipped = 0; const details = [];
+    for (const raw of emails) {
+      const email = String(raw).trim().toLowerCase();
+      if (!email) continue;
+      const { data: owner } = await supabase.from('users')
+        .select('id, email, tenant_id, deleted_at, active').ilike('email', email)
+        .eq('role', 'owner').maybeSingle();
+      if (!owner?.tenant_id || owner.deleted_at || owner.active === false) { skipped++; details.push({ email, result: 'sin empresa activa' }); continue; }
+      const { data: t } = await supabase.from('tenants').select('id, trial_ends_at, closed_at')
+        .eq('id', owner.tenant_id).maybeSingle();
+      if (!t || t.closed_at) { skipped++; details.push({ email, result: 'empresa cerrada' }); continue; }
+      if (!(await claim(t.id, 'welcome', '-', owner.email))) { skipped++; details.push({ email, result: 'ya la tenía' }); continue; }
+      try {
+        await sendEmail(owner.email, renderTrialEmail('welcome', await localeFor(owner.id), { trialEndsAt: t.trial_ends_at, webUrl }));
+        sent++; details.push({ email, result: 'enviada' });
+      } catch (e) {
+        await unclaim(t.id, 'welcome', '-');
+        details.push({ email, result: `error: ${e.message}` });
+      }
+    }
+    return { email: true, sent, skipped, details };
+  }
+
   /** Prueba: envía los 3 correos de ejemplo a `to` (no toca el registro). */
   async function sendTest(to, locale = 'es') {
     if (!enabled()) return { email: false, sent: 0 };
@@ -211,7 +239,7 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
     return { email: true, sent: 3 };
   }
 
-  return { run, sendTest, enabled };
+  return { run, sendTest, sendWelcomeTo, enabled };
 }
 
 /** Ruta del cron: POST /api/v1/admin/cron/trial-emails  body opcional {test_to, locale}.
@@ -228,7 +256,13 @@ export function registerTrialEmailRoutes(app, { trialEmails, cronOrAdmin, markCr
   app.post('/api/v1/admin/cron/trial-emails', async (request, reply) => {
     const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
-    const { test_to: testTo, locale } = request.body ?? {};
+    const { test_to: testTo, locale, welcome_to: welcomeTo } = request.body ?? {};
+    // Bienvenida a una lista concreta (separada por comas): solo admin/cron.
+    if (welcomeTo) {
+      const list = (Array.isArray(welcomeTo) ? welcomeTo : String(welcomeTo).split(','))
+        .map((e) => String(e).trim()).filter(Boolean).slice(0, 200);
+      return reply.send({ ok: true, ...(await trialEmails.sendWelcomeTo(list)) });
+    }
     if (testTo) {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(testTo))) return reply.code(400).send({ error: 'test_to no válido' });
       return reply.send({ ok: true, test: true, ...(await trialEmails.sendTest(String(testTo), locale)) });

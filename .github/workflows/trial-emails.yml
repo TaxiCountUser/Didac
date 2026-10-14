@@ -1,7 +1,7 @@
 name: Correos de bienvenida y fin de prueba (diario)
 
 # Una vez al día llama al backend, que envía con Resend (mig. 089, trial_emails.js):
-#   - bienvenida a quien se registró con Google (no recibe el de verificación),
+#   - bienvenida (además, cada 5 min el propio backend la manda a las empresas nuevas),
 #   - "tu prueba termina el día X" (~3 días antes),
 #   - "tu prueba ha terminado" (el día que acaba).
 # Solo al jefe/autónomo, una vez cada aviso. Sin RESEND_API_KEY en Render no envía.
@@ -27,6 +27,10 @@ on:
         description: 'Idioma de la prueba (es | ca | en)'
         required: false
         default: 'es'
+      welcome_to:
+        description: 'Enviar la BIENVENIDA a estos correos de titulares (separados por comas; vacío = pasada normal)'
+        required: false
+        default: ''
 
 permissions: {}
 
@@ -38,10 +42,13 @@ jobs:
         env:
           TEST_TO: ${{ github.event.inputs.test_to }}
           LOCALE: ${{ github.event.inputs.locale }}
+          WELCOME_TO: ${{ github.event.inputs.welcome_to }}
         run: |
           BODY='{}'
           if [ -n "$TEST_TO" ]; then
             BODY=$(printf '{"test_to":"%s","locale":"%s"}' "$TEST_TO" "${LOCALE:-es}")
+          elif [ -n "$WELCOME_TO" ]; then
+            BODY=$(printf '{"welcome_to":"%s"}' "$WELCOME_TO")
           fi
           curl --fail-with-body -sS -X POST \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
