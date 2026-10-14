@@ -71,7 +71,7 @@ La arquitectura es sólida y está bien alineada con su stack.
 |---|---|
 | Backend | Fastify, `server.js` ~3.500 líneas + 6 módulos · 69 rutas HTTP |
 | Frontend | Flutter, ~45 pantallas, i18n propia (es/en/ca/fr/it/de/pt/eu) |
-| Base de datos | 95 migraciones · 35+ tablas · ~28 RPCs · 53 políticas RLS |
+| Base de datos | 96 migraciones · 35+ tablas · ~28 RPCs · 53 políticas RLS |
 | Idiomas de la app | 8: español, inglés, catalán, francés, italiano, alemán, portugués, euskera |
 | Coste operativo | ~88 €/mes |
 
@@ -614,7 +614,7 @@ Definida en `docker-compose.yml` (dev) y replicada en **Supabase Cloud** (prod) 
 | **Kong (Gateway)** | `2.8.1` | 54321 | expone `/auth/v1` y `/rest/v1`; plugins cors/key-auth/acl |
 | **Realtime** | `v2.30.34` (perfil opcional) | — | publica `transactions` en `supabase_realtime` |
 
-**Cifras del esquema:** 95 migraciones · **35 tablas** · **~28 RPCs** `public.*` · **53 políticas RLS** · 3 triggers.
+**Cifras del esquema:** 96 migraciones · **35 tablas** · **~28 RPCs** `public.*` · **53 políticas RLS** · 3 triggers.
 
 **Borrado de cuenta (RGPD art. 17 / requisito Google Play, mig. 085):** borrado LÓGICO compatible con la retención fiscal (5 años). El usuario lo pide en Ajustes → `POST /api/v1/account/request-deletion` marca `users.deleted_at` + `active=false` (no borra Auth); `getCaller` y el login rechazan cuentas con `deleted_at`; el `auth_gate` expulsa. La purga física la decide la administración. Página pública `/borrar-cuenta` (backend) para declarar en Play.
 
