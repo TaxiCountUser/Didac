@@ -27,4 +27,7 @@ regexes = [
   '''8T3kmJ5SaqY3bVmU02ZJ4MIoHe5z7R4qQ4T9VqJA8hk''',
   # API key de Firebase Android (pública por diseño, ver docs/firebase-api-key-restriction.md).
   '''AIzaSyA_nhQLXsaD1KuBQ3-L-q_VJXkwGPg0iXM''',
+  # API key de la app WEB de Firebase «TaxiCount Web» (avisos en la web/iPhone):
+  # pública por diseño, va dentro de la web servida (config.dart + service worker).
+  '''AIzaSyAz9m9puwF450EtVEAulTF4oc3ND4pwK_A''',
 ]
