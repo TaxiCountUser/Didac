@@ -22,12 +22,12 @@ assert.match(renderTrialEmail('trial_ending', 'es', { trialEndsAt: '2026-10-22T1
 assert.equal(renderTrialEmail('welcome', 'xx', { webUrl: 'x' }).subject, renderTrialEmail('welcome', 'es', { webUrl: 'x' }).subject, 'idioma desconocido -> es');
 
 // --- Lógica de envío con un supabase falso ---
-function fakeSupabase({ tenants, owners, providers }) {
+function fakeSupabase({ tenants, owners, providers, drivers = [] }) {
   const sentLog = new Set();
   const q = (table) => {
     const st = { table, filters: {} };
     const b = {
-      select: () => b, is: () => b, or: () => b, not: () => b, order: () => b, limit: () => b,
+      select: () => b, is: () => b, or: () => b, not: () => b, order: () => b, limit: () => b, gte: () => b,
       eq: (k, v) => { st.filters[k] = v; return b; },
       upsert: (row) => { st.upsert = row; return b; },
       delete: () => { st.del = true; return b; },
@@ -35,6 +35,7 @@ function fakeSupabase({ tenants, owners, providers }) {
       then: (res, rej) => Promise.resolve((() => {
         if (table === 'tenants') return { data: tenants };
         if (table === 'device_tokens') return { data: [] };
+        if (table === 'users' && st.filters.role === 'driver') return { data: drivers };
         if (table === 'trial_emails_sent' && st.upsert) {
           const k = `${st.upsert.tenant_id}|${st.upsert.kind}|${st.upsert.ref}`;
           if (sentLog.has(k)) return { data: [] };
@@ -69,7 +70,9 @@ const tenants = [
 ];
 const owners = Object.fromEntries(tenants.map((t) => [t.id, { id: `u_${t.id}`, email: `${t.id}@x.com`, active: true }]));
 owners.t7.deleted_at = iso(NOW);
-const supabase = fakeSupabase({ tenants, owners, providers: { u_t1: ['google'] } });
+// Conductor nuevo en t1 -> bienvenida de conductor (sin prueba).
+const drivers = [{ id: 'd1', email: 'd1@x.com', tenant_id: 't1', created_at: iso(NOW - DAY), active: true }];
+const supabase = fakeSupabase({ tenants, owners, providers: { u_t1: ['google'] }, drivers });
 
 const calls = [];
 const fetchImpl = async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true, text: async () => '' }; };
@@ -82,16 +85,19 @@ assert.equal(calls.length, 0);
 const te = createTrialEmails({ supabase, env: { RESEND_API_KEY: 're_test' }, fetchImpl });
 const r1 = await te.run({ now: NOW });
 const got = r1.details.map((d) => `${d.tenant}:${d.kind}`).sort();
-assert.deepEqual(got, ['t1:welcome', 't2:welcome', 't3:trial_ending', 't4:trial_ended']);
-assert.deepEqual(calls.map((c) => c.to[0]).sort(), ['t1@x.com', 't2@x.com', 't3@x.com', 't4@x.com']);
+assert.deepEqual(got, ['t1:driver_welcome', 't1:welcome', 't2:welcome', 't3:trial_ending', 't4:trial_ended']);
+assert.deepEqual(calls.map((c) => c.to[0]).sort(), ['d1@x.com', 't1@x.com', 't2@x.com', 't3@x.com', 't4@x.com']);
+// El del conductor no habla de prueba ni de pagos.
+const dmail = calls.find((c) => c.to[0] === 'd1@x.com');
+assert.ok(!/prueba|15 d|planes|suscr/i.test(dmail.html), 'la bienvenida de conductor no debe hablar de prueba/pagos');
 
 // Segunda pasada el mismo día: no repite.
 const r2 = await te.run({ now: NOW });
 assert.equal(r2.sent, 0, 'no debe repetir avisos ya enviados');
 
-// Modo prueba: 3 correos a la dirección indicada.
+// Modo prueba: 4 correos a la dirección indicada.
 calls.length = 0;
-assert.deepEqual(await te.sendTest('yo@x.com', 'ca'), { email: true, sent: 3 });
+assert.deepEqual(await te.sendTest('yo@x.com', 'ca'), { email: true, sent: 4 });
 assert.ok(calls.every((c) => c.to[0] === 'yo@x.com'));
 
 console.log('trial_emails: OK');

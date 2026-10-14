@@ -11,7 +11,7 @@ name: Correos de bienvenida y fin de prueba (diario)
 #   CRON_SECRET      -> el mismo valor que la env var CRON_SECRET en Render
 #
 # A mano: Actions -> "Correos de bienvenida..." -> Run workflow. Si rellenas
-# "test_to", NO se envía nada a clientes: solo los 3 correos de ejemplo a esa
+# "test_to", NO se envía nada a clientes: solo los 4 correos de ejemplo a esa
 # dirección (para ver cómo quedan).
 
 on:
@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       test_to:
-        description: 'Solo prueba: enviar los 3 correos de ejemplo a este email (vacío = pasada real)'
+        description: 'Solo prueba: enviar los 4 correos de ejemplo a este email (vacío = pasada real)'
         required: false
         default: ''
       locale:

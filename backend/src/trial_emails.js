@@ -21,9 +21,14 @@ const TEXTS = {
   es: {
     welcome_subject: 'Bienvenido a TaxiCount 🚕',
     welcome_title: '¡Bienvenido a TaxiCount!',
-    welcome_body: 'Ya tienes tu cuenta lista. Durante el <b>periodo de prueba</b> puedes usarlo todo gratis y sin límite de conductores: registrar carreras por voz, cuadrar la caja y sacar tus informes en Excel.',
+    welcome_body: 'Ya tienes tu cuenta lista. Durante <b>15 días</b> puedes usarlo todo gratis y sin límite de conductores: registrar carreras por voz, cuadrar la caja y sacar tus informes en Excel.',
     welcome_body2: 'Cuando acabe la prueba, podrás seguir con un plan desde nuestra web. Te avisaremos unos días antes.',
     welcome_cta: 'Ver planes',
+    driver_subject: 'Bienvenido a TaxiCount 🚕',
+    driver_title: '¡Bienvenido al equipo!',
+    driver_body: 'Ya formas parte de la flota <b>{company}</b> en TaxiCount. Desde la app podrás registrar tus carreras por voz en un momento, apuntar los kilómetros y consultar tu actividad.',
+    driver_body2: 'Tu empresa se ocupa de todo lo demás: tú solo tienes que entrar con tu cuenta y empezar a trabajar. ¡Buen servicio!',
+    driver_cta: 'Abrir TaxiCount',
     ending_subject: 'Tu prueba de TaxiCount termina el {date}',
     ending_title: 'Te quedan {n} días de prueba',
     ending_body: 'Tu periodo de prueba gratuito termina el <b>{date}</b>. Para seguir registrando carreras sin cortes, suscríbete desde nuestra web entrando con tu misma cuenta.',
@@ -39,9 +44,14 @@ const TEXTS = {
   ca: {
     welcome_subject: 'Benvingut a TaxiCount 🚕',
     welcome_title: 'Benvingut a TaxiCount!',
-    welcome_body: 'Ja tens el compte a punt. Durant el <b>període de prova</b> pots fer-ho servir tot gratis i sense límit de conductors: registrar carreres per veu, quadrar la caixa i treure els informes en Excel.',
+    welcome_body: 'Ja tens el compte a punt. Durant <b>15 dies</b> pots fer-ho servir tot gratis i sense límit de conductors: registrar carreres per veu, quadrar la caixa i treure els informes en Excel.',
     welcome_body2: 'Quan acabi la prova, podràs continuar amb un pla des del nostre web. T\'avisarem uns dies abans.',
     welcome_cta: 'Veure plans',
+    driver_subject: 'Benvingut a TaxiCount 🚕',
+    driver_title: 'Benvingut a l\'equip!',
+    driver_body: 'Ja formes part de la flota <b>{company}</b> a TaxiCount. Des de l\'app podràs registrar les teves carreres per veu en un moment, apuntar els quilòmetres i consultar la teva activitat.',
+    driver_body2: 'La teva empresa s\'ocupa de tota la resta: tu només has d\'entrar amb el teu compte i començar a treballar. Bon servei!',
+    driver_cta: 'Obrir TaxiCount',
     ending_subject: 'La teva prova de TaxiCount acaba el {date}',
     ending_title: 'Et queden {n} dies de prova',
     ending_body: 'El teu període de prova gratuït acaba el <b>{date}</b>. Per continuar registrant carreres sense talls, subscriu-te des del nostre web entrant amb el mateix compte.',
@@ -57,9 +67,14 @@ const TEXTS = {
   en: {
     welcome_subject: 'Welcome to TaxiCount 🚕',
     welcome_title: 'Welcome to TaxiCount!',
-    welcome_body: 'Your account is ready. During the <b>trial period</b> you can use everything for free with unlimited drivers: log rides by voice, balance your takings and export your reports to Excel.',
+    welcome_body: 'Your account is ready. For <b>15 days</b> you can use everything for free with unlimited drivers: log rides by voice, balance your takings and export your reports to Excel.',
     welcome_body2: 'When the trial ends, you can continue with a plan from our website. We\'ll remind you a few days before.',
     welcome_cta: 'See plans',
+    driver_subject: 'Welcome to TaxiCount 🚕',
+    driver_title: 'Welcome to the team!',
+    driver_body: 'You are now part of the <b>{company}</b> fleet on TaxiCount. In the app you can log your rides by voice in seconds, record your mileage and check your activity.',
+    driver_body2: 'Your company takes care of everything else: just sign in with your account and start working. Have a good shift!',
+    driver_cta: 'Open TaxiCount',
     ending_subject: 'Your TaxiCount trial ends on {date}',
     ending_title: '{n} days of trial left',
     ending_body: 'Your free trial ends on <b>{date}</b>. To keep logging rides without interruption, subscribe on our website using the same account.',
@@ -80,13 +95,15 @@ const fmtDate = (iso) => {
   return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
 };
 
-/** Asunto + HTML + texto plano de un correo. kind: welcome | trial_ending | trial_ended. */
-export function renderTrialEmail(kind, locale, { trialEndsAt, webUrl }) {
+/** Asunto + HTML + texto plano de un correo.
+ *  kind: welcome | trial_ending | trial_ended | driver_welcome (conductor nuevo). */
+export function renderTrialEmail(kind, locale, { trialEndsAt, webUrl, company }) {
   const t = TEXTS[locale] ?? TEXTS.es;
-  const k = { welcome: 'welcome', trial_ending: 'ending', trial_ended: 'ended' }[kind];
+  const k = { welcome: 'welcome', trial_ending: 'ending', trial_ended: 'ended', driver_welcome: 'driver' }[kind];
   if (!k) throw new Error(`kind desconocido: ${kind}`);
   const daysLeft = trialEndsAt ? Math.max(1, Math.ceil((new Date(trialEndsAt) - Date.now()) / DAY)) : 0;
-  const args = { date: trialEndsAt ? fmtDate(trialEndsAt) : '', n: String(daysLeft) };
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const args = { date: trialEndsAt ? fmtDate(trialEndsAt) : '', n: String(daysLeft), company: esc(company || 'TaxiCount') };
   const subject = fill(t[`${k}_subject`], args);
   const title = fill(t[`${k}_title`], args);
   const body = fill(t[`${k}_body`], args);
@@ -196,6 +213,30 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
         }
       }
     }
+    // Conductores nuevos (invitados por su jefe o unidos con código) en los últimos
+    // 3 días: bienvenida propia, sin prueba ni pagos. Una vez por conductor.
+    const { data: drivers } = await supabase.from('users')
+      .select('id, email, tenant_id, created_at, deleted_at, active')
+      .eq('role', 'driver').not('tenant_id', 'is', null).is('deleted_at', null)
+      .gte('created_at', since);
+    for (const d of drivers ?? []) {
+      if (!d.email || d.active === false) continue;
+      try {
+        const { data: tn } = await supabase.from('tenants').select('name, closed_at').eq('id', d.tenant_id).maybeSingle();
+        if (tn?.closed_at) continue;
+        if (!(await claim(d.tenant_id, 'driver_welcome', d.id, d.email))) continue;
+        try {
+          await sendEmail(d.email, renderTrialEmail('driver_welcome', await localeFor(d.id), { webUrl, company: tn?.name }));
+          sent++; details.push({ tenant: d.tenant_id, kind: 'driver_welcome' });
+        } catch (e) {
+          await unclaim(d.tenant_id, 'driver_welcome', d.id);
+          throw e;
+        }
+      } catch (e) {
+        errors++;
+        log?.warn?.(`[trial-emails] conductor ${d.id}: ${e.message}`);
+      }
+    }
     return { email: true, sent, errors, details };
   }
 
@@ -227,16 +268,16 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
     return { email: true, sent, skipped, details };
   }
 
-  /** Prueba: envía los 3 correos de ejemplo a `to` (no toca el registro). */
+  /** Prueba: envía los 4 correos de ejemplo a `to` (no toca el registro). */
   async function sendTest(to, locale = 'es') {
     if (!enabled()) return { email: false, sent: 0 };
     const loc = TEXTS[locale] ? locale : 'es';
     const sample = new Date(Date.now() + 3 * DAY).toISOString();
     const past = new Date(Date.now() - DAY).toISOString();
-    for (const [kind, end] of [['welcome', sample], ['trial_ending', sample], ['trial_ended', past]]) {
-      await sendEmail(to, renderTrialEmail(kind, loc, { trialEndsAt: end, webUrl }));
+    for (const [kind, end] of [['welcome', sample], ['driver_welcome', null], ['trial_ending', sample], ['trial_ended', past]]) {
+      await sendEmail(to, renderTrialEmail(kind, loc, { trialEndsAt: end, webUrl, company: 'Taxi Ejemplo' }));
     }
-    return { email: true, sent: 3 };
+    return { email: true, sent: 4 };
   }
 
   return { run, sendTest, sendWelcomeTo, enabled };
