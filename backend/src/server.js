@@ -30,6 +30,7 @@ import { createParseFeedback, registerParseFeedbackRoutes } from './parse_feedba
 import { registerAssistantRoutes } from './assistant.js';
 import { createTrialEmails, registerTrialEmailRoutes } from './trial_emails.js';
 import { createAgendaReminders, registerAgendaReminders } from './agenda_reminders.js';
+import { createWorkdayReminders, registerWorkdayReminders, registerWorkdayRoutes } from './workday.js';
 import { registerAdminUsersRoutes } from './admin_users.js';
 import { registerCompaniesRoutes } from './companies.js';
 import { registerFlagsRoutes } from './flags.js';
@@ -585,6 +586,10 @@ export async function buildApp(options = {}) {
   // Intervalo de 60 s dentro del proceso + endpoint de cron para lanzarlo a mano.
   const agendaReminders = createAgendaReminders({ supabase, notifyUsers, log: app.log });
   registerAgendaReminders(app, { agendaReminders, cronOrAdmin, markCronRun });
+  // Registro de jornada (mig. 093/094): exportación Excel/PDF + avisos push.
+  registerWorkdayRoutes(app, { supabase, getCaller, XLSX_MIME });
+  const workdayReminders = createWorkdayReminders({ supabase, notifyUsers, log: app.log });
+  registerWorkdayReminders(app, { workdayReminders });
 
   // Administradores + usuarios (admin): plugin en ./admin_users.js (Fase B).
   registerAdminUsersRoutes(app, { supabase, adminGuard, logAdminAction });

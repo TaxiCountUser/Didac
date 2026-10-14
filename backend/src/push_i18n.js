@@ -58,6 +58,21 @@ const PUSH = {
     ca: { title: '📅 Servei demà', body: 'Recorda: demà a les {time} tens aquest servei: {detail}' },
     en: { title: '📅 Booking tomorrow', body: 'Reminder: tomorrow at {time} you have this booking: {detail}' },
   },
+  wd_long_pause: {
+    es: { title: '⏸️ ¿Sigues en pausa?', body: 'Llevas en pausa desde las {time}. Si ya has vuelto, pulsa «Reanudar».' },
+    ca: { title: '⏸️ Encara estàs en pausa?', body: 'Estàs en pausa des de les {time}. Si ja has tornat, prem «Reprendre».' },
+    en: { title: '⏸️ Still on a break?', body: 'You have been on a break since {time}. If you are back, tap “Resume”.' },
+  },
+  wd_long_open: {
+    es: { title: '🕛 Tu jornada sigue abierta', body: 'Empezaste a las {time} y ya llevas más de 12 horas. Si has terminado, pulsa «Finalizar jornada».' },
+    ca: { title: '🕛 La teva jornada continua oberta', body: 'Vas començar a les {time} i ja portes més de 12 hores. Si has acabat, prem «Finalitzar jornada».' },
+    en: { title: '🕛 Your shift is still open', body: 'You started at {time} and it has been over 12 hours. If you are done, tap “End shift”.' },
+  },
+  wd_long_open_owner: {
+    es: { title: '🕛 Jornada abierta de {name}', body: '{name} empezó a las {time} y lleva más de 12 horas con la jornada abierta.' },
+    ca: { title: '🕛 Jornada oberta de {name}', body: '{name} va començar a les {time} i porta més de 12 hores amb la jornada oberta.' },
+    en: { title: "🕛 {name}'s shift is open", body: '{name} started at {time} and the shift has been open for over 12 hours.' },
+  },
   push_test: {
     es: { title: '🔔 Aviso de prueba', body: 'Si oyes el claxon, las notificaciones de TaxiCount funcionan en este móvil.' },
     ca: { title: '🔔 Avís de prova', body: 'Si sents el clàxon, les notificacions de TaxiCount funcionen en aquest mòbil.' },

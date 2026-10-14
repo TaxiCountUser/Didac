@@ -270,6 +270,47 @@ class DataService {
     return (rows as List).cast<Map<String, dynamic>>();
   }
 
+  /// Corrección del JEFE (mig. 094): nueva hora (instante UTC) y/o km de una
+  /// pulsación, con MOTIVO obligatorio. Queda el valor original y quién/cuándo.
+  Future<void> workdayCorrect(String eventId, DateTime at, {int? km, required String reason}) =>
+      _c.rpc('workday_correct', params: {
+        'p_event': eventId, 'p_at': at.toUtc().toIso8601String(), 'p_km': km, 'p_reason': reason,
+      });
+
+  /// El JEFE cierra una jornada que se quedó abierta (con hora, km y motivo).
+  Future<void> workdayClose(String shiftId, DateTime at, {int? km, required String reason}) =>
+      _c.rpc('workday_close', params: {
+        'p_shift': shiftId, 'p_at': at.toUtc().toIso8601String(), 'p_km': km, 'p_reason': reason,
+      });
+
+  /// Descarga el registro de jornada en 'excel' | 'pdf' ([userId] null = toda la
+  /// empresa, solo el jefe; el conductor siempre recibe solo lo suyo).
+  Future<List<int>> downloadWorkdayReport({
+    required String format, required DateTime from, required DateTime to, String? userId,
+  }) async {
+    final token = _c.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('No hay sesión activa');
+    final tz = await deviceTimeZone();
+    final res = await http.post(
+      Uri.parse('$backendUrl/api/v1/reports/workday/$format'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'from': from.toUtc().toIso8601String(),
+        'to': to.toUtc().toIso8601String(),
+        'userId': userId,
+        if (tz != null) 'tz': tz,
+      }),
+    );
+    if (res.statusCode != 200) {
+      String msg = 'Error (${res.statusCode})';
+      try {
+        msg = (jsonDecode(res.body) as Map<String, dynamic>)['error'] as String? ?? msg;
+      } catch (_) {}
+      throw Exception(msg);
+    }
+    return res.bodyBytes;
+  }
+
   // ---------------- Agenda (opción oculta y de pago, Fase 1) ----------------
   // Servicios programados compartidos por toda la empresa. RLS: solo miembros de
   // la empresa y solo si su empresa tiene la agenda activada (mig. 084).
