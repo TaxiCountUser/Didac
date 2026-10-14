@@ -40,14 +40,14 @@ async function run() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const suA = await anon.auth.signUp({ email: `roll.a.${Date.now()}@test.com`, password: 'Owner12345!',
-    options: { data: { company_name: 'Rollup A' } } });
+    options: { data: { create_company: true, company_name: 'Rollup A' } } });
   assert.ok(!suA.error, `signUp A: ${suA.error?.message}`);
   const ownerA = suA.data.user.id; const tokenA = suA.data.session.access_token;
   const { data: profA } = await sb.from('users').select('tenant_id').eq('id', ownerA).single();
   const tenantA = profA.tenant_id;
 
   const suB = await anon.auth.signUp({ email: `roll.b.${Date.now()}@test.com`, password: 'Owner12345!',
-    options: { data: { company_name: 'Rollup B' } } });
+    options: { data: { create_company: true, company_name: 'Rollup B' } } });
   const ownerB = suB.data.user.id;
   const { data: profB } = await sb.from('users').select('tenant_id').eq('id', ownerB).single();
   const tenantB = profB.tenant_id;

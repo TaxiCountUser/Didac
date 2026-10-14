@@ -41,7 +41,7 @@ async function run() {
 
   const emailA = `per.owner.${Date.now()}@test.com`;
   const suA = await anon.auth.signUp({ email: emailA, password: 'Owner12345!',
-    options: { data: { company_name: 'Flota Period A' } } });
+    options: { data: { create_company: true, company_name: 'Flota Period A' } } });
   assert.ok(!suA.error, `signUp A: ${suA.error?.message}`);
   const ownerA = suA.data.user.id;
   const tokenA = suA.data.session.access_token;
@@ -50,7 +50,7 @@ async function run() {
 
   const emailB = `per.owner.${Date.now()}b@test.com`;
   const suB = await anon.auth.signUp({ email: emailB, password: 'Owner12345!',
-    options: { data: { company_name: 'Flota Period B' } } });
+    options: { data: { create_company: true, company_name: 'Flota Period B' } } });
   assert.ok(!suB.error, `signUp B: ${suB.error?.message}`);
   const ownerB = suB.data.user.id;
   const { data: profB } = await sb.from('users').select('tenant_id').eq('id', ownerB).single();

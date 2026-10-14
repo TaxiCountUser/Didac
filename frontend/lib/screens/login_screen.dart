@@ -23,7 +23,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _company = TextEditingController();
   final _refCode = TextEditingController(); // código de invitación (opcional)
 
   bool _isSignUp = false;
@@ -71,7 +70,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _email.dispose();
     _password.dispose();
-    _company.dispose();
     _refCode.dispose();
     super.dispose();
   }
@@ -90,10 +88,9 @@ class _LoginScreenState extends State<LoginScreen> {
           // URL de retorno del correo de confirmación (debe estar permitida en
           // Supabase -> Authentication -> URL Configuration -> Redirect URLs).
           emailRedirectTo: kIsWeb ? _webRedirect() : 'app.taxicount://login-callback',
-          data: {
-            'company_name': _company.text.trim(),
-            // Sin tenant_id => el trigger lo trata como Owner nuevo.
-          },
+          // Sin datos de empresa: la cuenta queda «sin empresa» y, al entrar, la
+          // app pregunta qué quiere hacer (empresa / autónomo / unirse a una
+          // flota) en ChoosePathScreen, donde se pide el nombre (mig. 096).
         );
         // Correo ya registrado: Supabase lo devuelve con identities vacío.
         if (res.user != null && (res.user!.identities?.isEmpty ?? false)) {
@@ -113,7 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
         if (res.session == null) {
           setState(() {
             _isSignUp = false;
-            _company.clear();
             _refCode.clear();
             _error = context.l10n.t('login_confirm_email_sent');
           });
@@ -338,20 +334,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   if (_isSignUp) ...[
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('company_field'),
-                      controller: _company,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) {
-                        if (!_loading) _submit();
-                      },
-                      decoration: InputDecoration(
-                        labelText: l.t('login_company_fleet'),
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.business_outlined),
-                      ),
-                    ),
                     const SizedBox(height: 16),
                     // Código de invitación (opcional).
                     TextField(

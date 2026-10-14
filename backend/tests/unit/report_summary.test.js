@@ -42,7 +42,7 @@ async function run() {
   // --- Tenant A: owner con transacciones conocidas ---
   const emailA = `rep.owner.${Date.now()}@test.com`;
   const suA = await anon.auth.signUp({ email: emailA, password: 'Owner12345!',
-    options: { data: { company_name: 'Flota Report A' } } });
+    options: { data: { create_company: true, company_name: 'Flota Report A' } } });
   assert.ok(!suA.error, `signUp A: ${suA.error?.message}`);
   const ownerA = suA.data.user.id;
   const tokenA = suA.data.session.access_token;
@@ -52,7 +52,7 @@ async function run() {
   // --- Tenant B: otro owner con transacciones que NO deben colarse ---
   const emailB = `rep.owner.${Date.now()}b@test.com`;
   const suB = await anon.auth.signUp({ email: emailB, password: 'Owner12345!',
-    options: { data: { company_name: 'Flota Report B' } } });
+    options: { data: { create_company: true, company_name: 'Flota Report B' } } });
   assert.ok(!suB.error, `signUp B: ${suB.error?.message}`);
   const ownerB = suB.data.user.id;
   const { data: profB } = await sb.from('users').select('tenant_id').eq('id', ownerB).single();

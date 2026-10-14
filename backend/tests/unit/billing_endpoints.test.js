@@ -60,7 +60,7 @@ async function run() {
   const { data: su, error } = await anon.auth.signUp({
     email,
     password: 'Owner12345!',
-    options: { data: { company_name: 'Flota Billing' } },
+    options: { data: { create_company: true, company_name: 'Flota Billing' } },
   });
   assert.ok(!error, `signUp owner: ${error?.message}`);
   const token = su.session.access_token;
