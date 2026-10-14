@@ -12,3 +12,10 @@ en `frontend/android/app/src/main/res/raw/claxon.wav` (copia idéntica).
 
 El resto de archivos (`1*_*.wav`, `tanda/E*.wav`) son pruebas generadas por síntesis
 (sin licencias de terceros) que se descartaron.
+
+
+## 2026-10-15 — Sonido oficial 2.0
+`soroll_taxi_push_2.0_ORIGINAL.wav` (creado por Didac, 0,45 s, estéreo 44,1 kHz) sustituye al primero.
+En la app es `res/raw/claxon2.wav`, canal Android **`taxicount_claxon2`** (Android congela el sonido de un
+canal al crearlo, por eso es un canal NUEVO; el antiguo `taxicount_claxon` se borra al arrancar).
+El servidor (`push.js`) pide `taxicount_claxon2`; las apps antiguas caen a su canal por defecto (el claxon 1).

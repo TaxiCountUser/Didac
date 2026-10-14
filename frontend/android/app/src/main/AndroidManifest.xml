@@ -27,7 +27,7 @@
         <!-- Push (FCM): canal por defecto = el del claxon (lo crea MainActivity). -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="taxicount_claxon" />
+            android:value="taxicount_claxon2" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

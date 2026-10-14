@@ -15,9 +15,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * Notificaciones con sonido propio (claxon doble, res/raw/claxon.wav).
+ * Notificaciones con sonido propio (res/raw/claxon2.wav = «soroll taxi push 2.0»
+ * de Didac, 2026-10-15; el primero fue claxon.wav en el canal "taxicount_claxon").
  *
- * - Canal "taxicount_claxon" (importancia ALTA -> aviso flotante) con el claxon.
+ * - Canal "taxicount_claxon2" (importancia ALTA -> aviso flotante) con el sonido.
  *   Las push de FCM lo usan: el backend lo pide en el mensaje y el manifiesto lo
  *   fija como canal por defecto. OJO: Android congela el sonido de un canal al
  *   crearlo; para cambiar de sonido hay que crear un canal con OTRO id.
@@ -26,14 +27,17 @@ import io.flutter.plugin.common.MethodChannel
  */
 class MainActivity : FlutterActivity() {
     companion object {
-        const val CHANNEL_ID = "taxicount_claxon"
+        const val CHANNEL_ID = "taxicount_claxon2"
+        // Canal anterior (sonido viejo): se borra para que no salgan dos en Ajustes.
+        private const val OLD_CHANNEL_ID = "taxicount_claxon"
 
         fun soundUri(ctx: Context): Uri =
-            Uri.parse("android.resource://${ctx.packageName}/raw/claxon")
+            Uri.parse("android.resource://${ctx.packageName}/raw/claxon2")
 
         fun ensureChannel(ctx: Context) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (nm.getNotificationChannel(OLD_CHANNEL_ID) != null) nm.deleteNotificationChannel(OLD_CHANNEL_ID)
             if (nm.getNotificationChannel(CHANNEL_ID) != null) return
             val ch = NotificationChannel(CHANNEL_ID, "Avisos de TaxiCount", NotificationManager.IMPORTANCE_HIGH)
             ch.description = "Agenda, mantenimiento, mensajes y avisos de TaxiCount"

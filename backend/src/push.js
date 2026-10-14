@@ -82,7 +82,9 @@ export async function sendToTokens(tokens, { title, body, data } = {}, log) {
     // Si la app instalada aún no tiene el canal, Android usa el de por defecto.
     android: {
       priority: 'high',
-      notification: { channelId: 'taxicount_claxon', sound: 'claxon' },
+      // Canal del sonido 2.0 (app >= build 114). Las apps antiguas no lo tienen y
+      // Android usa su canal por defecto del manifiesto (el claxon anterior).
+      notification: { channelId: 'taxicount_claxon2', sound: 'claxon2' },
     },
     // Web (iPhone con la web en la pantalla de inicio, o navegador): icono de la
     // marca y, al tocar el aviso, abre la web. El claxon no es posible en la web.

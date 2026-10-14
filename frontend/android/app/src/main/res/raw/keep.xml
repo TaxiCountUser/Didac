@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- El sonido del claxon solo se usa por nombre (canal de notificaciones), no por
-     R.raw.claxon: sin esto el reductor de recursos del build de release lo borraría. -->
+     R.raw.claxon2: sin esto el reductor de recursos del build de release lo borraría. -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@raw/claxon" />
+    tools:keep="@raw/claxon2" />
