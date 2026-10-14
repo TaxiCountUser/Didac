@@ -1361,6 +1361,20 @@ class DataService {
   }
 
   /// Modificar un usuario de cualquier empresa (activar, rol, nombre, admin).
+  /// Admin: cambia el correo de un usuario (cuenta de acceso + perfil). Para
+  /// corregir correos mal escritos; si es un Gmail real, podrá entrar con Google.
+  Future<void> adminChangeUserEmail(String id, String email) async {
+    final res = await http.patch(
+      Uri.parse('$backendUrl/api/v1/admin/users/$id/email'),
+      headers: _bearer,
+      body: jsonEncode({'email': email}),
+    );
+    if (res.statusCode != 200) {
+      final body = (res.body.isEmpty ? {} : jsonDecode(res.body)) as Map<String, dynamic>;
+      throw Exception(body['error'] ?? 'No se pudo cambiar el correo');
+    }
+  }
+
   Future<void> adminUpdateUser(String id, Map<String, dynamic> patch) async {
     final res = await http.patch(
       Uri.parse('$backendUrl/api/v1/admin/user/$id'),

@@ -1215,6 +1215,9 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
                       value: 'vehicles',
                       child: Text(l.t('dr_assign_vehicles'))),
                   PopupMenuItem(
+                      value: 'email',
+                      child: Text(l.t('admin_change_email'))),
+                  PopupMenuItem(
                       value: 'toggle_active',
                       child: Text(active
                           ? l.t('admin_deactivate')
@@ -1303,6 +1306,26 @@ class _AdminCompanyDetailScreenState extends State<AdminCompanyDetailScreen> {
       AppLocalizations l, Map<String, dynamic> u, String action) async {
     final id = u['id'] as String;
     switch (action) {
+      case 'email':
+        final ctrl = TextEditingController(text: (u['email'] as String?) ?? '');
+        final newEmail = await showAdminDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l.t('admin_change_email')),
+            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(l.t('admin_change_email_hint'), style: const TextStyle(fontSize: 12, color: AdminColors.muted)),
+              const SizedBox(height: 10),
+              TextField(controller: ctrl, autofocus: true, keyboardType: TextInputType.emailAddress),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.t('cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: Text(l.t('save'))),
+            ],
+          ),
+        );
+        if (newEmail == null || newEmail.isEmpty || newEmail == u['email']) return;
+        await _guard(() => _service.adminChangeUserEmail(id, newEmail), l.t('saved'));
+        break;
       case 'toggle_active':
         await _guard(
             () => _service

@@ -76,6 +76,29 @@ export function registerAdminUsersRoutes(app, { supabase, adminGuard, logAdminAc
     return reply.send({ ok: true });
   });
 
+  // Cambiar el CORREO de un usuario (p. ej. uno mal escrito: «x@gmail» sin .com).
+  // Lo cambia en los DOS sitios (cuenta de acceso de Supabase + perfil) y lo deja
+  // confirmado. Sigue entrando con su usuario/contraseña; si el correo es un Gmail
+  // real, además podrá «Entrar con Google» a su MISMA cuenta. Solo admin; auditado.
+  app.patch('/api/v1/admin/users/:id/email', async (request, reply) => {
+    const g = await adminGuard(request);
+    if (g.error) return reply.code(g.code).send({ error: g.error });
+    const id = request.params.id;
+    const email = String((request.body ?? {}).email || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply.code(400).send({ error: 'Correo no válido' });
+    const { data: u } = await supabase.from('users').select('id, email').eq('id', id).maybeSingle();
+    if (!u) return reply.code(404).send({ error: 'Usuario no encontrado' });
+    if ((u.email || '').toLowerCase() === email) return reply.send({ ok: true, email });
+    const { data: dup } = await supabase.from('users').select('id').ilike('email', email).maybeSingle();
+    if (dup && dup.id !== id) return reply.code(409).send({ error: 'Ese correo ya lo usa otra cuenta de TaxiCount.' });
+    const { error: authErr } = await supabase.auth.admin.updateUserById(id, { email, email_confirm: true });
+    if (authErr) return reply.code(400).send({ error: authErr.message || 'No se pudo cambiar el correo' });
+    const { error } = await supabase.from('users').update({ email }).eq('id', id);
+    if (error) return reply.code(400).send({ error: error.message });
+    await logAdminAction(request, g.caller.id, 'user_email_change', 'user', id, { from: u.email, to: email });
+    return reply.send({ ok: true, email });
+  });
+
   // Liberar un correo: borra la cuenta asociada a un email (perfil en public.users
   // + cuenta de auth si existe), para poder REUTILIZARLO. Pensado para RESIDUOS de
   // pruebas y huérfanos (fila en users sin auth, o auth sin empresa). Nunca borra
