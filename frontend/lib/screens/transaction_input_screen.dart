@@ -145,6 +145,20 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     }
   }
 
+  /// null si se puede apuntar la carrera; si no, el motivo (sin jornada / en pausa).
+  /// Ante un fallo de red no bloquea (nunca se pierde una carrera por eso).
+  Future<String?> _workdayBlock(AppLocalizations l) async {
+    try {
+      final svc = DataService();
+      if (!await svc.isWorkdayRequired(widget.profile.tenantId)) return null;
+      final st = (await svc.currentShift(widget.profile.id))?['status'];
+      if (st == 'open') return null;
+      return l.t(st == 'paused' ? 'wd_block_paused' : 'wd_block_start');
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Abre «Corregir kilómetros» y, al volver, recarga el último km.
   Future<void> _openKmFix() async {
     await Navigator.of(context).push(MaterialPageRoute(
@@ -247,6 +261,15 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     if (_isTrip && km != null && _lastKm != null && (km - _lastKm!) > kmJumpWarn) {
       final ok = await confirmKmJump(context, km);
       if (!ok) return;
+    }
+    // Registro de jornada (mig. 093): si la empresa lo exige, una CARRERA nueva
+    // solo se puede apuntar con la jornada iniciada (y no en pausa).
+    if (_isTrip && widget.editId == null) {
+      final block = await _workdayBlock(l);
+      if (block != null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
+        return;
+      }
     }
     setState(() => _saving = true);
     final desc = _description.text.trim().isEmpty ? null : _description.text.trim();

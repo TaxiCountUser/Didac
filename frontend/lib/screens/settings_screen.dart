@@ -23,6 +23,7 @@ import 'referral_screen.dart';
 import 'tickets_screen.dart';
 import 'locate_vehicle_screen.dart';
 import 'km_correction_screen.dart';
+import 'workday_log_screen.dart';
 import 'subscription_screen.dart';
 import '../util/sign_out.dart';
 
@@ -54,6 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     super.initState();
     _loadHeader();
     _loadTicketBadge();
+    _loadWorkday();
     if (PushService.supported) {
       WidgetsBinding.instance.addObserver(this);
       _refreshNotifs();
@@ -452,6 +454,55 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
   bool _busyNotif = false;
 
+  // Registro de jornada (mig. 093): interruptor de la empresa.
+  bool? _workdayOn;
+  Future<void> _loadWorkday() async {
+    final on = await _service.isWorkdayRequired(widget.profile.tenantId);
+    if (mounted) setState(() => _workdayOn = on);
+  }
+
+  Future<void> _toggleWorkday(bool on) async {
+    final l = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.t('wd_setting_title')),
+        content: Text(l.t(on ? 'wd_setting_on_confirm' : 'wd_setting_off_confirm')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('confirm'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _service.setWorkdayRequired(on);
+      if (mounted) setState(() => _workdayOn = on);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l.t('error')}: $e')));
+    }
+  }
+
+  // Tile del registro de jornada: interruptor (jefe/autónomo) + ver el registro.
+  List<Widget> _workdayTiles(AppLocalizations l, bool isOwner) => [
+        if (isOwner)
+          SwitchListTile(
+            secondary: const Icon(Icons.punch_clock_outlined),
+            title: Text(l.t('wd_setting_title')),
+            subtitle: Text(l.t('wd_setting_sub')),
+            isThreeLine: true,
+            value: _workdayOn ?? false,
+            onChanged: _workdayOn == null ? null : _toggleWorkday,
+          ),
+        if (_workdayOn == true)
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: Text(isOwner ? l.t('wd_log_title') : l.t('wd_my_log')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _open(WorkdayLogScreen(profile: widget.profile)),
+          ),
+      ];
+
   // Campana del AppBar: si están OFF, las activa (pide permiso); si están ON, no
   // se pueden revocar desde la app (limitación de Android/iOS) -> se ofrece abrir
   // los ajustes del sistema para desactivarlas.
@@ -624,6 +675,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(KmCorrectionScreen(profile: widget.profile)),
             ),
+            ..._workdayTiles(l, true),
             ListTile(
               leading: const Icon(Icons.workspace_premium_outlined),
               title: Text(l.t('nav_subscription')),
@@ -694,6 +746,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _open(KmCorrectionScreen(profile: widget.profile)),
             ),
+            ..._workdayTiles(l, false),
             // 4) Mensaje al jefe (chat directo)
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),

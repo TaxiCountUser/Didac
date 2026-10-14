@@ -218,6 +218,58 @@ class DataService {
     }
   }
 
+  // ---------------- Registro de jornada (legal, mig. 093) ----------------
+  // Interruptor de la empresa (lo cambia el jefe/autónomo). Resiliente: ante
+  // cualquier fallo, false (= todo como antes, nunca bloquea).
+  Future<bool> isWorkdayRequired(String tenantId) async {
+    if (tenantId.isEmpty) return false;
+    try {
+      final row = await _c.from('tenants').select('workday_required').eq('id', tenantId).maybeSingle();
+      return (row?['workday_required'] as bool?) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> setWorkdayRequired(bool on) =>
+      _c.rpc('set_workday_required', params: {'p_on': on});
+
+  /// Jornada abierta (o en pausa) del usuario, con sus pulsaciones; null si no hay.
+  Future<Map<String, dynamic>?> currentShift(String userId) async {
+    final row = await _c
+        .from('work_shifts')
+        .select('*, work_events(*)')
+        .eq('user_id', userId)
+        .neq('status', 'closed')
+        .maybeSingle();
+    return row;
+  }
+
+  /// Una pulsación: 'start' | 'pause' | 'resume' | 'end'. La hora la pone el
+  /// servidor; se guarda la diferencia horaria del móvil para mostrarla a su hora.
+  Future<Map<String, dynamic>> workdayAction(String kind, {int? km, String? vehicleId}) async {
+    final res = await _c.rpc('workday_action', params: {
+      'p_kind': kind,
+      'p_offset': DateTime.now().timeZoneOffset.inMinutes,
+      'p_km': km,
+      'p_vehicle': vehicleId,
+    });
+    return (res as Map).cast<String, dynamic>();
+  }
+
+  /// Jornadas (con pulsaciones) de un rango, más recientes primero. [userId] null
+  /// = toda la empresa (solo el jefe; la RLS limita). Incluye el nombre.
+  Future<List<Map<String, dynamic>>> listShifts({String? userId, required DateTime from, required DateTime to}) async {
+    var q = _c.from('work_shifts').select('*, work_events(*), users:user_id(name, email)');
+    if (userId != null) q = q.eq('user_id', userId);
+    final rows = await q
+        .gte('started_at', from.toUtc().toIso8601String())
+        .lt('started_at', to.toUtc().toIso8601String())
+        .order('started_at', ascending: false)
+        .limit(500);
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
+
   // ---------------- Agenda (opción oculta y de pago, Fase 1) ----------------
   // Servicios programados compartidos por toda la empresa. RLS: solo miembros de
   // la empresa y solo si su empresa tiene la agenda activada (mig. 084).

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
@@ -12,10 +13,12 @@ import '../services/push_service.dart';
 import '../util/brand.dart';
 import '../util/error_ui.dart';
 import '../util/km_warning.dart';
+import '../util/workday.dart';
 import 'add_record_screen.dart';
 import 'agenda_screen.dart';
 import 'driver_transactions_screen.dart';
 import 'settings_screen.dart';
+import 'workday_log_screen.dart';
 import '../util/sign_out.dart';
 
 /// Home del Driver: elige entre añadir un registro o ver sus transacciones.
@@ -36,6 +39,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
   final _service = DataService();
   StreamSubscription<Position>? _posSub;
   bool _agendaEnabled = false; // opción Agenda (oculta): solo si el admin la activó
+  // Registro de jornada (mig. 093): si la empresa lo activó, Iniciar / Pausa /
+  // Reanudar / Finalizar sustituyen a Iniciar día / Finalizar día.
+  bool _workdayRequired = false;
+  Map<String, dynamic>? _shift; // jornada abierta o en pausa (null = sin iniciar)
+  bool _wdBusy = false;
 
   @override
   void initState() {
@@ -60,6 +68,130 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     });
   }
 
+  Future<void> _loadWorkday() async {
+    try {
+      final on = await _service.isWorkdayRequired(widget.profile.tenantId);
+      final sh = on ? await _service.currentShift(widget.profile.id) : null;
+      if (mounted) setState(() { _workdayRequired = on; _shift = sh; });
+    } catch (_) {/* sin red: se queda como estaba */}
+  }
+
+  // Una pulsación del registro de jornada (la hora la pone el servidor).
+  Future<void> _wdAction(String kind, {int? km, String? vehicleId}) async {
+    final l = context.l10n;
+    setState(() => _wdBusy = true);
+    try {
+      await _service.workdayAction(kind, km: km, vehicleId: vehicleId);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('wd_done_$kind'))));
+    } catch (e) {
+      if (!mounted) return;
+      // Estado ya cambiado (p. ej. pulsó dos veces o desde otro móvil): se refresca.
+      if ('$e'.contains('workday_')) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('wd_err_state'))));
+      } else {
+        showError(context, e, screen: 'Workday');
+      }
+    } finally {
+      await _loadWorkday();
+      if (mounted) setState(() => _wdBusy = false);
+    }
+  }
+
+  // INICIAR jornada: elige el coche y los km (como Iniciar día) y la abre.
+  Future<void> _wdStart() async {
+    try {
+      final vehicles = await _service.myVehicles();
+      if (!mounted) return;
+      if (vehicles.isEmpty) return _wdAction('start'); // sin coche: sin km
+      await _showKmDialog(vehicles, title: context.l10n.t('wd_start'), barrier: true,
+          afterSave: (v, km) => _wdAction('start', km: km, vehicleId: v));
+    } catch (e) {
+      if (mounted) showError(context, e, screen: 'Workday');
+    }
+  }
+
+  // FINALIZAR jornada: km de cierre y la cierra (también si estaba en pausa).
+  Future<void> _wdEnd() async {
+    try {
+      final vehicles = await _service.myVehicles();
+      if (!mounted) return;
+      if (vehicles.isEmpty) return _wdAction('end');
+      await _showKmDialog(vehicles, title: context.l10n.t('wd_end'),
+          preVehicleId: _shift?['vehicle_id'] as String?, barrier: true,
+          afterSave: (v, km) => _wdAction('end', km: km));
+    } catch (e) {
+      if (mounted) showError(context, e, screen: 'Workday');
+    }
+  }
+
+  // Registro de jornada: estado + botones (Iniciar -> Pausa/Reanudar + Finalizar).
+  Widget _workdayPanel(AppLocalizations l) {
+    final s = _shift == null ? null : WorkdaySummary.fromShift(_shift!);
+    final hm = DateFormat('HH:mm');
+    final info = s == null
+        ? l.t('wd_not_started')
+        : s.status == 'paused'
+            ? l.t('wd_paused_since', {'start': hm.format(s.start), 'time': hm.format(s.pauses.last.from)})
+            : l.t('wd_running_since', {'start': hm.format(s.start), 'worked': fmtWorked(s.worked())});
+    final busy = _wdBusy;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(info, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (s == null)
+              Expanded(
+                child: FilledButton.icon(
+                  key: const Key('wd_start_button'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
+                  onPressed: busy ? null : _wdStart,
+                  icon: const Icon(Icons.play_arrow),
+                  label: Text(l.t('wd_start')),
+                ),
+              )
+            else ...[
+              Expanded(
+                child: s.status == 'paused'
+                    ? FilledButton.icon(
+                        key: const Key('wd_resume_button'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
+                        onPressed: busy ? null : () => _wdAction('resume'),
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(l.t('wd_resume')),
+                      )
+                    : FilledButton.icon(
+                        key: const Key('wd_pause_button'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.amber.shade800),
+                        onPressed: busy ? null : () => _wdAction('pause'),
+                        icon: const Icon(Icons.pause),
+                        label: Text(l.t('wd_pause')),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  key: const Key('wd_end_button'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.blueGrey),
+                  onPressed: busy ? null : _wdEnd,
+                  icon: const Icon(Icons.stop),
+                  label: Text(l.t('wd_end')),
+                ),
+              ),
+            ],
+          ],
+        ),
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => WorkdayLogScreen(profile: widget.profile))),
+          icon: const Icon(Icons.history),
+          label: Text(l.t('wd_my_log')),
+        ),
+      ],
+    );
+  }
+
   Future<void> _loadAgendaFlag() async {
     final on = await _service.isAgendaEnabled(widget.profile.tenantId);
     if (mounted && on) setState(() => _agendaEnabled = true);
@@ -69,6 +201,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
   // inicio (ni se ha mostrado el saludo), pregunta con cuántos km empezamos.
   Future<void> _maybeStartDayGreeting() async {
     try {
+      await _loadWorkday();
+      // Con registro de jornada: si ya hay una jornada abierta, no se saluda.
+      if (_workdayRequired && _shift != null) return;
       final today = DateTime.now().toIso8601String().substring(0, 10);
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getString('day_greet_seen') == today) return; // ya saludado hoy
@@ -88,6 +223,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
         title: '${_greetingText(l)}, $name 👋',
         greeting: l.t('dh_start_question'),
         barrier: true,
+        // Con registro de jornada, contestar el saludo INICIA la jornada.
+        afterSave: _workdayRequired ? (v, km) => _wdAction('start', km: km, vehicleId: v) : null,
       );
     } catch (_) {/* best-effort: el saludo nunca debe romper la entrada */}
   }
@@ -112,6 +249,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
   // guardar ubicación cuando la app no está en uso.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Al volver a la app: refresca el estado de la jornada (horas trabajadas…).
+    if (state == AppLifecycleState.resumed && _workdayRequired) unawaited(_loadWorkday());
     if (widget.embedded) return; // modo autónomo: nunca rastrea
     if (state == AppLifecycleState.resumed) {
       _startTracking();
@@ -202,6 +341,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     String? preVehicleId,
     String? greeting,
     bool barrier = true,
+    // Tras guardar los km (registro de jornada: iniciar/finalizar con esos km).
+    Future<void> Function(String vehicleId, int km)? afterSave,
   }) async {
     final l = context.l10n;
     var vehicleId = (preVehicleId != null && vehicles.any((v) => v['id'] == preVehicleId))
@@ -298,7 +439,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
             userId: widget.profile.id,
             readingKm: km,
           );
-          if (mounted) {
+          if (afterSave != null) {
+            await afterSave(vehicleId, km);
+          } else if (mounted) {
             ScaffoldMessenger.of(context)
                 .showSnackBar(SnackBar(content: Text(l.t('dh_km_saved'))));
           }
@@ -408,6 +551,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
                   ),
                 ],
                 const SizedBox(height: 16),
+                if (_workdayRequired) _workdayPanel(l) else
                 // Ambos disponibles: se puede iniciar y finalizar varias veces
                 // el mismo día (p. ej. parar a comer y volver a empezar).
                 Row(
