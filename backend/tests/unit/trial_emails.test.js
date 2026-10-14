@@ -54,7 +54,7 @@ function fakeSupabase({ tenants, owners, providers }) {
 const tenants = [
   // nuevo con Google, prueba hasta dentro de 15 días -> solo bienvenida
   { id: 't1', created_at: iso(NOW - DAY), trial_ends_at: iso(+NOW + 14 * DAY), subscription_status: 'trialing' },
-  // nuevo con email -> nada (ya recibe el correo de verificación)
+  // nuevo con email -> también bienvenida (desde la mig. 096 todos eligen empresa/autónomo)
   { id: 't2', created_at: iso(NOW - DAY), trial_ends_at: iso(+NOW + 14 * DAY), subscription_status: 'trialing' },
   // le quedan 2 días -> trial_ending
   { id: 't3', created_at: iso(NOW - 13 * DAY), trial_ends_at: iso(+NOW + 2 * DAY), subscription_status: 'trialing' },
@@ -82,8 +82,8 @@ assert.equal(calls.length, 0);
 const te = createTrialEmails({ supabase, env: { RESEND_API_KEY: 're_test' }, fetchImpl });
 const r1 = await te.run({ now: NOW });
 const got = r1.details.map((d) => `${d.tenant}:${d.kind}`).sort();
-assert.deepEqual(got, ['t1:welcome', 't3:trial_ending', 't4:trial_ended']);
-assert.deepEqual(calls.map((c) => c.to[0]).sort(), ['t1@x.com', 't3@x.com', 't4@x.com']);
+assert.deepEqual(got, ['t1:welcome', 't2:welcome', 't3:trial_ending', 't4:trial_ended']);
+assert.deepEqual(calls.map((c) => c.to[0]).sort(), ['t1@x.com', 't2@x.com', 't3@x.com', 't4@x.com']);
 
 // Segunda pasada el mismo día: no repite.
 const r2 = await te.run({ now: NOW });

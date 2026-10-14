@@ -4,7 +4,7 @@
 // (política de Pagos de Play; el build Android lleva kStoreBuild). Fuera de la app
 // sí: este correo es el que le dice al jefe/autónomo que la suscripción se hace en
 // la web. Un cron diario (trial-emails.yml) llama a /api/v1/admin/cron/trial-emails:
-//   welcome      -> registrado con Google en los últimos 3 días (no recibe el
+//   welcome      -> empresa creada en los últimos 3 días (cada 5 min, ver abajo) (antes solo Google, que no recibe el
 //                   correo de verificación de Supabase, que ya lleva la bienvenida).
 //   trial_ending -> le quedan <= 3 días de prueba.
 //   trial_ended  -> la prueba acabó hace <= 3 días (no se escribe a los antiguos).
@@ -133,16 +133,6 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
     return TEXTS[loc] ? loc : 'es';
   }
 
-  // ¿Se registró con Google? (esos no reciben el correo de verificación).
-  async function signedUpWithGoogle(userId) {
-    try {
-      const { data } = await supabase.auth.admin.getUserById(userId);
-      const meta = data?.user?.app_metadata ?? {};
-      const providers = meta.providers ?? [meta.provider];
-      return providers.includes('google') && !providers.includes('email');
-    } catch { return false; }
-  }
-
   // Marca el aviso como enviado. true si es NUEVO (hay que enviarlo).
   async function claim(tenantId, kind, ref, email) {
     const { data, error } = await supabase.from('trial_emails_sent')
@@ -155,17 +145,21 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
   const unclaim = (tenantId, kind, ref) => supabase.from('trial_emails_sent')
     .delete().eq('tenant_id', tenantId).eq('kind', kind).eq('ref', ref);
 
-  /** Pasada diaria. Devuelve {email, sent, errors, details[]}. */
-  async function run({ now = new Date() } = {}) {
+  /** Pasada. Devuelve {email, sent, errors, details[]}. `onlyWelcome`: solo la
+   *  bienvenida (la pasada rápida de cada 5 min); sin él, todo (cron diario). */
+  async function run({ now = new Date(), onlyWelcome = false } = {}) {
     if (!enabled()) return { email: false, sent: 0 };
     const nowMs = now.getTime();
     const since = new Date(nowMs - 3 * DAY).toISOString();
     const until = new Date(nowMs + 3 * DAY).toISOString();
     // Candidatas: creadas hace poco (bienvenida) o con fin de prueba en ±3 días.
-    const { data: tenants, error } = await supabase.from('tenants')
+    let tq = supabase.from('tenants')
       .select('id, created_at, trial_ends_at, subscription_status, closed_at')
-      .is('closed_at', null)
-      .or(`created_at.gte.${since},and(trial_ends_at.gte.${since},trial_ends_at.lte.${until})`);
+      .is('closed_at', null);
+    tq = onlyWelcome
+      ? tq.gte('created_at', since)
+      : tq.or(`created_at.gte.${since},and(trial_ends_at.gte.${since},trial_ends_at.lte.${until})`);
+    const { data: tenants, error } = await tq;
     if (error) throw error;
     let sent = 0; let errors = 0; const details = [];
     for (const t of tenants ?? []) {
@@ -175,9 +169,11 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
         .order('created_at', { ascending: true }).limit(1).maybeSingle();
       if (!owner?.email || owner.deleted_at || owner.active === false) continue;
       const jobs = [];
-      if (t.created_at >= since && await signedUpWithGoogle(owner.id)) jobs.push(['welcome', '-']);
+      // Bienvenida a TODO el que crea su empresa / se hace autónomo (desde la mig.
+      // 096 todos pasan por la pantalla de elegir, entren con Google o con correo).
+      if (t.created_at >= since) jobs.push(['welcome', '-']);
       const end = t.trial_ends_at ? new Date(t.trial_ends_at).getTime() : null;
-      if (end != null) {
+      if (end != null && !onlyWelcome) {
         const ref = String(t.trial_ends_at).slice(0, 10);
         if (end > nowMs && end - nowMs <= 3 * DAY) jobs.push(['trial_ending', ref]);
         else if (end <= nowMs && nowMs - end <= 3 * DAY) jobs.push(['trial_ended', ref]);
@@ -218,8 +214,17 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
   return { run, sendTest, enabled };
 }
 
-/** Ruta del cron: POST /api/v1/admin/cron/trial-emails  body opcional {test_to, locale}. */
-export function registerTrialEmailRoutes(app, { trialEmails, cronOrAdmin, markCronRun }) {
+/** Ruta del cron: POST /api/v1/admin/cron/trial-emails  body opcional {test_to, locale}.
+ *  Además, cada 5 min, la BIENVENIDA (así llega a los pocos minutos de crear la
+ *  empresa, no al día siguiente). Desactivable con TRIAL_WELCOME=off; no en tests. */
+export function registerTrialEmailRoutes(app, { trialEmails, cronOrAdmin, markCronRun, env = process.env }) {
+  if (env.TRIAL_WELCOME !== 'off' && env.NODE_ENV !== 'test') {
+    const timer = setInterval(() => {
+      trialEmails.run({ onlyWelcome: true }).catch((e) => app.log.warn(`[trial-emails] bienvenida: ${e.message}`));
+    }, 5 * 60 * 1000);
+    timer.unref?.();
+    app.addHook('onClose', async () => clearInterval(timer));
+  }
   app.post('/api/v1/admin/cron/trial-emails', async (request, reply) => {
     const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
