@@ -39,7 +39,7 @@ const TEXTS = {
     ended_body: 'Tu periodo de prueba gratuito terminó el <b>{date}</b>. Tus datos siguen guardados: en cuanto te suscribas desde nuestra web, la app se desbloquea para ti y tu flota.',
     ended_body2: 'Entra en la web con tu misma cuenta y elige plan. Después, en la app pulsa «Comprobar de nuevo».',
     ended_cta: 'Suscribirme en la web',
-    footer: '¿Dudas? Responde a este correo o escríbenos desde el chat de soporte de la app. Lo leemos nosotros, Dídac y Jordi.',
+    footer: '¿Dudas? Escríbenos desde la app: Ajustes → «Informar de un error» (chat de soporte) o el asistente virtual. Lo leemos nosotros, Dídac y Jordi.',
   },
   ca: {
     welcome_subject: 'Benvingut a TaxiCount 🚕',
@@ -62,7 +62,7 @@ const TEXTS = {
     ended_body: 'El teu període de prova gratuït va acabar el <b>{date}</b>. Les teves dades continuen desades: tan bon punt et subscriguis des del nostre web, l\'app es desbloqueja per a tu i la teva flota.',
     ended_body2: 'Entra al web amb el mateix compte i tria un pla. Després, a l\'app prem «Comprovar de nou».',
     ended_cta: 'Subscriure\'m al web',
-    footer: 'Dubtes? Respon aquest correu o escriu-nos des del xat de suport de l\'app. Ho llegim nosaltres, en Dídac i en Jordi.',
+    footer: 'Dubtes? Escriu-nos des de l\'app: Ajustos → «Informar d\'un error» (xat de suport) o l\'assistent virtual. Ho llegim nosaltres, en Dídac i en Jordi.',
   },
   en: {
     welcome_subject: 'Welcome to TaxiCount 🚕',
@@ -85,7 +85,7 @@ const TEXTS = {
     ended_body: 'Your free trial ended on <b>{date}</b>. Your data is still saved: as soon as you subscribe on our website, the app unlocks for you and your fleet.',
     ended_body2: 'Sign in on the website with the same account and choose a plan. Then tap “Check again” in the app.',
     ended_cta: 'Subscribe on the website',
-    footer: 'Questions? Reply to this email or message us from the in-app support chat. We read it ourselves — Dídac and Jordi.',
+    footer: 'Questions? Message us from the app: Settings → “Report a problem” (support chat) or the virtual assistant. We read it ourselves — Dídac and Jordi.',
   },
 };
 
@@ -128,7 +128,9 @@ export function renderTrialEmail(kind, locale, { trialEndsAt, webUrl, company })
 export function createTrialEmails({ supabase, log, env = process.env, fetchImpl = fetch }) {
   const apiKey = (env.RESEND_API_KEY || '').trim();
   const from = env.EMAIL_FROM || 'TaxiCount <noreply@taxicount.com>';
-  const replyTo = env.EMAIL_REPLY_TO || 'auxproduccio@gmail.com';
+  // Sin «Responder a» personal: NUNCA se enseña un correo privado. Solo si se
+  // configura EMAIL_REPLY_TO con una dirección de TaxiCount (p. ej. soporte@).
+  const replyTo = /@taxicount\.com$/i.test((env.EMAIL_REPLY_TO || '').trim()) ? env.EMAIL_REPLY_TO.trim() : null;
   const webUrl = (env.WEB_URL || 'https://www.taxicount.com').replace(/\/+$/, '');
   const enabled = () => !!apiKey;
 
@@ -136,7 +138,7 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
     const r = await fetchImpl(RESEND_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [to], reply_to: replyTo, subject, html, text }),
+      body: JSON.stringify({ from, to: [to], ...(replyTo ? { reply_to: replyTo } : {}), subject, html, text }),
     });
     if (!r.ok) throw new Error(`Resend ${r.status}: ${(await r.text()).slice(0, 200)}`);
   }
@@ -215,12 +217,23 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
     }
     // Conductores nuevos (invitados por su jefe o unidos con código) en los últimos
     // 3 días: bienvenida propia, sin prueba ni pagos. Una vez por conductor.
-    const { data: drivers } = await supabase.from('users')
+    const r = await welcomeDrivers(since);
+    sent += r.sent; errors += r.errors; details.push(...r.details);
+    return { email: true, sent, errors, details };
+  }
+
+  /** Bienvenida de CONDUCTOR. `since` = solo los creados desde esa fecha (null =
+   *  TODOS los conductores actuales). Una vez por conductor (trial_emails_sent). */
+  async function welcomeDrivers(since) {
+    let sent = 0; let errors = 0; const details = [];
+    let dq = supabase.from('users')
       .select('id, email, tenant_id, created_at, deleted_at, active')
-      .eq('role', 'driver').not('tenant_id', 'is', null).is('deleted_at', null)
-      .gte('created_at', since);
+      .eq('role', 'driver').not('tenant_id', 'is', null).is('deleted_at', null);
+    if (since) dq = dq.gte('created_at', since);
+    const { data: drivers } = await dq;
     for (const d of drivers ?? []) {
-      if (!d.email || d.active === false) continue;
+      // Sin correo, desactivado o correo mal escrito (p. ej. «x@gmail» sin .com): no.
+      if (!d.email || d.active === false || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) continue;
       try {
         const { data: tn } = await supabase.from('tenants').select('name, closed_at').eq('id', d.tenant_id).maybeSingle();
         if (tn?.closed_at) continue;
@@ -237,7 +250,13 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
         log?.warn?.(`[trial-emails] conductor ${d.id}: ${e.message}`);
       }
     }
-    return { email: true, sent, errors, details };
+    return { sent, errors, details };
+  }
+
+  /** Bienvenida a TODOS los conductores actuales que aún no la tengan. */
+  async function welcomeAllDrivers() {
+    if (!enabled()) return { email: false, sent: 0 };
+    return { email: true, ...(await welcomeDrivers(null)) };
   }
 
   /** Bienvenida a una LISTA de correos concreta (titulares de empresas activas),
@@ -280,7 +299,7 @@ export function createTrialEmails({ supabase, log, env = process.env, fetchImpl 
     return { email: true, sent: 4 };
   }
 
-  return { run, sendTest, sendWelcomeTo, enabled };
+  return { run, sendTest, sendWelcomeTo, welcomeAllDrivers, enabled };
 }
 
 /** Ruta del cron: POST /api/v1/admin/cron/trial-emails  body opcional {test_to, locale}.
@@ -297,7 +316,11 @@ export function registerTrialEmailRoutes(app, { trialEmails, cronOrAdmin, markCr
   app.post('/api/v1/admin/cron/trial-emails', async (request, reply) => {
     const g = await cronOrAdmin(request);
     if (g.error) return reply.code(g.code).send({ error: g.error });
-    const { test_to: testTo, locale, welcome_to: welcomeTo } = request.body ?? {};
+    const { test_to: testTo, locale, welcome_to: welcomeTo, drivers_all: driversAll } = request.body ?? {};
+    // Bienvenida de conductor a TODOS los conductores actuales (una vez cada uno).
+    if (driversAll === true || driversAll === 'true') {
+      return reply.send({ ok: true, ...(await trialEmails.welcomeAllDrivers()) });
+    }
     // Bienvenida a una lista concreta (separada por comas): solo admin/cron.
     if (welcomeTo) {
       const list = (Array.isArray(welcomeTo) ? welcomeTo : String(welcomeTo).split(','))

@@ -31,6 +31,10 @@ on:
         description: 'Enviar la BIENVENIDA a estos correos de titulares (separados por comas; vacío = pasada normal)'
         required: false
         default: ''
+      drivers_all:
+        description: 'Enviar la bienvenida de CONDUCTOR a todos los conductores actuales (true/false)'
+        required: false
+        default: 'false'
 
 permissions: {}
 
@@ -43,12 +47,15 @@ jobs:
           TEST_TO: ${{ github.event.inputs.test_to }}
           LOCALE: ${{ github.event.inputs.locale }}
           WELCOME_TO: ${{ github.event.inputs.welcome_to }}
+          DRIVERS_ALL: ${{ github.event.inputs.drivers_all }}
         run: |
           BODY='{}'
           if [ -n "$TEST_TO" ]; then
             BODY=$(printf '{"test_to":"%s","locale":"%s"}' "$TEST_TO" "${LOCALE:-es}")
           elif [ -n "$WELCOME_TO" ]; then
             BODY=$(printf '{"welcome_to":"%s"}' "$WELCOME_TO")
+          elif [ "$DRIVERS_ALL" = "true" ]; then
+            BODY='{"drivers_all":true}'
           fi
           curl --fail-with-body -sS -X POST \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
