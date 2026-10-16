@@ -554,9 +554,16 @@ export async function buildExcel(data) {
 // datos de rowFor) salvo la Descripción, que no se imprime. withDriver = columna
 // Conductor delante (la del Resumen general).
 const PDF_COLS = COLS.filter((c) => c.key !== 'descripcion');
-function detailTable(txs, tz, withDriver = false, byHour = false) {
+// Fila-título que se REPITE arriba de cada página de la tabla: si una hoja ocupa
+// varias páginas, cada página dice de qué hoja es («Pepe García · …»).
+const runningTitle = (title, n) => [
+  { text: title, colSpan: n, fontSize: 7, color: '#777777', margin: [0, 0, 0, 1] },
+  ...Array.from({ length: n - 1 }, () => ({})),
+];
+
+function detailTable(txs, tz, withDriver = false, byHour = false, title = '') {
   const cols = withDriver ? [{ header: 'Conductor', key: 'conductor' }, ...PDF_COLS] : PDF_COLS;
-  const body = [cols.map((c) => ({ text: c.header, bold: true, fillColor: '#EEEEEE' }))];
+  const body = [runningTitle(title, cols.length), cols.map((c) => ({ text: c.header, bold: true, fillColor: '#EEEEEE' }))];
   // Mismo orden que el Excel: ingresos agrupados por cliente (Particular primero),
   // fila en blanco entre grupos, y los gastos al final; null = fila en blanco.
   for (const t of orderedDetail(txs, byHour)) {
@@ -575,7 +582,7 @@ function detailTable(txs, tz, withDriver = false, byHour = false) {
   // Origen/Destino/Cliente se reparten el ancho sobrante; el resto, a su medida.
   const flex = new Set(['origen', 'destino', 'cliente', 'conductor']);
   return {
-    table: { headerRows: 1, widths: cols.map((c) => (flex.has(c.key) ? '*' : 'auto')), body },
+    table: { headerRows: 2, widths: cols.map((c) => (flex.has(c.key) ? '*' : 'auto')), body },
     layout: 'lightHorizontalLines',
     fontSize: 8,
     margin: [0, 4, 0, 10],
@@ -624,8 +631,8 @@ function pdfLines(lines) {
 }
 // Tabla del «Resumen diario» en el PDF (mismas columnas que la hoja del Excel).
 const DAY_PDF_W = { conductor: '*', fecha: 42, dia: 40, horario: 105, horas: 50, kmini: 36, kmfin: 36, km: 26, carreras: 38, ingresos: 46, gastos: 46, segun: 90 };
-function dayTable(days) {
-  const body = [DAY_COLS.map((c) => ({ text: c.header, bold: true, fillColor: '#EEEEEE' }))];
+function dayTable(days, title = '') {
+  const body = [runningTitle(title, DAY_COLS.length), DAY_COLS.map((c) => ({ text: c.header, bold: true, fillColor: '#EEEEEE' }))];
   const cell = (c, r, bold) => {
     const v = r[c.key];
     if (c.key === 'ingresos' || c.key === 'gastos') {
@@ -643,7 +650,7 @@ function dayTable(days) {
     body.push(DAY_COLS.map((c) => ({ ...cell(c, t, true), fillColor: '#EEEEEE' })));
   }
   return {
-    table: { headerRows: 1, widths: DAY_COLS.map((c) => DAY_PDF_W[c.key] || 'auto'), body },
+    table: { headerRows: 2, widths: DAY_COLS.map((c) => DAY_PDF_W[c.key] || 'auto'), body },
     layout: 'lightHorizontalLines', fontSize: 8, margin: [0, 4, 0, 10],
   };
 }
@@ -662,13 +669,18 @@ export function buildPdf(data) {
   ];
 
   // Mismas secciones y en el MISMO orden que las hojas del Excel: Resumen
-  // general → un apartado por conductor → Resumen diario conductores.
+  // general → un apartado por conductor → Resumen diario conductores. Cada
+  // apartado (= cada hoja del Excel) EMPIEZA EN PÁGINA NUEVA, aunque el anterior
+  // deje media página en blanco, y su tabla repite arriba de cada página de qué
+  // hoja es (por si ocupa más de una).
   if (data.groups.size === 0) {
     content.push({ text: 'No hay transacciones para los filtros seleccionados.', italics: true });
   } else {
     const one = !!data.singleDay;
-    content.push({ text: `${generalTitle(data)} · todos los conductores`, style: 'h2' });
-    content.push(detailTable(data.transactions, data.tz, true));
+    const general = generalTitle(data);
+    const tag = (name) => `${name} · ${data.tenantName} · ${range}`;
+    content.push({ text: `${general} · todos los conductores`, style: 'h2' });
+    content.push(detailTable(data.transactions, data.tz, true, false, tag(general)));
     content.push(summaryBlock(data.transactions));
     for (const [uid, g] of data.groups) {
       content.push({ text: g.name, style: 'h2', pageBreak: 'before' });
@@ -677,12 +689,12 @@ export function buildPdf(data) {
         const L = dayLines(dayOfDriver(data, uid), g.name);
         if (L.length) { L[0] = { text: longDate(dayOfDriver(data, uid).date), big: true }; content.push(pdfLines(L)); }
       }
-      content.push(detailTable(g.txs, data.tz, false, true));
+      content.push(detailTable(g.txs, data.tz, false, true, tag(g.name)));
       content.push(summaryBlock(g.txs));
     }
     if (data.days && data.days.size) {
       content.push({ text: DAYS_SHEET, style: 'h2', pageBreak: 'before' });
-      content.push(dayTable(data.days));
+      content.push(dayTable(data.days, tag(DAYS_SHEET)));
     }
   }
 
