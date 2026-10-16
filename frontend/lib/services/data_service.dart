@@ -1624,6 +1624,35 @@ class DataService {
     return (rows as List).isNotEmpty ? rows.first['vehicle_id'] as String? : null;
   }
 
+  /// Último coche que usó este usuario (en una carrera/gasto o al iniciar el
+  /// día), el más reciente de los dos; null si nunca ha usado ninguno.
+  Future<String?> lastUsedVehicleId(String userId) async {
+    try {
+      final t = await _c
+          .from('transactions')
+          .select('vehicle_id, created_at')
+          .eq('user_id', userId)
+          .not('vehicle_id', 'is', null)
+          .order('created_at', ascending: false)
+          .limit(1);
+      final r = await _c
+          .from('odometer_readings')
+          .select('vehicle_id, taken_at')
+          .eq('user_id', userId)
+          .order('taken_at', ascending: false)
+          .limit(1);
+      final tx = (t as List).isNotEmpty ? t.first : null;
+      final rd = (r as List).isNotEmpty ? r.first : null;
+      if (tx == null) return rd?['vehicle_id'] as String?;
+      if (rd == null) return tx['vehicle_id'] as String?;
+      return DateTime.parse(tx['created_at'] as String).isAfter(DateTime.parse(rd['taken_at'] as String))
+          ? tx['vehicle_id'] as String?
+          : rd['vehicle_id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Marca el día de hoy como "día de uso de la app" (para el reto de días).
   /// Idempotente: una fila por (usuario, día) gracias a la PK; si ya existe, se
   /// ignora. Best-effort: si falla (sin red o sin migración), no pasa nada.

@@ -80,6 +80,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             'created_at': tx['created_at'],
             'utc_offset_min': tx['utc_offset_min'],
             'vehicle_id': tx['vehicle_id'],
+            'user_id': tx['user_id'],
           },
         ),
       ),

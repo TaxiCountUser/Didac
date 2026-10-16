@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/profile.dart';
 import '../services/data_service.dart';
+import '../util/day_vehicle.dart';
 import '../util/format.dart';
 import '../util/km_warning.dart';
 import 'agenda_input_screen.dart';
@@ -78,11 +79,16 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   // Agenda (oculta y de pago): si el admin la activó, aparece el 3er segmento.
   bool _agendaEnabled = false;
 
+  // ¿Puede elegir el coche? El conductor siempre; el jefe en lo que apunta él
+  // (nuevo o suyo), no al editar la carrera de otro conductor.
+  bool get _canPickVehicle =>
+      !widget.profile.isOwner || widget.editId == null || widget.initial?['user_id'] == widget.profile.id;
+
   @override
   void initState() {
     super.initState();
     _when = DateTime.now();
-    if (!widget.profile.isOwner) _loadVehicles();
+    if (_canPickVehicle) _loadVehicles();
     if (widget.editId == null) _loadAgendaFlag(); // el 3er segmento solo al crear
     final i = widget.initial;
     if (i != null) {
@@ -102,31 +108,91 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     }
   }
 
+  // Coche preseleccionado (registro nuevo): el del día (al «Iniciar día»), si no
+  // el elegido hoy en la primera carrera, si no el último que usó, si no su único
+  // coche. Si tiene VARIOS y no ha iniciado el día con uno, se le avisa y elige.
   Future<void> _loadVehicles() async {
     try {
       final vs = await DataService().myVehicles();
-      // Vehículo "activo" del día (el que eligió al empezar la jornada).
-      String? todays;
+      bool has(String? id) => id != null && vs.any((v) => v['id'] == id);
+      String? todays, dayVid, lastVid;
       if (widget.editId == null) {
         todays = await DataService().todaysVehicleId(widget.profile.id);
+        if (!has(todays)) dayVid = await getDayVehicle(widget.profile.id);
+        if (!has(todays) && !has(dayVid)) lastVid = await DataService().lastUsedVehicleId(widget.profile.id);
       }
       if (!mounted) return;
       setState(() {
         _vehicles = vs;
         _vehiclesLoaded = true;
         final initVid = widget.initial?['vehicle_id'] as String?;
-        if (initVid != null && vs.any((v) => v['id'] == initVid)) {
+        if (has(initVid)) {
           _vehicleId = initVid;
-        } else if (todays != null && vs.any((v) => v['id'] == todays)) {
-          _vehicleId = todays; // preselecciona el coche del día
+        } else if (has(todays)) {
+          _vehicleId = todays; // el coche con el que inició el día
+        } else if (has(dayVid)) {
+          _vehicleId = dayVid; // el que eligió hoy en la primera carrera
+        } else if (has(lastVid)) {
+          _vehicleId = lastVid; // el último que usó
         } else if (vs.length == 1) {
           _vehicleId = vs.first['id'] as String?;
         }
       });
       _loadLastKm();
+      if (widget.editId == null && vs.length > 1 && !has(todays) && !has(dayVid)) {
+        await _askDayVehicle();
+      }
     } catch (_) {
       if (mounted) setState(() => _vehiclesLoaded = true);
     }
+  }
+
+  // Aviso «No has iniciado el día con un coche»: elige con cuál trabaja hoy (el
+  // último usado ya marcado). Se recuerda hasta medianoche: no vuelve a salir.
+  Future<void> _askDayVehicle() async {
+    if (!mounted) return;
+    final l = context.l10n;
+    String? sel = _vehicleId;
+    final picked = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          icon: const Icon(Icons.directions_car),
+          title: Text(l.t('ti_day_vehicle_title')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.t('ti_day_vehicle_body')),
+                const SizedBox(height: 8),
+                for (final v in _vehicles)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(sel == v['id'] ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        color: sel == v['id'] ? Theme.of(ctx).colorScheme.primary : null),
+                    title: Text(_vehicleLabel(v)),
+                    onTap: () => setD(() => sel = v['id'] as String),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: sel == null ? null : () => Navigator.pop(ctx, sel),
+              child: Text(l.t('ti_day_vehicle_ok')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    await setDayVehicle(widget.profile.id, picked);
+    if (!mounted) return;
+    setState(() => _vehicleId = picked);
+    _loadLastKm();
   }
 
   /// Carga el último km registrado del vehículo seleccionado, para impedir que
@@ -243,6 +309,12 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           .showSnackBar(SnackBar(content: Text(l.t('ti_invalid_amount'))));
       return;
     }
+    // Con varios coches, nunca se guarda sin coche.
+    if (_canPickVehicle && _vehiclesLoaded && _vehicles.length > 1 && _vehicleId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.t('ti_vehicle_required'))));
+      return;
+    }
     final km = _km.text.trim().isEmpty ? null : int.tryParse(_km.text.trim());
     final kmErr = _kmError(l);
     if (kmErr != null) {
@@ -296,7 +368,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
           createdAt: _when,
           utcOffsetMin: _utcOffsetMin,
           vehicleId: _vehicleId,
-          setVehicle: !widget.profile.isOwner,
+          setVehicle: _canPickVehicle && _vehiclesLoaded && _vehicles.isNotEmpty,
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context)
@@ -485,7 +557,7 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
 
   // Selector de vehículo (solo conductor): auto si tiene 1, desplegable si varios.
   List<Widget> _vehicleSelector(AppLocalizations l) {
-    if (widget.profile.isOwner || !_vehiclesLoaded || _vehicles.isEmpty) {
+    if (!_canPickVehicle || !_vehiclesLoaded || _vehicles.isEmpty) {
       return const [];
     }
     if (_vehicles.length == 1) {
@@ -504,7 +576,8 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     return [
       const SizedBox(height: 12),
       DropdownButtonFormField<String>(
-        key: const Key('vehicle_dropdown'),
+        // La clave cambia con el coche: si se elige en el aviso del día, se repinta.
+        key: ValueKey('vehicle_dropdown_$_vehicleId'),
         initialValue: _vehicleId,
         isExpanded: true,
         decoration: InputDecoration(
@@ -518,6 +591,8 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
         ],
         onChanged: (val) {
           setState(() => _vehicleId = val);
+          // Cambia de coche a media jornada: pasa a ser el coche del día.
+          if (val != null && widget.editId == null) setDayVehicle(widget.profile.id, val);
           _loadLastKm();
         },
       ),
