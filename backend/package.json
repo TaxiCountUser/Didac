@@ -11,7 +11,7 @@
     "test:ci": "node tests/health.test.js && node tests/run_parser_tests.js && node tests/unit/parse_merge.test.js && node tests/unit/parse_feedback.test.js && node tests/unit/assistant.test.js && node tests/unit/trial_emails.test.js && node tests/unit/agenda_reminders.test.js && node tests/unit/odometer_self.test.js && node tests/unit/report_time.test.js && node tests/unit/workday.test.js && node tests/unit/report_days.test.js && node tests/unit/importer.test.js && node tests/unit/billing_logic.test.js"
   },
   "dependencies": {
-    "@fastify/cors": "^10.1.0",
+    "@fastify/cors": "^11.3.0",
     "@fastify/multipart": "^9.4.0",
     "@logtail/pino": "^0.5.8",
     "@sentry/node": "^10.59.0",
