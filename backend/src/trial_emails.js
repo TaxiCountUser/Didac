@@ -128,9 +128,10 @@ export function renderTrialEmail(kind, locale, { trialEndsAt, webUrl, company })
 export function createTrialEmails({ supabase, log, env = process.env, fetchImpl = fetch }) {
   const apiKey = (env.RESEND_API_KEY || '').trim();
   const from = env.EMAIL_FROM || 'TaxiCount <noreply@taxicount.com>';
-  // Sin «Responder a» personal: NUNCA se enseña un correo privado. Solo si se
-  // configura EMAIL_REPLY_TO con una dirección de TaxiCount (p. ej. soporte@).
-  const replyTo = /@taxicount\.com$/i.test((env.EMAIL_REPLY_TO || '').trim()) ? env.EMAIL_REPLY_TO.trim() : null;
+  // «Responder a» = el buzón de clientes soporte@taxicount.com. NUNCA un correo
+  // privado: EMAIL_REPLY_TO solo se acepta si es una dirección de TaxiCount.
+  const replyTo = /@taxicount\.com$/i.test((env.EMAIL_REPLY_TO || '').trim())
+    ? env.EMAIL_REPLY_TO.trim() : 'soporte@taxicount.com';
   const webUrl = (env.WEB_URL || 'https://www.taxicount.com').replace(/\/+$/, '');
   const enabled = () => !!apiKey;
 

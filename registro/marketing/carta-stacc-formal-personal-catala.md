@@ -38,4 +38,4 @@ Que l'hagi feta un taxista en actiu, i no una multinacional, espero que es noti 
 Ben cordialment,
 **Dídac Oliveras**
 Taxista a Figueres (4a generació) · Creador de TaxiCount (amb en Jordi Pujadas)
-auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com
+admin@taxicount.com · +34 634 46 56 31 · www.taxicount.com

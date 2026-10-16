@@ -14,7 +14,7 @@
 | Package | `app.taxicount` (permanente) |
 | Categoría de la app | **Finanzas** |
 | Etiquetas | *Contabilidad*, *Presupuestos* (NO marcar "Taxi", que la clasifica como transporte) |
-| Correo de contacto | didakdp.5@gmail.com |
+| Correo de contacto | soporte@taxicount.com |
 | Sitio web (opcional) | https://www.taxicount.com |
 | **Política de privacidad (URL)** | `https://taxicount-backend.onrender.com/privacy` |
 | **Eliminación de cuenta (URL)** | `https://taxicount-backend.onrender.com/borrar-cuenta` |

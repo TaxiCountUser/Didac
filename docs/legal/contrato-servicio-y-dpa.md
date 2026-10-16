@@ -92,7 +92,7 @@ Privacidad §6.
 
 **6. Instrucciones documentadas.** El uso de la app y estas condiciones
 constituyen las instrucciones del responsable. Cualquier instrucción adicional
-deberá comunicarse por escrito al contacto de privacidad (didakdp.5@gmail.com).
+deberá comunicarse por escrito al contacto de privacidad (soporte@taxicount.com).
 
 ---
 

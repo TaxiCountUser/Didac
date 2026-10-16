@@ -5,7 +5,7 @@
 > tratamiento **no es ocasional** (incluye geolocalización de trabajadores).
 >
 > Responsable/Encargado: **Didac Oliveras Galvez**, NIF 41556654R, C/ Tapis 37,
-> 1r, 17600 Figueres (Girona). Contacto: didakdp.5@gmail.com · DPO: no designado.
+> 1r, 17600 Figueres (Girona). Contacto: soporte@taxicount.com · DPO: no designado.
 > Última actualización: 01/07/2026.
 
 TaxiCount tiene un **doble rol**: es **responsable** de sus propias cuentas y de

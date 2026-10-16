@@ -34,4 +34,4 @@ Una aplicació de taxi d'àmbit estatal, **en forma de cooperativa**, de la qual
 
 ## Contacte
 **Dídac Oliveras** (amb en Jordi Pujadas) · Taxista a Figueres · Creador de TaxiCount
-auxproduccio@gmail.com · +34 634 46 56 31 · **www.taxicount.com**
+admin@taxicount.com · +34 634 46 56 31 · **www.taxicount.com**

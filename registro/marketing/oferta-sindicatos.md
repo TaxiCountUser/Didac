@@ -32,5 +32,5 @@ La app de gestión **hecha por un taxista, para taxistas**. Registras tus carrer
 - Empezar a **unirnos**: el sueño es una herramienta del taxi **nuestra**, sin VTCs ni comisiones abusivas.
 
 ## Contacto
-**www.taxicount.com** · auxproduccio@gmail.com · +34 634 46 56 31 · chat directo dentro de la app.
+**www.taxicount.com** · admin@taxicount.com · +34 634 46 56 31 · chat directo dentro de la app.
 Creada por **Dídac Oliveras** (con **Jordi Pujadas**), taxista en Figueres (4ª generación), afiliado al STACC.

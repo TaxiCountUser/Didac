@@ -16,7 +16,7 @@ en hojas de cálculo. **TaxiCount no es una gestoría, no emite facturas ni pres
 servicios de asesoría fiscal o contable.**
 
 - **Titular del servicio (proveedor de la herramienta):** Didac Oliveras Galvez, NIF 41556654R, domicilio C/ Tapis 37, 1r, 17600 Figueres (Girona).
-- **Contacto de privacidad:** didakdp.5@gmail.com.
+- **Contacto de privacidad:** soporte@taxicount.com.
 - **Delegado de Protección de Datos (DPO):** no se designa; dado el volumen de tratamiento no concurren los supuestos del Art. 37 RGPD (a revisar por asesor legal). Para cualquier cuestión de privacidad, usa el contacto anterior.
 
 ## 2. Roles en el tratamiento (importante)
@@ -106,7 +106,7 @@ cuentas/suscripción e incidencias, y queda **registrado (auditoría)**.
 ## 9. Tus derechos (Arts. 15-22 RGPD)
 
 Acceso, rectificación, supresión, oposición, limitación y portabilidad,
-escribiendo a didakdp.5@gmail.com. Responderemos en el plazo de **1 mes**
+escribiendo a soporte@taxicount.com. Responderemos en el plazo de **1 mes**
 (Art. 12). Puedes reclamar ante la **Agencia Española de Protección de Datos
 (AEPD)** o la autoridad de control de tu país.
 

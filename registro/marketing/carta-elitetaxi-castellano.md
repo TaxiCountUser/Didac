@@ -45,6 +45,6 @@ Gracias por leerme.
 Atentamente,
 **Dídac Oliveras**
 Taxista en Figueres · Creador de TaxiCount (con Jordi Pujadas)
-auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com
+admin@taxicount.com · +34 634 46 56 31 · www.taxicount.com
 
 **PD:** Mi primer coche fue el Toyota Avensis de mi abuelo: me lo dio con 800.000 km y lo llevé hasta los 900.000. Murió con dignidad, el mismo día, pasando la ITV: lo pasó todo perfecto y, cuando iban a ponerle la pegatina nueva, decidió que hasta ahí llegaba y no volvió a arrancar. Se lo llevó la grúa de allí mismo. Así somos: exprimimos cada kilómetro. Con esas mismas ganas he hecho TaxiCount.

@@ -16,7 +16,7 @@ Carpeta con todo el material para dar a conocer TaxiCount: cartas a sindicatos, 
 
 Firmantes en todas: **Dídac Oliveras** y **Jordi Pujadas**.
 
-**Contacto en todas:** auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com
+**Contacto en todas:** info@taxicount.com · +34 634 46 56 31 · www.taxicount.com
 **Pendiente:** adjuntar la **foto del Ford** del bisabuelo (chapa "SP") y, opcional, la del Avensis.
 
 ## 🎬 Videotutoriales

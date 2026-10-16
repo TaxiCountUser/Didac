@@ -84,7 +84,7 @@ const ENABLE_PARSE_TEST = process.env.ENABLE_PARSE_TEST === 'true';
 
 // Datos para la política de privacidad (Google Play exige una URL pública).
 const PRIVACY_COMPANY = process.env.PRIVACY_COMPANY || 'TaxiCount';
-const PRIVACY_CONTACT = process.env.PRIVACY_CONTACT || 'didakdp.5@gmail.com';
+const PRIVACY_CONTACT = process.env.PRIVACY_CONTACT || 'soporte@taxicount.com';
 
 // Política de privacidad (HTML). Honesta con lo que hace la app: cuenta, GPS de
 // conductores, audio de voz enviado a un transcriptor (Groq/OpenAI) y datos de

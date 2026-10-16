@@ -3,7 +3,7 @@
 > **BORRADOR para revisión legal.** No es asesoramiento jurídico. Arts. 33 y 34
 > RGPD y Directrices EDPB sobre notificación de brechas.
 >
-> Responsable: Didac Oliveras Galvez · Contacto: didakdp.5@gmail.com.
+> Responsable: Didac Oliveras Galvez · Contacto: soporte@taxicount.com.
 > Última actualización: 01/07/2026.
 
 Una **violación de seguridad de los datos personales** ("brecha") es cualquier
@@ -93,4 +93,4 @@ Conservar TODAS las brechas (aunque no se notifiquen), Art. 33.5.
 
 ## 6. Contactos útiles
 - **AEPD:** www.aepd.es (sede electrónica para notificación de brechas).
-- **Responsable de incidentes TaxiCount:** didakdp.5@gmail.com.
+- **Responsable de incidentes TaxiCount:** soporte@taxicount.com.

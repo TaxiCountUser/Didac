@@ -63,7 +63,7 @@ const kLoyaltyCouponPct = 20; // fidelidad: siempre, sin límite de uso
 // Contacto para planes a medida (> kMaxDrivers conductores).
 const kSupportEmail = String.fromEnvironment(
   'SUPPORT_EMAIL',
-  defaultValue: 'didakdp.5@gmail.com',
+  defaultValue: 'soporte@taxicount.com',
 );
 
 /// Price ID del asiento según el periodo elegido.

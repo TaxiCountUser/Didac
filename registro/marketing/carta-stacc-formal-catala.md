@@ -35,4 +35,4 @@ Quedo a la vostra disposició per ampliar qualsevol punt o oferir-vos una demost
 Ben cordialment,
 **Dídac Oliveras**
 Taxista a Figueres · Creador de TaxiCount (amb en Jordi Pujadas)
-auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com
+admin@taxicount.com · +34 634 46 56 31 · www.taxicount.com

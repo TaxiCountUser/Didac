@@ -9,5 +9,5 @@ Acompaña ambas con la hoja de oferta: **[oferta-sindicatos.md](oferta-sindicato
 
 Material en bruto de la entrevista: **[entrevista-sindicatos-respuestas.md](entrevista-sindicatos-respuestas.md)**.
 
-**Contacto en todas:** auxproduccio@gmail.com · +34 634 46 56 31 · www.taxicount.com
+**Contacto en todas:** admin@taxicount.com · +34 634 46 56 31 · www.taxicount.com
 **Pendiente:** adjuntar la **foto del Ford** del bisabuelo (chapa "SP").
