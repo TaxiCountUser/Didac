@@ -1624,6 +1624,21 @@ class DataService {
     return (rows as List).isNotEmpty ? rows.first['vehicle_id'] as String? : null;
   }
 
+  /// Última lectura de km de HOY del conductor ({vehicle_id, reading_km}) o null.
+  /// Sirve para iniciar la jornada con el mismo coche y km si ya se apuntaron hoy.
+  Future<Map<String, dynamic>?> todaysReading(String userId) async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final rows = await _c
+        .from('odometer_readings')
+        .select('vehicle_id, reading_km')
+        .eq('user_id', userId)
+        .gte('taken_at', start.toUtc().toIso8601String())
+        .order('taken_at', ascending: false)
+        .limit(1);
+    return (rows as List).isNotEmpty ? Map<String, dynamic>.from(rows.first as Map) : null;
+  }
+
   /// Último coche que usó este usuario (en una carrera/gasto o al iniciar el
   /// día), el más reciente de los dos; null si nunca ha usado ninguno.
   Future<String?> lastUsedVehicleId(String userId) async {

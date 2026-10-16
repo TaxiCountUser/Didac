@@ -68,12 +68,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     });
   }
 
-  Future<void> _loadWorkday() async {
+  // true si ha podido saber si la empresa usa el registro de jornada (con red).
+  Future<bool> _loadWorkday() async {
     try {
       final on = await _service.isWorkdayRequired(widget.profile.tenantId);
       final sh = on ? await _service.currentShift(widget.profile.id) : null;
       if (mounted) setState(() { _workdayRequired = on; _shift = sh; });
-    } catch (_) {/* sin red: se queda como estaba */}
+      return true;
+    } catch (_) {
+      return false; // sin red: se queda como estaba
+    }
   }
 
   // Una pulsación del registro de jornada (la hora la pone el servidor).
@@ -88,6 +92,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
       // Estado ya cambiado (p. ej. pulsó dos veces o desde otro móvil): se refresca.
       if ('$e'.contains('workday_')) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('wd_err_state'))));
+      } else if (kind == 'start') {
+        // Los km ya quedaron guardados: al reintentar no se vuelven a preguntar.
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.t('wd_start_failed'))));
       } else {
         showError(context, e, screen: 'Workday');
       }
@@ -97,12 +104,38 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     }
   }
 
-  // INICIAR jornada: elige el coche y los km (como Iniciar día) y la abre.
+  // INICIAR jornada: elige el coche y los km (como Iniciar día) y la abre. Si HOY
+  // ya se apuntaron coche y km (saludo, «Iniciar día» antiguo o un intento que
+  // falló), se ofrece iniciarla con esos mismos en UN toque (o cambiarlos).
   Future<void> _wdStart() async {
     try {
       final vehicles = await _service.myVehicles();
       if (!mounted) return;
       if (vehicles.isEmpty) { await _wdAction('start'); return; } // sin coche: sin km
+      final today = await _service.todaysReading(widget.profile.id);
+      if (!mounted) return;
+      final tv = today == null
+          ? null
+          : vehicles.where((v) => v['id'] == today['vehicle_id']).cast<Map<String, dynamic>?>().firstOrNull;
+      if (today != null && tv != null) {
+        final l = context.l10n;
+        final same = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(l.t('wd_start')),
+            content: Text(l.t('wd_start_same_body', {'car': _vehicleLabel(tv), 'km': '${today['reading_km']}'})),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.t('wd_start_same_change'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l.t('wd_start'))),
+            ],
+          ),
+        );
+        if (same == null || !mounted) return; // cerrado: no se inicia
+        if (same) {
+          await _wdAction('start', km: (today['reading_km'] as num?)?.toInt(), vehicleId: tv['id'] as String);
+          return;
+        }
+      }
       await _showKmDialog(vehicles, title: context.l10n.t('wd_start'), barrier: true,
           afterSave: (v, km) => _wdAction('start', km: km, vehicleId: v));
     } catch (e) {
@@ -199,9 +232,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
 
   // Saludo de bienvenida al abrir la app: si hoy aún no se ha apuntado el km de
   // inicio (ni se ha mostrado el saludo), pregunta con cuántos km empezamos.
+  bool _greeting = false; // saludo en curso (no dos a la vez)
   Future<void> _maybeStartDayGreeting() async {
+    if (_greeting) return;
+    _greeting = true;
     try {
-      await _loadWorkday();
+      // Sin red no se sabe si hay registro de jornada: no se saluda (se haría el
+      // inicio antiguo y luego pediría la jornada otra vez); se reintenta al volver.
+      if (!await _loadWorkday()) return;
       // Con registro de jornada: si ya hay una jornada abierta, no se saluda.
       if (_workdayRequired && _shift != null) return;
       final today = DateTime.now().toIso8601String().substring(0, 10);
@@ -226,7 +264,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
         // Con registro de jornada, contestar el saludo INICIA la jornada.
         afterSave: _workdayRequired ? (v, km) => _wdAction('start', km: km, vehicleId: v) : null,
       );
-    } catch (_) {/* best-effort: el saludo nunca debe romper la entrada */}
+    } catch (_) {/* best-effort: el saludo nunca debe romper la entrada */
+    } finally {
+      _greeting = false;
+    }
   }
 
   // Saludo según la hora del día.
@@ -250,7 +291,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Al volver a la app: refresca el estado de la jornada (horas trabajadas…).
-    if (state == AppLifecycleState.resumed && _workdayRequired) unawaited(_loadWorkday());
+    if (state == AppLifecycleState.resumed) {
+      // Refresca la jornada y, si hoy aún no se ha saludado (p. ej. no había red), saluda.
+      unawaited(_maybeStartDayGreeting());
+    }
     if (widget.embedded) return; // modo autónomo: nunca rastrea
     if (state == AppLifecycleState.resumed) {
       _startTracking();
@@ -342,7 +386,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
     String? greeting,
     bool barrier = true,
     // Tras guardar los km (registro de jornada: iniciar/finalizar con esos km).
-    Future<void> Function(String vehicleId, int km)? afterSave,
+    Future<void> Function(String vehicleId, int? km)? afterSave,
   }) async {
     final l = context.l10n;
     var vehicleId = (preVehicleId != null && vehicles.any((v) => v['id'] == preVehicleId))
@@ -425,6 +469,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> with WidgetsBinding
 
     if (saved == true) {
       final km = int.tryParse(kmCtrl.text.trim());
+      // Registro de jornada con los km vacíos: la jornada se inicia/cierra igual
+      // (lo legal es la hora); antes no hacía nada y había que volver a iniciarla.
+      if ((km == null || km < 0) && afterSave != null) {
+        if (kmCtrl.text.trim().isEmpty) await afterSave(vehicleId, null);
+        return;
+      }
       if (km != null && km >= 0) {
         // Aviso (no bloquea) si el salto respecto al último km es muy grande.
         if (lastKm != null && (km - lastKm!) > kmJumpWarn) {
