@@ -5,6 +5,10 @@
 // ============================================================
 import ExcelJS from 'exceljs';
 import PdfPrinter from 'pdfmake';
+import {
+  buildDays, daysTotals, segmentsLabel, weekdayOf, longDate, dmy, kmFmt, workedLabel, SOURCE_LABEL,
+} from './report_days.js';
+import { fmtDuration } from './workday.js';
 
 const FONTS = {
   Helvetica: {
@@ -85,7 +89,44 @@ export async function fetchReportData(supabase, filters = {}) {
     groups.get(t.user_id).txs.push(t);
   }
 
-  return { tenantName: tenant?.name || 'TaxiCount', startDate, endDate, transactions, groups, tz: safeTz(filters.tz) };
+  // Horario y km de cada día (registro de jornada + lecturas de «Iniciar/Finalizar
+  // día»). Best-effort: si falla, el informe sale igual sin el resumen por día.
+  const range = (q, col) => {
+    let r = q.eq('tenant_id', tenantId);
+    if (driverId) r = r.eq('user_id', driverId);
+    if (vehicleId) r = r.eq('vehicle_id', vehicleId);
+    if (startDate) r = r.gte(col, startDate);
+    if (endDate) r = r.lt(col, endDate);
+    return r;
+  };
+  let shifts = [];
+  let readings = [];
+  try {
+    const { data: s } = await range(supabase.from('work_shifts')
+      .select('*, work_events(*), users:user_id(name, email)'), 'started_at');
+    shifts = s || [];
+  } catch { /* sin registro de jornada */ }
+  try {
+    const { data: r } = await range(supabase.from('odometer_readings')
+      .select('user_id, vehicle_id, reading_km, taken_at, users:user_id(name, email)'), 'taken_at');
+    readings = r || [];
+  } catch { /* sin lecturas */ }
+
+  const tz = safeTz(filters.tz);
+  return {
+    tenantName: tenant?.name || 'TaxiCount', startDate, endDate, transactions, groups, tz,
+    days: buildDays({ transactions, shifts, readings, tz }),
+    singleDay: isSingleDay(startDate, endDate, tz),
+  };
+}
+
+// ¿El informe es de UN solo día (en la zona de quien lo pide)? Entonces el detalle
+// va por orden de HORA y arriba sale el resumen de la jornada.
+export function isSingleDay(startDate, endDate, tz) {
+  if (!startDate || !endDate) return false;
+  const end = new Date(endDate).getTime() - 1;
+  if (!(end > new Date(startDate).getTime())) return false;
+  return fmtDate(startDate, tz) === fmtDate(end, tz);
 }
 
 function totals(txs) {
@@ -270,10 +311,12 @@ function addTotals(ws, txs) {
 // (Particular el primero, luego el resto alfabético), cada grupo separado por una
 // fila en blanco y ordenado por fecha/hora dentro del grupo; al final los GASTOS,
 // ordenados por fecha. Devuelve una lista donde null = fila en blanco.
-function orderedDetail(txs) {
+// byHour (informe de UN día): todo junto por orden de hora, como pasó el día.
+function orderedDetail(txs, byHour = false) {
+  const byDate = (a, b) => String(a.created_at).localeCompare(String(b.created_at));
+  if (byHour) return [...txs].sort(byDate);
   const income = txs.filter((t) => t.type === 'income');
   const expense = txs.filter((t) => t.type !== 'income');
-  const byDate = (a, b) => String(a.created_at).localeCompare(String(b.created_at));
 
   const groups = new Map(); // etiqueta de cliente -> transacciones
   for (const t of income) {
@@ -314,13 +357,13 @@ const RED_HEX = '#C00000';
 // el detalle (filas 1..lastRow); el resumen de debajo queda sin líneas.
 const HEAD_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEEEEE' } };
 const LINE = { style: 'thin', color: { argb: 'FFBDBDBD' } };
-function styleTable(ws, lastRow) {
+function styleTable(ws, lastRow, headRow = 1) {
   const n = ws.columns.length;
-  for (let r = 1; r <= lastRow; r++) {
+  for (let r = headRow; r <= lastRow; r++) {
     const row = ws.getRow(r);
     for (let c = 1; c <= n; c++) {
       const cell = row.getCell(c);
-      if (r === 1) {
+      if (r === headRow) {
         cell.fill = HEAD_FILL;
         cell.font = { bold: true };
         cell.border = { bottom: { style: 'medium', color: { argb: 'FF000000' } } };
@@ -334,53 +377,173 @@ function styleTable(ws, lastRow) {
 // Impresión de una hoja: horizontal, ajustada al ancho de 1 página, cabecera
 // repetida en cada página y SIN la columna Descripción (la última): se ve en
 // pantalla pero queda fuera del área de impresión.
-function setupPrint(ws) {
-  const lastPrinted = ws.columns.length - 1; // la última es Descripción
+function setupPrint(ws, headRow = 1, lastPrinted = ws.columns.length - 1 /* la última es Descripción */) {
   const colLetter = ws.getColumn(lastPrinted).letter;
   ws.pageSetup = {
     paperSize: 9, // A4
     orientation: 'landscape',
     fitToPage: true, fitToWidth: 1, fitToHeight: 0,
     printArea: `A1:${colLetter}${Math.max(ws.rowCount, 1)}`,
-    printTitlesRow: '1:1',
+    printTitlesRow: `${headRow}:${headRow}`,
     margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
   };
 }
 
+// ---------------- Resumen del día / Resumen diario ----------------
+// Día de un conductor en un informe de UN día (el único que tiene).
+const dayOfDriver = (data, uid) => data.days?.get(uid)?.days?.[0] || null;
+const kmText = (d) => {
+  if (d.km === null || d.km === undefined) return 'sin datos de km';
+  const range = d.kmStart != null && d.kmEnd != null ? `de ${kmFmt(d.kmStart)} a ${kmFmt(d.kmEnd)} · ` : '';
+  return `${range}${kmFmt(d.km)} km`;
+};
+// Líneas del «Resumen de la jornada» de un conductor (encima de su tabla).
+function dayLines(d, name) {
+  if (!d) return [];
+  return [
+    { text: `${longDate(d.date)} · ${name}`, big: true },
+    { text: `Horario: ${segmentsLabel(d.segments) || '—'}   (${SOURCE_LABEL[d.source] || ''})` },
+    { text: `Horas trabajadas: ${workedLabel(d) || '—'}${d.pausedMs ? `   ·   En pausa: ${fmtDuration(d.pausedMs)}` : ''}` },
+    { text: `Kilómetros: ${kmText(d)}` },
+    { text: `Carreras: ${d.rides}   ·   Ingresos: ${eur(d.income)}   ·   Gastos: ${eur(d.expense)}` },
+  ];
+}
+// Columnas de la hoja «Resumen diario» (días trabajados del periodo).
+const DAY_COLS = [
+  { header: 'Conductor', key: 'conductor', width: 22 },
+  { header: 'Fecha', key: 'fecha', width: 11 },
+  { header: 'Día', key: 'dia', width: 11 },
+  { header: 'Horario', key: 'horario', width: 28 },
+  { header: 'Horas trabajadas', key: 'horas', width: 15 },
+  { header: 'Km inicio', key: 'kmini', width: 10 },
+  { header: 'Km fin', key: 'kmfin', width: 10 },
+  { header: 'Km', key: 'km', width: 8 },
+  { header: 'Carreras', key: 'carreras', width: 9 },
+  { header: 'Ingresos', key: 'ingresos', width: 12 },
+  { header: 'Gastos', key: 'gastos', width: 12 },
+  { header: 'Horario según', key: 'segun', width: 30 },
+];
+const dayRow = (name, d) => ({
+  conductor: name, fecha: dmy(d.date), dia: weekdayOf(d.date), horario: segmentsLabel(d.segments),
+  horas: workedLabel(d), kmini: d.kmStart ?? '', kmfin: d.kmEnd ?? '', km: d.km ?? '',
+  carreras: d.rides, ingresos: d.income, gastos: d.expense, segun: SOURCE_LABEL[d.source] || '',
+});
+const dayTotalRow = (name, days) => {
+  const t = daysTotals(days);
+  return {
+    conductor: `TOTAL ${name}`, fecha: `${t.days} ${t.days === 1 ? 'día' : 'días'}`,
+    horas: fmtDuration(t.worked), km: days.some((d) => d.km != null) ? t.km : '',
+    carreras: t.rides, ingresos: t.income, gastos: t.expense,
+  };
+};
+
+// Cabecera de hoja: líneas de resumen (fusionadas a lo ancho) + fila de títulos.
+// Sin líneas = la tabla empieza en la fila 1, como siempre. Devuelve la fila de títulos.
+function sheetStart(ws, cols, lines = []) {
+  if (!lines.length) { ws.columns = cols; return 1; }
+  ws.columns = cols.map(({ key, width }) => ({ key, width }));
+  const last = ws.getColumn(Math.max(cols.length - 1, 1)).letter;
+  for (const l of lines) {
+    const row = ws.addRow([l.text]);
+    ws.mergeCells(`A${row.number}:${last}${row.number}`);
+    row.getCell(1).font = l.big ? { bold: true, size: 13 } : { bold: false };
+  }
+  ws.addRow([]);
+  return ws.addRow(cols.map((c) => c.header)).number;
+}
+
+// Tipo de informe según el rango pedido (en la zona de quien lo pide): da nombre
+// a la hoja «Resumen general (…)» del Excel y a la sección del PDF.
+export function periodKind(startDate, endDate, tz) {
+  if (!startDate || !endDate) return 'del periodo';
+  const d0 = fmtDate(startDate, tz);
+  const d1 = fmtDate(new Date(endDate).getTime() - 1, tz);
+  if (d0 === d1) return 'diario';
+  const days = Math.round((Date.parse(`${d1}T00:00:00Z`) - Date.parse(`${d0}T00:00:00Z`)) / 86400000) + 1;
+  const dow = new Date(`${d0}T12:00:00Z`).getUTCDay(); // 1 = lunes
+  if (days === 7 && dow === 1) return 'semanal';
+  const lastOfMonth = (d) => {
+    const [y, m] = d.split('-').map(Number);
+    return new Date(Date.UTC(y, m, 0)).getUTCDate();
+  };
+  if (d0.slice(0, 7) === d1.slice(0, 7) && d0.endsWith('-01') && Number(d1.slice(8)) === lastOfMonth(d1)) return 'mensual';
+  if (d0.slice(0, 4) === d1.slice(0, 4) && d0.endsWith('-01-01') && d1.endsWith('-12-31')) return 'anual';
+  return 'del periodo';
+}
+export const generalTitle = (data) => `Resumen general (${periodKind(data.startDate, data.endDate, data.tz)})`;
+const DAYS_SHEET = 'Resumen diario conductores';
+
+// Orden de las hojas (y de las secciones del PDF, siempre igual):
+//   1. «Resumen general (diario/semanal/mensual/anual/del periodo)»: la hoja de
+//      la EMPRESA, por CLIENTE (desde aquí se factura), con columna Conductor.
+//   2. Una hoja por conductor (los del informe: uno o todos), por FECHA y hora;
+//      en el informe de un día, con el resumen de su jornada encima.
+//   3. «Resumen diario conductores»: cada día trabajado (horario, horas, km,
+//      carreras, ingresos, gastos) y el total de cada conductor.
 export async function buildExcel(data) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'TaxiCount';
   wb.created = new Date();
+  const one = !!data.singleDay;
+  const general = generalTitle(data);
 
-  const used = new Set();
-  for (const [, g] of data.groups) {
-    const ws = wb.addWorksheet(sheetName(g.name || g.email, used));
-    ws.columns = COLS;
-    ws.getColumn('importe').numFmt = MONEY_FMT;
-    ws.getRow(1).font = { bold: true };
-    for (const t of orderedDetail(g.txs)) {
-      const row = ws.addRow(t ? rowFor(t, data.tz) : {});
-      if (t && t.type !== 'income') row.getCell('importe').font = { color: { argb: RED_ARGB } };
-    }
-    styleTable(ws, ws.rowCount);
-    addTotals(ws, g.txs);
-    setupPrint(ws);
-  }
-
-  // Pestaña consolidada (todas las transacciones, con columna Conductor)
-  const cws = wb.addWorksheet('Consolidado');
-  cws.columns = [{ header: 'Conductor', key: 'conductor', width: 22 }, ...COLS];
+  // 1. Resumen general (todas las transacciones, con columna Conductor).
+  const cws = wb.addWorksheet(general);
+  const ccols = [{ header: 'Conductor', key: 'conductor', width: 22 }, ...COLS];
+  const chead = sheetStart(cws, ccols, []);
   cws.getColumn('importe').numFmt = MONEY_FMT;
-  cws.getRow(1).font = { bold: true };
+  cws.getRow(chead).font = { bold: true };
   for (const t of orderedDetail(data.transactions)) {
     if (!t) { cws.addRow({}); continue; }
     const u = t.users || {};
     const row = cws.addRow({ conductor: u.name || u.email || '', ...rowFor(t, data.tz) });
     if (t.type !== 'income') row.getCell('importe').font = { color: { argb: RED_ARGB } };
   }
-  styleTable(cws, cws.rowCount);
+  styleTable(cws, cws.rowCount, chead);
   addTotals(cws, data.transactions);
-  setupPrint(cws);
+  setupPrint(cws, chead);
+
+  // 2. Una hoja por conductor, por fecha y hora.
+  const used = new Set([general, DAYS_SHEET]);
+  for (const [uid, g] of data.groups) {
+    const ws = wb.addWorksheet(sheetName(g.name || g.email, used));
+    const head = sheetStart(ws, COLS, one ? dayLines(dayOfDriver(data, uid), g.name) : []);
+    ws.getColumn('importe').numFmt = MONEY_FMT;
+    ws.getRow(head).font = { bold: true };
+    for (const t of orderedDetail(g.txs, true)) {
+      const row = ws.addRow(rowFor(t, data.tz));
+      if (t.type !== 'income') row.getCell('importe').font = { color: { argb: RED_ARGB } };
+    }
+    styleTable(ws, ws.rowCount, head);
+    addTotals(ws, g.txs);
+    setupPrint(ws, head);
+  }
+
+  // 3. Resumen diario de los conductores del informe.
+  if (data.days && data.days.size) {
+    const dws = wb.addWorksheet(DAYS_SHEET);
+    dws.columns = DAY_COLS;
+    for (const k of ['ingresos', 'gastos']) dws.getColumn(k).numFmt = MONEY_FMT;
+    const totals = [];
+    let first = true;
+    for (const [, u] of data.days) {
+      if (!first) dws.addRow({});
+      first = false;
+      for (const d of u.days) {
+        const row = dws.addRow(dayRow(u.name, d));
+        if (d.expense > 0) row.getCell('gastos').font = { color: { argb: RED_ARGB } };
+      }
+      const tot = dws.addRow(dayTotalRow(u.name, u.days));
+      tot.font = { bold: true };
+      if (daysTotals(u.days).expense > 0) tot.getCell('gastos').font = { bold: true, color: { argb: RED_ARGB } };
+      totals.push(tot.number);
+    }
+    styleTable(dws, dws.rowCount);
+    for (const r of totals) {
+      for (let c = 1; c <= DAY_COLS.length; c++) dws.getRow(r).getCell(c).fill = HEAD_FILL;
+    }
+    setupPrint(dws, 1, DAY_COLS.length);
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.from(buf);
@@ -389,14 +552,14 @@ export async function buildExcel(data) {
 // ---------------- PDF ----------------
 // Tabla de detalle IGUAL que la hoja del Excel (mismas columnas y orden, mismos
 // datos de rowFor) salvo la Descripción, que no se imprime. withDriver = columna
-// Conductor delante (la del Consolidado).
+// Conductor delante (la del Resumen general).
 const PDF_COLS = COLS.filter((c) => c.key !== 'descripcion');
-function detailTable(txs, tz, withDriver = false) {
+function detailTable(txs, tz, withDriver = false, byHour = false) {
   const cols = withDriver ? [{ header: 'Conductor', key: 'conductor' }, ...PDF_COLS] : PDF_COLS;
   const body = [cols.map((c) => ({ text: c.header, bold: true, fillColor: '#EEEEEE' }))];
   // Mismo orden que el Excel: ingresos agrupados por cliente (Particular primero),
   // fila en blanco entre grupos, y los gastos al final; null = fila en blanco.
-  for (const t of orderedDetail(txs)) {
+  for (const t of orderedDetail(txs, byHour)) {
     if (!t) { body.push(cols.map(() => ' ')); continue; }
     const u = t.users || {};
     const r = { conductor: u.name || u.email || '', ...rowFor(t, tz) };
@@ -452,6 +615,39 @@ function summaryBlock(txs) {
   return { table: { widths: [210, 70], body: rows }, layout: 'noBorders', margin: [0, 4, 0, 12] };
 }
 
+// Resumen de la jornada en el PDF (encima de la tabla): un recuadro gris claro.
+function pdfLines(lines) {
+  return {
+    table: { widths: ['*'], body: [[{ stack: lines.map((l) => ({ text: l.text, bold: !!l.big, margin: [0, 1, 0, 1] })), fillColor: '#F5F5F5' }]] },
+    layout: 'noBorders', margin: [0, 2, 0, 6],
+  };
+}
+// Tabla del «Resumen diario» en el PDF (mismas columnas que la hoja del Excel).
+const DAY_PDF_W = { conductor: '*', fecha: 42, dia: 40, horario: 105, horas: 50, kmini: 36, kmfin: 36, km: 26, carreras: 38, ingresos: 46, gastos: 46, segun: 90 };
+function dayTable(days) {
+  const body = [DAY_COLS.map((c) => ({ text: c.header, bold: true, fillColor: '#EEEEEE' }))];
+  const cell = (c, r, bold) => {
+    const v = r[c.key];
+    if (c.key === 'ingresos' || c.key === 'gastos') {
+      return { text: v === undefined || v === '' ? '' : eur(v), alignment: 'right', bold, color: (c.key === 'gastos' && v > 0) ? RED_HEX : undefined };
+    }
+    if (['kmini', 'kmfin', 'km', 'carreras'].includes(c.key)) return { text: v === '' || v == null ? '' : kmFmt(v), alignment: 'right', bold };
+    return { text: String(v ?? ''), bold };
+  };
+  let first = true;
+  for (const [, u] of days) {
+    if (!first) body.push(DAY_COLS.map(() => ' '));
+    first = false;
+    for (const d of u.days) { const r = dayRow(u.name, d); body.push(DAY_COLS.map((c) => cell(c, r, false))); }
+    const t = dayTotalRow(u.name, u.days);
+    body.push(DAY_COLS.map((c) => ({ ...cell(c, t, true), fillColor: '#EEEEEE' })));
+  }
+  return {
+    table: { headerRows: 1, widths: DAY_COLS.map((c) => DAY_PDF_W[c.key] || 'auto'), body },
+    layout: 'lightHorizontalLines', fontSize: 8, margin: [0, 4, 0, 10],
+  };
+}
+
 export function buildPdf(data) {
   const printer = new PdfPrinter(FONTS);
   const range =
@@ -465,21 +661,29 @@ export function buildPdf(data) {
     { text: `Rango de fechas: ${range}`, margin: [0, 2, 0, 8] },
   ];
 
-  // Misma estructura que el Excel: una sección por conductor (= su pestaña: tabla
-  // + totales), cada una en página nueva, y al final el Consolidado.
+  // Mismas secciones y en el MISMO orden que las hojas del Excel: Resumen
+  // general → un apartado por conductor → Resumen diario conductores.
   if (data.groups.size === 0) {
     content.push({ text: 'No hay transacciones para los filtros seleccionados.', italics: true });
   } else {
-    let first = true;
-    for (const [, g] of data.groups) {
-      content.push({ text: g.name, style: 'h2', pageBreak: first ? undefined : 'before' });
-      content.push(detailTable(g.txs, data.tz));
-      content.push(summaryBlock(g.txs));
-      first = false;
-    }
-    content.push({ text: 'Consolidado (todos los conductores)', style: 'h2', pageBreak: 'before' });
+    const one = !!data.singleDay;
+    content.push({ text: `${generalTitle(data)} · todos los conductores`, style: 'h2' });
     content.push(detailTable(data.transactions, data.tz, true));
     content.push(summaryBlock(data.transactions));
+    for (const [uid, g] of data.groups) {
+      content.push({ text: g.name, style: 'h2', pageBreak: 'before' });
+      if (one) {
+        // Mismo resumen que el Excel; el nombre ya va en el título de la sección.
+        const L = dayLines(dayOfDriver(data, uid), g.name);
+        if (L.length) { L[0] = { text: longDate(dayOfDriver(data, uid).date), big: true }; content.push(pdfLines(L)); }
+      }
+      content.push(detailTable(g.txs, data.tz, false, true));
+      content.push(summaryBlock(g.txs));
+    }
+    if (data.days && data.days.size) {
+      content.push({ text: DAYS_SHEET, style: 'h2', pageBreak: 'before' });
+      content.push(dayTable(data.days));
+    }
   }
 
   const docDefinition = {

@@ -1,5 +1,6 @@
 // Test del endpoint POST /api/v1/reports/excel: genera el .xlsx, lo lee con
-// exceljs y verifica pestañas (por conductor + Consolidado) y totales.
+// exceljs y verifica pestañas (Resumen general + por conductor + Resumen diario
+// conductores) y totales.
 // Requiere el stack local (db/kong) para auth y datos. Sin Internet.
 import assert from 'node:assert';
 import ExcelJS from 'exceljs';
@@ -82,20 +83,21 @@ async function run() {
     assert.ok(buffer && buffer.length > 0, 'cuerpo no vacío');
   });
 
-  await check('el workbook tiene una pestaña por conductor + Consolidado', async () => {
+  await check('pestañas en orden: Resumen general → conductores → Resumen diario conductores', async () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer);
     const names = wb.worksheets.map((w) => w.name);
-    assert.ok(names.includes('Consolidado'), `falta Consolidado: ${names}`);
-    assert.ok(names.includes('Ana Excel'), `falta pestaña de Ana: ${names}`);
-    assert.ok(names.includes('Bruno Excel'), `falta pestaña de Bruno: ${names}`);
-    assert.strictEqual(wb.worksheets.length, 3, 'exactamente 2 conductores + Consolidado');
+    // Sin fechas = «del periodo».
+    assert.strictEqual(names[0], 'Resumen general (del periodo)', `1ª pestaña: ${names}`);
+    assert.deepStrictEqual(names.slice(1, 3).sort(), ['Ana Excel', 'Bruno Excel'], `conductores: ${names}`);
+    assert.strictEqual(names[3], 'Resumen diario conductores', `última pestaña: ${names}`);
+    assert.strictEqual(wb.worksheets.length, 4);
   });
 
-  await check('los totales del Consolidado cuadran (ingresos 100, gastos 50)', async () => {
+  await check('los totales del Resumen general cuadran (ingresos 100, gastos 50)', async () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer);
-    const cons = wb.getWorksheet('Consolidado');
+    const cons = wb.worksheets[0];
     const found = {};
     cons.eachRow((row) => {
       const label = row.values.find((v) => typeof v === 'string' && v.startsWith('TOTAL'));
@@ -113,7 +115,7 @@ async function run() {
   await check('el resumen ampliado combina categoría · método en los gastos', async () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer);
-    const cons = wb.getWorksheet('Consolidado');
+    const cons = wb.worksheets[0];
     const byLabel = {};
     cons.eachRow((row) => {
       const label = row.values.find((v) => typeof v === 'string');
