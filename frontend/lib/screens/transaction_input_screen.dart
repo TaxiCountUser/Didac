@@ -74,6 +74,9 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
   List<Map<String, dynamic>> _vehicles = const [];
   String? _vehicleId;
   bool _vehiclesLoaded = false;
+  // Intentó guardar sin coche (con varios): el campo se pinta en rojo.
+  bool _vehicleMissing = false;
+  final _vehicleFieldKey = GlobalKey();
   // Último km registrado del vehículo seleccionado (para validar que no baje).
   int? _lastKm;
   // Agenda (oculta y de pago): si el admin la activó, aparece el 3er segmento.
@@ -311,6 +314,10 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
     }
     // Con varios coches, nunca se guarda sin coche.
     if (_canPickVehicle && _vehiclesLoaded && _vehicles.length > 1 && _vehicleId == null) {
+      // Campo en rojo + baja hasta él + mensaje: que se vea POR QUÉ no guarda.
+      setState(() => _vehicleMissing = true);
+      final ctx = _vehicleFieldKey.currentContext;
+      if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), alignment: 0.3);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l.t('ti_vehicle_required'))));
       return;
@@ -574,23 +581,25 @@ class _TransactionInputScreenState extends State<TransactionInputScreen> {
       ];
     }
     return [
-      const SizedBox(height: 12),
+      SizedBox(key: _vehicleFieldKey, height: 12),
       DropdownButtonFormField<String>(
         // La clave cambia con el coche: si se elige en el aviso del día, se repinta.
         key: ValueKey('vehicle_dropdown_$_vehicleId'),
         initialValue: _vehicleId,
         isExpanded: true,
+        hint: Text(l.t('ti_vehicle_pick')),
         decoration: InputDecoration(
           labelText: l.t('ti_vehicle'),
           prefixIcon: const Icon(Icons.directions_car),
           border: const OutlineInputBorder(),
+          errorText: _vehicleMissing && _vehicleId == null ? l.t('ti_vehicle_required') : null,
         ),
         items: [
           for (final v in _vehicles)
             DropdownMenuItem(value: v['id'] as String, child: Text(_vehicleLabel(v))),
         ],
         onChanged: (val) {
-          setState(() => _vehicleId = val);
+          setState(() { _vehicleId = val; _vehicleMissing = false; });
           // Cambia de coche a media jornada: pasa a ser el coche del día.
           if (val != null && widget.editId == null) setDayVehicle(widget.profile.id, val);
           _loadLastKm();
